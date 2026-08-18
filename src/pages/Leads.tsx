@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { euro, dateRelative } from '../lib/format'
 import { LEAD_STAGE_LABELS, LEAD_STAGE_ORDER, type Lead, type LeadStage } from '../lib/types'
 import Modal from '../components/Modal'
+import ActivityLog from '../components/ActivityLog'
 
 export default function Leads() {
   const { user } = useAuth()
@@ -317,6 +318,13 @@ function LeadModal({
           </button>
         </div>
       </form>
+
+      {lead && (
+        <div className="section-block" style={{ marginTop: 22 }}>
+          <h2 className="section-title">Verlauf</h2>
+          <ActivityLog leadId={lead.id} />
+        </div>
+      )}
     </Modal>
   )
 }

@@ -13,6 +13,7 @@ import {
 import VideoCard from '../components/VideoCard'
 import LogoFrame from '../components/LogoFrame'
 import Modal from '../components/Modal'
+import ActivityLog from '../components/ActivityLog'
 
 export default function ClientPage() {
   const { id } = useParams<{ id: string }>()
@@ -210,6 +211,11 @@ export default function ClientPage() {
           }}
         />
       )}
+
+      <div className="section-block">
+        <h2 className="section-title">Verlauf</h2>
+        <ActivityLog clientId={client.id} />
+      </div>
 
       {creating && (
         <NewIdeaModal onClose={() => setCreating(false)} onSave={createIdea} />
