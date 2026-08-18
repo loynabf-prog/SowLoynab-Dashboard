@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import { uploadLogo } from '../lib/storage'
 import {
   STATUS_LABELS,
   STATUS_ORDER,
@@ -10,6 +11,7 @@ import {
   type VideoStatus,
 } from '../lib/types'
 import VideoCard from '../components/VideoCard'
+import LogoFrame from '../components/LogoFrame'
 import Modal from '../components/Modal'
 
 export default function ClientPage() {
@@ -20,7 +22,15 @@ export default function ClientPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState<Video | null>(null)
+  const [editClient, setEditClient] = useState(false)
   const [info, setInfo] = useState<string | null>(null)
+
+  const loadClient = useCallback(async () => {
+    if (!id) return
+    const { data, error } = await supabase.from('clients').select('*').eq('id', id).single()
+    if (error) setError(error.message)
+    else setClient(data as Client)
+  }, [id])
 
   const loadVideos = useCallback(async () => {
     if (!id) return
@@ -41,14 +51,7 @@ export default function ClientPage() {
     if (!id) return
     async function loadAll() {
       setLoading(true)
-      const { data: c, error: cErr } = await supabase
-        .from('clients')
-        .select('*')
-        .eq('id', id!)
-        .single()
-      if (cErr) setError(cErr.message)
-      else setClient(c as Client)
-      await loadVideos()
+      await Promise.all([loadClient(), loadVideos()])
       setLoading(false)
     }
     loadAll()
@@ -64,9 +67,8 @@ export default function ClientPage() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [id, loadVideos])
+  }, [id, loadClient, loadVideos])
 
-  // Optimistisches Update + Persist
   async function patchVideo(videoId: string, patch: Partial<Video>) {
     setVideos((prev) => prev.map((v) => (v.id === videoId ? { ...v, ...patch } : v)))
     const { error } = await supabase.from('videos').update(patch).eq('id', videoId)
@@ -98,9 +100,7 @@ export default function ClientPage() {
     }
   }
 
-  if (loading) {
-    return <div className="muted">Lade …</div>
-  }
+  if (loading) return <div className="muted">Lade …</div>
 
   if (!client) {
     return (
@@ -119,7 +119,8 @@ export default function ClientPage() {
         ← Alle Kunden
       </Link>
 
-      <div className="page-head">
+      <div className="page-head" style={{ alignItems: 'center' }}>
+        <LogoFrame name={client.name} logoUrl={client.logo_url} />
         <div>
           <h1>{client.name}</h1>
           <span className="sub">
@@ -132,13 +133,16 @@ export default function ClientPage() {
           </span>
         </div>
         <div className="spacer" />
+        <button className="btn btn-sm btn-ghost" onClick={() => setEditClient(true)}>
+          Kunde bearbeiten
+        </button>
         <button className="btn btn-primary" onClick={addVideo}>
           + Video
         </button>
       </div>
 
       {client.notes && (
-        <div className="error-box" style={{ background: 'var(--bg-elev)', border: '1px solid var(--border)', color: 'var(--text-muted)', marginBottom: 20 }}>
+        <div className="info-box" style={{ marginBottom: 20 }}>
           📝 {client.notes}
         </div>
       )}
@@ -150,7 +154,10 @@ export default function ClientPage() {
           const items = videos.filter((v) => v.status === status)
           return (
             <div className="board-col" key={status}>
-              <div className={`col-head status-pill ${status}`} style={{ border: 'none', background: 'transparent', padding: 0 }}>
+              <div
+                className={`col-head status-pill ${status}`}
+                style={{ border: 'none', background: 'transparent', padding: 0 }}
+              >
                 <span className="dot" />
                 {STATUS_LABELS[status]}
                 <span className="col-count">{items.length}</span>
@@ -196,6 +203,17 @@ export default function ClientPage() {
         />
       )}
 
+      {editClient && (
+        <EditClientModal
+          client={client}
+          onClose={() => setEditClient(false)}
+          onSaved={async () => {
+            setEditClient(false)
+            await loadClient()
+          }}
+        />
+      )}
+
       {info && (
         <Modal title="Kommt im naechsten Schritt" onClose={() => setInfo(null)}>
           <p className="muted" style={{ marginBottom: 18 }}>{info}</p>
@@ -221,6 +239,7 @@ function EditVideoModal({
 }) {
   const [title, setTitle] = useState(video.title)
   const [date, setDate] = useState(video.scheduled_date ?? '')
+  const [time, setTime] = useState(video.scheduled_time ? video.scheduled_time.slice(0, 5) : '')
   const [caption, setCaption] = useState(video.caption ?? '')
   const [notes, setNotes] = useState(video.notes ?? '')
 
@@ -233,18 +252,25 @@ function EditVideoModal({
           onSave({
             title: title.trim() || 'Neues Video',
             scheduled_date: date || null,
+            scheduled_time: time || null,
             caption: caption.trim() || null,
             notes: notes.trim() || null,
           })
         }}
       >
         <div>
-          <label htmlFor="vtitle">Titel</label>
+          <label htmlFor="vtitle">Titel / Idee</label>
           <input id="vtitle" value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
         </div>
-        <div>
-          <label htmlFor="vdate">Geplantes Datum</label>
-          <input id="vdate" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        <div className="row" style={{ gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <label htmlFor="vdate">Posting-Datum</label>
+            <input id="vdate" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label htmlFor="vtime">Posting-Uhrzeit</label>
+            <input id="vtime" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+          </div>
         </div>
         <div>
           <label htmlFor="vcap">Caption</label>
@@ -266,6 +292,106 @@ function EditVideoModal({
           </button>
           <button type="submit" className="btn btn-primary">
             Speichern
+          </button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+function EditClientModal({
+  client,
+  onClose,
+  onSaved,
+}: {
+  client: Client
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const [name, setName] = useState(client.name)
+  const [ig, setIg] = useState(client.handle_ig ?? '')
+  const [tiktok, setTiktok] = useState(client.handle_tiktok ?? '')
+  const [notes, setNotes] = useState(client.notes ?? '')
+  const [logoFile, setLogoFile] = useState<File | null>(null)
+  const [logoPreview, setLogoPreview] = useState<string | null>(client.logo_url)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  function onPickLogo(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setLogoFile(file)
+    setLogoPreview(URL.createObjectURL(file))
+  }
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault()
+    if (!name.trim()) return
+    setBusy(true)
+    setError(null)
+    try {
+      let logo_url = client.logo_url
+      if (logoFile) logo_url = await uploadLogo(logoFile)
+      const { error } = await supabase
+        .from('clients')
+        .update({
+          name: name.trim(),
+          logo_url,
+          handle_ig: ig.trim() || null,
+          handle_tiktok: tiktok.trim() || null,
+          notes: notes.trim() || null,
+        })
+        .eq('id', client.id)
+      if (error) throw error
+      onSaved()
+    } catch (err: any) {
+      setError(err.message ?? 'Fehler beim Speichern')
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Modal title="Kunde bearbeiten" onClose={onClose}>
+      <form className="stack" onSubmit={save}>
+        {error && <div className="error-box">{error}</div>}
+
+        <div>
+          <label>Logo</label>
+          <div className="logo-upload">
+            <div className="preview">
+              {logoPreview ? <img src={logoPreview} alt="Vorschau" /> : <span className="muted" style={{ fontSize: 11 }}>kein Logo</span>}
+            </div>
+            <label className="btn btn-sm" style={{ margin: 0, textTransform: 'none', letterSpacing: 0, color: 'var(--text)' }}>
+              Logo waehlen
+              <input type="file" accept="image/*" onChange={onPickLogo} style={{ display: 'none' }} />
+            </label>
+          </div>
+        </div>
+
+        <div>
+          <label htmlFor="ecname">Name *</label>
+          <input id="ecname" value={name} onChange={(e) => setName(e.target.value)} required />
+        </div>
+        <div className="row" style={{ gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <label htmlFor="ecig">Instagram-Handle</label>
+            <input id="ecig" value={ig} onChange={(e) => setIg(e.target.value)} placeholder="restaurant_xy" />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label htmlFor="ectt">TikTok-Handle</label>
+            <input id="ectt" value={tiktok} onChange={(e) => setTiktok(e.target.value)} placeholder="restaurant_xy" />
+          </div>
+        </div>
+        <div>
+          <label htmlFor="ecnotes">Notizen</label>
+          <textarea id="ecnotes" value={notes} onChange={(e) => setNotes(e.target.value)} />
+        </div>
+        <div className="modal-actions">
+          <button type="button" className="btn btn-ghost" onClick={onClose}>
+            Abbrechen
+          </button>
+          <button type="submit" className="btn btn-primary" disabled={busy || !name.trim()}>
+            {busy ? 'Speichere …' : 'Speichern'}
           </button>
         </div>
       </form>

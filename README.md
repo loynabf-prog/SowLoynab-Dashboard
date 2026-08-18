@@ -16,15 +16,20 @@ planen, Status verfolgen, Captions erzeugen).
 
 ## Was jetzt schon läuft (v1-Grundgerüst)
 
+- Helles, hochwertiges Creme-Design — optimiert für **Handy & PC** (responsive)
+- **Als Web-App installierbar** (PWA): iPhone „Zum Home-Bildschirm" → öffnet wie eine App
 - Team-Login (Supabase Auth, E-Mail/Passwort)
-- Kunden-Dashboard → Kundenseite
-- Video-Board im Kanban-Stil: **Zu bearbeiten · Bereit zum Post · Gepostet**
+- Kunden-Dashboard als **Logo-Kacheln** (Logo groß, Name drunter) → Kundenseite
+- Logo-Upload pro Kunde (Supabase Storage)
+- Video-Board im Kanban-Stil: **Zu bearbeiten · Bereit zum Post · Geplant · Gepostet**
   (Status per Klick weiterschalten)
-- Pro Video: Titel, geplantes Datum, Caption, Notizen, Häkchen „IG gepostet" /
-  „TikTok gepostet"
+- Pro Video: Titel/Idee, Posting-**Datum + Uhrzeit**, Caption, Notizen, Häkchen
+  „IG gepostet" / „TikTok gepostet"
+- **Anstehende Posts** oben im Dashboard, fällige Posts hervorgehoben
 - Live-Sync über Supabase Realtime (mehrere Leute gleichzeitig)
 - Upload / Download / Auto-Caption sind als Buttons vorhanden, aber noch nicht
-  verkabelt (kommt mit Bunny- + Claude-Anbindung).
+  verkabelt (kommt mit Bunny- + Claude-Anbindung). Echte Push-/Mail-Erinnerungen
+  folgen mit dem Backend-Schritt.
 
 ## Einrichten (lokal)
 
@@ -53,9 +58,12 @@ VITE_SUPABASE_ANON_KEY=<anon key>
 
 ### 3. Datenbank aufsetzen
 
-Im Supabase-Dashboard → **SQL Editor** → den Inhalt von
-[`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql)
-einfügen und **Run**. Das legt Tabellen, Status-Enum, RLS-Regeln und Realtime an.
+Im Supabase-Dashboard → **SQL Editor** → **nacheinander** einfügen und **Run**:
+
+1. [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql)
+   — Tabellen, Status-Enum, RLS, Realtime.
+2. [`supabase/migrations/0002_logos_planned_time.sql`](supabase/migrations/0002_logos_planned_time.sql)
+   — Logo-Feld, Status „Geplant", Postingzeit, Logo-Storage-Bucket.
 
 ### 4. Team-Logins anlegen
 

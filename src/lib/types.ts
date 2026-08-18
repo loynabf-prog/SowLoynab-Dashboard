@@ -1,8 +1,9 @@
-export type VideoStatus = 'todo' | 'ready' | 'posted'
+export type VideoStatus = 'todo' | 'ready' | 'planned' | 'posted'
 
 export interface Client {
   id: string
   name: string
+  logo_url: string | null
   handle_ig: string | null
   handle_tiktok: string | null
   notes: string | null
@@ -17,6 +18,7 @@ export interface Video {
   title: string
   status: VideoStatus
   scheduled_date: string | null
+  scheduled_time: string | null
   caption: string | null
   notes: string | null
   storage_path: string | null
@@ -33,7 +35,8 @@ export interface Video {
 export const STATUS_LABELS: Record<VideoStatus, string> = {
   todo: 'Zu bearbeiten',
   ready: 'Bereit zum Post',
+  planned: 'Geplant',
   posted: 'Gepostet',
 }
 
-export const STATUS_ORDER: VideoStatus[] = ['todo', 'ready', 'posted']
+export const STATUS_ORDER: VideoStatus[] = ['todo', 'ready', 'planned', 'posted']

@@ -12,10 +12,20 @@ interface Props {
   onDownload: () => void
 }
 
-function fmtDate(d: string | null): string {
+function fmtDate(d: string | null, time: string | null): string {
   if (!d) return 'kein Datum'
   const date = new Date(d + 'T00:00:00')
-  return date.toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' })
+  const dateFmt = date.toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' })
+  return time ? `${dateFmt} · ${time.slice(0, 5)} Uhr` : dateFmt
+}
+
+// "faellig" = geplant/bereit, Datum heute oder ueberfaellig, noch nicht gepostet
+function isDue(v: Video): boolean {
+  if (v.status === 'posted' || !v.scheduled_date) return false
+  const d = new Date(v.scheduled_date + 'T00:00:00')
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return d.getTime() <= today.getTime() + 86400000
 }
 
 export default function VideoCard({
@@ -28,6 +38,7 @@ export default function VideoCard({
   onDownload,
 }: Props) {
   const [title, setTitle] = useState(video.title)
+  const due = isDue(video)
 
   function commitTitle() {
     const t = title.trim() || 'Neues Video'
@@ -36,7 +47,7 @@ export default function VideoCard({
   }
 
   return (
-    <div className="video-card">
+    <div className={`video-card ${due ? 'due' : ''}`}>
       <input
         className="vc-title"
         value={title}
@@ -49,18 +60,18 @@ export default function VideoCard({
       />
 
       <div className="vc-line">
-        <StatusPill
-          status={video.status}
-          onChange={(next: VideoStatus) => onPatch({ status: next })}
-        />
+        <StatusPill status={video.status} onChange={(next: VideoStatus) => onPatch({ status: next })} />
       </div>
 
-      <div className="vc-line">📅 {fmtDate(video.scheduled_date)}</div>
+      <div className="vc-line">
+        📅 {fmtDate(video.scheduled_date, video.scheduled_time)}
+        {due && <span className="due-tag">fällig</span>}
+      </div>
 
       {video.caption && (
-        <div className="vc-line" style={{ display: 'block', color: 'var(--text-dim)' }}>
+        <span className="vc-caption">
           {video.caption.length > 90 ? video.caption.slice(0, 90) + ' …' : video.caption}
-        </div>
+        </span>
       )}
 
       <div className="vc-flags">
