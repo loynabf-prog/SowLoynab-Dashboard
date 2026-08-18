@@ -1,62 +1,53 @@
-# Deployment — Dashboard online stellen
+# Deployment — Dashboard online stellen (GitHub Pages)
 
-Ziel: aus dem GitHub-Repo eine echte, aufrufbare Web-App machen — kostenlos,
-mit automatischem Neu-Deploy bei jedem Push.
+Alles läuft über **GitHub**, kein Drittanbieter. Ein GitHub-Actions-Workflow
+(`.github/workflows/deploy.yml`) baut die App bei jedem Push automatisch und
+veröffentlicht sie auf **GitHub Pages**.
 
-Empfohlen: **Netlify** (die Konfig `netlify.toml` liegt schon im Repo).
-Vercel geht genauso (`vercel.json` ist auch dabei).
-
----
-
-## Schritt 1 — Bei Netlify mit GitHub anmelden
-
-1. Auf **[netlify.com](https://netlify.com)** → **Sign up** → **GitHub** wählen.
-2. Zugriff auf das Repo `loynabf-prog/SowLoynab-Dashboard` erlauben.
-
-## Schritt 2 — Neues Projekt aus dem Repo
-
-1. **Add new site → Import an existing project → GitHub**.
-2. Repo `SowLoynab-Dashboard` auswählen.
-3. **Branch:** vorerst `claude/briefing-64sk0p` (oder `main`, sobald gemerged).
-4. Build-Einstellungen erkennt Netlify automatisch aus `netlify.toml`:
-   - Build command: `npm run build`
-   - Publish directory: `dist`
-
-## Schritt 3 — Zugänge (Environment Variables) eintragen ⚠️ WICHTIG
-
-Ohne diese zwei Werte baut die App, aber der Login funktioniert nicht
-(die `.env.local` liegt bewusst NICHT im Repo).
-
-In Netlify: **Site configuration → Environment variables → Add a variable**:
-
-| Key | Value |
-| --- | --- |
-| `VITE_SUPABASE_URL` | `https://kxrbeyecsdvejhvxtrin.supabase.co` |
-| `VITE_SUPABASE_ANON_KEY` | (der anon key aus Supabase → Project Settings → API) |
-
-Danach **Deploy site** (bzw. „Trigger deploy", falls schon gebaut).
-
-## Schritt 4 — Testen
-
-Netlify gibt dir eine Adresse wie `https://zufallsname.netlify.app`.
-Öffnen → Login-Screen → mit dem angelegten User einloggen → Dashboard. ✅
+Die Supabase-Zugänge liegen als Build-Werte in `.env.production` (der anon key
+ist öffentlich und durch Row-Level-Security geschützt) — es sind **keine**
+GitHub-Secrets nötig.
 
 ---
 
-## Schritt 5 — Eigene Subdomain `app.sowloynab.de` (später)
+## Einmalig: GitHub Pages einschalten
 
-1. In Netlify: **Domain management → Add a custom domain** → `app.sowloynab.de`.
-2. Bei **INWX** (wo die Domain liegt) einen **CNAME**-Eintrag setzen:
+1. Im Repo auf GitHub: **Settings → Pages**.
+2. Unter **Build and deployment → Source**: **GitHub Actions** auswählen.
+
+Das war's. Ab dann baut & veröffentlicht der Workflow bei jedem Push automatisch.
+
+## Wo läuft der Build?
+
+- Reiter **Actions** im Repo → dort siehst du jeden Lauf („Deploy zu GitHub Pages").
+- Nach dem ersten grünen Lauf ist die App erreichbar unter:
+  **https://loynabf-prog.github.io/SowLoynab-Dashboard/**
+
+## Testen
+
+Adresse öffnen → Login-Screen → mit dem in Supabase angelegten User einloggen
+→ Dashboard. ✅
+
+---
+
+## Später: eigene Subdomain `app.sowloynab.de`
+
+1. Repo **Settings → Pages → Custom domain**: `app.sowloynab.de` eintragen.
+   (Legt eine `CNAME`-Datei an und stellt automatisch HTTPS bereit.)
+2. Bei **INWX** einen **CNAME**-Eintrag setzen:
    - Host/Name: `app`
-   - Ziel/Value: die von Netlify angezeigte Adresse (z. B. `zufallsname.netlify.app`)
-3. Netlify stellt automatisch ein kostenloses HTTPS-Zertifikat aus.
+   - Ziel/Value: `loynabf-prog.github.io`
+3. Sobald die Domain steht, muss der Unterpfad weg — dann setze ich `VITE_BASE`
+   im Workflow auf `/` (bzw. entferne es), damit die App im Wurzelpfad läuft.
 
-Fertig: `https://app.sowloynab.de` zeigt das Dashboard. Der Login schützt es —
-Fremde sehen nur den Anmelde-Screen.
+Der Login schützt alles — Fremde sehen nur den Anmelde-Screen.
 
 ---
 
 ## Auto-Deploy
 
-Ab jetzt gilt: **jeder Push auf den verbundenen Branch** baut die Seite
-automatisch neu. Kein manuelles Hochladen mehr.
+Jeder Push auf `main` (oder den Arbeits-Branch) baut die Seite automatisch neu.
+Kein manuelles Hochladen.
+
+> Netlify/Vercel gehen mit den ebenfalls vorhandenen Configs (`netlify.toml`,
+> `vercel.json`) genauso — werden aber nicht gebraucht, solange GitHub Pages läuft.
