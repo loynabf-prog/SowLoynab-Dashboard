@@ -22,6 +22,7 @@ export default function ClientPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState<Video | null>(null)
+  const [linking, setLinking] = useState<Video | null>(null)
   const [editClient, setEditClient] = useState(false)
   const [creating, setCreating] = useState(false)
   const [info, setInfo] = useState<string | null>(null)
@@ -185,18 +186,11 @@ export default function ClientPage() {
                     onPatch={(patch) => patchVideo(v.id, patch)}
                     onEdit={() => setEditing(v)}
                     onDelete={() => deleteVideo(v.id)}
+                    onLink={() => setLinking(v)}
                     onCaption={() =>
                       setInfo(
-                        'Die Auto-Caption per Claude wird angebunden, sobald der Bunny-Zugang steht und die Edge Function deployt ist. Bis dahin: Caption manuell im Bearbeiten-Dialog eintragen.',
+                        'Die Auto-Caption per Claude wird spaeter angebunden. Bis dahin: Caption einfach im Bearbeiten-Dialog eintragen.',
                       )
-                    }
-                    onUpload={() =>
-                      setInfo(
-                        'Der Video-Upload (Bunny Storage, verlustfrei) wird im naechsten Schritt angebunden, sobald du den Bunny-Zugang bereitstellst.',
-                      )
-                    }
-                    onDownload={() =>
-                      setInfo('Noch keine Datei hinterlegt — Upload folgt mit der Bunny-Anbindung.')
                     }
                   />
                 ))}
@@ -221,6 +215,17 @@ export default function ClientPage() {
         <NewIdeaModal onClose={() => setCreating(false)} onSave={createIdea} />
       )}
 
+      {linking && (
+        <LinkModal
+          video={linking}
+          onClose={() => setLinking(null)}
+          onSave={async (url) => {
+            await patchVideo(linking.id, { video_url: url })
+            setLinking(null)
+          }}
+        />
+      )}
+
       {editClient && (
         <EditClientModal
           client={client}
@@ -243,6 +248,61 @@ export default function ClientPage() {
         </Modal>
       )}
     </>
+  )
+}
+
+function LinkModal({
+  video,
+  onClose,
+  onSave,
+}: {
+  video: Video
+  onClose: () => void
+  onSave: (url: string | null) => void
+}) {
+  const [url, setUrl] = useState(video.video_url ?? '')
+
+  return (
+    <Modal title="Video-Link" onClose={onClose}>
+      <form
+        className="stack"
+        onSubmit={(e) => {
+          e.preventDefault()
+          onSave(url.trim() || null)
+        }}
+      >
+        <p className="info-box">
+          Teilen-Link zur fertigen Videodatei einfügen (iCloud, Drive, Dropbox …).
+          Tipp fürs Original in voller Qualität: in iCloud „Datei teilen" → „Jeder mit
+          Link" → am besten ohne Ablaufdatum.
+        </p>
+        <div>
+          <label htmlFor="vurl">Link</label>
+          <input
+            id="vurl"
+            type="url"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="https://www.icloud.com/…"
+            autoFocus
+          />
+        </div>
+        <div className="modal-actions">
+          {video.video_url && (
+            <button type="button" className="btn btn-danger" onClick={() => onSave(null)}>
+              Link entfernen
+            </button>
+          )}
+          <div className="spacer" />
+          <button type="button" className="btn btn-ghost" onClick={onClose}>
+            Abbrechen
+          </button>
+          <button type="submit" className="btn btn-primary">
+            Speichern
+          </button>
+        </div>
+      </form>
+    </Modal>
   )
 }
 

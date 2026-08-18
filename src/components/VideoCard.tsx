@@ -8,8 +8,7 @@ interface Props {
   onEdit: () => void
   onDelete: () => void
   onCaption: () => void
-  onUpload: () => void
-  onDownload: () => void
+  onLink: () => void
 }
 
 function fmtDate(d: string | null, time: string | null): string {
@@ -19,7 +18,6 @@ function fmtDate(d: string | null, time: string | null): string {
   return time ? `${dateFmt} · ${time.slice(0, 5)} Uhr` : dateFmt
 }
 
-// "faellig" = geplant/bereit, Datum heute oder ueberfaellig, noch nicht gepostet
 function isDue(v: Video): boolean {
   if (v.status === 'posted' || !v.scheduled_date) return false
   const d = new Date(v.scheduled_date + 'T00:00:00')
@@ -28,20 +26,12 @@ function isDue(v: Video): boolean {
   return d.getTime() <= today.getTime() + 86400000
 }
 
-export default function VideoCard({
-  video,
-  onPatch,
-  onEdit,
-  onDelete,
-  onCaption,
-  onUpload,
-  onDownload,
-}: Props) {
+export default function VideoCard({ video, onPatch, onEdit, onDelete, onCaption, onLink }: Props) {
   const [title, setTitle] = useState(video.title)
   const due = isDue(video)
 
   function commitTitle() {
-    const t = title.trim() || 'Neues Video'
+    const t = title.trim() || 'Neue Idee'
     if (t !== video.title) onPatch({ title: t })
     setTitle(t)
   }
@@ -74,6 +64,21 @@ export default function VideoCard({
         </span>
       )}
 
+      {video.video_url ? (
+        <div className="vc-videolink">
+          <a href={video.video_url} target="_blank" rel="noopener noreferrer" className="vc-open">
+            🎬 Video öffnen / laden
+          </a>
+          <button className="vc-linkedit" onClick={onLink} title="Link aendern">
+            ✎
+          </button>
+        </div>
+      ) : (
+        <button className="vc-upload" onClick={onLink}>
+          ＋ Video-Link einfügen
+        </button>
+      )}
+
       <div className="vc-flags">
         <span
           className={`flag ${video.posted_ig ? 'on' : ''}`}
@@ -93,14 +98,6 @@ export default function VideoCard({
         </span>
       </div>
 
-      {video.storage_path ? (
-        <div className="vc-hasvideo">🎬 Video hinterlegt</div>
-      ) : (
-        <button className="vc-upload" onClick={onUpload}>
-          ＋ Video hochladen <span className="badge-soon">bald</span>
-        </button>
-      )}
-
       <div className="vc-actions">
         <button className="btn btn-sm" onClick={onEdit}>
           Bearbeiten
@@ -108,11 +105,6 @@ export default function VideoCard({
         <button className="btn btn-sm" onClick={onCaption} title="Auto-Caption per Claude">
           ✨ Caption <span className="badge-soon">bald</span>
         </button>
-        {video.storage_path && (
-          <button className="btn btn-sm" onClick={onDownload}>
-            ⬇ Download
-          </button>
-        )}
         <div className="spacer" />
         <button className="btn btn-sm btn-danger" onClick={onDelete} title="Video loeschen">
           Loeschen

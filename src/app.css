@@ -319,6 +319,31 @@
   font-size: 13px;
 }
 
+.vc-videolink { display: flex; gap: 6px; margin: 8px 0 2px; }
+.vc-open {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  color: var(--posted);
+  font-weight: 600;
+  font-size: 13px;
+}
+.vc-open:hover { text-decoration: none; filter: brightness(0.97); }
+.vc-linkedit {
+  width: 40px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elev);
+  color: var(--text-muted);
+  font-size: 14px;
+}
+.vc-linkedit:hover { border-color: var(--brand); color: var(--brand); }
+
 /* Status-Pille */
 .status-pill {
   display: inline-flex;

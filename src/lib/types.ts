@@ -21,6 +21,7 @@ export interface Video {
   scheduled_time: string | null
   caption: string | null
   notes: string | null
+  video_url: string | null
   storage_path: string | null
   bunny_stream_id: string | null
   file_size: number | null
