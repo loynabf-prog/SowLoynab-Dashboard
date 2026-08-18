@@ -3,6 +3,10 @@ import { useAuth } from './context/AuthContext'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import ClientPage from './pages/ClientPage'
+import Leads from './pages/Leads'
+import Tasks from './pages/Tasks'
+import Calendar from './pages/Calendar'
+import Finances from './pages/Finances'
 import Layout from './components/Layout'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -25,26 +29,14 @@ export default function App() {
     <Routes>
       <Route
         path="/login"
-        element={
-          loading ? null : session ? <Navigate to="/" replace /> : <Login />
-        }
+        element={loading ? null : session ? <Navigate to="/" replace /> : <Login />}
       />
-      <Route
-        path="/"
-        element={
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/client/:id"
-        element={
-          <ProtectedRoute>
-            <ClientPage />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+      <Route path="/client/:id" element={<ProtectedRoute><ClientPage /></ProtectedRoute>} />
+      <Route path="/leads" element={<ProtectedRoute><Leads /></ProtectedRoute>} />
+      <Route path="/aufgaben" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
+      <Route path="/kalender" element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
+      <Route path="/finanzen" element={<ProtectedRoute><Finances /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

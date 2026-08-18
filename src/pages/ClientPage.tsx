@@ -477,6 +477,9 @@ function EditClientModal({
   const [ig, setIg] = useState(client.handle_ig ?? '')
   const [tiktok, setTiktok] = useState(client.handle_tiktok ?? '')
   const [notes, setNotes] = useState(client.notes ?? '')
+  const [pkg, setPkg] = useState(client.package ?? '')
+  const [fee, setFee] = useState(client.monthly_fee != null ? String(client.monthly_fee) : '')
+  const [active, setActive] = useState(client.active ?? true)
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [logoPreview, setLogoPreview] = useState<string | null>(client.logo_url)
   const [busy, setBusy] = useState(false)
@@ -505,6 +508,9 @@ function EditClientModal({
           handle_ig: ig.trim() || null,
           handle_tiktok: tiktok.trim() || null,
           notes: notes.trim() || null,
+          package: pkg.trim() || null,
+          monthly_fee: fee ? Number(fee.replace(',', '.')) : null,
+          active,
         })
         .eq('id', client.id)
       if (error) throw error
@@ -547,6 +553,20 @@ function EditClientModal({
             <input id="ectt" value={tiktok} onChange={(e) => setTiktok(e.target.value)} placeholder="restaurant_xy" />
           </div>
         </div>
+        <div className="row" style={{ gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <label htmlFor="ecpkg">Paket</label>
+            <input id="ecpkg" value={pkg} onChange={(e) => setPkg(e.target.value)} placeholder="z. B. Basis / Premium" />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label htmlFor="ecfee">Honorar €/Mon.</label>
+            <input id="ecfee" value={fee} onChange={(e) => setFee(e.target.value)} inputMode="decimal" placeholder="z. B. 500" />
+          </div>
+        </div>
+        <label className="check-row">
+          <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} style={{ width: 'auto' }} />
+          Aktiver Kunde (zählt zu den monatlichen Einnahmen)
+        </label>
         <div>
           <label htmlFor="ecnotes">Notizen</label>
           <textarea id="ecnotes" value={notes} onChange={(e) => setNotes(e.target.value)} />
