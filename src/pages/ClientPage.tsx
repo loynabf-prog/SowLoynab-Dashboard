@@ -15,6 +15,7 @@ import LogoFrame from '../components/LogoFrame'
 import Modal from '../components/Modal'
 import ActivityLog from '../components/ActivityLog'
 import Spinner from '../components/Spinner'
+import { generateCaption } from '../lib/caption'
 
 export default function ClientPage() {
   const { id } = useParams<{ id: string }>()
@@ -25,6 +26,7 @@ export default function ClientPage() {
   const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState<Video | null>(null)
   const [linking, setLinking] = useState<Video | null>(null)
+  const [captioning, setCaptioning] = useState<Video | null>(null)
   const [editClient, setEditClient] = useState(false)
   const [creating, setCreating] = useState(false)
   const [info, setInfo] = useState<string | null>(null)
@@ -189,11 +191,7 @@ export default function ClientPage() {
                     onEdit={() => setEditing(v)}
                     onDelete={() => deleteVideo(v.id)}
                     onLink={() => setLinking(v)}
-                    onCaption={() =>
-                      setInfo(
-                        'Die Auto-Caption per Claude wird spaeter angebunden. Bis dahin: Caption einfach im Bearbeiten-Dialog eintragen.',
-                      )
-                    }
+                    onCaption={() => setCaptioning(v)}
                   />
                 ))}
               </div>
@@ -229,6 +227,18 @@ export default function ClientPage() {
           onSave={async (url) => {
             await patchVideo(linking.id, { video_url: url })
             setLinking(null)
+          }}
+        />
+      )}
+
+      {captioning && (
+        <CaptionModal
+          video={captioning}
+          client={client}
+          onClose={() => setCaptioning(null)}
+          onApply={async (caption) => {
+            await patchVideo(captioning.id, { caption })
+            setCaptioning(null)
           }}
         />
       )}
@@ -307,6 +317,106 @@ function LinkModal({
           <button type="submit" className="btn btn-primary">
             Speichern
           </button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+function CaptionModal({
+  video,
+  client,
+  onClose,
+  onApply,
+}: {
+  video: Video
+  client: Client
+  onClose: () => void
+  onApply: (caption: string) => void
+}) {
+  const [description, setDescription] = useState('')
+  const [extra, setExtra] = useState('')
+  const [result, setResult] = useState(video.caption ?? '')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  async function generate() {
+    if (!description.trim()) return
+    setBusy(true)
+    setError(null)
+    try {
+      const caption = await generateCaption(video, client, description.trim(), extra.trim())
+      setResult(caption)
+    } catch (err: any) {
+      setError(err.message ?? 'Fehler bei der Caption-Erstellung')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(result)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1800)
+    } catch {
+      /* ignore */
+    }
+  }
+
+  return (
+    <Modal title="✨ Auto-Caption" onClose={onClose}>
+      <form
+        className="stack"
+        onSubmit={(e) => {
+          e.preventDefault()
+          generate()
+        }}
+      >
+        {error && <div className="error-box">{error}</div>}
+        <div>
+          <label>Beschreib das Video in einem Satz *</label>
+          <input
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="z. B. Frische Pasta wird vor Gästen an der Theke gemacht"
+            autoFocus
+          />
+        </div>
+        <div>
+          <label>Zusatzwunsch (optional)</label>
+          <input
+            value={extra}
+            onChange={(e) => setExtra(e.target.value)}
+            placeholder="z. B. lustiger Ton, oder Aktion erwähnen"
+          />
+        </div>
+        <button type="submit" className="btn btn-primary" disabled={busy || !description.trim()}>
+          {busy ? 'Claude schreibt …' : result ? 'Neu generieren' : '✨ Caption generieren'}
+        </button>
+
+        {result && (
+          <div>
+            <label>Ergebnis (frei editierbar)</label>
+            <textarea value={result} onChange={(e) => setResult(e.target.value)} style={{ minHeight: 150 }} />
+          </div>
+        )}
+
+        <div className="modal-actions">
+          <button type="button" className="btn btn-ghost" onClick={onClose}>
+            Abbrechen
+          </button>
+          {result && (
+            <>
+              <button type="button" className="btn" onClick={copy}>
+                {copied ? '✓ Kopiert' : 'Kopieren'}
+              </button>
+              <button type="button" className="btn btn-primary" onClick={() => onApply(result.trim())}>
+                In Caption übernehmen
+              </button>
+            </>
+          )}
         </div>
       </form>
     </Modal>

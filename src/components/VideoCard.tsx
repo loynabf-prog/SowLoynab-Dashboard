@@ -103,7 +103,7 @@ export default function VideoCard({ video, onPatch, onEdit, onDelete, onCaption,
           Bearbeiten
         </button>
         <button className="btn btn-sm" onClick={onCaption} title="Auto-Caption per Claude">
-          ✨ Caption <span className="badge-soon">bald</span>
+          ✨ Caption
         </button>
         <div className="spacer" />
         <button className="btn btn-sm btn-danger" onClick={onDelete} title="Video loeschen">
