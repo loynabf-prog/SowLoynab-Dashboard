@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { euro, dateShort } from '../lib/format'
 import type { Transaction, TransactionType } from '../lib/types'
+import Modal from '../components/Modal'
 
 interface TxRow extends Transaction {
   clients?: { name: string } | null
@@ -210,10 +211,8 @@ function TxModal({
   }
 
   return (
-    <div className="modal-backdrop" onMouseDown={onClose}>
-      <div className="modal" onMouseDown={(e) => e.stopPropagation()}>
-        <h2>{tx ? 'Buchung bearbeiten' : type === 'income' ? 'Einnahme' : 'Ausgabe'}</h2>
-        <form className="stack" onSubmit={save}>
+    <Modal title={tx ? 'Buchung bearbeiten' : 'Neue Buchung'} onClose={onClose}>
+      <form className="stack" onSubmit={save}>
           {error && <div className="error-box">{error}</div>}
           <div className="seg">
             <button type="button" className={`seg-btn ${type === 'income' ? 'on income' : ''}`} onClick={() => setType('income')}>
@@ -263,7 +262,6 @@ function TxModal({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   )
 }
