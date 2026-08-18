@@ -1,4 +1,4 @@
-import { Link, NavLink } from 'react-router-dom'
+import { Link, NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 const NAV = [
@@ -12,6 +12,10 @@ const NAV = [
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { user, signOut } = useAuth()
+  const location = useLocation()
+  // Bei Kunden-Detailseiten den Basispfad als Key nehmen, damit die Animation
+  // nur beim Wechsel des Bereichs neu startet.
+  const animKey = location.pathname.startsWith('/client/') ? 'client' : location.pathname
 
   return (
     <>
@@ -42,7 +46,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </nav>
 
-      <main className="app-main">{children}</main>
+      <main className="app-main">
+        <div className="page" key={animKey}>
+          {children}
+        </div>
+      </main>
     </>
   )
 }

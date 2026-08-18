@@ -9,13 +9,14 @@ import Tasks from './pages/Tasks'
 import Calendar from './pages/Calendar'
 import Finances from './pages/Finances'
 import Layout from './components/Layout'
+import Spinner from './components/Spinner'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth()
   if (loading) {
     return (
       <div className="center" style={{ height: '100vh' }}>
-        <span className="muted">Lade …</span>
+        <Spinner />
       </div>
     )
   }

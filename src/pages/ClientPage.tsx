@@ -14,6 +14,7 @@ import VideoCard from '../components/VideoCard'
 import LogoFrame from '../components/LogoFrame'
 import Modal from '../components/Modal'
 import ActivityLog from '../components/ActivityLog'
+import Spinner from '../components/Spinner'
 
 export default function ClientPage() {
   const { id } = useParams<{ id: string }>()
@@ -116,7 +117,7 @@ export default function ClientPage() {
     }
   }
 
-  if (loading) return <div className="muted">Lade …</div>
+  if (loading) return <Spinner />
 
   if (!client) {
     return (
@@ -135,7 +136,7 @@ export default function ClientPage() {
         ← Alle Kunden
       </Link>
 
-      <div className="page-head" style={{ alignItems: 'center' }}>
+      <div className="page-head client-head-anim" style={{ alignItems: 'center' }}>
         <LogoFrame name={client.name} logoUrl={client.logo_url} />
         <div>
           <h1>{client.name}</h1>
