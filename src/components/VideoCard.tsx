@@ -93,6 +93,14 @@ export default function VideoCard({
         </span>
       </div>
 
+      {video.storage_path ? (
+        <div className="vc-hasvideo">🎬 Video hinterlegt</div>
+      ) : (
+        <button className="vc-upload" onClick={onUpload}>
+          ＋ Video hochladen <span className="badge-soon">bald</span>
+        </button>
+      )}
+
       <div className="vc-actions">
         <button className="btn btn-sm" onClick={onEdit}>
           Bearbeiten
@@ -100,13 +108,9 @@ export default function VideoCard({
         <button className="btn btn-sm" onClick={onCaption} title="Auto-Caption per Claude">
           ✨ Caption <span className="badge-soon">bald</span>
         </button>
-        {video.storage_path ? (
+        {video.storage_path && (
           <button className="btn btn-sm" onClick={onDownload}>
             ⬇ Download
-          </button>
-        ) : (
-          <button className="btn btn-sm" onClick={onUpload}>
-            ⬆ Upload <span className="badge-soon">bald</span>
           </button>
         )}
         <div className="spacer" />

@@ -23,6 +23,7 @@ export default function ClientPage() {
   const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState<Video | null>(null)
   const [editClient, setEditClient] = useState(false)
+  const [creating, setCreating] = useState(false)
   const [info, setInfo] = useState<string | null>(null)
 
   const loadClient = useCallback(async () => {
@@ -78,16 +79,29 @@ export default function ClientPage() {
     }
   }
 
-  async function addVideo() {
+  async function createIdea(fields: {
+    title: string
+    scheduled_date: string | null
+    scheduled_time: string | null
+    caption: string | null
+    notes: string | null
+  }) {
     if (!id) return
     const { error } = await supabase.from('videos').insert({
       client_id: id,
-      title: 'Neues Video',
+      title: fields.title,
       status: 'todo' as VideoStatus,
+      scheduled_date: fields.scheduled_date,
+      scheduled_time: fields.scheduled_time,
+      caption: fields.caption,
+      notes: fields.notes,
       created_by: user?.id ?? null,
     })
     if (error) setError(error.message)
-    else loadVideos()
+    else {
+      setCreating(false)
+      loadVideos()
+    }
   }
 
   async function deleteVideo(videoId: string) {
@@ -136,8 +150,8 @@ export default function ClientPage() {
         <button className="btn btn-sm btn-ghost" onClick={() => setEditClient(true)}>
           Kunde bearbeiten
         </button>
-        <button className="btn btn-primary" onClick={addVideo}>
-          + Video
+        <button className="btn btn-primary" onClick={() => setCreating(true)}>
+          + Idee
         </button>
       </div>
 
@@ -203,6 +217,10 @@ export default function ClientPage() {
         />
       )}
 
+      {creating && (
+        <NewIdeaModal onClose={() => setCreating(false)} onSave={createIdea} />
+      )}
+
       {editClient && (
         <EditClientModal
           client={client}
@@ -225,6 +243,93 @@ export default function ClientPage() {
         </Modal>
       )}
     </>
+  )
+}
+
+interface IdeaFields {
+  title: string
+  scheduled_date: string | null
+  scheduled_time: string | null
+  caption: string | null
+  notes: string | null
+}
+
+function NewIdeaModal({
+  onClose,
+  onSave,
+}: {
+  onClose: () => void
+  onSave: (fields: IdeaFields) => void
+}) {
+  const [title, setTitle] = useState('')
+  const [date, setDate] = useState('')
+  const [time, setTime] = useState('')
+  const [caption, setCaption] = useState('')
+  const [notes, setNotes] = useState('')
+
+  return (
+    <Modal title="Neue Idee anlegen" onClose={onClose}>
+      <form
+        className="stack"
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (!title.trim()) return
+          onSave({
+            title: title.trim(),
+            scheduled_date: date || null,
+            scheduled_time: time || null,
+            caption: caption.trim() || null,
+            notes: notes.trim() || null,
+          })
+        }}
+      >
+        <p className="info-box">
+          Erst die Idee festhalten — das Video lädst du später direkt auf der Karte hoch.
+        </p>
+        <div>
+          <label htmlFor="ititle">Titel / Idee *</label>
+          <input
+            id="ititle"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="z. B. Pasta-Zubereitung hinter der Theke"
+            autoFocus
+            required
+          />
+        </div>
+        <div className="row" style={{ gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <label htmlFor="idate">Posting-Datum</label>
+            <input id="idate" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label htmlFor="itime">Posting-Uhrzeit</label>
+            <input id="itime" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+          </div>
+        </div>
+        <div>
+          <label htmlFor="icap">Caption (optional)</label>
+          <textarea
+            id="icap"
+            value={caption}
+            onChange={(e) => setCaption(e.target.value)}
+            placeholder="Kommt oft erst später dazu …"
+          />
+        </div>
+        <div>
+          <label htmlFor="inotes">Notizen (optional)</label>
+          <textarea id="inotes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="z. B. Personen markieren, Musik-Trend XY" />
+        </div>
+        <div className="modal-actions">
+          <button type="button" className="btn btn-ghost" onClick={onClose}>
+            Abbrechen
+          </button>
+          <button type="submit" className="btn btn-primary" disabled={!title.trim()}>
+            Idee anlegen
+          </button>
+        </div>
+      </form>
+    </Modal>
   )
 }
 

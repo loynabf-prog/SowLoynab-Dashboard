@@ -289,6 +289,36 @@
 .flag.on { color: #fff; background: var(--posted); border-color: transparent; }
 .vc-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
 
+.vc-upload {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  margin: 8px 0 2px;
+  padding: 10px;
+  border: 1.5px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--brand);
+  font-weight: 600;
+  font-size: 13px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.vc-upload:hover { border-color: var(--brand); background: rgba(224, 82, 26, 0.05); }
+.vc-hasvideo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 2px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  color: var(--posted);
+  font-weight: 600;
+  font-size: 13px;
+}
+
 /* Status-Pille */
 .status-pill {
   display: inline-flex;
