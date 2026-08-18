@@ -1,0 +1,14 @@
+# Netlify-Konfiguration fuer die Vite-SPA
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# Single-Page-App: jede Route auf index.html leiten, damit z. B.
+# /client/<id> auch beim direkten Aufruf / Neuladen funktioniert.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
