@@ -8,6 +8,7 @@ import Leads from './pages/Leads'
 import Tasks from './pages/Tasks'
 import Calendar from './pages/Calendar'
 import Finances from './pages/Finances'
+import Team from './pages/Team'
 import Layout from './components/Layout'
 import Spinner from './components/Spinner'
 
@@ -40,6 +41,7 @@ export default function App() {
       <Route path="/aufgaben" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
       <Route path="/kalender" element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
       <Route path="/finanzen" element={<ProtectedRoute><Finances /></ProtectedRoute>} />
+      <Route path="/team" element={<ProtectedRoute><Team /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

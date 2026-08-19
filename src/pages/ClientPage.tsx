@@ -25,6 +25,7 @@ export default function ClientPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState<Video | null>(null)
+  const [draggingId, setDraggingId] = useState<string | null>(null)
   const [linking, setLinking] = useState<Video | null>(null)
   const [captioning, setCaptioning] = useState<Video | null>(null)
   const [editClient, setEditClient] = useState(false)
@@ -44,7 +45,7 @@ export default function ClientPage() {
       .from('videos')
       .select('*')
       .eq('client_id', id)
-      .order('scheduled_date', { ascending: true, nullsFirst: false })
+      .order('sort_order', { ascending: true, nullsFirst: true })
       .order('created_at', { ascending: false })
     if (error) {
       setError(error.message)
@@ -84,6 +85,30 @@ export default function ClientPage() {
     }
   }
 
+  function orderVal(v: Video) {
+    return v.sort_order ?? new Date(v.created_at).getTime() / 1000
+  }
+
+  // Drag & Drop: Video in eine Spalte (Status) und an eine Position verschieben
+  async function moveVideo(videoId: string, targetStatus: VideoStatus, beforeId: string | null) {
+    const dragged = videos.find((v) => v.id === videoId)
+    if (!dragged) return
+    const col = videos
+      .filter((v) => v.status === targetStatus && v.id !== videoId)
+      .sort((a, b) => orderVal(a) - orderVal(b))
+    let newOrder: number
+    if (!beforeId) {
+      newOrder = (col.length ? orderVal(col[col.length - 1]) : 0) + 1
+    } else {
+      const idx = col.findIndex((v) => v.id === beforeId)
+      const target = col[idx]
+      const prev = col[idx - 1]
+      newOrder = idx <= 0 ? orderVal(target) - 1 : (orderVal(prev) + orderVal(target)) / 2
+    }
+    setDraggingId(null)
+    await patchVideo(videoId, { status: targetStatus, sort_order: newOrder })
+  }
+
   async function createIdea(fields: {
     title: string
     scheduled_date: string | null
@@ -100,6 +125,7 @@ export default function ClientPage() {
       scheduled_time: fields.scheduled_time,
       caption: fields.caption,
       notes: fields.notes,
+      sort_order: Date.now() / 1000,
       created_by: user?.id ?? null,
     })
     if (error) setError(error.message)
@@ -172,7 +198,15 @@ export default function ClientPage() {
         {STATUS_ORDER.map((status) => {
           const items = videos.filter((v) => v.status === status)
           return (
-            <div className="board-col" key={status}>
+            <div
+              className="board-col"
+              key={status}
+              onDragOver={(e) => draggingId && e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault()
+                if (draggingId) moveVideo(draggingId, status, null)
+              }}
+            >
               <div
                 className={`col-head status-pill ${status}`}
                 style={{ border: 'none', background: 'transparent', padding: 0 }}
@@ -182,17 +216,39 @@ export default function ClientPage() {
                 <span className="col-count">{items.length}</span>
               </div>
               <div className="col-body">
-                {items.length === 0 && <div className="col-empty">—</div>}
+                {items.length === 0 && <div className="col-empty">hierher ziehen</div>}
                 {items.map((v) => (
-                  <VideoCard
+                  <div
                     key={v.id}
-                    video={v}
-                    onPatch={(patch) => patchVideo(v.id, patch)}
-                    onEdit={() => setEditing(v)}
-                    onDelete={() => deleteVideo(v.id)}
-                    onLink={() => setLinking(v)}
-                    onCaption={() => setCaptioning(v)}
-                  />
+                    className={`drag-wrap ${draggingId === v.id ? 'dragging' : ''}`}
+                    draggable
+                    onDragStart={(e) => {
+                      const t = e.target as HTMLElement
+                      if (t.closest('input, textarea, button, select, a')) {
+                        e.preventDefault()
+                        return
+                      }
+                      setDraggingId(v.id)
+                      e.dataTransfer.effectAllowed = 'move'
+                    }}
+                    onDragEnd={() => setDraggingId(null)}
+                    onDragOver={(e) => draggingId && draggingId !== v.id && e.preventDefault()}
+                    onDrop={(e) => {
+                      if (!draggingId || draggingId === v.id) return
+                      e.preventDefault()
+                      e.stopPropagation()
+                      moveVideo(draggingId, status, v.id)
+                    }}
+                  >
+                    <VideoCard
+                      video={v}
+                      onPatch={(patch) => patchVideo(v.id, patch)}
+                      onEdit={() => setEditing(v)}
+                      onDelete={() => deleteVideo(v.id)}
+                      onLink={() => setLinking(v)}
+                      onCaption={() => setCaptioning(v)}
+                    />
+                  </div>
                 ))}
               </div>
             </div>

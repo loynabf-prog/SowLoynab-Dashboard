@@ -6,25 +6,54 @@ import { euro, dateRelative } from '../lib/format'
 import { LEAD_STAGE_LABELS, LEAD_STAGE_ORDER, type Lead, type LeadStage } from '../lib/types'
 import Modal from '../components/Modal'
 import ActivityLog from '../components/ActivityLog'
+import { AssigneePicker, AssigneeChips } from '../components/Assignee'
+import { useTeam } from '../context/TeamContext'
+import { useToast } from '../context/ToastContext'
 
 export default function Leads() {
   const { user } = useAuth()
+  const { members } = useTeam()
+  const { toast } = useToast()
   const [leads, setLeads] = useState<Lead[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState<Lead | null>(null)
   const [creating, setCreating] = useState(false)
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [q, setQ] = useState('')
+  const [filterMember, setFilterMember] = useState<string>('')
 
   async function load() {
     setError(null)
     const { data, error } = await supabase
       .from('leads')
       .select('*')
-      .order('next_followup', { ascending: true, nullsFirst: false })
+      .order('sort_order', { ascending: true, nullsFirst: true })
       .order('created_at', { ascending: false })
     if (error) setError(error.message)
     else setLeads((data ?? []) as Lead[])
     setLoading(false)
+  }
+
+  function orderVal(l: Lead) {
+    return l.sort_order ?? new Date(l.created_at).getTime() / 1000
+  }
+
+  async function moveLead(leadId: string, targetStage: LeadStage, beforeId: string | null) {
+    const col = leads
+      .filter((l) => l.stage === targetStage && l.id !== leadId)
+      .sort((a, b) => orderVal(a) - orderVal(b))
+    let newOrder: number
+    if (!beforeId) {
+      newOrder = (col.length ? orderVal(col[col.length - 1]) : 0) + 1
+    } else {
+      const idx = col.findIndex((l) => l.id === beforeId)
+      const target = col[idx]
+      const prev = col[idx - 1]
+      newOrder = idx <= 0 ? orderVal(target) - 1 : (orderVal(prev) + orderVal(target)) / 2
+    }
+    setDraggingId(null)
+    await patchLead(leadId, { stage: targetStage, sort_order: newOrder })
   }
 
   useEffect(() => {
@@ -83,6 +112,18 @@ export default function Leads() {
     .filter((l) => l.stage !== 'won' && l.stage !== 'lost')
     .reduce((s, l) => s + (l.potential_fee ?? 0), 0)
 
+  const shown = leads.filter((l) => {
+    if (filterMember && !(l.assignee_ids ?? []).includes(filterMember)) return false
+    if (q.trim()) {
+      const hay = [l.name, l.city, l.contact_person, l.email, l.handle_ig]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+      if (!hay.includes(q.trim().toLowerCase())) return false
+    }
+    return true
+  })
+
   return (
     <>
       <div className="page-head">
@@ -98,14 +139,37 @@ export default function Leads() {
         </button>
       </div>
 
+      <div className="toolbar-row">
+        <input
+          className="search-input"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="🔎 Lead suchen (Name, Ort, Kontakt …)"
+        />
+        <select value={filterMember} onChange={(e) => setFilterMember(e.target.value)} className="filter-select">
+          <option value="">Alle Zuständigen</option>
+          {members.map((m) => (
+            <option key={m.id} value={m.id}>{m.name}</option>
+          ))}
+        </select>
+      </div>
+
       {error && <div className="error-box" style={{ marginBottom: 16 }}>{error}</div>}
 
       <div className="pipeline">
         {LEAD_STAGE_ORDER.map((stage) => {
-          const items = leads.filter((l) => l.stage === stage)
+          const items = shown.filter((l) => l.stage === stage)
           const sum = items.reduce((s, l) => s + (l.potential_fee ?? 0), 0)
           return (
-            <div className={`pipe-col stage-${stage}`} key={stage}>
+            <div
+              className={`pipe-col stage-${stage}`}
+              key={stage}
+              onDragOver={(e) => draggingId && e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault()
+                if (draggingId) moveLead(draggingId, stage, null)
+              }}
+            >
               <div className="pipe-head">
                 <span className="pipe-dot" />
                 {LEAD_STAGE_LABELS[stage]}
@@ -113,12 +177,36 @@ export default function Leads() {
               </div>
               {sum > 0 && <div className="pipe-sum">{euro(sum)}/Mon.</div>}
               <div className="col-body">
-                {items.length === 0 && <div className="col-empty">—</div>}
+                {items.length === 0 && <div className="col-empty">hierher ziehen</div>}
                 {items.map((l) => {
                   const fu = dateRelative(l.next_followup)
                   return (
-                    <div className="lead-card" key={l.id}>
-                      <div className="lead-name">{l.name}</div>
+                    <div
+                      className={`lead-card drag-wrap ${draggingId === l.id ? 'dragging' : ''}`}
+                      key={l.id}
+                      draggable
+                      onDragStart={(e) => {
+                        const t = e.target as HTMLElement
+                        if (t.closest('input, textarea, button, select, a')) {
+                          e.preventDefault()
+                          return
+                        }
+                        setDraggingId(l.id)
+                        e.dataTransfer.effectAllowed = 'move'
+                      }}
+                      onDragEnd={() => setDraggingId(null)}
+                      onDragOver={(e) => draggingId && draggingId !== l.id && e.preventDefault()}
+                      onDrop={(e) => {
+                        if (!draggingId || draggingId === l.id) return
+                        e.preventDefault()
+                        e.stopPropagation()
+                        moveLead(draggingId, stage, l.id)
+                      }}
+                    >
+                      <div className="lead-name">
+                        {l.name}
+                        <AssigneeChips ids={l.assignee_ids ?? []} />
+                      </div>
                       {(l.city || l.contact_person) && (
                         <div className="lead-sub">
                           {[l.city, l.contact_person].filter(Boolean).join(' · ')}
@@ -186,6 +274,7 @@ export default function Leads() {
             setCreating(false)
             setEditing(null)
             load()
+            toast('Gespeichert ✓')
           }}
         />
       )}
@@ -217,6 +306,7 @@ function LeadModal({
     next_followup: lead?.next_followup ?? '',
     notes: lead?.notes ?? '',
   })
+  const [assignees, setAssignees] = useState<string[]>(lead?.assignee_ids ?? [])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const set = (k: keyof typeof f, v: string) => setF((p) => ({ ...p, [k]: v }))
@@ -238,10 +328,11 @@ function LeadModal({
       potential_fee: f.potential_fee ? Number(f.potential_fee.replace(',', '.')) : null,
       next_followup: f.next_followup || null,
       notes: f.notes.trim() || null,
+      assignee_ids: assignees,
     }
     const res = lead
       ? await supabase.from('leads').update(payload).eq('id', lead.id)
-      : await supabase.from('leads').insert({ ...payload, created_by: userId })
+      : await supabase.from('leads').insert({ ...payload, sort_order: Date.now() / 1000, created_by: userId })
     setBusy(false)
     if (res.error) setError(res.error.message)
     else onSaved()
@@ -304,6 +395,10 @@ function LeadModal({
         <div>
           <label>Nächster Follow-up</label>
           <input type="date" value={f.next_followup} onChange={(e) => set('next_followup', e.target.value)} />
+        </div>
+        <div>
+          <label>Zuständig</label>
+          <AssigneePicker value={assignees} onChange={setAssignees} />
         </div>
         <div>
           <label>Notizen</label>

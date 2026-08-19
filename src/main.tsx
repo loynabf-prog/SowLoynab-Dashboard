@@ -3,6 +3,8 @@ import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import { AuthProvider } from './context/AuthContext'
+import { TeamProvider } from './context/TeamContext'
+import { ToastProvider } from './context/ToastContext'
 import './index.css'
 import './app.css'
 
@@ -14,7 +16,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter basename={basename}>
       <AuthProvider>
-        <App />
+        <TeamProvider>
+          <ToastProvider>
+            <App />
+          </ToastProvider>
+        </TeamProvider>
       </AuthProvider>
     </BrowserRouter>
   </React.StrictMode>,

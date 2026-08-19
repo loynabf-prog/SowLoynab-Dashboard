@@ -42,6 +42,8 @@ export interface Lead {
   notes: string | null
   next_followup: string | null
   assigned_to: string | null
+  assignee_ids: string[]
+  sort_order: number | null
   converted_client_id: string | null
   created_by: string | null
   created_at: string
@@ -54,6 +56,7 @@ export interface Task {
   done: boolean
   due_date: string | null
   assigned_to: string | null
+  assignee_ids: string[]
   client_id: string | null
   lead_id: string | null
   notes: string | null
@@ -87,6 +90,14 @@ export interface Transaction {
   created_at: string
 }
 
+export interface TeamMember {
+  id: string
+  name: string
+  color: string
+  active: boolean
+  created_at: string
+}
+
 export interface Video {
   id: string
   client_id: string
@@ -103,6 +114,8 @@ export interface Video {
   duration_seconds: number | null
   posted_ig: boolean
   posted_tiktok: boolean
+  sort_order: number | null
+  assignee_ids: string[]
   created_by: string | null
   created_at: string
   updated_at: string

@@ -4,6 +4,9 @@ import { useAuth } from '../context/AuthContext'
 import { dateRelative } from '../lib/format'
 import type { Task } from '../lib/types'
 import Modal from '../components/Modal'
+import { AssigneePicker, AssigneeChips } from '../components/Assignee'
+import { useTeam } from '../context/TeamContext'
+import { useToast } from '../context/ToastContext'
 
 interface TaskRow extends Task {
   clients?: { name: string } | null
@@ -14,6 +17,8 @@ interface Option { id: string; name: string }
 
 export default function Tasks() {
   const { user } = useAuth()
+  const { members } = useTeam()
+  const { toast } = useToast()
   const [tasks, setTasks] = useState<TaskRow[]>([])
   const [clients, setClients] = useState<Option[]>([])
   const [leads, setLeads] = useState<Option[]>([])
@@ -22,6 +27,8 @@ export default function Tasks() {
   const [editing, setEditing] = useState<TaskRow | null>(null)
   const [creating, setCreating] = useState(false)
   const [showDone, setShowDone] = useState(false)
+  const [q, setQ] = useState('')
+  const [filterMember, setFilterMember] = useState('')
 
   async function load() {
     setError(null)
@@ -61,8 +68,19 @@ export default function Tasks() {
     if (error) load()
   }
 
-  const open = tasks.filter((t) => !t.done)
-  const done = tasks.filter((t) => t.done)
+  const filtered = tasks.filter((t) => {
+    if (filterMember && !(t.assignee_ids ?? []).includes(filterMember)) return false
+    if (q.trim()) {
+      const hay = [t.title, t.notes, t.clients?.name, t.leads?.name]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+      if (!hay.includes(q.trim().toLowerCase())) return false
+    }
+    return true
+  })
+  const open = filtered.filter((t) => !t.done)
+  const done = filtered.filter((t) => t.done)
 
   return (
     <>
@@ -75,6 +93,21 @@ export default function Tasks() {
         <button className="btn btn-primary" onClick={() => setCreating(true)}>
           + Aufgabe
         </button>
+      </div>
+
+      <div className="toolbar-row">
+        <input
+          className="search-input"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="🔎 Aufgabe suchen …"
+        />
+        <select value={filterMember} onChange={(e) => setFilterMember(e.target.value)} className="filter-select">
+          <option value="">Alle Zuständigen</option>
+          {members.map((m) => (
+            <option key={m.id} value={m.id}>{m.name}</option>
+          ))}
+        </select>
       </div>
 
       {error && <div className="error-box" style={{ marginBottom: 16 }}>{error}</div>}
@@ -115,6 +148,7 @@ export default function Tasks() {
             setCreating(false)
             setEditing(null)
             load()
+            toast('Gespeichert ✓')
           }}
         />
       )}
@@ -154,6 +188,7 @@ function TaskItem({
             </span>
           )}
           {linked && <span className="chip">{t.clients?.name ? '👤 ' : '🎯 '}{linked}</span>}
+          <AssigneeChips ids={t.assignee_ids ?? []} />
         </div>
       </div>
       <button className="btn btn-sm btn-danger" onClick={onDelete} title="loeschen">
@@ -185,6 +220,7 @@ function TaskModal({
   const [link, setLink] = useState(
     task?.client_id ? `client:${task.client_id}` : task?.lead_id ? `lead:${task.lead_id}` : '',
   )
+  const [assignees, setAssignees] = useState<string[]>(task?.assignee_ids ?? [])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -195,7 +231,7 @@ function TaskModal({
     setError(null)
     const client_id = link.startsWith('client:') ? link.slice(7) : null
     const lead_id = link.startsWith('lead:') ? link.slice(5) : null
-    const payload = { title: title.trim(), due_date: due || null, notes: notes.trim() || null, client_id, lead_id }
+    const payload = { title: title.trim(), due_date: due || null, notes: notes.trim() || null, client_id, lead_id, assignee_ids: assignees }
     const res = task
       ? await supabase.from('tasks').update(payload).eq('id', task.id)
       : await supabase.from('tasks').insert({ ...payload, created_by: userId })
@@ -237,6 +273,10 @@ function TaskModal({
               )}
             </select>
           </div>
+        </div>
+        <div>
+          <label>Zuständig</label>
+          <AssigneePicker value={assignees} onChange={setAssignees} />
         </div>
         <div>
           <label>Notizen</label>
