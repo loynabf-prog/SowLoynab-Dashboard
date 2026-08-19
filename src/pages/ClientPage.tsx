@@ -12,6 +12,7 @@ import {
 } from '../lib/types'
 import VideoCard from '../components/VideoCard'
 import LogoFrame from '../components/LogoFrame'
+import LogoCropper from '../components/LogoCropper'
 import Modal from '../components/Modal'
 import ActivityLog from '../components/ActivityLog'
 import Spinner from '../components/Spinner'
@@ -655,14 +656,15 @@ function EditClientModal({
   const [active, setActive] = useState(client.active ?? true)
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [logoPreview, setLogoPreview] = useState<string | null>(client.logo_url)
+  const [cropFile, setCropFile] = useState<File | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   function onPickLogo(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    setLogoFile(file)
-    setLogoPreview(URL.createObjectURL(file))
+    setCropFile(file)
+    e.target.value = ''
   }
 
   async function save(e: React.FormEvent) {
@@ -753,6 +755,17 @@ function EditClientModal({
           </button>
         </div>
       </form>
+      {cropFile && (
+        <LogoCropper
+          file={cropFile}
+          onCancel={() => setCropFile(null)}
+          onDone={(cropped) => {
+            setLogoFile(cropped)
+            setLogoPreview(URL.createObjectURL(cropped))
+            setCropFile(null)
+          }}
+        />
+      )}
     </Modal>
   )
 }

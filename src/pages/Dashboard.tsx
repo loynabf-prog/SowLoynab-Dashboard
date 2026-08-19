@@ -6,6 +6,7 @@ import { uploadLogo } from '../lib/storage'
 import type { Client, VideoStatus } from '../lib/types'
 import Modal from '../components/Modal'
 import LogoFrame from '../components/LogoFrame'
+import LogoCropper from '../components/LogoCropper'
 
 interface ClientWithCount extends Client {
   video_count: number
@@ -195,14 +196,15 @@ function AddClientModal({
   const [notes, setNotes] = useState('')
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
+  const [cropFile, setCropFile] = useState<File | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   function onPickLogo(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    setLogoFile(file)
-    setLogoPreview(URL.createObjectURL(file))
+    setCropFile(file) // erst zuschneiden
+    e.target.value = ''
   }
 
   async function save(e: React.FormEvent) {
@@ -274,6 +276,17 @@ function AddClientModal({
           </button>
         </div>
       </form>
+      {cropFile && (
+        <LogoCropper
+          file={cropFile}
+          onCancel={() => setCropFile(null)}
+          onDone={(cropped) => {
+            setLogoFile(cropped)
+            setLogoPreview(URL.createObjectURL(cropped))
+            setCropFile(null)
+          }}
+        />
+      )}
     </Modal>
   )
 }
