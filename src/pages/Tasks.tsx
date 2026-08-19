@@ -231,7 +231,15 @@ function TaskModal({
     setError(null)
     const client_id = link.startsWith('client:') ? link.slice(7) : null
     const lead_id = link.startsWith('lead:') ? link.slice(5) : null
-    const payload = { title: title.trim(), due_date: due || null, notes: notes.trim() || null, client_id, lead_id, assignee_ids: assignees }
+    const payload = {
+      title: title.trim(),
+      due_date: due || null,
+      notes: notes.trim() || null,
+      client_id,
+      lead_id,
+      // assignee_ids nur mitschicken, wenn Team-Feature aktiv (Skript 5)
+      ...(assignees.length ? { assignee_ids: assignees } : {}),
+    }
     const res = task
       ? await supabase.from('tasks').update(payload).eq('id', task.id)
       : await supabase.from('tasks').insert({ ...payload, created_by: userId })

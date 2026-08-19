@@ -28,8 +28,7 @@ export default function Leads() {
     const { data, error } = await supabase
       .from('leads')
       .select('*')
-      .order('sort_order', { ascending: true, nullsFirst: true })
-      .order('created_at', { ascending: false })
+      .order('created_at', { ascending: true })
     if (error) setError(error.message)
     else setLeads((data ?? []) as Lead[])
     setLoading(false)
@@ -158,7 +157,9 @@ export default function Leads() {
 
       <div className="pipeline">
         {LEAD_STAGE_ORDER.map((stage) => {
-          const items = shown.filter((l) => l.stage === stage)
+          const items = shown
+            .filter((l) => l.stage === stage)
+            .sort((a, b) => orderVal(a) - orderVal(b))
           const sum = items.reduce((s, l) => s + (l.potential_fee ?? 0), 0)
           return (
             <div
@@ -328,11 +329,12 @@ function LeadModal({
       potential_fee: f.potential_fee ? Number(f.potential_fee.replace(',', '.')) : null,
       next_followup: f.next_followup || null,
       notes: f.notes.trim() || null,
-      assignee_ids: assignees,
+      // assignee_ids nur mitschicken, wenn Team-Feature aktiv (Skript 5)
+      ...(assignees.length ? { assignee_ids: assignees } : {}),
     }
     const res = lead
       ? await supabase.from('leads').update(payload).eq('id', lead.id)
-      : await supabase.from('leads').insert({ ...payload, sort_order: Date.now() / 1000, created_by: userId })
+      : await supabase.from('leads').insert({ ...payload, created_by: userId })
     setBusy(false)
     if (res.error) setError(res.error.message)
     else onSaved()

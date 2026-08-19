@@ -46,8 +46,7 @@ export default function ClientPage() {
       .from('videos')
       .select('*')
       .eq('client_id', id)
-      .order('sort_order', { ascending: true, nullsFirst: true })
-      .order('created_at', { ascending: false })
+      .order('created_at', { ascending: true })
     if (error) {
       setError(error.message)
       return
@@ -126,7 +125,6 @@ export default function ClientPage() {
       scheduled_time: fields.scheduled_time,
       caption: fields.caption,
       notes: fields.notes,
-      sort_order: Date.now() / 1000,
       created_by: user?.id ?? null,
     })
     if (error) setError(error.message)
@@ -197,7 +195,9 @@ export default function ClientPage() {
 
       <div className="board">
         {STATUS_ORDER.map((status) => {
-          const items = videos.filter((v) => v.status === status)
+          const items = videos
+            .filter((v) => v.status === status)
+            .sort((a, b) => orderVal(a) - orderVal(b))
           return (
             <div
               className="board-col"
