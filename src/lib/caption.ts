@@ -22,22 +22,27 @@ export async function generateCaption(
   })
 
   if (error) {
-    // Edge Function nicht deployt / Secret fehlt / Netzwerk
-    const body = (error as any)?.context ? await safeBody((error as any).context) : null
-    throw new Error(
-      body?.error ||
-        'Die Auto-Caption ist noch nicht aktiviert oder nicht erreichbar. ' +
-          '(Edge Function „generate-caption" deployt? ANTHROPIC_API_KEY gesetzt?)',
-    )
+    // Echten Grund herausziehen, damit die Meldung diagnostisch ist
+    const ctx = (error as any)?.context
+    let detail = ''
+    let status: number | undefined
+    if (ctx && typeof ctx.status === 'number') status = ctx.status
+    if (ctx && typeof ctx.text === 'function') {
+      try {
+        const raw = await ctx.text()
+        try {
+          detail = JSON.parse(raw)?.error || raw
+        } catch {
+          detail = raw
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+    const name = (error as any)?.name || 'Fehler'
+    const msg = detail || (error as any)?.message || 'Funktion nicht erreichbar'
+    throw new Error(`[${name}${status ? ' ' + status : ''}] ${msg}`.slice(0, 400))
   }
   if (data?.error) throw new Error(data.error)
   return (data?.caption ?? '').trim()
-}
-
-async function safeBody(res: Response): Promise<any> {
-  try {
-    return await res.json()
-  } catch {
-    return null
-  }
 }
