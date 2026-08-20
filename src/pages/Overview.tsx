@@ -27,13 +27,14 @@ export default function Overview() {
       const monthPrefix = iso(today).slice(0, 7)
 
       const [leadsRes, clientsRes, txRes, tasksRes, postsRes] = await Promise.all([
-        supabase.from('leads').select('stage, potential_fee'),
+        supabase.from('leads').select('stage, potential_fee').is('deleted_at', null),
         supabase.from('clients').select('monthly_fee, active'),
         supabase.from('transactions').select('type, amount, occurred_on'),
         supabase
           .from('tasks')
           .select('id, title, due_date, clients(name), leads(name)')
           .eq('done', false)
+          .is('deleted_at', null)
           .not('due_date', 'is', null)
           .lte('due_date', iso(today))
           .order('due_date', { ascending: true }),
@@ -41,6 +42,7 @@ export default function Overview() {
           .from('videos')
           .select('id, title, scheduled_date, client_id, status, clients(name)')
           .neq('status', 'posted')
+          .is('deleted_at', null)
           .not('scheduled_date', 'is', null)
           .gte('scheduled_date', iso(today))
           .lte('scheduled_date', iso(in7))

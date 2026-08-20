@@ -17,10 +17,12 @@ import Modal from '../components/Modal'
 import ActivityLog from '../components/ActivityLog'
 import Spinner from '../components/Spinner'
 import { generateCaption } from '../lib/caption'
+import { useToast } from '../context/ToastContext'
 
 export default function ClientPage() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuth()
+  const { toast } = useToast()
   const [client, setClient] = useState<Client | null>(null)
   const [videos, setVideos] = useState<Video[]>([])
   const [loading, setLoading] = useState(true)
@@ -51,7 +53,8 @@ export default function ClientPage() {
       setError(error.message)
       return
     }
-    setVideos((data ?? []) as Video[])
+    // Papierkorb clientseitig ausblenden (robust, falls Spalte fehlt)
+    setVideos((data ?? []).filter((v: any) => !v.deleted_at) as Video[])
   }, [id])
 
   useEffect(() => {
@@ -135,13 +138,24 @@ export default function ClientPage() {
   }
 
   async function deleteVideo(videoId: string) {
-    if (!confirm('Dieses Video wirklich loeschen?')) return
+    // Soft-Delete -> Papierkorb, mit Undo
     setVideos((prev) => prev.filter((v) => v.id !== videoId))
-    const { error } = await supabase.from('videos').delete().eq('id', videoId)
+    const { error } = await supabase
+      .from('videos')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', videoId)
     if (error) {
       setError(error.message)
       loadVideos()
+      return
     }
+    toast('In den Papierkorb', {
+      label: 'Rückgängig',
+      onClick: async () => {
+        await supabase.from('videos').update({ deleted_at: null }).eq('id', videoId)
+        loadVideos()
+      },
+    })
   }
 
   if (loading) return <Spinner />

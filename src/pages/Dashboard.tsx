@@ -55,6 +55,7 @@ export default function Dashboard() {
       .from('videos')
       .select('id, title, status, scheduled_date, scheduled_time, client_id, clients(name)')
       .in('status', ['ready', 'planned'])
+      .is('deleted_at', null)
       .not('scheduled_date', 'is', null)
       .order('scheduled_date', { ascending: true })
       .limit(6)

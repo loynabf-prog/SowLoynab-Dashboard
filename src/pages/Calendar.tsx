@@ -73,17 +73,20 @@ export default function Calendar() {
         supabase
           .from('videos')
           .select('id, title, scheduled_date, scheduled_time, client_id, clients(name)')
+          .is('deleted_at', null)
           .gte('scheduled_date', from)
           .lte('scheduled_date', to),
         supabase
           .from('tasks')
           .select('id, title, due_date, done, clients(name), leads(name)')
           .eq('done', false)
+          .is('deleted_at', null)
           .gte('due_date', from)
           .lte('due_date', to),
         supabase
           .from('leads')
           .select('id, name, next_followup')
+          .is('deleted_at', null)
           .gte('next_followup', from)
           .lte('next_followup', to),
       ])

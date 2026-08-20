@@ -30,7 +30,7 @@ export default function Leads() {
       .select('*')
       .order('created_at', { ascending: true })
     if (error) setError(error.message)
-    else setLeads((data ?? []) as Lead[])
+    else setLeads((data ?? []).filter((l: any) => !l.deleted_at) as Lead[])
     setLoading(false)
   }
 
@@ -77,13 +77,23 @@ export default function Leads() {
   }
 
   async function deleteLead(id: string) {
-    if (!confirm('Diesen Lead wirklich loeschen?')) return
     setLeads((prev) => prev.filter((l) => l.id !== id))
-    const { error } = await supabase.from('leads').delete().eq('id', id)
+    const { error } = await supabase
+      .from('leads')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', id)
     if (error) {
       setError(error.message)
       load()
+      return
     }
+    toast('In den Papierkorb', {
+      label: 'Rückgängig',
+      onClick: async () => {
+        await supabase.from('leads').update({ deleted_at: null }).eq('id', id)
+        load()
+      },
+    })
   }
 
   async function convertToClient(lead: Lead) {

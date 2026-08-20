@@ -38,7 +38,7 @@ export default function Tasks() {
       .order('due_date', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: false })
     if (error) setError(error.message)
-    else setTasks((data ?? []) as TaskRow[])
+    else setTasks((data ?? []).filter((t: any) => !t.deleted_at) as TaskRow[])
     setLoading(false)
   }
 
@@ -64,8 +64,21 @@ export default function Tasks() {
 
   async function remove(id: string) {
     setTasks((prev) => prev.filter((x) => x.id !== id))
-    const { error } = await supabase.from('tasks').delete().eq('id', id)
-    if (error) load()
+    const { error } = await supabase
+      .from('tasks')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', id)
+    if (error) {
+      load()
+      return
+    }
+    toast('In den Papierkorb', {
+      label: 'Rückgängig',
+      onClick: async () => {
+        await supabase.from('tasks').update({ deleted_at: null }).eq('id', id)
+        load()
+      },
+    })
   }
 
   const filtered = tasks.filter((t) => {

@@ -9,6 +9,7 @@ const NAV = [
   { to: '/kalender', label: 'Kalender' },
   { to: '/finanzen', label: 'Finanzen' },
   { to: '/team', label: 'Team' },
+  { to: '/papierkorb', label: 'Papierkorb' },
 ]
 
 export default function Layout({ children }: { children: React.ReactNode }) {
