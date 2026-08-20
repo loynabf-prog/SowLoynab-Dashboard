@@ -1,5 +1,6 @@
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import VoiceButton from './VoiceButton'
 
 const NAV = [
   { to: '/uebersicht', label: 'Übersicht' },
@@ -53,6 +54,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           {children}
         </div>
       </main>
+
+      <VoiceButton />
     </>
   )
 }
