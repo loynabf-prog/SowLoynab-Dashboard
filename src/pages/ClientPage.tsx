@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { uploadLogo } from '../lib/storage'
@@ -19,6 +19,7 @@ import ActivityLog from '../components/ActivityLog'
 import Spinner from '../components/Spinner'
 import { generateCaption } from '../lib/caption'
 import { generateIdeas } from '../lib/ideas'
+import NudgeModal from '../components/NudgeModal'
 import { useToast } from '../context/ToastContext'
 
 type ClientTab = 'board' | 'pool'
@@ -40,6 +41,9 @@ export default function ClientPage() {
   const [info, setInfo] = useState<string | null>(null)
   const [tab, setTab] = useState<ClientTab>('board')
   const [ideas, setIdeas] = useState<VideoIdea[]>([])
+  const [nudging, setNudging] = useState<Video | null>(null)
+  const [flashId, setFlashId] = useState<string | null>(null)
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const loadClient = useCallback(async () => {
     if (!id) return
@@ -101,6 +105,27 @@ export default function ClientPage() {
       supabase.removeChannel(channel)
     }
   }, [id, loadClient, loadVideos, loadIdeas])
+
+  // Deep-Link (?video=<id>) aus einem Anstupser: zur Karte springen + hervorheben
+  useEffect(() => {
+    const focus = searchParams.get('video')
+    if (loading || !focus) return
+    if (!videos.some((v) => v.id === focus)) return
+    setTab('board')
+    setFlashId(focus)
+    const t = setTimeout(() => {
+      document.getElementById(`vid-${focus}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 60)
+    const clear = setTimeout(() => setFlashId(null), 2800)
+    // Parameter entfernen, damit ein Reload nicht erneut springt
+    searchParams.delete('video')
+    setSearchParams(searchParams, { replace: true })
+    return () => {
+      clearTimeout(t)
+      clearTimeout(clear)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, videos])
 
   async function patchVideo(videoId: string, patch: Partial<Video>) {
     setVideos((prev) => prev.map((v) => (v.id === videoId ? { ...v, ...patch } : v)))
@@ -333,7 +358,8 @@ export default function ClientPage() {
                 {items.map((v) => (
                   <div
                     key={v.id}
-                    className={`drag-wrap ${draggingId === v.id ? 'dragging' : ''}`}
+                    id={`vid-${v.id}`}
+                    className={`drag-wrap ${draggingId === v.id ? 'dragging' : ''} ${flashId === v.id ? 'flash' : ''}`}
                     draggable
                     onDragStart={(e) => {
                       const t = e.target as HTMLElement
@@ -360,6 +386,7 @@ export default function ClientPage() {
                       onDelete={() => deleteVideo(v.id)}
                       onLink={() => setLinking(v)}
                       onCaption={() => setCaptioning(v)}
+                      onNudge={() => setNudging(v)}
                     />
                   </div>
                 ))}
@@ -401,6 +428,14 @@ export default function ClientPage() {
 
       {creating && (
         <NewIdeaModal onClose={() => setCreating(false)} onSave={createIdea} />
+      )}
+
+      {nudging && (
+        <NudgeModal
+          defaultBody={`„${nudging.title}" ist fertig – kannst du posten? 🎬`}
+          link={`/client/${client.id}?video=${nudging.id}`}
+          onClose={() => setNudging(null)}
+        />
       )}
 
       {linking && (

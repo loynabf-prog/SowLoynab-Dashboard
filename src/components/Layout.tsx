@@ -1,6 +1,7 @@
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import VoiceButton from './VoiceButton'
+import NudgeCenter from './NudgeCenter'
 
 const NAV = [
   { to: '/uebersicht', label: 'Übersicht' },
@@ -28,6 +29,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           Sow&nbsp;&amp;&nbsp;Loynab
         </Link>
         <div className="spacer" />
+        <NudgeCenter />
         {user?.email && <span className="muted user-email">{user.email}</span>}
         <button className="btn btn-sm btn-ghost" onClick={() => signOut()}>
           Abmelden

@@ -4,9 +4,17 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import { AuthProvider } from './context/AuthContext'
 import { TeamProvider } from './context/TeamContext'
+import { IdentityProvider } from './context/IdentityContext'
 import { ToastProvider } from './context/ToastContext'
 import './index.css'
 import './app.css'
+
+// Service Worker registrieren (fuer Handy-Push & App-Feeling)
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {})
+  })
+}
 
 // basename = Vite BASE_URL ohne abschliessenden Slash (fuer GitHub-Pages-Unterpfad).
 // Bei Root-Hosting ("/") ergibt das "/" und aendert nichts.
@@ -17,9 +25,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <BrowserRouter basename={basename}>
       <AuthProvider>
         <TeamProvider>
-          <ToastProvider>
-            <App />
-          </ToastProvider>
+          <IdentityProvider>
+            <ToastProvider>
+              <App />
+            </ToastProvider>
+          </IdentityProvider>
         </TeamProvider>
       </AuthProvider>
     </BrowserRouter>

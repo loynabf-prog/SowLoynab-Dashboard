@@ -9,6 +9,7 @@ interface Props {
   onDelete: () => void
   onCaption: () => void
   onLink: () => void
+  onNudge: () => void
 }
 
 function fmtDate(d: string | null, time: string | null): string {
@@ -26,7 +27,7 @@ function isDue(v: Video): boolean {
   return d.getTime() <= today.getTime() + 86400000
 }
 
-export default function VideoCard({ video, onPatch, onEdit, onDelete, onCaption, onLink }: Props) {
+export default function VideoCard({ video, onPatch, onEdit, onDelete, onCaption, onLink, onNudge }: Props) {
   const [title, setTitle] = useState(video.title)
   const due = isDue(video)
 
@@ -104,6 +105,9 @@ export default function VideoCard({ video, onPatch, onEdit, onDelete, onCaption,
         </button>
         <button className="btn btn-sm" onClick={onCaption} title="Auto-Caption per Claude">
           ✨ Caption
+        </button>
+        <button className="btn btn-sm" onClick={onNudge} title="Person anstupsen">
+          👉 Anstupsen
         </button>
         <div className="spacer" />
         <button className="btn btn-sm btn-danger" onClick={onDelete} title="Video loeschen">

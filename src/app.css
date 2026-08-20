@@ -1161,3 +1161,90 @@ a.fin-tile:hover { transform: translateY(-3px); box-shadow: var(--shadow); borde
 .ai-idea span { display: flex; flex-direction: column; gap: 3px; }
 .ai-idea-title { font-weight: 700; font-size: 14px; color: var(--text); }
 .ai-idea-notes { font-size: 13px; color: var(--text-muted); line-height: 1.4; }
+
+/* ============================ Anstupser / Glocke ============================ */
+.nudge-center { position: relative; }
+.nudge-bell {
+  position: relative;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-elev);
+  border-radius: var(--radius-sm);
+  padding: 7px 10px;
+  font-size: 16px;
+  cursor: pointer;
+  line-height: 1;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.nudge-bell:hover { border-color: var(--brand); box-shadow: var(--shadow-sm); }
+.nudge-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--brand);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 0 0 2px var(--bg-elev);
+}
+.nudge-backdrop { position: fixed; inset: 0; z-index: 1400; }
+.nudge-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 1401;
+  width: min(340px, calc(100vw - 32px));
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  animation: riseIn 0.18s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+.nudge-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  font-weight: 700;
+  border-bottom: 1px solid var(--border);
+}
+.nudge-identity { padding: 10px 14px; font-size: 13px; border-bottom: 1px solid var(--border); background: var(--bg-card); }
+.nudge-pick { display: flex; flex-direction: column; gap: 8px; }
+.nudge-pick-opts { display: flex; flex-wrap: wrap; gap: 6px; }
+.linklike { border: none; background: none; color: var(--brand); font-weight: 700; cursor: pointer; padding: 0; font-size: 13px; }
+.nudge-push { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+.nudge-push-on { font-size: 13px; color: var(--posted, #2e9e5b); font-weight: 700; }
+.nudge-list { max-height: 46vh; overflow-y: auto; }
+.nudge-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  padding: 11px 14px;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.nudge-item:hover { background: var(--bg-card-hover); }
+.nudge-item.unread { background: rgba(224, 82, 26, 0.05); }
+.nudge-item.unread:hover { background: rgba(224, 82, 26, 0.09); }
+.nudge-item-body { font-size: 14px; color: var(--text); line-height: 1.35; }
+.nudge-item-meta { font-size: 11px; color: var(--text-dim); margin-top: 3px; }
+
+/* Aufleuchten der angestupsten Karte */
+.drag-wrap.flash { animation: cardFlash 2.6s ease-out both; border-radius: var(--radius); }
+@keyframes cardFlash {
+  0%, 22% { box-shadow: 0 0 0 3px var(--brand), 0 10px 30px var(--brand-glow); }
+  100%    { box-shadow: 0 0 0 0 transparent; }
+}
+
+@media (max-width: 640px) {
+  .nudge-panel { position: fixed; top: 64px; right: 12px; left: 12px; width: auto; }
+}
