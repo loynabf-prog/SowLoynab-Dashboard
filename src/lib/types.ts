@@ -10,9 +10,25 @@ export interface Client {
   package: string | null
   monthly_fee: number | null
   active: boolean
+  ai_brief: string | null
+  brand_notes: string | null
+  city: string | null
   created_by: string | null
   created_at: string
   updated_at: string
+}
+
+export interface VideoIdea {
+  id: string
+  client_id: string
+  title: string
+  notes: string | null
+  source: 'manual' | 'ai'
+  sort_order: number | null
+  moved_video_id: string | null
+  deleted_at: string | null
+  created_by: string | null
+  created_at: string
 }
 
 export type LeadStage = 'new' | 'contacted' | 'talking' | 'offer' | 'won' | 'lost'

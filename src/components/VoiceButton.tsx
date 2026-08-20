@@ -4,6 +4,8 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { pickMimeType, sendVoice, type VoiceIntent, type VoiceIntentType } from '../lib/voice'
+import { generateIdeas } from '../lib/ideas'
+import type { Client } from '../lib/types'
 import Modal from './Modal'
 
 interface Opt { id: string; name: string }
@@ -14,6 +16,7 @@ const TYPE_LABEL: Record<VoiceIntentType, string> = {
   task: 'Aufgabe',
   lead: 'Lead',
   video: 'Videoidee',
+  ideas: 'KI-Ideen',
   unknown: 'Unklar',
 }
 
@@ -215,6 +218,9 @@ function ReviewModal({
   const [email, setEmail] = useState(intent?.email || '')
   const [city, setCity] = useState(intent?.city || '')
   const [notes, setNotes] = useState(intent?.notes || '')
+  const [count, setCount] = useState(intent?.count && intent.count > 0 ? Math.min(intent.count, 12) : 5)
+  const [theme, setTheme] = useState(intent?.theme || '')
+  const [gen, setGen] = useState<{ title: string; notes: string | null; on: boolean }[] | null>(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
@@ -292,6 +298,45 @@ function ReviewModal({
     }
   }
 
+  // ---- KI-Ideen aus Sprachbefehl ("Gib mir 5 Videoideen für …") ----
+  async function runIdeas() {
+    if (!clientId) { setErr('Bitte einen Kunden auswählen.'); return }
+    setBusy(true)
+    setErr(null)
+    try {
+      const { data: client } = await supabase.from('clients').select('*').eq('id', clientId).single()
+      if (!client) throw new Error('Kunde nicht gefunden.')
+      const ideas = await generateIdeas(client as Client, count, theme.trim() || null, [])
+      setGen(ideas.map((i) => ({ title: i.title, notes: i.notes, on: true })))
+    } catch (e) {
+      setErr((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function saveIdeas() {
+    const chosen = (gen ?? []).filter((g) => g.on)
+    if (!clientId || chosen.length === 0) return
+    setBusy(true)
+    setErr(null)
+    try {
+      const { data, error } = await supabase
+        .from('video_ideas')
+        .insert(chosen.map((g) => ({ client_id: clientId, title: g.title, notes: g.notes, source: 'ai', created_by: userId })))
+        .select('id')
+      if (error) throw error
+      const ids = (data ?? []).map((r: any) => r.id)
+      onDone(`${chosen.length} Ideen im Ideenspeicher ✓`, async () => {
+        if (ids.length) await supabase.from('video_ideas').update({ deleted_at: new Date().toISOString() }).in('id', ids)
+      })
+      navigate(`/client/${clientId}`)
+    } catch (e) {
+      setErr((e as Error).message)
+      setBusy(false)
+    }
+  }
+
   return (
     <Modal title="Sprachbefehl prüfen" onClose={onClose}>
       <div className="stack">
@@ -305,18 +350,76 @@ function ReviewModal({
         <div>
           <label>Das ist eine …</label>
           <div className="seg voice-typeseg">
-            {(['task', 'lead', 'video'] as VoiceIntentType[]).map((t) => (
+            {(['task', 'lead', 'video', 'ideas'] as VoiceIntentType[]).map((t) => (
               <button
                 key={t}
                 type="button"
                 className={`seg-btn ${type === t ? 'on' : ''}`}
-                onClick={() => setType(t)}
+                onClick={() => { setType(t); setGen(null) }}
               >
                 {TYPE_LABEL[t]}
               </button>
             ))}
           </div>
         </div>
+
+        {type === 'ideas' ? (
+          <>
+            {!gen ? (
+              <>
+                <div>
+                  <label>Kunde *</label>
+                  <select value={clientId} onChange={(e) => setClientId(e.target.value)}>
+                    <option value="">— Kunde wählen —</option>
+                    {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+                <div className="row" style={{ gap: 12 }}>
+                  <div style={{ flex: 1 }}>
+                    <label>Wie viele?</label>
+                    <select value={count} onChange={(e) => setCount(Number(e.target.value))}>
+                      {[3, 5, 8, 10].map((n) => <option key={n} value={n}>{n} Ideen</option>)}
+                    </select>
+                  </div>
+                  <div style={{ flex: 2 }}>
+                    <label>Schwerpunkt (optional)</label>
+                    <input value={theme} onChange={(e) => setTheme(e.target.value)} placeholder="z. B. Weihnachtsaktion" />
+                  </div>
+                </div>
+                <button type="button" className="btn btn-primary" onClick={runIdeas} disabled={busy || !clientId}>
+                  {busy ? 'KI denkt nach …' : `✨ ${count} Ideen erstellen`}
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="muted">Häkchen raus = wird nicht gespeichert.</p>
+                <div className="ai-idea-list">
+                  {gen.map((r, idx) => (
+                    <label className={`ai-idea ${r.on ? 'on' : ''}`} key={idx}>
+                      <input
+                        type="checkbox"
+                        checked={r.on}
+                        onChange={(e) => setGen((prev) => prev!.map((x, i) => (i === idx ? { ...x, on: e.target.checked } : x)))}
+                      />
+                      <span>
+                        <span className="ai-idea-title">{r.title}</span>
+                        {r.notes && <span className="ai-idea-notes">{r.notes}</span>}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                <div className="modal-actions">
+                  <button type="button" className="btn btn-ghost" onClick={() => setGen(null)}>← Neu</button>
+                  <div className="spacer" />
+                  <button type="button" className="btn btn-primary" onClick={saveIdeas} disabled={busy || gen.every((g) => !g.on)}>
+                    {gen.filter((g) => g.on).length} in den Speicher
+                  </button>
+                </div>
+              </>
+            )}
+          </>
+        ) : (
+        <>
 
         {type === 'lead' ? (
           <div>
@@ -411,6 +514,8 @@ function ReviewModal({
             {busy ? 'Speichere …' : 'Anlegen'}
           </button>
         </div>
+        </>
+        )}
       </div>
     </Modal>
   )

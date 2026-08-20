@@ -1,7 +1,7 @@
 import { supabase } from './supabase'
 
 // Ergebnis eines Sprachbefehls: erkannter Text + strukturierter Vorschlag.
-export type VoiceIntentType = 'task' | 'lead' | 'video' | 'unknown'
+export type VoiceIntentType = 'task' | 'lead' | 'video' | 'ideas' | 'unknown'
 
 export interface VoiceIntent {
   type: VoiceIntentType
@@ -11,6 +11,8 @@ export interface VoiceIntent {
   lead_name?: string | null
   date?: string | null
   time?: string | null
+  count?: number | null
+  theme?: string | null
   contact_person?: string | null
   phone?: string | null
   email?: string | null

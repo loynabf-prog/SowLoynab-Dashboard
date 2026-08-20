@@ -9,6 +9,7 @@ import {
   type Client,
   type Video,
   type VideoStatus,
+  type VideoIdea,
 } from '../lib/types'
 import VideoCard from '../components/VideoCard'
 import LogoFrame from '../components/LogoFrame'
@@ -17,7 +18,10 @@ import Modal from '../components/Modal'
 import ActivityLog from '../components/ActivityLog'
 import Spinner from '../components/Spinner'
 import { generateCaption } from '../lib/caption'
+import { generateIdeas } from '../lib/ideas'
 import { useToast } from '../context/ToastContext'
+
+type ClientTab = 'board' | 'pool'
 
 export default function ClientPage() {
   const { id } = useParams<{ id: string }>()
@@ -34,6 +38,8 @@ export default function ClientPage() {
   const [editClient, setEditClient] = useState(false)
   const [creating, setCreating] = useState(false)
   const [info, setInfo] = useState<string | null>(null)
+  const [tab, setTab] = useState<ClientTab>('board')
+  const [ideas, setIdeas] = useState<VideoIdea[]>([])
 
   const loadClient = useCallback(async () => {
     if (!id) return
@@ -57,11 +63,23 @@ export default function ClientPage() {
     setVideos((data ?? []).filter((v: any) => !v.deleted_at) as Video[])
   }, [id])
 
+  const loadIdeas = useCallback(async () => {
+    if (!id) return
+    // Ideenspeicher; still robust falls Tabelle noch fehlt (Skript 8)
+    const { data, error } = await supabase
+      .from('video_ideas')
+      .select('*')
+      .eq('client_id', id)
+      .order('created_at', { ascending: false })
+    if (error) return
+    setIdeas((data ?? []).filter((i: any) => !i.deleted_at && !i.moved_video_id) as VideoIdea[])
+  }, [id])
+
   useEffect(() => {
     if (!id) return
     async function loadAll() {
       setLoading(true)
-      await Promise.all([loadClient(), loadVideos()])
+      await Promise.all([loadClient(), loadVideos(), loadIdeas()])
       setLoading(false)
     }
     loadAll()
@@ -73,11 +91,16 @@ export default function ClientPage() {
         { event: '*', schema: 'public', table: 'videos', filter: `client_id=eq.${id}` },
         () => loadVideos(),
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'video_ideas', filter: `client_id=eq.${id}` },
+        () => loadIdeas(),
+      )
       .subscribe()
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [id, loadClient, loadVideos])
+  }, [id, loadClient, loadVideos, loadIdeas])
 
   async function patchVideo(videoId: string, patch: Partial<Video>) {
     setVideos((prev) => prev.map((v) => (v.id === videoId ? { ...v, ...patch } : v)))
@@ -158,6 +181,69 @@ export default function ClientPage() {
     })
   }
 
+  // ---------- Ideenspeicher ----------
+  async function addPoolIdeas(rows: { title: string; notes: string | null; source: 'manual' | 'ai' }[]) {
+    if (!id || rows.length === 0) return
+    const { error } = await supabase.from('video_ideas').insert(
+      rows.map((r) => ({ client_id: id, title: r.title, notes: r.notes, source: r.source, created_by: user?.id ?? null })),
+    )
+    if (error) setError(error.message)
+    else loadIdeas()
+  }
+
+  async function deletePoolIdea(ideaId: string) {
+    setIdeas((prev) => prev.filter((i) => i.id !== ideaId))
+    const { error } = await supabase
+      .from('video_ideas')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', ideaId)
+    if (error) {
+      loadIdeas()
+      return
+    }
+    toast('In den Papierkorb', {
+      label: 'Rückgängig',
+      onClick: async () => {
+        await supabase.from('video_ideas').update({ deleted_at: null }).eq('id', ideaId)
+        loadIdeas()
+      },
+    })
+  }
+
+  // Idee aus dem Speicher ins Board holen -> wird echtes Video (Zu bearbeiten)
+  async function moveIdeaToBoard(idea: VideoIdea) {
+    if (!id) return
+    setIdeas((prev) => prev.filter((i) => i.id !== idea.id))
+    const { data, error } = await supabase
+      .from('videos')
+      .insert({
+        client_id: id,
+        title: idea.title,
+        status: 'todo' as VideoStatus,
+        notes: idea.notes,
+        created_by: user?.id ?? null,
+      })
+      .select('id')
+      .single()
+    if (error) {
+      setError(error.message)
+      loadIdeas()
+      return
+    }
+    await supabase.from('video_ideas').update({ moved_video_id: data.id }).eq('id', idea.id)
+    loadVideos()
+    loadIdeas()
+    toast('Ins Board übernommen ✓', {
+      label: 'Zurück in den Speicher',
+      onClick: async () => {
+        await supabase.from('videos').update({ deleted_at: new Date().toISOString() }).eq('id', data.id)
+        await supabase.from('video_ideas').update({ moved_video_id: null }).eq('id', idea.id)
+        loadVideos()
+        loadIdeas()
+      },
+    })
+  }
+
   if (loading) return <Spinner />
 
   if (!client) {
@@ -207,6 +293,18 @@ export default function ClientPage() {
 
       {error && <div className="error-box" style={{ marginBottom: 16 }}>{error}</div>}
 
+      <div className="seg client-tabs">
+        <button className={`seg-btn ${tab === 'board' ? 'on' : ''}`} onClick={() => setTab('board')}>
+          🎬 In Umsetzung
+          <span className="col-count">{videos.length}</span>
+        </button>
+        <button className={`seg-btn ${tab === 'pool' ? 'on' : ''}`} onClick={() => setTab('pool')}>
+          💡 Ideenspeicher
+          <span className="col-count">{ideas.length}</span>
+        </button>
+      </div>
+
+      {tab === 'board' && (
       <div className="board">
         {STATUS_ORDER.map((status) => {
           const items = videos
@@ -270,6 +368,18 @@ export default function ClientPage() {
           )
         })}
       </div>
+      )}
+
+      {tab === 'pool' && (
+        <IdeaPool
+          client={client}
+          ideas={ideas}
+          onAdd={addPoolIdeas}
+          onMove={moveIdeaToBoard}
+          onDelete={deletePoolIdea}
+          onEditClient={() => setEditClient(true)}
+        />
+      )}
 
       {editing && (
         <EditVideoModal
@@ -282,10 +392,12 @@ export default function ClientPage() {
         />
       )}
 
-      <div className="section-block">
-        <h2 className="section-title">Verlauf</h2>
-        <ActivityLog clientId={client.id} />
-      </div>
+      {tab === 'board' && (
+        <div className="section-block">
+          <h2 className="section-title">Verlauf</h2>
+          <ActivityLog clientId={client.id} />
+        </div>
+      )}
 
       {creating && (
         <NewIdeaModal onClose={() => setCreating(false)} onSave={createIdea} />
@@ -665,6 +777,7 @@ function EditClientModal({
   const [ig, setIg] = useState(client.handle_ig ?? '')
   const [tiktok, setTiktok] = useState(client.handle_tiktok ?? '')
   const [notes, setNotes] = useState(client.notes ?? '')
+  const [aiBrief, setAiBrief] = useState(client.ai_brief ?? '')
   const [pkg, setPkg] = useState(client.package ?? '')
   const [fee, setFee] = useState(client.monthly_fee != null ? String(client.monthly_fee) : '')
   const [active, setActive] = useState(client.active ?? true)
@@ -700,6 +813,7 @@ function EditClientModal({
           package: pkg.trim() || null,
           monthly_fee: fee ? Number(fee.replace(',', '.')) : null,
           active,
+          ...(aiBrief.trim() || client.ai_brief ? { ai_brief: aiBrief.trim() || null } : {}),
         })
         .eq('id', client.id)
       if (error) throw error
@@ -760,6 +874,16 @@ function EditClientModal({
           <label htmlFor="ecnotes">Notizen</label>
           <textarea id="ecnotes" value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
+        <div>
+          <label htmlFor="ecbrief">🤖 KI-Briefing (Randbedingungen für Videoideen)</label>
+          <textarea
+            id="ecbrief"
+            value={aiBrief}
+            onChange={(e) => setAiBrief(e.target.value)}
+            style={{ minHeight: 90 }}
+            placeholder="Was verkauft der Betrieb? Aktuelle Angebote/Aktionen? Zielgruppe? Tonalität? Besonderheiten? — Je mehr hier steht, desto besser werden die automatischen Ideen."
+          />
+        </div>
         <div className="modal-actions">
           <button type="button" className="btn btn-ghost" onClick={onClose}>
             Abbrechen
@@ -780,6 +904,243 @@ function EditClientModal({
           }}
         />
       )}
+    </Modal>
+  )
+}
+
+// ============================ Ideenspeicher ============================
+function IdeaPool({
+  client,
+  ideas,
+  onAdd,
+  onMove,
+  onDelete,
+  onEditClient,
+}: {
+  client: Client
+  ideas: VideoIdea[]
+  onAdd: (rows: { title: string; notes: string | null; source: 'manual' | 'ai' }[]) => Promise<void>
+  onMove: (idea: VideoIdea) => void
+  onDelete: (id: string) => void
+  onEditClient: () => void
+}) {
+  const [q, setQ] = useState('')
+  const [adding, setAdding] = useState(false)
+  const [aiOpen, setAiOpen] = useState(false)
+
+  const filtered = ideas.filter((i) => {
+    if (!q.trim()) return true
+    const hay = `${i.title} ${i.notes ?? ''}`.toLowerCase()
+    return hay.includes(q.trim().toLowerCase())
+  })
+
+  return (
+    <div className="pool-anim">
+      <div className="info-box" style={{ marginBottom: 16 }}>
+        💡 Dein Ideen-Vorrat für <strong>{client.name}</strong>. Sammle hier so viele Ideen wie
+        du willst. Wenn ihr eine drehen wollt, mit einem Klick <strong>ins Board</strong> holen —
+        dann wird sie zur echten Videoidee in Umsetzung.
+      </div>
+
+      <div className="toolbar-row">
+        <input
+          className="search-input"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="🔎 Idee suchen …"
+        />
+        <button className="btn" onClick={() => setAdding(true)}>+ Idee</button>
+        <button className="btn btn-primary" onClick={() => setAiOpen(true)}>✨ KI-Ideen</button>
+      </div>
+
+      {!client.ai_brief && (
+        <div className="pool-hint">
+          Tipp: Hinterlege ein <strong>KI-Briefing</strong> (was der Betrieb verkauft, Angebote,
+          Zielgruppe) unter „Kunde bearbeiten" — dann werden die automatischen Ideen richtig gut.
+          <button className="btn btn-sm" style={{ marginLeft: 10 }} onClick={onEditClient}>
+            KI-Briefing hinterlegen
+          </button>
+        </div>
+      )}
+
+      {filtered.length === 0 ? (
+        <div className="col-empty" style={{ padding: 30 }}>
+          {ideas.length === 0 ? 'Noch keine Ideen im Speicher. Leg welche an oder lass die KI ran. ✨' : 'Keine Treffer.'}
+        </div>
+      ) : (
+        <div className="pool-grid">
+          {filtered.map((idea) => (
+            <div className="pool-card" key={idea.id}>
+              <div className="pool-card-head">
+                <span className={`pool-badge ${idea.source}`}>{idea.source === 'ai' ? '🤖 KI' : '✍️ manuell'}</span>
+                <button className="pool-x" onClick={() => onDelete(idea.id)} title="löschen">✕</button>
+              </div>
+              <div className="pool-title">{idea.title}</div>
+              {idea.notes && <div className="pool-notes">{idea.notes}</div>}
+              <button className="btn btn-sm btn-primary pool-move" onClick={() => onMove(idea)}>
+                → Ins Board holen
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {adding && (
+        <ManualIdeaModal
+          onClose={() => setAdding(false)}
+          onSave={async (title, notes) => {
+            await onAdd([{ title, notes, source: 'manual' }])
+            setAdding(false)
+          }}
+        />
+      )}
+
+      {aiOpen && (
+        <AiIdeasModal
+          client={client}
+          existing={ideas.map((i) => i.title)}
+          onClose={() => setAiOpen(false)}
+          onSave={async (rows) => {
+            await onAdd(rows.map((r) => ({ ...r, source: 'ai' as const })))
+            setAiOpen(false)
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+function ManualIdeaModal({
+  onClose,
+  onSave,
+}: {
+  onClose: () => void
+  onSave: (title: string, notes: string | null) => void
+}) {
+  const [title, setTitle] = useState('')
+  const [notes, setNotes] = useState('')
+  return (
+    <Modal title="Idee in den Speicher" onClose={onClose}>
+      <form
+        className="stack"
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (!title.trim()) return
+          onSave(title.trim(), notes.trim() || null)
+        }}
+      >
+        <div>
+          <label htmlFor="pit">Idee *</label>
+          <input id="pit" value={title} onChange={(e) => setTitle(e.target.value)} autoFocus required placeholder="z. B. Blick in die Küche: Teig kneten" />
+        </div>
+        <div>
+          <label htmlFor="pin">Notiz (optional)</label>
+          <textarea id="pin" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Was zeigen, worauf achten …" />
+        </div>
+        <div className="modal-actions">
+          <button type="button" className="btn btn-ghost" onClick={onClose}>Abbrechen</button>
+          <button type="submit" className="btn btn-primary" disabled={!title.trim()}>Speichern</button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+function AiIdeasModal({
+  client,
+  existing,
+  onClose,
+  onSave,
+}: {
+  client: Client
+  existing: string[]
+  onClose: () => void
+  onSave: (rows: { title: string; notes: string | null }[]) => void
+}) {
+  const [count, setCount] = useState(5)
+  const [theme, setTheme] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [result, setResult] = useState<{ title: string; notes: string | null; on: boolean }[] | null>(null)
+
+  async function run() {
+    setBusy(true)
+    setError(null)
+    try {
+      const ideas = await generateIdeas(client, count, theme.trim() || null, existing)
+      setResult(ideas.map((i) => ({ title: i.title, notes: i.notes, on: true })))
+    } catch (e: any) {
+      setError(e.message ?? 'Fehler bei der Ideen-Erstellung')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const chosen = (result ?? []).filter((r) => r.on)
+
+  return (
+    <Modal title="✨ KI-Videoideen" onClose={onClose}>
+      <div className="stack">
+        {error && <div className="error-box">{error}</div>}
+
+        {!result && (
+          <>
+            <p className="info-box">
+              Ich erstelle Ideen aus dem Briefing von <strong>{client.name}</strong>
+              {client.ai_brief ? '' : ' (Tipp: noch kein KI-Briefing hinterlegt — die Ideen werden allgemeiner)'}.
+            </p>
+            <div className="row" style={{ gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <label>Wie viele?</label>
+                <select value={count} onChange={(e) => setCount(Number(e.target.value))}>
+                  {[3, 5, 8, 10].map((n) => <option key={n} value={n}>{n} Ideen</option>)}
+                </select>
+              </div>
+            </div>
+            <div>
+              <label>Schwerpunkt (optional)</label>
+              <input value={theme} onChange={(e) => setTheme(e.target.value)} placeholder="z. B. Weihnachtsaktion, Team vorstellen, neues Gericht" />
+            </div>
+            <button className="btn btn-primary" onClick={run} disabled={busy}>
+              {busy ? 'KI denkt nach …' : `✨ ${count} Ideen erstellen`}
+            </button>
+          </>
+        )}
+
+        {result && (
+          <>
+            <p className="muted">Häkchen raus = wird nicht gespeichert. Du kannst sie danach im Speicher einzeln bearbeiten.</p>
+            <div className="ai-idea-list">
+              {result.map((r, idx) => (
+                <label className={`ai-idea ${r.on ? 'on' : ''}`} key={idx}>
+                  <input
+                    type="checkbox"
+                    checked={r.on}
+                    onChange={(e) => setResult((prev) => prev!.map((x, i) => (i === idx ? { ...x, on: e.target.checked } : x)))}
+                  />
+                  <span>
+                    <span className="ai-idea-title">{r.title}</span>
+                    {r.notes && <span className="ai-idea-notes">{r.notes}</span>}
+                  </span>
+                </label>
+              ))}
+            </div>
+            <div className="modal-actions">
+              <button type="button" className="btn btn-ghost" onClick={() => setResult(null)}>← Neu</button>
+              <div className="spacer" />
+              <button type="button" className="btn" onClick={onClose}>Abbrechen</button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={chosen.length === 0}
+                onClick={() => onSave(chosen.map((r) => ({ title: r.title, notes: r.notes })))}
+              >
+                {chosen.length} in den Speicher
+              </button>
+            </div>
+          </>
+        )}
+      </div>
     </Modal>
   )
 }
