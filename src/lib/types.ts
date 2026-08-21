@@ -147,6 +147,9 @@ export interface Video {
   share_token: string | null
   approval_status: string | null
   approval_note: string | null
+  tiktok_url: string | null
+  instagram_url: string | null
+  stats_updated_at: string | null
   sort_order: number | null
   assignee_ids: string[]
   created_by: string | null

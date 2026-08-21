@@ -794,6 +794,8 @@ function EditVideoModal({
   const [likes, setLikes] = useState(video.likes != null ? String(video.likes) : '')
   const [comments, setComments] = useState(video.comments != null ? String(video.comments) : '')
   const [reach, setReach] = useState(video.reach != null ? String(video.reach) : '')
+  const [ttUrl, setTtUrl] = useState(video.tiktok_url ?? '')
+  const [igUrl, setIgUrl] = useState(video.instagram_url ?? '')
   const [copied, setCopied] = useState(false)
   const num = (s: string) => (s.trim() === '' ? null : Number(s.replace(/[^\d]/g, '')))
 
@@ -813,6 +815,8 @@ function EditVideoModal({
             likes: num(likes),
             comments: num(comments),
             reach: num(reach),
+            tiktok_url: ttUrl.trim() || null,
+            instagram_url: igUrl.trim() || null,
           })
         }}
       >
@@ -859,7 +863,21 @@ function EditVideoModal({
           </button>
         )}
 
-        <div className="section-divider">📈 Performance (nach dem Posten)</div>
+        <div className="section-divider">🔗 Live-Links (Auto-Statistik)</div>
+        <div className="info-box" style={{ fontSize: 13 }}>
+          Nach dem Posten die öffentlichen Links einfügen — die Zahlen werden dann täglich automatisch aktualisiert.
+          {video.stats_updated_at && <><br />✅ Zuletzt aktualisiert: {new Date(video.stats_updated_at).toLocaleString('de-DE', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</>}
+        </div>
+        <div>
+          <label>🎵 TikTok-Link</label>
+          <input type="url" value={ttUrl} onChange={(e) => setTtUrl(e.target.value)} placeholder="https://www.tiktok.com/@…/video/…" />
+        </div>
+        <div>
+          <label>📸 Instagram-Link</label>
+          <input type="url" value={igUrl} onChange={(e) => setIgUrl(e.target.value)} placeholder="https://www.instagram.com/reel/…" />
+        </div>
+
+        <div className="section-divider">📈 Zahlen (automatisch oder von Hand)</div>
         <div className="row" style={{ gap: 10, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 110 }}>
             <label>Aufrufe</label>
