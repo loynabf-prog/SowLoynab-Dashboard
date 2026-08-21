@@ -23,6 +23,11 @@
     />
     <title>Sow &amp; Loynab — Dashboard</title>
 
+    <!-- Theme früh setzen (kein Aufblitzen) -->
+    <script>
+      try { var t = localStorage.getItem('sl-theme'); if (t) document.documentElement.setAttribute('data-theme', t) } catch (e) {}
+    </script>
+
     <!-- ==================== Kult-Intro / Ladescreen ==================== -->
     <style>
       #splash {

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import VoiceButton from './VoiceButton'
@@ -16,9 +17,21 @@ const NAV = [
   { to: '/papierkorb', label: 'Papierkorb' },
 ]
 
+function readTheme(): 'light' | 'dark' {
+  try { return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light' } catch { return 'light' }
+}
+
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { user, signOut } = useAuth()
   const location = useLocation()
+  const [theme, setTheme] = useState<'light' | 'dark'>(readTheme)
+
+  function toggleTheme() {
+    const next = theme === 'dark' ? 'light' : 'dark'
+    setTheme(next)
+    document.documentElement.setAttribute('data-theme', next)
+    try { localStorage.setItem('sl-theme', next) } catch { /* ignore */ }
+  }
   // Bei Kunden-Detailseiten den Basispfad als Key nehmen, damit die Animation
   // nur beim Wechsel des Bereichs neu startet.
   const animKey = location.pathname.startsWith('/client/') ? 'client' : location.pathname
@@ -47,6 +60,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <span>🔍</span>
           <span className="search-trigger-label">Suchen</span>
           <kbd className="search-trigger-kbd">⌘K</kbd>
+        </button>
+        <button className="theme-toggle" onClick={toggleTheme} title="Hell / Dunkel umschalten">
+          {theme === 'dark' ? '☀️' : '🌙'}
         </button>
         <NudgeCenter />
         {user?.email && <span className="muted user-email">{user.email}</span>}

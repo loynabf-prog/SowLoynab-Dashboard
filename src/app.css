@@ -1632,3 +1632,62 @@ html { scroll-behavior: smooth; }
   background: var(--brand-glow); color: var(--brand);
 }
 .quota-chip.done { background: rgba(47, 158, 68, 0.14); color: var(--posted); }
+
+/* ============================================================================
+   DARK MODE — edler Nacht-Look (Espresso + Gold)
+   ============================================================================ */
+:root[data-theme="dark"] {
+  --bg:            #14100b;
+  --bg-elev:       #1e1810;
+  --bg-card:       #1e1810;
+  --bg-card-hover: #261f16;
+  --bg-sunken:     #100c07;
+  --border:        #2e2519;
+  --border-strong: #3d3122;
+
+  --text:          #f4ecdf;
+  --text-muted:    #b7a88f;
+  --text-dim:      #8a7c67;
+
+  --brand:         #ff6a2b;
+  --brand-light:   #ffa06a;
+  --brand-deep:    #e0521a;
+  --brand-glow:    rgba(255, 138, 80, 0.22);
+  --gold:          #d8ad5f;
+  --gold-soft:     rgba(216, 173, 95, 0.45);
+
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.4), 0 4px 14px rgba(0,0,0,0.35);
+  --shadow:    0 2px 4px rgba(0,0,0,0.4), 0 16px 40px rgba(0,0,0,0.5);
+  --shadow-lg: 0 8px 16px rgba(0,0,0,0.45), 0 34px 80px rgba(0,0,0,0.6);
+  --hairline:  1px solid rgba(216,173,95,0.18);
+}
+
+:root[data-theme="dark"] body {
+  background:
+    radial-gradient(900px 500px at 88% -140px, rgba(255, 138, 80, 0.12), transparent 62%),
+    radial-gradient(1100px 640px at 12% -180px, rgba(224, 82, 26, 0.10), transparent 60%),
+    linear-gradient(180deg, #17120c 0%, var(--bg) 45%, #100c07 100%);
+}
+/* Flächen mit fest kodierten hellen Werten dunkel überschreiben */
+:root[data-theme="dark"] .app-header { background: linear-gradient(180deg, rgba(30,24,16,0.92), rgba(20,16,11,0.72)); border-bottom-color: rgba(216,173,95,0.14); }
+:root[data-theme="dark"] .app-nav { background: linear-gradient(180deg, rgba(30,24,16,0.85), rgba(20,16,11,0.6)); }
+@media (max-width: 760px) {
+  :root[data-theme="dark"] .app-header, :root[data-theme="dark"] .app-nav { background: rgba(20,16,11,0.98); }
+}
+:root[data-theme="dark"] .video-card,
+:root[data-theme="dark"] .pool-card,
+:root[data-theme="dark"] .client-cockpit,
+:root[data-theme="dark"] .fin-tile { background: linear-gradient(180deg, #221b12, #1c160f); }
+:root[data-theme="dark"] .logo-tile { background: linear-gradient(180deg, #221b12, #1a140e); }
+:root[data-theme="dark"] .board-col { background: linear-gradient(180deg, rgba(40,32,22,0.5), rgba(16,12,7,0.6)); }
+:root[data-theme="dark"] .logo-tile::after { background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.08) 48%, transparent 62%); }
+:root[data-theme="dark"] .health-dot { box-shadow: 0 0 0 2px #1e1810; }
+:root[data-theme="dark"] .drag-ghost { box-shadow: 0 20px 60px rgba(0,0,0,0.7); }
+
+/* Theme-Umschalter im Header */
+.theme-toggle {
+  border: 1px solid var(--border-strong); background: var(--bg-elev);
+  border-radius: 999px; padding: 7px 10px; font-size: 15px; line-height: 1;
+  transition: border-color 0.15s ease, transform 0.12s ease;
+}
+.theme-toggle:hover { border-color: var(--gold-soft); transform: translateY(-1px); }
