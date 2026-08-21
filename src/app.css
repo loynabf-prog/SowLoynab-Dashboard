@@ -1574,3 +1574,11 @@ html { scroll-behavior: smooth; }
 .cmd-sub { font-size: 12px; color: var(--text-dim); flex-shrink: 0; }
 .cmd-foot { display: flex; gap: 16px; padding: 10px 16px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-dim); }
 .cmd-foot kbd { font-family: var(--font-body); font-weight: 700; background: var(--bg-sunken); border: 1px solid var(--border); border-radius: 5px; padding: 1px 5px; margin-right: 2px; }
+
+/* Schnell-Erfassen-Knopf im Header */
+.quick-add-btn { gap: 6px; padding: 7px 13px; }
+.quick-add-btn span:first-child { font-size: 16px; line-height: 1; }
+@media (max-width: 640px) {
+  .quick-add-label { display: none; }
+  .quick-add-btn { padding: 7px 11px; }
+}

@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import VoiceButton from './VoiceButton'
 import NudgeCenter from './NudgeCenter'
 import CommandPalette from './CommandPalette'
+import QuickAdd from './QuickAdd'
 
 const NAV = [
   { to: '/uebersicht', label: 'Übersicht' },
@@ -30,6 +31,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           Sow&nbsp;&amp;&nbsp;Loynab
         </Link>
         <div className="spacer" />
+        <button
+          className="btn btn-primary btn-sm quick-add-btn"
+          onClick={() => window.dispatchEvent(new Event('open-quickadd'))}
+          title="Schnell erfassen (⌘I)"
+        >
+          <span>＋</span>
+          <span className="quick-add-label">Neu</span>
+        </button>
         <button
           className="search-trigger"
           onClick={() => window.dispatchEvent(new Event('open-search'))}
@@ -69,6 +78,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       <VoiceButton />
       <CommandPalette />
+      <QuickAdd />
     </>
   )
 }
