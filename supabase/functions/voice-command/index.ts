@@ -48,21 +48,43 @@ Deno.serve(async (req) => {
       try { ctx = JSON.parse(ctxRaw) } catch { /* ignore */ }
     }
 
-    // ---- 1) Transkription via Whisper --------------------------------------
+    // ---- 1) Transkription (OpenAI, ChatGPT-Qualität) -----------------------
+    // Eigennamen als "prompt" mitgeben -> Modell schreibt Kundennamen etc. korrekt.
+    const vocab = [
+      ...(ctx.clients ?? []).map((c) => c.name),
+      ...(ctx.leads ?? []).map((l) => l.name),
+      'Sow & Loynab', 'Reel', 'TikTok', 'Instagram', 'Videoidee', 'Caption', 'Lead', 'Follow-up',
+    ].filter(Boolean).join(', ')
+
     const wForm = new FormData()
     wForm.append('file', audio, audio.name || 'aufnahme.webm')
-    wForm.append('model', 'whisper-1')
+    wForm.append('model', 'gpt-4o-transcribe') // neuer & genauer als whisper-1
     wForm.append('language', 'de')
     wForm.append('response_format', 'json')
+    if (vocab) wForm.append('prompt', `Kontext (Eigennamen korrekt schreiben): ${vocab}.`)
 
-    const wResp = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+    let wResp = await fetch('https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST',
       headers: { Authorization: `Bearer ${openaiKey}` },
       body: wForm,
     })
+    // Fallback auf whisper-1, falls das neue Modell (noch) nicht verfügbar ist
+    if (wResp.status === 400 || wResp.status === 404) {
+      const fb = new FormData()
+      fb.append('file', audio, audio.name || 'aufnahme.webm')
+      fb.append('model', 'whisper-1')
+      fb.append('language', 'de')
+      fb.append('response_format', 'json')
+      if (vocab) fb.append('prompt', `Kontext (Eigennamen korrekt schreiben): ${vocab}.`)
+      wResp = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${openaiKey}` },
+        body: fb,
+      })
+    }
     if (!wResp.ok) {
       const detail = await wResp.text()
-      return json({ error: `Whisper-Fehler (${wResp.status}): ${detail.slice(0, 300)}` }, 502)
+      return json({ error: `Transkriptions-Fehler (${wResp.status}): ${detail.slice(0, 300)}` }, 502)
     }
     const wData = await wResp.json()
     const transcript = (wData?.text ?? '').trim()
