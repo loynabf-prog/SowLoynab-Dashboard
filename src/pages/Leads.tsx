@@ -141,7 +141,9 @@ export default function Leads() {
         <div>
           <h1>Leads</h1>
           <span className="sub">
-            {loading ? 'Lade …' : `${leads.length} Leads · offenes Potenzial ${euro(totalOpen)}/Mon.`}
+            {loading
+              ? 'Lade …'
+              : `${leads.length} Leads · offenes Potenzial ${euro(totalOpen)}/Mon. · ${leads.filter((l) => l.stage === 'won').length} gewonnen`}
           </span>
         </div>
         <div className="spacer" />
@@ -223,6 +225,7 @@ export default function Leads() {
                           {[l.city, l.contact_person].filter(Boolean).join(' · ')}
                         </div>
                       )}
+                      {l.source && <span className="chip lead-source">📥 {l.source}</span>}
                       {l.potential_fee != null && (
                         <div className="lead-fee">{euro(l.potential_fee)}/Mon.</div>
                       )}
@@ -314,6 +317,7 @@ function LeadModal({
     website: lead?.website ?? '',
     city: lead?.city ?? '',
     stage: lead?.stage ?? ('new' as LeadStage),
+    source: lead?.source ?? '',
     potential_fee: lead?.potential_fee != null ? String(lead.potential_fee) : '',
     next_followup: lead?.next_followup ?? '',
     notes: lead?.notes ?? '',
@@ -337,6 +341,7 @@ function LeadModal({
       website: f.website.trim() || null,
       city: f.city.trim() || null,
       stage: f.stage,
+      source: f.source.trim() || null,
       potential_fee: f.potential_fee ? Number(f.potential_fee.replace(',', '.')) : null,
       next_followup: f.next_followup || null,
       notes: f.notes.trim() || null,
@@ -405,9 +410,20 @@ function LeadModal({
             <input value={f.potential_fee} onChange={(e) => set('potential_fee', e.target.value)} placeholder="z. B. 500" inputMode="decimal" />
           </div>
         </div>
-        <div>
-          <label>Nächster Follow-up</label>
-          <input type="date" value={f.next_followup} onChange={(e) => set('next_followup', e.target.value)} />
+        <div className="row" style={{ gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <label>Nächster Follow-up</label>
+            <input type="date" value={f.next_followup} onChange={(e) => set('next_followup', e.target.value)} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label>Quelle</label>
+            <select value={f.source} onChange={(e) => set('source', e.target.value)}>
+              <option value="">— unbekannt —</option>
+              {['Instagram', 'TikTok', 'Empfehlung', 'Kaltakquise', 'Website', 'Netzwerk', 'Sonstige'].map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </div>
         </div>
         <div>
           <label>Zuständig</label>

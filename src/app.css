@@ -1705,3 +1705,6 @@ html { scroll-behavior: smooth; }
 /* Video-Kennzahlen auf der Karte */
 .vc-stats { display: flex; flex-wrap: wrap; gap: 10px; font-size: 12px; font-weight: 600; color: var(--text-muted); margin: 2px 0 4px; }
 .cockpit-stat { padding-left: 4px; }
+
+/* Lead-Quelle Chip */
+.lead-source { display: inline-block; margin-top: 4px; background: var(--bg-sunken); color: var(--text-muted); }
