@@ -2,19 +2,12 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { dateRelative } from '../lib/format'
-import type { Task } from '../lib/types'
-import Modal from '../components/Modal'
 import SwipeRow from '../components/SwipeRow'
-import { AssigneePicker, AssigneeChips } from '../components/Assignee'
+import TaskItem, { type TaskRow } from '../components/TaskItem'
+import TaskModal from '../components/TaskModal'
 import { useTeam } from '../context/TeamContext'
 import { useIdentity } from '../context/IdentityContext'
 import { useToast } from '../context/ToastContext'
-
-interface TaskRow extends Task {
-  clients?: { name: string } | null
-  leads?: { name: string } | null
-}
 
 interface Option { id: string; name: string }
 
@@ -196,152 +189,5 @@ export default function Tasks() {
         />
       )}
     </>
-  )
-}
-
-function TaskItem({
-  t,
-  onToggle,
-  onEdit,
-  onDelete,
-}: {
-  t: TaskRow
-  onToggle: () => void
-  onEdit: () => void
-  onDelete: () => void
-}) {
-  const due = t.due_date ? dateRelative(t.due_date) : null
-  const linked = t.clients?.name || t.leads?.name
-  return (
-    <div className="task-item">
-      <button
-        className={`task-check ${t.done ? 'on' : ''}`}
-        onClick={onToggle}
-        aria-label="erledigt umschalten"
-      >
-        {t.done ? '✓' : ''}
-      </button>
-      <div className="task-body" onClick={onEdit}>
-        <div className={`task-title ${t.done ? 'strike' : ''}`}>{t.title}</div>
-        <div className="task-meta">
-          {due && (
-            <span className={`task-due ${due.overdue ? 'overdue' : due.soon ? 'soon' : ''}`}>
-              {due.overdue ? '⚠ ' : '📅 '}
-              {due.text}
-            </span>
-          )}
-          {linked && <span className="chip">{t.clients?.name ? '👤 ' : '🎯 '}{linked}</span>}
-          <AssigneeChips ids={t.assignee_ids ?? []} />
-        </div>
-      </div>
-      <button className="btn btn-sm btn-danger" onClick={onDelete} title="loeschen">
-        ✕
-      </button>
-    </div>
-  )
-}
-
-function TaskModal({
-  task,
-  userId,
-  clients,
-  leads,
-  onClose,
-  onSaved,
-}: {
-  task: TaskRow | null
-  userId: string | null
-  clients: Option[]
-  leads: Option[]
-  onClose: () => void
-  onSaved: () => void
-}) {
-  const [title, setTitle] = useState(task?.title ?? '')
-  const [due, setDue] = useState(task?.due_date ?? '')
-  const [notes, setNotes] = useState(task?.notes ?? '')
-  // "link" kodiert als "client:<id>" | "lead:<id>" | ""
-  const [link, setLink] = useState(
-    task?.client_id ? `client:${task.client_id}` : task?.lead_id ? `lead:${task.lead_id}` : '',
-  )
-  const [assignees, setAssignees] = useState<string[]>(task?.assignee_ids ?? [])
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  async function save(e: React.FormEvent) {
-    e.preventDefault()
-    if (!title.trim()) return
-    setBusy(true)
-    setError(null)
-    const client_id = link.startsWith('client:') ? link.slice(7) : null
-    const lead_id = link.startsWith('lead:') ? link.slice(5) : null
-    const payload = {
-      title: title.trim(),
-      due_date: due || null,
-      notes: notes.trim() || null,
-      client_id,
-      lead_id,
-      // assignee_ids nur mitschicken, wenn Team-Feature aktiv (Skript 5)
-      ...(assignees.length ? { assignee_ids: assignees } : {}),
-    }
-    const res = task
-      ? await supabase.from('tasks').update(payload).eq('id', task.id)
-      : await supabase.from('tasks').insert({ ...payload, created_by: userId })
-    setBusy(false)
-    if (res.error) setError(res.error.message)
-    else onSaved()
-  }
-
-  return (
-    <Modal title={task ? 'Aufgabe bearbeiten' : 'Neue Aufgabe'} onClose={onClose}>
-      <form className="stack" onSubmit={save}>
-        {error && <div className="error-box">{error}</div>}
-        <div>
-          <label>Aufgabe *</label>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} autoFocus required placeholder="z. B. Restaurant Sahin anrufen" />
-        </div>
-        <div className="row" style={{ gap: 12 }}>
-          <div style={{ flex: 1 }}>
-            <label>Fällig am</label>
-            <input type="date" value={due} onChange={(e) => setDue(e.target.value)} />
-          </div>
-          <div style={{ flex: 1 }}>
-            <label>Verknüpfen mit</label>
-            <select value={link} onChange={(e) => setLink(e.target.value)}>
-              <option value="">— nichts —</option>
-              {clients.length > 0 && (
-                <optgroup label="Kunden">
-                  {clients.map((c) => (
-                    <option key={c.id} value={`client:${c.id}`}>{c.name}</option>
-                  ))}
-                </optgroup>
-              )}
-              {leads.length > 0 && (
-                <optgroup label="Leads">
-                  {leads.map((l) => (
-                    <option key={l.id} value={`lead:${l.id}`}>{l.name}</option>
-                  ))}
-                </optgroup>
-              )}
-            </select>
-          </div>
-        </div>
-        <div>
-          <label>Zuständig</label>
-          <AssigneePicker value={assignees} onChange={setAssignees} />
-        </div>
-        <div>
-          <label>Notizen</label>
-          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
-        </div>
-        <div className="modal-actions">
-          <button type="button" className="btn btn-ghost" onClick={onClose}>
-            Abbrechen
-          </button>
-          <button type="submit" className="btn btn-primary" disabled={busy || !title.trim()}>
-            {busy ? 'Speichere …' : task ? 'Speichern' : 'Anlegen'}
-          </button>
-        </div>
-      </form>
-    </Modal>
   )
 }
