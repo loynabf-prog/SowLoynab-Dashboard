@@ -7,8 +7,13 @@
   align-items: center;
   gap: 16px;
   padding: 14px 24px;
+  /* iPhone-Notch: Statusleiste im Homescreen-Modus nicht überdecken */
+  padding-top: calc(14px + env(safe-area-inset-top));
+  padding-left: calc(24px + env(safe-area-inset-left));
+  padding-right: calc(24px + env(safe-area-inset-right));
   background: rgba(250, 247, 242, 0.85);
   backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
 }
 .brand-mark {
@@ -876,7 +881,7 @@ a.fin-tile:hover { transform: translateY(-3px); box-shadow: var(--shadow); borde
 .toast-wrap {
   position: fixed;
   left: 50%;
-  bottom: 24px;
+  bottom: calc(24px + env(safe-area-inset-bottom));
   transform: translateX(-50%);
   display: flex;
   flex-direction: column;
@@ -990,7 +995,7 @@ a.fin-tile:hover { transform: translateY(-3px); box-shadow: var(--shadow); borde
 .voice-fab {
   position: fixed;
   right: 22px;
-  bottom: 22px;
+  bottom: calc(22px + env(safe-area-inset-bottom));
   z-index: 1500;
   width: 62px;
   height: 62px;
@@ -1076,8 +1081,8 @@ a.fin-tile:hover { transform: translateY(-3px); box-shadow: var(--shadow); borde
 .voice-typeseg .seg-btn { flex: 1; }
 
 @media (max-width: 640px) {
-  .voice-fab { right: 16px; bottom: 16px; width: 56px; height: 56px; }
-  .voice-hint { right: 16px; bottom: 84px; }
+  .voice-fab { right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); width: 56px; height: 56px; }
+  .voice-hint { right: 16px; bottom: calc(84px + env(safe-area-inset-bottom)); }
 }
 
 /* ============================ Kunden-Tabs & Ideenspeicher ============================ */
@@ -1246,7 +1251,27 @@ a.fin-tile:hover { transform: translateY(-3px); box-shadow: var(--shadow); borde
 }
 
 @media (max-width: 640px) {
-  .nudge-panel { position: fixed; top: 64px; right: 12px; left: 12px; width: auto; }
+  .nudge-panel { position: fixed; top: calc(60px + env(safe-area-inset-top)); right: 12px; left: 12px; width: auto; }
 }
 
 .nudge-push-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+
+/* ============================ Apple / iOS Feinschliff ============================ */
+/* Kein automatisches Text-Skalieren in iOS Safari */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+/* Keine grauen "Tap"-Blitze beim Antippen auf dem iPhone */
+button, a, .flag, .nudge-item, .ai-idea, .pool-card, .seg-btn {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* WICHTIG: iOS Safari zoomt beim Fokus in Felder, wenn die Schrift < 16px ist.
+   Auf Touch-/kleinen Screens daher 16px erzwingen -> kein nerviges Reinzoomen. */
+@media (max-width: 640px) {
+  input, textarea, select { font-size: 16px; }
+  /* Segment-Auswahl im Sprach-Dialog (4 Knöpfe) auf schmalen iPhones kompakt */
+  .voice-typeseg .seg-btn { padding: 8px 6px; font-size: 13px; }
+}
+
+/* Unten genug Luft, damit der Mikro-Knopf nichts verdeckt (inkl. Home-Indicator) */
+.app-main { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }

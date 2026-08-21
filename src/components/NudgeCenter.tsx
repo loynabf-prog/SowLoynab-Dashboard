@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useTeam } from '../context/TeamContext'
 import { useIdentity } from '../context/IdentityContext'
 import { useToast } from '../context/ToastContext'
-import { enablePush, isPushEnabled, pushConfigured, pushSupported } from '../lib/push'
+import { enablePush, isPushEnabled, pushConfigured, pushSupported, pushNeedsHomeScreen } from '../lib/push'
 import { sendTestPush } from '../lib/nudge'
 
 interface Nudge {
@@ -95,6 +95,15 @@ export default function NudgeCenter() {
     await supabase.from('nudges').update({ read: true }).eq('to_member_id', memberId).eq('read', false)
   }
 
+  // Identität wählen/wechseln — bei aktivem Push das Abo auf die neue Person ummappen
+  async function pickIdentity(id: string) {
+    setMemberId(id)
+    if (await isPushEnabled()) {
+      await enablePush(id) // upsert auf denselben Endpoint -> member_id wird aktualisiert
+      setPushOn(true)
+    }
+  }
+
   async function testPush() {
     if (!memberId) return
     setPushBusy(true)
@@ -156,7 +165,7 @@ export default function NudgeCenter() {
                   <span className="muted">Wer bist du auf diesem Gerät?</span>
                   <div className="nudge-pick-opts">
                     {members.map((m) => (
-                      <button key={m.id} className="btn btn-sm" onClick={() => setMemberId(m.id)}>
+                      <button key={m.id} className="btn btn-sm" onClick={() => pickIdentity(m.id)}>
                         {m.name}
                       </button>
                     ))}
@@ -167,7 +176,14 @@ export default function NudgeCenter() {
             </div>
 
             {/* Push-Status */}
-            {me && pushConfigured() && pushSupported() && (
+            {me && pushConfigured() && pushSupported() && pushNeedsHomeScreen() && (
+              <div className="nudge-push">
+                <span className="muted" style={{ fontSize: 13 }}>
+                  📲 Für Handy-Push die App zuerst über <strong>Teilen → „Zum Home-Bildschirm"</strong> öffnen.
+                </span>
+              </div>
+            )}
+            {me && pushConfigured() && pushSupported() && !pushNeedsHomeScreen() && (
               <div className="nudge-push">
                 {pushOn ? (
                   <div className="nudge-push-row">

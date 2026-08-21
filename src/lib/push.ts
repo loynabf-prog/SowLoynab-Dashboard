@@ -10,6 +10,24 @@ export function pushSupported(): boolean {
   return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
 }
 
+export function isStandalone(): boolean {
+  return (
+    window.matchMedia?.('(display-mode: standalone)').matches ||
+    (navigator as any).standalone === true
+  )
+}
+
+function isIOS(): boolean {
+  const ua = navigator.userAgent
+  return /iphone|ipad|ipod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+}
+
+// Nur iOS verlangt zwingend die Homescreen-Installation für Push. Am Mac/Desktop
+// funktioniert Push auch im normalen Browser-Tab.
+export function pushNeedsHomeScreen(): boolean {
+  return isIOS() && !isStandalone()
+}
+
 function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
   const padding = '='.repeat((4 - (base64.length % 4)) % 4)
   const b64 = (base64 + padding).replace(/-/g, '+').replace(/_/g, '/')
