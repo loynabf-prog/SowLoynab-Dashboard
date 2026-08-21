@@ -1732,3 +1732,15 @@ html { scroll-behavior: smooth; }
 .approval-actions .btn { flex: 1; }
 .approval-done { text-align: center; padding: 20px 0; }
 .approval-done h1 { margin: 8px 0 6px; }
+
+/* Kalender: Termine ziehen */
+.agenda-event-wrap { position: relative; }
+.cal-grip {
+  position: absolute; top: 3px; left: 3px; z-index: 2;
+  font-size: 11px; line-height: 1; color: var(--text-dim);
+  cursor: grab; touch-action: none; padding: 3px 4px; border-radius: 5px;
+  background: var(--bg-elev); border: 1px solid var(--border); opacity: 0.7;
+}
+.cal-grip:active { cursor: grabbing; }
+.agenda-event-wrap .agenda-event { padding-left: 24px; }
+.agenda-col.drop-active { outline: 2px dashed var(--brand); outline-offset: -2px; background: rgba(224,82,26,0.05); }

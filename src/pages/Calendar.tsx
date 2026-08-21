@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { usePointerBoard } from '../lib/usePointerBoard'
 
 type ViewMode = 'day' | '3day' | 'week' | 'month'
 type EventKind = 'post' | 'task' | 'followup'
 
 interface CalEvent {
+  id?: string
   date: string // YYYY-MM-DD
   time: string | null
   kind: EventKind
@@ -98,7 +100,7 @@ export default function Calendar() {
       }
       const ev: CalEvent[] = []
       for (const v of (vids.data ?? []) as any[]) {
-        ev.push({ date: v.scheduled_date, time: v.scheduled_time ?? null, kind: 'post', title: v.title, sub: v.clients?.name, to: `/client/${v.client_id}` })
+        ev.push({ id: v.id, date: v.scheduled_date, time: v.scheduled_time ?? null, kind: 'post', title: v.title, sub: v.clients?.name, to: `/client/${v.client_id}` })
       }
       for (const t of (tasks.data ?? []) as any[]) {
         ev.push({ date: t.due_date, time: null, kind: 'task', title: t.title, sub: t.clients?.name || t.leads?.name, to: '/aufgaben' })
@@ -116,6 +118,13 @@ export default function Calendar() {
       .filter((e) => e.date === dIso)
       .sort((a, b) => (a.time ?? '99').localeCompare(b.time ?? '99'))
   }
+
+  // Post per Drag auf einen anderen Tag verschieben
+  async function reschedule(videoId: string, dateIso: string) {
+    setEvents((prev) => prev.map((e) => (e.kind === 'post' && e.id === videoId ? { ...e, date: dateIso } : e)))
+    await supabase.from('videos').update({ scheduled_date: dateIso }).eq('id', videoId)
+  }
+  const { dragId, drop, startDrag } = usePointerBoard(reschedule)
 
   function step(dir: number) {
     if (view === 'day') setAnchor((a) => addDays(a, dir))
@@ -147,9 +156,14 @@ export default function Calendar() {
     <div
       ref={containerRef}
       className="cal-wrap"
-      onTouchStart={(e) => (touchX.current = e.touches[0].clientX)}
+      onTouchStart={(e) => {
+        // Wisch-Navigation nur, wenn nicht auf einem Termin/Griff gestartet
+        const t = e.target as HTMLElement
+        if (t.closest('[data-card], .vc-grip, .agenda-event, .cal-event')) { touchX.current = null; return }
+        touchX.current = e.touches[0].clientX
+      }}
       onTouchEnd={(e) => {
-        if (touchX.current == null) return
+        if (touchX.current == null || dragId) return
         const dx = e.changedTouches[0].clientX - touchX.current
         if (Math.abs(dx) > 60) step(dx < 0 ? 1 : -1)
         touchX.current = null
@@ -219,21 +233,36 @@ export default function Calendar() {
             const list = eventsFor(dIso)
             const isToday = dIso === todayIso
             return (
-              <div className={`agenda-col ${isToday ? 'today' : ''}`} key={i}>
+              <div
+                className={`agenda-col ${isToday ? 'today' : ''} ${drop?.lane === dIso && dragId ? 'drop-active' : ''}`}
+                key={i}
+                data-lane={dIso}
+              >
                 <div className="agenda-head">
                   <span className="agenda-wd">{WEEKDAYS[(d.getDay() + 6) % 7]}</span>
                   <span className="agenda-day">{d.getDate()}. {MONTHS[d.getMonth()].slice(0, 3)}</span>
                   {isToday && <span className="agenda-today">Heute</span>}
                 </div>
                 <div className="agenda-body">
-                  {list.length === 0 && <div className="col-empty">—</div>}
-                  {list.map((e, j) => (
-                    <button key={j} className={`agenda-event ${e.kind}`} onClick={() => e.to && navigate(e.to)}>
-                      {e.time && <span className="ev-time">{e.time.slice(0, 5)}</span>}
-                      <span className="ev-title">{e.title}</span>
-                      {e.sub && <span className="ev-sub">{e.sub}</span>}
-                    </button>
-                  ))}
+                  {list.length === 0 && <div className="col-empty">{dragId ? 'hierher' : '—'}</div>}
+                  {list.map((e, j) =>
+                    e.kind === 'post' && e.id ? (
+                      <div className={`agenda-event-wrap ${dragId === e.id ? 'ghost-source' : ''}`} key={e.id} data-card={e.id}>
+                        <span className="cal-grip" data-drag-handle onPointerDown={(ev) => startDrag(ev, e.id!, dIso)}>⠿</span>
+                        <button className={`agenda-event ${e.kind}`} onClick={() => e.to && navigate(e.to)}>
+                          {e.time && <span className="ev-time">{e.time.slice(0, 5)}</span>}
+                          <span className="ev-title">{e.title}</span>
+                          {e.sub && <span className="ev-sub">{e.sub}</span>}
+                        </button>
+                      </div>
+                    ) : (
+                      <button key={j} className={`agenda-event ${e.kind}`} onClick={() => e.to && navigate(e.to)}>
+                        {e.time && <span className="ev-time">{e.time.slice(0, 5)}</span>}
+                        <span className="ev-title">{e.title}</span>
+                        {e.sub && <span className="ev-sub">{e.sub}</span>}
+                      </button>
+                    ),
+                  )}
                 </div>
               </div>
             )
