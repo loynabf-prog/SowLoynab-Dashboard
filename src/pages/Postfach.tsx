@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useToast } from '../context/ToastContext'
 import { syncMail, sendMail } from '../lib/mail'
 import Modal from '../components/Modal'
+import SwipeRow from '../components/SwipeRow'
 
 interface Mail {
   id: string
@@ -94,17 +95,19 @@ export default function Postfach() {
 
       <div className="mail-list">
         {rows.map((m) => (
-          <button className={`mail-row ${m.is_read ? '' : 'unread'}`} key={m.id} onClick={() => openMail(m)}>
-            {!m.is_read && <span className="mail-dot" />}
-            <div className="mail-main">
-              <div className="mail-top">
-                <span className="mail-from">{m.from_name || m.from_address || 'Unbekannt'}</span>
-                <span className="mail-when">{when(m.received_at)}</span>
+          <SwipeRow key={m.id} onDelete={() => archive(m)} label="Archivieren">
+            <button className={`mail-row ${m.is_read ? '' : 'unread'}`} onClick={() => openMail(m)}>
+              {!m.is_read && <span className="mail-dot" />}
+              <div className="mail-main">
+                <div className="mail-top">
+                  <span className="mail-from">{m.from_name || m.from_address || 'Unbekannt'}</span>
+                  <span className="mail-when">{when(m.received_at)}</span>
+                </div>
+                <div className="mail-subject">{m.subject || '(kein Betreff)'}</div>
+                <div className="mail-snippet">{m.snippet}</div>
               </div>
-              <div className="mail-subject">{m.subject || '(kein Betreff)'}</div>
-              <div className="mail-snippet">{m.snippet}</div>
-            </div>
-          </button>
+            </button>
+          </SwipeRow>
         ))}
       </div>
 

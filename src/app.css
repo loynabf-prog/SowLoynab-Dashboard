@@ -2072,3 +2072,25 @@ body::before {
   .mail-subject { font-size: 13px; }
   .mail-body { min-height: 240px; }
 }
+
+/* =========================================================================
+   Wischen zum Löschen (iOS-Style)
+   ========================================================================= */
+.swipe-outer { position: relative; border-radius: var(--radius-sm); }
+.swipe-action {
+  position: absolute; top: 0; right: 0; bottom: 0; width: 0;
+  display: flex; align-items: center; justify-content: flex-end;
+  overflow: hidden; border: none; cursor: pointer;
+  background: linear-gradient(90deg, #e2452f, #c8371f);
+  border-radius: var(--radius-sm); padding: 0; color: #fff;
+}
+.swipe-action-label {
+  white-space: nowrap; font-size: 13px; font-weight: 700; letter-spacing: 0.01em;
+  padding: 0 16px; opacity: 0.96;
+}
+.swipe-content {
+  position: relative; z-index: 1; touch-action: pan-y;
+  transition: transform 0.28s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.swipe-content.swiping { transition: none; }
+.swipe-content.committing { transition: transform 0.18s ease-in; opacity: 0.6; }
