@@ -1701,3 +1701,7 @@ html { scroll-behavior: smooth; }
   transition: border-color 0.15s ease, background 0.15s ease;
 }
 .cmd-action:hover { border-color: var(--brand); background: var(--brand-glow); color: var(--brand); }
+
+/* Video-Kennzahlen auf der Karte */
+.vc-stats { display: flex; flex-wrap: wrap; gap: 10px; font-size: 12px; font-weight: 600; color: var(--text-muted); margin: 2px 0 4px; }
+.cockpit-stat { padding-left: 4px; }

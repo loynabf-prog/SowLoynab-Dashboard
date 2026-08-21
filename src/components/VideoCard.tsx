@@ -19,6 +19,12 @@ function fmtDate(d: string | null, time: string | null): string {
   return time ? `${dateFmt} · ${time.slice(0, 5)} Uhr` : dateFmt
 }
 
+function fmtNum(n: number): string {
+  if (n >= 1000000) return (n / 1000000).toFixed(1).replace('.0', '') + 'M'
+  if (n >= 1000) return (n / 1000).toFixed(1).replace('.0', '') + 'k'
+  return String(n)
+}
+
 function isDue(v: Video): boolean {
   if (v.status === 'posted' || !v.scheduled_date) return false
   const d = new Date(v.scheduled_date + 'T00:00:00')
@@ -79,6 +85,15 @@ export default function VideoCard({ video, onPatch, onEdit, onDelete, onCaption,
           ＋ Video-Link einfügen
         </button>
       )}
+
+      {video.status === 'posted' && (video.views || video.reach || video.likes || video.comments) ? (
+        <div className="vc-stats">
+          {video.views != null && <span>👁 {fmtNum(video.views)}</span>}
+          {video.reach != null && <span>📡 {fmtNum(video.reach)}</span>}
+          {video.likes != null && <span>❤️ {fmtNum(video.likes)}</span>}
+          {video.comments != null && <span>💬 {fmtNum(video.comments)}</span>}
+        </div>
+      ) : null}
 
       <div className="vc-flags">
         <span

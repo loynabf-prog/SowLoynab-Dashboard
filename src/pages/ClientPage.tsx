@@ -292,7 +292,9 @@ export default function ClientPage() {
   }
 
   const monthKey = new Date().toISOString().slice(0, 7)
-  const postedThisMonth = videos.filter((v) => (v.posted_at ?? '').slice(0, 7) === monthKey).length
+  const postedMonthVideos = videos.filter((v) => (v.posted_at ?? '').slice(0, 7) === monthKey)
+  const postedThisMonth = postedMonthVideos.length
+  const reachThisMonth = postedMonthVideos.reduce((s, v) => s + (v.reach ?? v.views ?? 0), 0)
 
   if (loading) return <Spinner />
 
@@ -338,7 +340,7 @@ export default function ClientPage() {
         </button>
       </div>
 
-      <ClientCockpit client={client} postedThisMonth={postedThisMonth} />
+      <ClientCockpit client={client} postedThisMonth={postedThisMonth} reachThisMonth={reachThisMonth} />
 
       {client.notes && (
         <div className="info-box" style={{ marginBottom: 20 }}>
@@ -765,6 +767,11 @@ function EditVideoModal({
   const [time, setTime] = useState(video.scheduled_time ? video.scheduled_time.slice(0, 5) : '')
   const [caption, setCaption] = useState(video.caption ?? '')
   const [notes, setNotes] = useState(video.notes ?? '')
+  const [views, setViews] = useState(video.views != null ? String(video.views) : '')
+  const [likes, setLikes] = useState(video.likes != null ? String(video.likes) : '')
+  const [comments, setComments] = useState(video.comments != null ? String(video.comments) : '')
+  const [reach, setReach] = useState(video.reach != null ? String(video.reach) : '')
+  const num = (s: string) => (s.trim() === '' ? null : Number(s.replace(/[^\d]/g, '')))
 
   return (
     <Modal title="Video bearbeiten" onClose={onClose}>
@@ -778,6 +785,10 @@ function EditVideoModal({
             scheduled_time: time || null,
             caption: caption.trim() || null,
             notes: notes.trim() || null,
+            views: num(views),
+            likes: num(likes),
+            comments: num(comments),
+            reach: num(reach),
           })
         }}
       >
@@ -809,6 +820,27 @@ function EditVideoModal({
           <label htmlFor="vnotes">Notizen (z. B. „Personen markieren")</label>
           <textarea id="vnotes" value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
+
+        <div className="section-divider">📈 Performance (nach dem Posten)</div>
+        <div className="row" style={{ gap: 10, flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: 110 }}>
+            <label>Aufrufe</label>
+            <input value={views} onChange={(e) => setViews(e.target.value)} inputMode="numeric" placeholder="0" />
+          </div>
+          <div style={{ flex: 1, minWidth: 110 }}>
+            <label>Reichweite</label>
+            <input value={reach} onChange={(e) => setReach(e.target.value)} inputMode="numeric" placeholder="0" />
+          </div>
+          <div style={{ flex: 1, minWidth: 90 }}>
+            <label>Likes</label>
+            <input value={likes} onChange={(e) => setLikes(e.target.value)} inputMode="numeric" placeholder="0" />
+          </div>
+          <div style={{ flex: 1, minWidth: 90 }}>
+            <label>Kommentare</label>
+            <input value={comments} onChange={(e) => setComments(e.target.value)} inputMode="numeric" placeholder="0" />
+          </div>
+        </div>
+
         <div className="modal-actions">
           <button type="button" className="btn btn-ghost" onClick={onClose}>
             Abbrechen
@@ -1379,7 +1411,13 @@ function ContactBtn({ href, icon, label }: { href: string; icon: string; label: 
   )
 }
 
-function ClientCockpit({ client, postedThisMonth }: { client: Client; postedThisMonth: number }) {
+function fmtK(n: number): string {
+  if (n >= 1000000) return (n / 1000000).toFixed(1).replace('.0', '') + 'M'
+  if (n >= 1000) return (n / 1000).toFixed(1).replace('.0', '') + 'k'
+  return String(n)
+}
+
+function ClientCockpit({ client, postedThisMonth, reachThisMonth }: { client: Client; postedThisMonth: number; reachThisMonth: number }) {
   const quota = client.monthly_quota ?? 0
   const digits = (client.phone ?? '').replace(/[^\d+]/g, '').replace(/^\+/, '')
   const ig = client.handle_ig?.replace(/^@/, '')
@@ -1393,7 +1431,7 @@ function ClientCockpit({ client, postedThisMonth }: { client: Client; postedThis
     client.website && { href: client.website, icon: '🌐', label: 'Website' },
   ].filter(Boolean) as { href: string; icon: string; label: string }[]
 
-  if (quota <= 0 && contacts.length === 0) return null
+  if (quota <= 0 && contacts.length === 0 && reachThisMonth === 0) return null
 
   return (
     <div className="client-cockpit">
@@ -1404,6 +1442,12 @@ function ClientCockpit({ client, postedThisMonth }: { client: Client; postedThis
             <div className="cockpit-quota-title">{postedThisMonth} / {quota} Posts</div>
             <div className="cockpit-quota-sub">diesen Monat</div>
           </div>
+        </div>
+      )}
+      {reachThisMonth > 0 && (
+        <div className="cockpit-stat">
+          <div className="cockpit-quota-title">📡 {fmtK(reachThisMonth)}</div>
+          <div className="cockpit-quota-sub">Reichweite / Monat</div>
         </div>
       )}
       {contacts.length > 0 && (
