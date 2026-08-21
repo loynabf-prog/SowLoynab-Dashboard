@@ -2081,13 +2081,18 @@ body::before {
   position: absolute; top: 0; right: 0; bottom: 0; width: 0;
   display: flex; align-items: center; justify-content: flex-end;
   overflow: hidden; border: none; cursor: pointer;
-  background: linear-gradient(90deg, #e2452f, #c8371f);
+  background: linear-gradient(90deg, #d9432c, #b83218);
   border-radius: var(--radius-sm); padding: 0; color: #fff;
+  box-shadow: inset 1px 0 0 rgba(0, 0, 0, 0.06);
 }
 .swipe-action-label {
   white-space: nowrap; font-size: 13px; font-weight: 700; letter-spacing: 0.01em;
-  padding: 0 16px; opacity: 0.96;
+  padding: 0 18px; opacity: 0.97; transform: scale(0.94);
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
+/* „Loslassen zum Löschen" erreicht: kräftigeres Rot, Icon springt an */
+.swipe-action.armed { background: linear-gradient(90deg, #c8371f, #9e2915); }
+.swipe-action.armed .swipe-action-label { transform: scale(1.06); }
 .swipe-content {
   position: relative; z-index: 1; touch-action: pan-y;
   transition: transform 0.28s cubic-bezier(0.22, 0.61, 0.36, 1);

@@ -29,6 +29,9 @@ export default function SwipeRow({
   const moved = useRef(false)
   const width = useRef(0)
   const openRef = useRef(false) // war die Zeile vor dem Tippen schon offen?
+  const armedRef = useRef(false) // war die Schwelle „automatisch löschen" schon erreicht?
+
+  const armed = width.current > 0 && reveal > width.current * COMMIT_RATIO
 
   function down(e: React.PointerEvent) {
     if (committing) return
@@ -56,12 +59,19 @@ export default function SwipeRow({
     if (Math.abs(dx) > MOVE_MIN) moved.current = true
     const base = openRef.current ? OPEN : 0
     const next = Math.max(0, Math.min(width.current, base - dx))
+    // kleiner Vibrations-Tick beim Erreichen der Auto-Löschen-Schwelle
+    const armedNow = next > width.current * COMMIT_RATIO
+    if (armedNow !== armedRef.current) {
+      armedRef.current = armedNow
+      if (armedNow) { try { navigator.vibrate?.(9) } catch { /* ignore */ } }
+    }
     setReveal(next)
   }
 
   function up() {
     if (!active.current) return
     active.current = false
+    armedRef.current = false
     setDragging(false)
     if (reveal > width.current * COMMIT_RATIO) {
       // ganz weit gewischt -> automatisch löschen
@@ -93,7 +103,7 @@ export default function SwipeRow({
     <div className={`swipe-outer ${className}`}>
       <button
         type="button"
-        className="swipe-action"
+        className={`swipe-action ${armed ? 'armed' : ''}`}
         style={{ width: reveal }}
         onClick={() => { setCommitting(true); setReveal(width.current); setTimeout(onDelete, 120) }}
         tabIndex={reveal > 0 ? 0 : -1}

@@ -1,10 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { euro, dateRelative } from '../lib/format'
 import { celebrate } from '../lib/confetti'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
+import SwipeRow from '../components/SwipeRow'
+import TaskItem, { type TaskRow } from '../components/TaskItem'
+import TaskModal from '../components/TaskModal'
 
 function greeting(): string {
   const h = new Date().getHours()
@@ -13,8 +16,8 @@ function greeting(): string {
   return 'Guten Abend'
 }
 
-interface TaskLite { id: string; title: string; due_date: string | null; clients?: { name: string } | null; leads?: { name: string } | null }
 interface PostLite { id: string; title: string; scheduled_date: string; client_id: string; clients?: { name: string } | null }
+interface Option { id: string; name: string }
 
 function iso(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -28,10 +31,27 @@ export default function Overview() {
   const [pipeline, setPipeline] = useState(0)
   const [mrr, setMrr] = useState(0)
   const [monthNet, setMonthNet] = useState(0)
-  const [tasks, setTasks] = useState<TaskLite[]>([])
+  const [tasks, setTasks] = useState<TaskRow[]>([])
   const [posts, setPosts] = useState<PostLite[]>([])
   const [postedMonth, setPostedMonth] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [clientOpts, setClientOpts] = useState<Option[]>([])
+  const [leadOpts, setLeadOpts] = useState<Option[]>([])
+  const [editing, setEditing] = useState<TaskRow | null>(null)
+
+  // Nur die fälligen Aufgaben nachladen (nach Speichern/Löschen)
+  const reloadTasks = useCallback(async () => {
+    const today = iso(new Date())
+    const { data } = await supabase
+      .from('tasks')
+      .select('*, clients(name), leads(name)')
+      .eq('done', false)
+      .is('deleted_at', null)
+      .not('due_date', 'is', null)
+      .lte('due_date', today)
+      .order('due_date', { ascending: true })
+    setTasks((data ?? []) as unknown as TaskRow[])
+  }, [])
 
   useEffect(() => {
     async function load() {
@@ -47,7 +67,7 @@ export default function Overview() {
         supabase.from('transactions').select('type, amount, occurred_on'),
         supabase
           .from('tasks')
-          .select('id, title, due_date, clients(name), leads(name)')
+          .select('*, clients(name), leads(name)')
           .eq('done', false)
           .is('deleted_at', null)
           .not('due_date', 'is', null)
@@ -79,17 +99,29 @@ export default function Overview() {
       const exp = tx.filter((t) => t.type === 'expense' && String(t.occurred_on).startsWith(monthPrefix)).reduce((s, t) => s + Number(t.amount), 0)
       setMonthNet(inc - exp)
 
-      setTasks((tasksRes.data ?? []) as unknown as TaskLite[])
+      setTasks((tasksRes.data ?? []) as unknown as TaskRow[])
       setPosts((postsRes.data ?? []) as unknown as PostLite[])
       setLoading(false)
     }
     load()
+    // Kunden/Leads für den Aufgaben-Editor
+    supabase.from('clients').select('id, name').is('deleted_at', null).order('name').then(({ data }) => setClientOpts((data ?? []) as Option[]))
+    supabase.from('leads').select('id, name').is('deleted_at', null).order('name').then(({ data }) => setLeadOpts((data ?? []) as Option[]))
   }, [])
 
   async function completeTask(id: string) {
     setTasks((prev) => prev.filter((t) => t.id !== id))
     await supabase.from('tasks').update({ done: true }).eq('id', id)
     toast('Erledigt ✓')
+  }
+
+  async function removeTask(id: string) {
+    setTasks((prev) => prev.filter((t) => t.id !== id))
+    await supabase.from('tasks').update({ deleted_at: new Date().toISOString() }).eq('id', id)
+    toast('In den Papierkorb', {
+      label: 'Rückgängig',
+      onClick: async () => { await supabase.from('tasks').update({ deleted_at: null }).eq('id', id); reloadTasks() },
+    })
   }
 
   async function markPosted(p: PostLite) {
@@ -145,22 +177,11 @@ export default function Overview() {
             <div className="col-empty">Nichts fällig. 🎉</div>
           ) : (
             <div className="task-list">
-              {tasks.map((t) => {
-                const due = dateRelative(t.due_date)
-                const linked = t.clients?.name || t.leads?.name
-                return (
-                  <div key={t.id} className="task-item">
-                    <button className="task-check" onClick={() => completeTask(t.id)} title="Als erledigt abhaken" aria-label="erledigt" />
-                    <div className="task-body" style={{ cursor: 'pointer' }} onClick={() => navigate(`/aufgaben?open=${t.id}`)}>
-                      <div className="task-title">{t.title}</div>
-                      <div className="task-meta">
-                        <span className={`task-due ${due.overdue ? 'overdue' : 'soon'}`}>{due.overdue ? '⚠️ ' : '📌 '}{due.text}</span>
-                        {linked && <span className="chip">{linked}</span>}
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
+              {tasks.map((t) => (
+                <SwipeRow key={t.id} onDelete={() => removeTask(t.id)}>
+                  <TaskItem t={t} onToggle={() => completeTask(t.id)} onEdit={() => setEditing(t)} onDelete={() => removeTask(t.id)} />
+                </SwipeRow>
+              ))}
             </div>
           )}
         </div>
@@ -191,6 +212,17 @@ export default function Overview() {
           )}
         </div>
       </div>
+
+      {editing && (
+        <TaskModal
+          task={editing}
+          userId={user?.id ?? null}
+          clients={clientOpts}
+          leads={leadOpts}
+          onClose={() => setEditing(null)}
+          onSaved={() => { setEditing(null); reloadTasks(); toast('Gespeichert ✓') }}
+        />
+      )}
     </>
   )
 }
