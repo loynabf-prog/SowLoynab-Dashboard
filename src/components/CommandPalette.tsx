@@ -95,6 +95,13 @@ export default function CommandPalette() {
           />
           <kbd className="cmd-esc">esc</kbd>
         </div>
+        {!q.trim() && (
+          <div className="cmd-actions">
+            <button className="cmd-action" onClick={() => { setOpen(false); window.dispatchEvent(new CustomEvent('open-quickadd', { detail: { type: 'task' } })) }}>＋ Aufgabe</button>
+            <button className="cmd-action" onClick={() => { setOpen(false); window.dispatchEvent(new CustomEvent('open-quickadd', { detail: { type: 'lead' } })) }}>＋ Lead</button>
+            <button className="cmd-action" onClick={() => { setOpen(false); window.dispatchEvent(new CustomEvent('open-quickadd', { detail: { type: 'video' } })) }}>＋ Video</button>
+          </div>
+        )}
         <div className="cmd-list">
           {results.length === 0 && <div className="cmd-empty">{hits.length === 0 ? 'Lade …' : 'Nichts gefunden.'}</div>}
           {results.map((h, i) => (

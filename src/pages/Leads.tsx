@@ -9,11 +9,13 @@ import Modal from '../components/Modal'
 import ActivityLog from '../components/ActivityLog'
 import { AssigneePicker, AssigneeChips } from '../components/Assignee'
 import { useTeam } from '../context/TeamContext'
+import { useIdentity } from '../context/IdentityContext'
 import { useToast } from '../context/ToastContext'
 
 export default function Leads() {
   const { user } = useAuth()
   const { members } = useTeam()
+  const { memberId } = useIdentity()
   const { toast } = useToast()
   const [leads, setLeads] = useState<Lead[]>([])
   const [loading, setLoading] = useState(true)
@@ -161,6 +163,14 @@ export default function Leads() {
             <option key={m.id} value={m.id}>{m.name}</option>
           ))}
         </select>
+        {memberId && (
+          <button
+            className={`btn ${filterMember === memberId ? 'btn-primary' : ''}`}
+            onClick={() => setFilterMember(filterMember === memberId ? '' : memberId)}
+          >
+            🙋 Nur meine
+          </button>
+        )}
       </div>
 
       {error && <div className="error-box" style={{ marginBottom: 16 }}>{error}</div>}

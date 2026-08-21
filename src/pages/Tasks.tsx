@@ -6,6 +6,7 @@ import type { Task } from '../lib/types'
 import Modal from '../components/Modal'
 import { AssigneePicker, AssigneeChips } from '../components/Assignee'
 import { useTeam } from '../context/TeamContext'
+import { useIdentity } from '../context/IdentityContext'
 import { useToast } from '../context/ToastContext'
 
 interface TaskRow extends Task {
@@ -18,6 +19,7 @@ interface Option { id: string; name: string }
 export default function Tasks() {
   const { user } = useAuth()
   const { members } = useTeam()
+  const { memberId } = useIdentity()
   const { toast } = useToast()
   const [tasks, setTasks] = useState<TaskRow[]>([])
   const [clients, setClients] = useState<Option[]>([])
@@ -121,6 +123,14 @@ export default function Tasks() {
             <option key={m.id} value={m.id}>{m.name}</option>
           ))}
         </select>
+        {memberId && (
+          <button
+            className={`btn ${filterMember === memberId ? 'btn-primary' : ''}`}
+            onClick={() => setFilterMember(filterMember === memberId ? '' : memberId)}
+          >
+            🙋 Nur meine
+          </button>
+        )}
       </div>
 
       {error && <div className="error-box" style={{ marginBottom: 16 }}>{error}</div>}

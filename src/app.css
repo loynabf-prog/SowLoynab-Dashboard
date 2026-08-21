@@ -1691,3 +1691,13 @@ html { scroll-behavior: smooth; }
   transition: border-color 0.15s ease, transform 0.12s ease;
 }
 .theme-toggle:hover { border-color: var(--gold-soft); transform: translateY(-1px); }
+
+/* Command Palette: Schnell-Anlegen-Aktionen */
+.cmd-actions { display: flex; gap: 8px; padding: 10px 14px 4px; flex-wrap: wrap; }
+.cmd-action {
+  border: 1px solid var(--border-strong); background: var(--bg-elev);
+  color: var(--text); border-radius: 999px; padding: 6px 13px;
+  font-size: 13px; font-weight: 600;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.cmd-action:hover { border-color: var(--brand); background: var(--brand-glow); color: var(--brand); }

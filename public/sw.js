@@ -38,9 +38,46 @@ self.addEventListener('notificationclick', (event) => {
   )
 })
 
+/* ---- Offline-Cache (App öffnet auch ohne Netz) ---- */
+const CACHE = 'sl-cache-v1'
+
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim())
+  event.waitUntil(
+    (async () => {
+      const keys = await caches.keys()
+      await Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
+      await self.clients.claim()
+    })(),
+  )
 })
 self.addEventListener('install', () => {
   self.skipWaiting()
+})
+
+// Network-first mit Cache-Fallback: online immer frisch, offline letzter Stand.
+self.addEventListener('fetch', (event) => {
+  const req = event.request
+  if (req.method !== 'GET') return
+  const url = new URL(req.url)
+  if (url.origin !== self.location.origin) return // nur eigene Assets/Seiten
+  event.respondWith(
+    fetch(req)
+      .then((res) => {
+        if (res && res.status === 200 && res.type === 'basic') {
+          const clone = res.clone()
+          caches.open(CACHE).then((c) => c.put(req, clone)).catch(() => {})
+        }
+        return res
+      })
+      .catch(async () => {
+        const cached = await caches.match(req)
+        if (cached) return cached
+        // Navigations-Fallback -> Startseite aus Cache
+        if (req.mode === 'navigate') {
+          const shell = await caches.match('/')
+          if (shell) return shell
+        }
+        throw new Error('offline, kein Cache')
+      }),
+  )
 })
