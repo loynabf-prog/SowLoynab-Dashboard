@@ -140,11 +140,12 @@
         border-radius: 999px;
         background: linear-gradient(90deg, #e0521a, #ff8a50);
         box-shadow: 0 0 12px rgba(255, 138, 80, 0.7);
-        animation: spGrow 2.1s cubic-bezier(0.4, 0, 0.2, 1) 0.55s forwards;
+        animation: spGrow 3.0s cubic-bezier(0.4, 0, 0.2, 1) 0.55s forwards;
       }
       @keyframes spGrow {
         0%   { width: 0; }
-        70%  { width: 82%; }
+        55%  { width: 62%; }
+        85%  { width: 88%; }
         100% { width: 100%; }
       }
 
@@ -169,7 +170,7 @@
       (function () {
         var splash = document.getElementById('splash')
         if (!splash) return
-        var MIN = 2600 // Mindest-Showtime, damit man sich drauf freut ;)
+        var MIN = 3500 // Mindest-Showtime, damit im Hintergrund alles geladen ist
         var start = Date.now()
         var gone = false
         function hide() {

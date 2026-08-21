@@ -43,6 +43,7 @@ export default function ClientPage() {
   const [ideas, setIdeas] = useState<VideoIdea[]>([])
   const [nudging, setNudging] = useState<Video | null>(null)
   const [flashId, setFlashId] = useState<string | null>(null)
+  const [dragOverCol, setDragOverCol] = useState<VideoStatus | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
 
   const loadClient = useCallback(async () => {
@@ -337,11 +338,16 @@ export default function ClientPage() {
             .sort((a, b) => orderVal(a) - orderVal(b))
           return (
             <div
-              className="board-col"
+              className={`board-col ${dragOverCol === status && draggingId ? 'drop-active' : ''}`}
               key={status}
-              onDragOver={(e) => draggingId && e.preventDefault()}
+              onDragOver={(e) => {
+                if (!draggingId) return
+                e.preventDefault()
+                if (dragOverCol !== status) setDragOverCol(status)
+              }}
               onDrop={(e) => {
                 e.preventDefault()
+                setDragOverCol(null)
                 if (draggingId) moveVideo(draggingId, status, null)
               }}
             >
@@ -370,7 +376,7 @@ export default function ClientPage() {
                       setDraggingId(v.id)
                       e.dataTransfer.effectAllowed = 'move'
                     }}
-                    onDragEnd={() => setDraggingId(null)}
+                    onDragEnd={() => { setDraggingId(null); setDragOverCol(null) }}
                     onDragOver={(e) => draggingId && draggingId !== v.id && e.preventDefault()}
                     onDrop={(e) => {
                       if (!draggingId || draggingId === v.id) return

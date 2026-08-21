@@ -1275,3 +1275,151 @@ button, a, .flag, .nudge-item, .ai-idea, .pool-card, .seg-btn {
 
 /* Unten genug Luft, damit der Mikro-Knopf nichts verdeckt (inkl. Home-Indicator) */
 .app-main { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+
+/* ============================================================================
+   LUXUS-LAYER — hochwertiges, ruhiges "Millionen-Dollar-CRM"-Gefühl
+   ============================================================================ */
+
+/* --- Header: Frostglas + Gold-Haarlinie --- */
+.app-header {
+  background: linear-gradient(180deg, rgba(255, 253, 250, 0.92), rgba(250, 247, 242, 0.72));
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  border-bottom: 1px solid rgba(198, 151, 73, 0.16);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 8px 24px -18px rgba(72, 50, 22, 0.5);
+}
+.brand-mark { letter-spacing: -0.03em; }
+.brand-dot { box-shadow: 0 0 0 4px var(--brand-glow), 0 4px 12px rgba(224, 82, 26, 0.4); }
+
+/* --- Navigation: gleitender Pill-Indikator statt Unterstrich --- */
+.app-nav {
+  background: linear-gradient(180deg, rgba(255, 253, 250, 0.8), rgba(250, 247, 242, 0.55));
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+.nav-link {
+  position: relative;
+  border-bottom: none !important;
+  border-radius: 999px;
+  padding: 8px 15px !important;
+  transition: color 0.2s ease, background 0.2s ease, transform 0.12s ease;
+}
+.nav-link:hover { background: rgba(198, 151, 73, 0.10); transform: translateY(-1px); }
+.nav-link.active {
+  color: #fff !important;
+  background: linear-gradient(135deg, var(--brand-deep), var(--brand-light));
+  box-shadow: 0 6px 16px -4px rgba(224, 82, 26, 0.5), inset 0 1px 0 rgba(255,255,255,0.25);
+}
+
+/* --- Seitentitel: größer, edler --- */
+.page-head h1 { font-size: 30px; letter-spacing: -0.03em; }
+.dashboard-intro h1 { letter-spacing: -0.035em; }
+
+/* --- Karten allgemein: Sheen + mehrschichtiger Schatten + Lift --- */
+.logo-tile, .video-card, .board-col, .upcoming, .team-row, .pool-card,
+.fin-tile, .overview-card, .stat-card, .section-block {
+  transition: transform 0.22s cubic-bezier(0.22, 0.61, 0.36, 1), box-shadow 0.22s ease, border-color 0.22s ease;
+}
+
+/* Kunden-Kacheln: Premium-Objekte mit Glanzkante */
+.logo-tile {
+  position: relative;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,255,255,0.4)) padding-box,
+    var(--bg-card);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+.logo-tile::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.55) 48%, transparent 62%);
+  transform: translateX(-120%);
+  transition: transform 0.7s cubic-bezier(0.22, 0.61, 0.36, 1);
+  pointer-events: none;
+}
+.logo-tile:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); border-color: var(--gold-soft); }
+.logo-tile:hover::after { transform: translateX(120%); }
+.logo-frame { box-shadow: inset 0 0 0 1px rgba(198,151,73,0.12), 0 6px 16px -8px rgba(72,50,22,0.4); }
+
+/* Video-/Pool-Karten: sauberes Papier mit weicher Tiefe */
+.video-card, .pool-card {
+  background: linear-gradient(180deg, #ffffff, #fefcf9);
+  box-shadow: var(--shadow-sm);
+}
+.video-card:hover, .pool-card:hover { transform: translateY(-3px); box-shadow: var(--shadow); border-color: var(--gold-soft); }
+.video-card.due { box-shadow: 0 0 0 1px var(--danger), 0 10px 26px -12px rgba(220,38,38,0.5); }
+
+/* Board-Spalten: Status-Akzent oben + Glas --- */
+.board-col {
+  position: relative;
+  background: linear-gradient(180deg, rgba(255,255,255,0.5), rgba(243,237,228,0.6));
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+.board-col::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: var(--text-dim);
+  opacity: 0.85;
+}
+.board .board-col:nth-child(1)::before { background: linear-gradient(90deg, var(--todo), #b7ab9c); }
+.board .board-col:nth-child(2)::before { background: linear-gradient(90deg, var(--ready), #e6b23a); }
+.board .board-col:nth-child(3)::before { background: linear-gradient(90deg, var(--planned), #5b8cff); }
+.board .board-col:nth-child(4)::before { background: linear-gradient(90deg, var(--posted), #57c47a); }
+
+/* --- Drag & Drop: satte Haptik --- */
+.drag-wrap { transition: transform 0.16s cubic-bezier(0.22,0.61,0.36,1), box-shadow 0.16s ease, opacity 0.16s ease; }
+.drag-wrap.dragging {
+  transform: rotate(-2deg) scale(1.04);
+  box-shadow: var(--shadow-lg);
+  opacity: 0.96;
+  cursor: grabbing;
+}
+.drag-wrap.dragging .video-card,
+.drag-wrap.dragging .lead-card { border-color: var(--brand); }
+/* aktives Ablegen: Spalte hebt sich hervor */
+.board-col.drop-active, .lane.drop-active {
+  border-color: var(--brand) !important;
+  background: linear-gradient(180deg, rgba(224,82,26,0.05), rgba(255,138,80,0.05));
+  box-shadow: 0 0 0 2px var(--brand-glow), var(--shadow);
+}
+.col-empty {
+  border: 1.5px dashed transparent;
+  border-radius: var(--radius-sm);
+  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+.board-col.drop-active .col-empty {
+  border-color: var(--gold-soft);
+  color: var(--brand);
+  background: rgba(224,82,26,0.03);
+}
+
+/* --- Modale: tiefe Bühne + Frostglas-Backdrop --- */
+.modal-backdrop { background: rgba(28, 19, 11, 0.42) !important; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.modal {
+  border: 1px solid rgba(198,151,73,0.18);
+  box-shadow: var(--shadow-lg);
+  border-radius: var(--radius-lg);
+}
+
+/* --- Status-Pills: edler --- */
+.status-pill { box-shadow: inset 0 0 0 1px rgba(0,0,0,0.02); }
+
+/* --- Segmente & Suche: weicher --- */
+.seg { box-shadow: inset 0 1px 3px rgba(72,50,22,0.06); }
+.seg-btn.on { box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,0.7); }
+
+/* --- Glocke & Mikro: als edle Objekte --- */
+.voice-fab { box-shadow: 0 10px 30px rgba(224,82,26,0.42), inset 0 1px 0 rgba(255,255,255,0.3); }
+.nudge-panel { border: 1px solid rgba(198,151,73,0.18); box-shadow: var(--shadow-lg); border-radius: var(--radius); }
+
+/* --- feine Scrollbars (Desktop) --- */
+@media (pointer: fine) {
+  * { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+  *::-webkit-scrollbar { width: 10px; height: 10px; }
+  *::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; border: 3px solid transparent; background-clip: content-box; }
+  *::-webkit-scrollbar-thumb:hover { background: var(--gold-soft); background-clip: content-box; }
+}

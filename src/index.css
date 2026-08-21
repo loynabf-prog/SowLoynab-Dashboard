@@ -14,7 +14,10 @@
 
   --brand:         #e0521a;
   --brand-light:   #ff8a50;
+  --brand-deep:    #b8410f;
   --brand-glow:    rgba(224, 82, 26, 0.16);
+  --gold:          #c69749;
+  --gold-soft:     rgba(198, 151, 73, 0.5);
 
   --todo:    #9c9082;
   --ready:   #c98a00;
@@ -23,10 +26,14 @@
 
   --danger: #dc2626;
 
-  --radius:    16px;
-  --radius-sm: 10px;
-  --shadow:    0 10px 34px rgba(80, 55, 25, 0.09);
-  --shadow-sm: 0 3px 12px rgba(80, 55, 25, 0.06);
+  --radius:    18px;
+  --radius-lg: 26px;
+  --radius-sm: 11px;
+  /* Mehrschichtige Luxus-Schatten: knapper Kontakt + weiche Tiefe */
+  --shadow-sm: 0 1px 2px rgba(72, 50, 22, 0.05), 0 4px 14px rgba(72, 50, 22, 0.055);
+  --shadow:    0 2px 4px rgba(72, 50, 22, 0.05), 0 16px 40px rgba(72, 50, 22, 0.10);
+  --shadow-lg: 0 8px 16px rgba(72, 50, 22, 0.06), 0 34px 80px rgba(72, 50, 22, 0.16);
+  --hairline:  1px solid rgba(198, 151, 73, 0.22);
 
   --font-head: 'Space Grotesk', system-ui, sans-serif;
   --font-body: 'Inter', system-ui, -apple-system, sans-serif;
@@ -39,19 +46,23 @@ html, body, #root { height: 100%; }
 body {
   margin: 0;
   background:
-    radial-gradient(1100px 620px at 50% -180px, rgba(224, 82, 26, 0.06), transparent 60%),
-    var(--bg);
+    radial-gradient(900px 500px at 88% -140px, rgba(198, 151, 73, 0.10), transparent 62%),
+    radial-gradient(1100px 640px at 12% -180px, rgba(224, 82, 26, 0.07), transparent 60%),
+    linear-gradient(180deg, #fbf8f3 0%, var(--bg) 40%, #f7f2ea 100%);
+  background-attachment: fixed;
   color: var(--text);
   font-family: var(--font-body);
   font-size: 15px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: 'kern' 1, 'liga' 1, 'cv11' 1;
 }
 
 h1, h2, h3, h4 {
   font-family: var(--font-head);
   font-weight: 600;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.02em;
   margin: 0;
 }
 
@@ -107,12 +118,14 @@ label {
 .btn:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--brand), var(--brand-light));
+  position: relative;
+  background: linear-gradient(135deg, var(--brand-deep), var(--brand) 55%, var(--brand-light));
   border-color: transparent;
   color: #fff;
-  box-shadow: 0 6px 18px rgba(224, 82, 26, 0.28);
+  box-shadow: 0 6px 18px rgba(224, 82, 26, 0.30), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  text-shadow: 0 1px 1px rgba(120, 40, 10, 0.25);
 }
-.btn-primary:hover { filter: brightness(1.05); background: linear-gradient(135deg, var(--brand), var(--brand-light)); border-color: transparent; }
+.btn-primary:hover { filter: brightness(1.06) saturate(1.05); background: linear-gradient(135deg, var(--brand-deep), var(--brand) 55%, var(--brand-light)); border-color: transparent; }
 
 .btn-ghost { background: transparent; border-color: transparent; box-shadow: none; }
 .btn-ghost:hover { background: var(--bg-sunken); border-color: transparent; box-shadow: none; }
