@@ -1744,3 +1744,12 @@ html { scroll-behavior: smooth; }
 .cal-grip:active { cursor: grabbing; }
 .agenda-event-wrap .agenda-event { padding-left: 24px; }
 .agenda-col.drop-active { outline: 2px dashed var(--brand); outline-offset: -2px; background: rgba(224,82,26,0.05); }
+
+/* Swipe-Hinweis auf der Video-Karte */
+.video-card { position: relative; }
+.swipe-hint {
+  position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+  z-index: 4; background: #211b14; color: #fff; font-size: 12px; font-weight: 700;
+  padding: 4px 12px; border-radius: 999px; box-shadow: var(--shadow);
+  animation: riseIn 0.2s ease both;
+}
