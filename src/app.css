@@ -1480,3 +1480,97 @@ button, a, .flag, .nudge-item, .ai-idea, .pool-card, .seg-btn {
 /* Griff-Platz auf Lead-Karten */
 .lead-card.drag-wrap { padding-right: 14px; }
 .lead-card .lead-name { padding-right: 34px; }
+
+/* ============================ Mobile-Performance (iPhone) ============================ */
+@media (max-width: 760px) {
+  /* Gestapelte Weichzeichner sind auf iPhone die größte Scroll-Bremse -> deckend statt Glas */
+  .app-header {
+    background: rgba(251, 248, 243, 0.98);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  .app-nav {
+    background: rgba(251, 248, 243, 0.98);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  .modal-backdrop { backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .nudge-panel { backdrop-filter: none; -webkit-backdrop-filter: none; }
+  /* dezentere Sheen-Animation spart Repaints */
+  .logo-tile::after { display: none; }
+  /* größere, fingerfreundliche Zieh-Griffe */
+  .vc-grip { width: 40px; height: 34px; top: 6px; right: 6px; }
+}
+
+/* sanfteres, natives Scrollen */
+html { scroll-behavior: smooth; }
+.cal-agenda, .app-nav-inner, .ai-idea-list, .nudge-list { -webkit-overflow-scrolling: touch; }
+
+/* GPU-Hinweis nur beim aktiven Ziehen */
+.drag-ghost { will-change: transform; }
+
+/* ============================ Blitz-Suche (Command Palette) ============================ */
+.search-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-elev);
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.12s ease;
+}
+.search-trigger:hover { border-color: var(--gold-soft); box-shadow: var(--shadow-sm); transform: translateY(-1px); color: var(--text); }
+.search-trigger-kbd {
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-dim);
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1px 6px;
+}
+@media (max-width: 640px) {
+  .search-trigger-label, .search-trigger-kbd { display: none; }
+  .search-trigger { padding: 7px 10px; font-size: 16px; }
+}
+
+.cmd-backdrop {
+  position: fixed; inset: 0; z-index: 3000;
+  background: rgba(28, 19, 11, 0.44);
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  display: flex; justify-content: center;
+  padding: 12vh 16px 16px;
+  animation: pageIn 0.16s ease both;
+}
+.cmd-panel {
+  width: 100%; max-width: 560px; height: max-content; max-height: 72vh;
+  display: flex; flex-direction: column;
+  background: var(--bg-elev);
+  border: 1px solid rgba(198,151,73,0.2);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  animation: modalPop 0.22s cubic-bezier(0.22,0.61,0.36,1) both;
+}
+.cmd-search { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--border); }
+.cmd-mag { font-size: 17px; }
+.cmd-search input { border: none; background: transparent; padding: 4px 0; font-size: 17px; box-shadow: none !important; }
+.cmd-esc { font-family: var(--font-body); font-size: 11px; font-weight: 700; color: var(--text-dim); background: var(--bg-sunken); border: 1px solid var(--border); border-radius: 6px; padding: 2px 7px; }
+.cmd-list { overflow-y: auto; padding: 8px; }
+.cmd-empty { padding: 26px; text-align: center; color: var(--text-dim); font-size: 14px; }
+.cmd-item {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  padding: 11px 12px; border: none; background: transparent;
+  border-radius: var(--radius-sm); text-align: left; color: var(--text);
+}
+.cmd-item.active { background: linear-gradient(135deg, rgba(224,82,26,0.10), rgba(255,138,80,0.08)); box-shadow: inset 0 0 0 1px var(--gold-soft); }
+.cmd-icon { font-size: 16px; width: 22px; text-align: center; }
+.cmd-label { font-weight: 600; font-size: 15px; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cmd-sub { font-size: 12px; color: var(--text-dim); flex-shrink: 0; }
+.cmd-foot { display: flex; gap: 16px; padding: 10px 16px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-dim); }
+.cmd-foot kbd { font-family: var(--font-body); font-weight: 700; background: var(--bg-sunken); border: 1px solid var(--border); border-radius: 5px; padding: 1px 5px; margin-right: 2px; }

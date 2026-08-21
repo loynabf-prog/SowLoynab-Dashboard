@@ -130,6 +130,7 @@ export interface Video {
   duration_seconds: number | null
   posted_ig: boolean
   posted_tiktok: boolean
+  posted_at: string | null
   sort_order: number | null
   assignee_ids: string[]
   created_by: string | null

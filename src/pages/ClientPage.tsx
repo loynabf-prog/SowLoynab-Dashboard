@@ -20,6 +20,7 @@ import Spinner from '../components/Spinner'
 import { generateCaption } from '../lib/caption'
 import { generateIdeas } from '../lib/ideas'
 import { usePointerBoard } from '../lib/usePointerBoard'
+import { celebrate } from '../lib/confetti'
 import NudgeModal from '../components/NudgeModal'
 import { useToast } from '../context/ToastContext'
 
@@ -128,8 +129,16 @@ export default function ClientPage() {
   }, [loading, videos])
 
   async function patchVideo(videoId: string, patch: Partial<Video>) {
-    setVideos((prev) => prev.map((v) => (v.id === videoId ? { ...v, ...patch } : v)))
-    const { error } = await supabase.from('videos').update(patch).eq('id', videoId)
+    // Wechsel auf "Gepostet" -> feiern + Zeitstempel setzen (echte Post-Statistik)
+    const before = videos.find((v) => v.id === videoId)
+    let p: Partial<Video> = patch
+    if (patch.status === 'posted' && before && before.status !== 'posted') {
+      p = { ...patch, posted_at: new Date().toISOString() }
+      celebrate()
+      toast('Gepostet — stark! 🎉')
+    }
+    setVideos((prev) => prev.map((v) => (v.id === videoId ? { ...v, ...p } : v)))
+    const { error } = await supabase.from('videos').update(p).eq('id', videoId)
     if (error) {
       setError(error.message)
       loadVideos()

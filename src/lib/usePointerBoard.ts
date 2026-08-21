@@ -48,8 +48,9 @@ export function usePointerBoard(onDrop: (itemId: string, lane: string, beforeId:
       const s = st.current
       if (!s) return
       e.preventDefault()
-      s.ghost.style.left = e.clientX - s.offX + 'px'
-      s.ghost.style.top = e.clientY - s.offY + 'px'
+      // per transform bewegen (kein Layout -> butterweich auf dem iPhone)
+      s.ghost.style.transform =
+        `translate3d(${e.clientX - s.offX}px, ${e.clientY - s.offY}px, 0) rotate(-2.5deg) scale(1.04)`
 
       // Auto-Scroll nahe den Rändern
       const vh = window.innerHeight
@@ -119,12 +120,14 @@ export function usePointerBoard(onDrop: (itemId: string, lane: string, beforeId:
     })
     ghost.classList.add('drag-ghost')
     ghost.style.position = 'fixed'
-    ghost.style.left = rect.left + 'px'
-    ghost.style.top = rect.top + 'px'
+    ghost.style.left = '0'
+    ghost.style.top = '0'
     ghost.style.width = rect.width + 'px'
     ghost.style.margin = '0'
     ghost.style.pointerEvents = 'none'
     ghost.style.zIndex = '99998'
+    ghost.style.willChange = 'transform'
+    ghost.style.transform = `translate3d(${rect.left}px, ${rect.top}px, 0) rotate(-2.5deg) scale(1.04)`
     document.body.appendChild(ghost)
     st.current = { id: itemId, ghost, offX: e.clientX - rect.left, offY: e.clientY - rect.top, drop: null }
     setDragId(itemId)

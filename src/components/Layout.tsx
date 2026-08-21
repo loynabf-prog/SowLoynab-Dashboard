@@ -2,6 +2,7 @@ import { Link, NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import VoiceButton from './VoiceButton'
 import NudgeCenter from './NudgeCenter'
+import CommandPalette from './CommandPalette'
 
 const NAV = [
   { to: '/uebersicht', label: 'Übersicht' },
@@ -29,6 +30,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           Sow&nbsp;&amp;&nbsp;Loynab
         </Link>
         <div className="spacer" />
+        <button
+          className="search-trigger"
+          onClick={() => window.dispatchEvent(new Event('open-search'))}
+          title="Suchen (⌘K)"
+        >
+          <span>🔍</span>
+          <span className="search-trigger-label">Suchen</span>
+          <kbd className="search-trigger-kbd">⌘K</kbd>
+        </button>
         <NudgeCenter />
         {user?.email && <span className="muted user-email">{user.email}</span>}
         <button className="btn btn-sm btn-ghost" onClick={() => signOut()}>
@@ -58,6 +68,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </main>
 
       <VoiceButton />
+      <CommandPalette />
     </>
   )
 }
