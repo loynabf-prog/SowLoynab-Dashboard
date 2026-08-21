@@ -35,8 +35,9 @@ export default function App() {
         path="/login"
         element={loading ? null : session ? <Navigate to="/" replace /> : <Login />}
       />
-      <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-      <Route path="/uebersicht" element={<ProtectedRoute><Overview /></ProtectedRoute>} />
+      <Route path="/" element={<ProtectedRoute><Overview /></ProtectedRoute>} />
+      <Route path="/kunden" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+      <Route path="/uebersicht" element={<Navigate to="/" replace />} />
       <Route path="/client/:id" element={<ProtectedRoute><ClientPage /></ProtectedRoute>} />
       <Route path="/leads" element={<ProtectedRoute><Leads /></ProtectedRoute>} />
       <Route path="/aufgaben" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />

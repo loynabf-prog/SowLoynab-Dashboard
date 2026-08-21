@@ -285,8 +285,8 @@ export default function ClientPage() {
     return (
       <div className="empty-state">
         <p>Kunde nicht gefunden.</p>
-        <Link to="/" className="btn" style={{ marginTop: 12 }}>
-          Zurueck zum Dashboard
+        <Link to="/kunden" className="btn" style={{ marginTop: 12 }}>
+          Zurueck zu den Kunden
         </Link>
       </div>
     )
@@ -294,7 +294,7 @@ export default function ClientPage() {
 
   return (
     <>
-      <Link to="/" className="back-link">
+      <Link to="/kunden" className="back-link">
         ← Alle Kunden
       </Link>
 

@@ -6,8 +6,8 @@ import CommandPalette from './CommandPalette'
 import QuickAdd from './QuickAdd'
 
 const NAV = [
-  { to: '/uebersicht', label: 'Übersicht' },
-  { to: '/', label: 'Kunden', end: true },
+  { to: '/', label: 'Übersicht', end: true },
+  { to: '/kunden', label: 'Kunden' },
   { to: '/leads', label: 'Leads' },
   { to: '/aufgaben', label: 'Aufgaben' },
   { to: '/kalender', label: 'Kalender' },

@@ -1,7 +1,17 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { euro, dateRelative } from '../lib/format'
+import { celebrate } from '../lib/confetti'
+import { useToast } from '../context/ToastContext'
+import { useAuth } from '../context/AuthContext'
+
+function greeting(): string {
+  const h = new Date().getHours()
+  if (h < 11) return 'Guten Morgen'
+  if (h < 18) return 'Guten Tag'
+  return 'Guten Abend'
+}
 
 interface TaskLite { id: string; title: string; due_date: string | null; clients?: { name: string } | null; leads?: { name: string } | null }
 interface PostLite { id: string; title: string; scheduled_date: string; client_id: string; clients?: { name: string } | null }
@@ -11,6 +21,9 @@ function iso(d: Date) {
 }
 
 export default function Overview() {
+  const navigate = useNavigate()
+  const { toast } = useToast()
+  const { user } = useAuth()
   const [openLeads, setOpenLeads] = useState(0)
   const [pipeline, setPipeline] = useState(0)
   const [mrr, setMrr] = useState(0)
@@ -69,12 +82,27 @@ export default function Overview() {
     load()
   }, [])
 
+  async function completeTask(id: string) {
+    setTasks((prev) => prev.filter((t) => t.id !== id))
+    await supabase.from('tasks').update({ done: true }).eq('id', id)
+    toast('Erledigt ✓')
+  }
+
+  async function markPosted(p: PostLite) {
+    setPosts((prev) => prev.filter((x) => x.id !== p.id))
+    celebrate()
+    await supabase.from('videos').update({ status: 'posted', posted_at: new Date().toISOString() }).eq('id', p.id)
+    toast('Gepostet — stark! 🎉')
+  }
+
+  const firstName = (user?.email ?? '').split('@')[0].split('.')[0]
+
   return (
     <>
       <div className="page-head">
         <div>
-          <h1>Übersicht</h1>
-          <span className="sub">{loading ? 'Lade …' : 'Dein Cockpit auf einen Blick'}</span>
+          <h1>{greeting()}{firstName ? `, ${firstName.charAt(0).toUpperCase() + firstName.slice(1)}` : ''} 👋</h1>
+          <span className="sub">{loading ? 'Lade …' : 'Dein Cockpit — heute im Fokus'}</span>
         </div>
       </div>
 
@@ -112,16 +140,16 @@ export default function Overview() {
                 const due = dateRelative(t.due_date)
                 const linked = t.clients?.name || t.leads?.name
                 return (
-                  <Link to="/aufgaben" key={t.id} className="task-item" style={{ color: 'inherit' }}>
-                    <span className="activity-icon">{due.overdue ? '⚠️' : '📌'}</span>
-                    <div className="task-body">
+                  <div key={t.id} className="task-item">
+                    <button className="task-check" onClick={() => completeTask(t.id)} title="Als erledigt abhaken" aria-label="erledigt" />
+                    <div className="task-body" style={{ cursor: 'pointer' }} onClick={() => navigate('/aufgaben')}>
                       <div className="task-title">{t.title}</div>
                       <div className="task-meta">
-                        <span className={`task-due ${due.overdue ? 'overdue' : 'soon'}`}>{due.text}</span>
+                        <span className={`task-due ${due.overdue ? 'overdue' : 'soon'}`}>{due.overdue ? '⚠️ ' : '📌 '}{due.text}</span>
                         {linked && <span className="chip">{linked}</span>}
                       </div>
                     </div>
-                  </Link>
+                  </div>
                 )
               })}
             </div>
@@ -137,16 +165,17 @@ export default function Overview() {
               {posts.map((p) => {
                 const when = dateRelative(p.scheduled_date)
                 return (
-                  <Link to={`/client/${p.client_id}`} key={p.id} className="task-item" style={{ color: 'inherit' }}>
-                    <span className="activity-icon">🎬</span>
-                    <div className="task-body">
+                  <div key={p.id} className="task-item">
+                    <span className="activity-icon" style={{ cursor: 'pointer' }} onClick={() => navigate(`/client/${p.client_id}`)}>🎬</span>
+                    <div className="task-body" style={{ cursor: 'pointer' }} onClick={() => navigate(`/client/${p.client_id}`)}>
                       <div className="task-title">{p.title}</div>
                       <div className="task-meta">
-                        <span className={`task-due ${when.soon ? 'soon' : ''}`}>{when.text}</span>
+                        <span className={`task-due ${when.soon ? 'soon' : ''}`}>📅 {when.text}</span>
                         {p.clients?.name && <span className="chip">{p.clients.name}</span>}
                       </div>
                     </div>
-                  </Link>
+                    <button className="btn btn-sm" onClick={() => markPosted(p)} title="Als gepostet markieren">✓ Gepostet</button>
+                  </div>
                 )
               })}
             </div>
