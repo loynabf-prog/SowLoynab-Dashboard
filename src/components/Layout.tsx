@@ -4,6 +4,7 @@ import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import VoiceButton from './VoiceButton'
 import NudgeCenter from './NudgeCenter'
+import MailIndicator from './MailIndicator'
 import CommandPalette from './CommandPalette'
 import QuickAdd from './QuickAdd'
 
@@ -16,6 +17,7 @@ const PRIMARY = [
 
 // Sekundär = getrennte Welten hinter „Mehr"
 const MORE_GROUPS = [
+  { title: 'Kommunikation', items: [{ to: '/postfach', label: 'Postfach', icon: '✉️' }] },
   { title: 'Vertrieb', items: [{ to: '/leads', label: 'Leads-Pipeline', icon: '🎯' }, { to: '/aufgaben', label: 'Aufgaben', icon: '✓' }] },
   { title: 'Buchhaltung', items: [{ to: '/rechnungen', label: 'Rechnungen', icon: '🧾' }, { to: '/finanzen', label: 'Finanzen', icon: '💶' }] },
   { title: 'Analyse', items: [{ to: '/leistung', label: 'Leistung', icon: '📈' }] },
@@ -59,6 +61,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <span>🔍</span><span className="search-trigger-label">Suchen</span><kbd className="search-trigger-kbd">⌘K</kbd>
         </button>
         <button className="theme-toggle" onClick={toggleTheme} title="Hell / Dunkel umschalten">{theme === 'dark' ? '☀️' : '🌙'}</button>
+        <MailIndicator />
         <NudgeCenter />
         {user?.email && <span className="muted user-email">{user.email}</span>}
         <button className="btn btn-sm btn-ghost hide-mobile" onClick={() => signOut()}>Abmelden</button>

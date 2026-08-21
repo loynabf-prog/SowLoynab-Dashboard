@@ -125,6 +125,13 @@ export function buildInvoicePdf(inv: InvoiceData, co: Company): jsPDF {
   return doc
 }
 
+// PDF als Blob + Dateiname (zum Verschicken als Anhang)
+export function invoicePdfBlob(inv: InvoiceData, co: Company): { blob: Blob; filename: string } {
+  const doc = buildInvoicePdf(inv, co)
+  const filename = `Rechnung_${(inv.number || 'ohne-nr').replace(/[^\w-]/g, '_')}.pdf`
+  return { blob: doc.output('blob'), filename }
+}
+
 // PDF am iPhone teilen (Share-Sheet) oder am Mac herunterladen
 export async function exportInvoicePdf(inv: InvoiceData, co: Company) {
   const doc = buildInvoicePdf(inv, co)

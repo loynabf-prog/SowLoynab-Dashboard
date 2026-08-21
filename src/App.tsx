@@ -12,6 +12,7 @@ import Team from './pages/Team'
 import Trash from './pages/Trash'
 import Performance from './pages/Performance'
 import Invoices from './pages/Invoices'
+import Postfach from './pages/Postfach'
 import Settings from './pages/Settings'
 import Approval from './pages/Approval'
 import Layout from './components/Layout'
@@ -50,6 +51,7 @@ export default function App() {
       <Route path="/leistung" element={<ProtectedRoute><Performance /></ProtectedRoute>} />
       <Route path="/finanzen" element={<ProtectedRoute><Finances /></ProtectedRoute>} />
       <Route path="/rechnungen" element={<ProtectedRoute><Invoices /></ProtectedRoute>} />
+      <Route path="/postfach" element={<ProtectedRoute><Postfach /></ProtectedRoute>} />
       <Route path="/team" element={<ProtectedRoute><Team /></ProtectedRoute>} />
       <Route path="/einstellungen" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="/papierkorb" element={<ProtectedRoute><Trash /></ProtectedRoute>} />
