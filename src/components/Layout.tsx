@@ -12,6 +12,7 @@ const NAV = [
   { to: '/leads', label: 'Leads' },
   { to: '/aufgaben', label: 'Aufgaben' },
   { to: '/kalender', label: 'Kalender' },
+  { to: '/leistung', label: 'Leistung' },
   { to: '/finanzen', label: 'Finanzen' },
   { to: '/team', label: 'Team' },
   { to: '/papierkorb', label: 'Papierkorb' },

@@ -22,6 +22,7 @@ import { generateIdeas } from '../lib/ideas'
 import { usePointerBoard } from '../lib/usePointerBoard'
 import { celebrate } from '../lib/confetti'
 import NudgeModal from '../components/NudgeModal'
+import LineChart, { type Series } from '../components/LineChart'
 import { useToast } from '../context/ToastContext'
 
 type ClientTab = 'board' | 'pool'
@@ -44,6 +45,8 @@ export default function ClientPage() {
   const [ideas, setIdeas] = useState<VideoIdea[]>([])
   const [nudging, setNudging] = useState<Video | null>(null)
   const [seriesOpen, setSeriesOpen] = useState(false)
+  const [growthOpen, setGrowthOpen] = useState(false)
+  const [stats, setStats] = useState<any[]>([])
   const [flashId, setFlashId] = useState<string | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
 
@@ -81,11 +84,21 @@ export default function ClientPage() {
     setIdeas((data ?? []).filter((i: any) => !i.deleted_at && !i.moved_video_id) as VideoIdea[])
   }, [id])
 
+  const loadStats = useCallback(async () => {
+    if (!id) return
+    const { data, error } = await supabase
+      .from('client_stats')
+      .select('*')
+      .eq('client_id', id)
+      .order('captured_on', { ascending: true })
+    if (!error) setStats(data ?? [])
+  }, [id])
+
   useEffect(() => {
     if (!id) return
     async function loadAll() {
       setLoading(true)
-      await Promise.all([loadClient(), loadVideos(), loadIdeas()])
+      await Promise.all([loadClient(), loadVideos(), loadIdeas(), loadStats()])
       setLoading(false)
     }
     loadAll()
@@ -106,7 +119,7 @@ export default function ClientPage() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [id, loadClient, loadVideos, loadIdeas])
+  }, [id, loadClient, loadVideos, loadIdeas, loadStats])
 
   // Deep-Link (?video=<id>) aus einem Anstupser: zur Karte springen + hervorheben
   useEffect(() => {
@@ -342,6 +355,8 @@ export default function ClientPage() {
 
       <ClientCockpit client={client} postedThisMonth={postedThisMonth} reachThisMonth={reachThisMonth} />
 
+      <GrowthSection stats={stats} onAdd={() => setGrowthOpen(true)} />
+
       {client.notes && (
         <div className="info-box" style={{ marginBottom: 20 }}>
           📝 {client.notes}
@@ -462,6 +477,14 @@ export default function ClientPage() {
       )}
 
       {seriesOpen && <SeriesModal onClose={() => setSeriesOpen(false)} onCreate={createSeries} />}
+
+      {growthOpen && (
+        <GrowthModal
+          clientId={client.id}
+          onClose={() => setGrowthOpen(false)}
+          onSaved={() => { setGrowthOpen(false); loadStats(); toast('Wachstum erfasst ✓') }}
+        />
+      )}
 
       {linking && (
         <LinkModal
@@ -1471,5 +1494,90 @@ function ClientCockpit({ client, postedThisMonth, reachThisMonth }: { client: Cl
         </div>
       )}
     </div>
+  )
+}
+
+// ============================ Wachstum (Follower-Verlauf) ============================
+function GrowthSection({ stats, onAdd }: { stats: any[]; onAdd: () => void }) {
+  const ig = stats.filter((s) => s.followers_ig != null).map((s) => ({ x: s.captured_on, y: Number(s.followers_ig) }))
+  const tt = stats.filter((s) => s.followers_tiktok != null).map((s) => ({ x: s.captured_on, y: Number(s.followers_tiktok) }))
+  const series: Series[] = []
+  if (ig.length) series.push({ key: 'ig', label: 'Instagram', color: '#e0521a', points: ig })
+  if (tt.length) series.push({ key: 'tt', label: 'TikTok', color: '#2563eb', points: tt })
+  const enough = ig.length >= 2 || tt.length >= 2
+
+  return (
+    <div className="growth-block">
+      <div className="growth-head">
+        <h2 className="section-title" style={{ margin: 0 }}>📊 Wachstum</h2>
+        <button className="btn btn-sm" onClick={onAdd}>＋ Zahlen erfassen</button>
+      </div>
+      {enough ? (
+        <LineChart series={series} />
+      ) : (
+        <div className="col-empty" style={{ padding: 18 }}>
+          Noch zu wenig Daten. Trag die aktuellen Follower ein — ab dem 2. Eintrag siehst du die Kurve. 📈
+        </div>
+      )}
+    </div>
+  )
+}
+
+function GrowthModal({ clientId, onClose, onSaved }: { clientId: string; onClose: () => void; onSaved: () => void }) {
+  const [ig, setIg] = useState('')
+  const [tt, setTt] = useState('')
+  const [reach, setReach] = useState('')
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const num = (s: string) => (s.trim() === '' ? null : Number(s.replace(/[^\d]/g, '')))
+
+  async function save() {
+    if (!ig.trim() && !tt.trim() && !reach.trim()) { setError('Bitte mindestens eine Zahl eintragen.'); return }
+    setBusy(true)
+    setError(null)
+    const { error } = await supabase.from('client_stats').insert({
+      client_id: clientId,
+      captured_on: date,
+      followers_ig: num(ig),
+      followers_tiktok: num(tt),
+      reach: num(reach),
+    })
+    setBusy(false)
+    if (error) setError(error.message)
+    else onSaved()
+  }
+
+  return (
+    <Modal title="📊 Wachstum erfassen" onClose={onClose}>
+      <div className="stack">
+        {error && <div className="error-box">{error}</div>}
+        <p className="info-box">Trag die aktuellen Zahlen ein (am besten wöchentlich). Daraus entsteht die Verlaufskurve.</p>
+        <div className="row" style={{ gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <label>📸 Instagram-Follower</label>
+            <input value={ig} onChange={(e) => setIg(e.target.value)} inputMode="numeric" placeholder="z. B. 2400" autoFocus />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label>🎵 TikTok-Follower</label>
+            <input value={tt} onChange={(e) => setTt(e.target.value)} inputMode="numeric" placeholder="z. B. 1200" />
+          </div>
+        </div>
+        <div className="row" style={{ gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <label>Reichweite (optional)</label>
+            <input value={reach} onChange={(e) => setReach(e.target.value)} inputMode="numeric" placeholder="z. B. 50000" />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label>Datum</label>
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </div>
+        </div>
+        <div className="modal-actions">
+          <button type="button" className="btn btn-ghost" onClick={onClose}>Abbrechen</button>
+          <button type="button" className="btn btn-primary" onClick={save} disabled={busy}>{busy ? 'Speichere …' : 'Speichern'}</button>
+        </div>
+      </div>
+    </Modal>
   )
 }

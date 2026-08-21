@@ -10,6 +10,7 @@ import Calendar from './pages/Calendar'
 import Finances from './pages/Finances'
 import Team from './pages/Team'
 import Trash from './pages/Trash'
+import Performance from './pages/Performance'
 import Approval from './pages/Approval'
 import Layout from './components/Layout'
 import Spinner from './components/Spinner'
@@ -44,6 +45,7 @@ export default function App() {
       <Route path="/leads" element={<ProtectedRoute><Leads /></ProtectedRoute>} />
       <Route path="/aufgaben" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
       <Route path="/kalender" element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
+      <Route path="/leistung" element={<ProtectedRoute><Performance /></ProtectedRoute>} />
       <Route path="/finanzen" element={<ProtectedRoute><Finances /></ProtectedRoute>} />
       <Route path="/team" element={<ProtectedRoute><Team /></ProtectedRoute>} />
       <Route path="/papierkorb" element={<ProtectedRoute><Trash /></ProtectedRoute>} />

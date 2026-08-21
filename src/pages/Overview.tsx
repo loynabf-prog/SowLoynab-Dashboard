@@ -121,10 +121,10 @@ export default function Overview() {
           <span className={`fin-value ${tasks.length > 0 ? 'expense' : ''}`}>{tasks.length}</span>
           <span className="fin-sub">heute &amp; überfällig</span>
         </Link>
-        <Link to="/kunden" className="fin-tile" style={{ color: 'inherit' }}>
+        <Link to="/leistung" className="fin-tile" style={{ color: 'inherit' }}>
           <span className="fin-label">Posts diesen Monat</span>
           <span className="fin-value income">{postedMonth}</span>
-          <span className="fin-sub">🎉 veröffentlicht</span>
+          <span className="fin-sub">🎉 → Zahlen eintragen</span>
         </Link>
         <Link to="/finanzen" className="fin-tile" style={{ color: 'inherit' }}>
           <span className="fin-label">Einnahmen / Monat</span>

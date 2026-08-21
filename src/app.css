@@ -1753,3 +1753,69 @@ html { scroll-behavior: smooth; }
   padding: 4px 12px; border-radius: 999px; box-shadow: var(--shadow);
   animation: riseIn 0.2s ease both;
 }
+
+/* ============================ Wachstums-Diagramm ============================ */
+.growth-block {
+  background: linear-gradient(180deg, #ffffff, #fefcf9);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow-sm); padding: 16px 18px; margin-bottom: 20px;
+}
+:root[data-theme="dark"] .growth-block { background: linear-gradient(180deg, #221b12, #1c160f); }
+.growth-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 10px; }
+.linechart { width: 100%; }
+.lc-legend { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 8px; font-size: 13px; color: var(--text-muted); }
+.lc-legend-item { display: inline-flex; align-items: center; gap: 7px; }
+.lc-legend-item i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.lc-legend-item strong { color: var(--text); font-family: var(--font-head); }
+.lc-svg { width: 100%; height: auto; display: block; overflow: visible; }
+.lc-grid { stroke: var(--border); stroke-width: 1; }
+.lc-cross { stroke: var(--border-strong); stroke-width: 1; stroke-dasharray: 3 3; }
+.lc-axis { fill: var(--text-dim); font-size: 11px; font-family: var(--font-body); }
+.lc-hval { font-size: 12px; font-weight: 700; font-family: var(--font-head); }
+
+/* ============================ Leistung-Tabelle ============================ */
+.perf-table { display: flex; flex-direction: column; gap: 8px; }
+.perf-row {
+  display: grid; grid-template-columns: 1fr 100px 100px 90px 90px; gap: 10px; align-items: center;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 10px 14px; box-shadow: var(--shadow-sm);
+}
+.perf-row.perf-head {
+  background: transparent; border: none; box-shadow: none; padding: 0 14px;
+  font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-dim);
+}
+.perf-head span:not(.perf-title) { text-align: center; }
+.perf-title { display: flex; flex-direction: column; gap: 2px; cursor: pointer; min-width: 0; }
+.perf-vtitle { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.perf-vsub { font-size: 12px; color: var(--text-dim); }
+.perf-cell { display: block; margin: 0; }
+.perf-cell-label { display: none; }
+.perf-cell input, .perf-row > input { text-align: center; padding: 8px; }
+.perf-empty { border-color: var(--brand); box-shadow: 0 0 0 2px var(--brand-glow); }
+
+@media (max-width: 680px) {
+  .perf-row { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .perf-row.perf-head { display: none; }
+  .perf-title { grid-column: 1 / -1; }
+  .perf-cell-label { display: block; font-size: 11px; font-weight: 700; color: var(--text-dim); margin-bottom: 4px; }
+}
+
+/* ============================ Große Screens (iMac) ============================ */
+@media (min-width: 1500px) {
+  .app-main { max-width: 1320px; }
+  .app-nav-inner { max-width: 1320px; }
+  .logo-grid, .upcoming { max-width: 1180px; }
+  .board { gap: 16px; }
+}
+
+/* ============================ iPhone: Header kompakter ============================ */
+@media (max-width: 560px) {
+  .app-header { gap: 8px; }
+  .brand-mark { font-size: 15px; min-width: 0; overflow: hidden; }
+  .app-header .btn-sm, .quick-add-btn { padding: 7px 10px; }
+}
+@media (max-width: 380px) {
+  /* auf sehr schmalen iPhones den Markennamen ausblenden, Punkt bleibt */
+  .brand-mark { gap: 0; font-size: 0; }
+  .brand-mark .brand-dot { font-size: 0; }
+}
