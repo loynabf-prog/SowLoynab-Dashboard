@@ -10,6 +10,7 @@ import Calendar from './pages/Calendar'
 import Finances from './pages/Finances'
 import Team from './pages/Team'
 import Trash from './pages/Trash'
+import Approval from './pages/Approval'
 import Layout from './components/Layout'
 import Spinner from './components/Spinner'
 
@@ -31,6 +32,7 @@ export default function App() {
 
   return (
     <Routes>
+      <Route path="/freigabe/:token" element={<Approval />} />
       <Route
         path="/login"
         element={loading ? null : session ? <Navigate to="/" replace /> : <Login />}

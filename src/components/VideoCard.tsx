@@ -58,6 +58,8 @@ export default function VideoCard({ video, onPatch, onEdit, onDelete, onCaption,
 
       <div className="vc-line">
         <StatusPill status={video.status} onChange={(next: VideoStatus) => onPatch({ status: next })} />
+        {video.approval_status === 'approved' && <span className="approval-badge ok">✅ Freigegeben</span>}
+        {video.approval_status === 'changes' && <span className="approval-badge chg">📝 Änderung</span>}
       </div>
 
       <div className="vc-line">

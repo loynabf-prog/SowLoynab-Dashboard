@@ -771,6 +771,7 @@ function EditVideoModal({
   const [likes, setLikes] = useState(video.likes != null ? String(video.likes) : '')
   const [comments, setComments] = useState(video.comments != null ? String(video.comments) : '')
   const [reach, setReach] = useState(video.reach != null ? String(video.reach) : '')
+  const [copied, setCopied] = useState(false)
   const num = (s: string) => (s.trim() === '' ? null : Number(s.replace(/[^\d]/g, '')))
 
   return (
@@ -820,6 +821,20 @@ function EditVideoModal({
           <label htmlFor="vnotes">Notizen (z. B. „Personen markieren")</label>
           <textarea id="vnotes" value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
+
+        {video.share_token && (
+          <button
+            type="button"
+            className="btn"
+            onClick={() => {
+              navigator.clipboard?.writeText(`${window.location.origin}/freigabe/${video.share_token}`)
+              setCopied(true)
+              setTimeout(() => setCopied(false), 1800)
+            }}
+          >
+            {copied ? '✓ Link kopiert' : '🔗 Freigabe-Link für den Kunden kopieren'}
+          </button>
+        )}
 
         <div className="section-divider">📈 Performance (nach dem Posten)</div>
         <div className="row" style={{ gap: 10, flexWrap: 'wrap' }}>

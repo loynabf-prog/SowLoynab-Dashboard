@@ -144,6 +144,9 @@ export interface Video {
   saves: number | null
   shares: number | null
   reach: number | null
+  share_token: string | null
+  approval_status: string | null
+  approval_note: string | null
   sort_order: number | null
   assignee_ids: string[]
   created_by: string | null
