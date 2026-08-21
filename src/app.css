@@ -1615,3 +1615,20 @@ html { scroll-behavior: smooth; }
   .contact-btn-label { display: none; }
   .contact-btn { padding: 9px 12px; font-size: 15px; }
 }
+
+/* Kunden-Kachel: Gesundheits-Ampel + Monats-Chip */
+.logo-tile { position: relative; }
+.health-dot {
+  position: absolute; top: 12px; right: 12px;
+  width: 11px; height: 11px; border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--bg-card);
+}
+.health-dot.gut { background: var(--posted); }
+.health-dot.mittel { background: var(--ready); }
+.health-dot.kritisch { background: var(--danger); }
+.quota-chip {
+  display: inline-block; font-size: 12px; font-weight: 700;
+  padding: 2px 9px; border-radius: 999px;
+  background: var(--brand-glow); color: var(--brand);
+}
+.quota-chip.done { background: rgba(47, 158, 68, 0.14); color: var(--posted); }

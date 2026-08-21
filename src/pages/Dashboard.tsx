@@ -26,6 +26,7 @@ export default function Dashboard() {
   const { user } = useAuth()
   const [clients, setClients] = useState<ClientWithCount[]>([])
   const [upcoming, setUpcoming] = useState<UpcomingItem[]>([])
+  const [postedMonth, setPostedMonth] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showAdd, setShowAdd] = useState(false)
@@ -71,15 +72,30 @@ export default function Dashboard() {
     setUpcoming(mapped)
   }
 
+  async function loadPostedMonth() {
+    const now = new Date()
+    const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+    const { data } = await supabase
+      .from('videos')
+      .select('client_id')
+      .is('deleted_at', null)
+      .gte('posted_at', monthStart)
+    const map: Record<string, number> = {}
+    for (const v of (data ?? []) as any[]) map[v.client_id] = (map[v.client_id] ?? 0) + 1
+    setPostedMonth(map)
+  }
+
   useEffect(() => {
     load()
     loadUpcoming()
+    loadPostedMonth()
     const channel = supabase
       .channel('dashboard-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'clients' }, () => load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'videos' }, () => {
         load()
         loadUpcoming()
+        loadPostedMonth()
       })
       .subscribe()
     return () => {
@@ -115,11 +131,14 @@ export default function Dashboard() {
       <div className="logo-grid">
         {clients.map((c) => (
           <Link key={c.id} to={`/client/${c.id}`} className="logo-tile">
+            {c.health && <span className={`health-dot ${c.health}`} title={`Status: ${c.health}`} />}
             <LogoFrame name={c.name} logoUrl={c.logo_url} />
             <div className="tile-body">
               <div className="tile-name">{c.name}</div>
               <div className="tile-meta">
-                {c.video_count} {c.video_count === 1 ? 'Video' : 'Videos'}
+                {c.monthly_quota
+                  ? <span className={`quota-chip ${(postedMonth[c.id] ?? 0) >= c.monthly_quota ? 'done' : ''}`}>🎬 {postedMonth[c.id] ?? 0}/{c.monthly_quota} · Monat</span>
+                  : <>{c.video_count} {c.video_count === 1 ? 'Video' : 'Videos'}</>}
               </div>
             </div>
           </Link>

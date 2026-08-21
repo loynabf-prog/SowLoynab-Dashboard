@@ -30,6 +30,7 @@ export default function Overview() {
   const [monthNet, setMonthNet] = useState(0)
   const [tasks, setTasks] = useState<TaskLite[]>([])
   const [posts, setPosts] = useState<PostLite[]>([])
+  const [postedMonth, setPostedMonth] = useState(0)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -38,8 +39,9 @@ export default function Overview() {
       const in7 = new Date()
       in7.setDate(in7.getDate() + 7)
       const monthPrefix = iso(today).slice(0, 7)
+      const monthStart = monthPrefix + '-01'
 
-      const [leadsRes, clientsRes, txRes, tasksRes, postsRes] = await Promise.all([
+      const [leadsRes, clientsRes, txRes, tasksRes, postsRes, postedRes] = await Promise.all([
         supabase.from('leads').select('stage, potential_fee').is('deleted_at', null),
         supabase.from('clients').select('monthly_fee, active'),
         supabase.from('transactions').select('type, amount, occurred_on'),
@@ -60,7 +62,9 @@ export default function Overview() {
           .gte('scheduled_date', iso(today))
           .lte('scheduled_date', iso(in7))
           .order('scheduled_date', { ascending: true }),
+        supabase.from('videos').select('id').is('deleted_at', null).gte('posted_at', monthStart),
       ])
+      setPostedMonth(postedRes.data?.length ?? 0)
 
       const leads = (leadsRes.data ?? []) as any[]
       const open = leads.filter((l) => l.stage !== 'won' && l.stage !== 'lost')
@@ -116,6 +120,11 @@ export default function Overview() {
           <span className="fin-label">Fällige Aufgaben</span>
           <span className={`fin-value ${tasks.length > 0 ? 'expense' : ''}`}>{tasks.length}</span>
           <span className="fin-sub">heute &amp; überfällig</span>
+        </Link>
+        <Link to="/kunden" className="fin-tile" style={{ color: 'inherit' }}>
+          <span className="fin-label">Posts diesen Monat</span>
+          <span className="fin-value income">{postedMonth}</span>
+          <span className="fin-sub">🎉 veröffentlicht</span>
         </Link>
         <Link to="/finanzen" className="fin-tile" style={{ color: 'inherit' }}>
           <span className="fin-label">Einnahmen / Monat</span>
