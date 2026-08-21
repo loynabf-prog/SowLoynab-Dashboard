@@ -1592,6 +1592,14 @@ html { scroll-behavior: smooth; }
   font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
   color: var(--text-dim); margin: 6px 0 -4px; padding-top: 6px; border-top: 1px solid var(--border);
 }
+.settings-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 20px 22px;
+  max-width: 640px;
+}
 .client-cockpit {
   display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
   background: linear-gradient(180deg, #ffffff, #fefcf9);

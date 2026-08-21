@@ -12,6 +12,7 @@ import Team from './pages/Team'
 import Trash from './pages/Trash'
 import Performance from './pages/Performance'
 import Invoices from './pages/Invoices'
+import Settings from './pages/Settings'
 import Approval from './pages/Approval'
 import Layout from './components/Layout'
 import Spinner from './components/Spinner'
@@ -50,6 +51,7 @@ export default function App() {
       <Route path="/finanzen" element={<ProtectedRoute><Finances /></ProtectedRoute>} />
       <Route path="/rechnungen" element={<ProtectedRoute><Invoices /></ProtectedRoute>} />
       <Route path="/team" element={<ProtectedRoute><Team /></ProtectedRoute>} />
+      <Route path="/einstellungen" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="/papierkorb" element={<ProtectedRoute><Trash /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

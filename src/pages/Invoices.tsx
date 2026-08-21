@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { euro } from '../lib/format'
+import { getCompany, type Company } from '../lib/settings'
+import { exportInvoicePdf } from '../lib/invoicePdf'
 import Modal from '../components/Modal'
 
 interface Invoice {
@@ -15,6 +17,9 @@ interface Invoice {
   due_date: string | null
   paid_on: string | null
   notes: string | null
+  recipient?: string | null
+  service_period?: string | null
+  vat_rate?: number | null
   client_name?: string
 }
 interface Opt { id: string; name: string }
@@ -31,6 +36,7 @@ export default function Invoices() {
   const { toast } = useToast()
   const [rows, setRows] = useState<Invoice[]>([])
   const [clients, setClients] = useState<Opt[]>([])
+  const [company, setCompany] = useState<Company>({})
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState<Invoice | null>(null)
   const [creating, setCreating] = useState(false)
@@ -54,6 +60,7 @@ export default function Invoices() {
   useEffect(() => {
     load()
     supabase.from('clients').select('id, name').is('deleted_at', null).order('name').then(({ data }) => setClients((data ?? []) as Opt[]))
+    getCompany().then(setCompany)
     const ch = supabase.channel('inv-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'invoices' }, () => load()).subscribe()
     return () => { supabase.removeChannel(ch) }
   }, [])
@@ -72,6 +79,12 @@ export default function Invoices() {
     setRows((prev) => prev.map((r) => (r.id === inv.id ? { ...r, status: 'paid', paid_on: new Date().toISOString().slice(0, 10) } : r)))
     await supabase.from('invoices').update({ status: 'paid', paid_on: new Date().toISOString().slice(0, 10) }).eq('id', inv.id)
     toast('Als bezahlt markiert ✓')
+  }
+
+  async function pdf(inv: Invoice) {
+    if (!company.name) { toast('Bitte zuerst Firmendaten unter Mehr → Einstellungen ausfüllen.'); return }
+    try { await exportInvoicePdf({ ...inv, client_name: inv.client_name }, company) }
+    catch (e) { toast('PDF-Fehler: ' + (e as Error).message) }
   }
 
   async function remove(id: string) {
@@ -112,6 +125,7 @@ export default function Invoices() {
             </div>
             <div className="inv-amount">{euro(Number(r.amount))}</div>
             <div className="inv-actions">
+              <button className="btn btn-sm" onClick={() => pdf(r)} title="PDF erstellen / teilen">📄 PDF</button>
               {r.status !== 'paid' && <button className="btn btn-sm btn-primary" onClick={() => markPaid(r)}>Bezahlt</button>}
               <button className="btn btn-sm btn-danger" onClick={() => remove(r.id)}>✕</button>
             </div>
@@ -123,6 +137,7 @@ export default function Invoices() {
         <InvoiceModal
           invoice={editing}
           clients={clients}
+          company={company}
           userId={user?.id ?? null}
           nextNumber={`${new Date().getFullYear()}-${String(rows.length + 1).padStart(3, '0')}`}
           onClose={() => { setCreating(false); setEditing(null) }}
@@ -133,8 +148,8 @@ export default function Invoices() {
   )
 }
 
-function InvoiceModal({ invoice, clients, userId, nextNumber, onClose, onSaved }: {
-  invoice: Invoice | null; clients: Opt[]; userId: string | null; nextNumber: string; onClose: () => void; onSaved: () => void
+function InvoiceModal({ invoice, clients, company, userId, nextNumber, onClose, onSaved }: {
+  invoice: Invoice | null; clients: Opt[]; company: Company; userId: string | null; nextNumber: string; onClose: () => void; onSaved: () => void
 }) {
   const [number, setNumber] = useState(invoice?.number ?? nextNumber)
   const [clientId, setClientId] = useState(invoice?.client_id ?? '')
@@ -143,8 +158,21 @@ function InvoiceModal({ invoice, clients, userId, nextNumber, onClose, onSaved }
   const [issued, setIssued] = useState(invoice?.issued_on ?? new Date().toISOString().slice(0, 10))
   const [due, setDue] = useState(invoice?.due_date ?? '')
   const [notes, setNotes] = useState(invoice?.notes ?? '')
+  const [recipient, setRecipient] = useState(invoice?.recipient ?? '')
+  const [servicePeriod, setServicePeriod] = useState(invoice?.service_period ?? '')
+  const defaultVat = company.kleinunternehmer ? 0 : (company.defaultVat ?? 19)
+  const [vatRate, setVatRate] = useState(String(invoice?.vat_rate ?? defaultVat))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Empfängeradresse aus Kundennamen vorbelegen, wenn noch leer
+  function pickClient(id: string) {
+    setClientId(id)
+    if (!recipient.trim()) {
+      const c = clients.find((x) => x.id === id)
+      if (c) setRecipient(c.name)
+    }
+  }
 
   async function save() {
     if (!amount.trim()) { setError('Bitte einen Betrag angeben.'); return }
@@ -158,6 +186,9 @@ function InvoiceModal({ invoice, clients, userId, nextNumber, onClose, onSaved }
       due_date: due || null,
       paid_on: status === 'paid' ? (invoice?.paid_on ?? new Date().toISOString().slice(0, 10)) : null,
       notes: notes.trim() || null,
+      recipient: recipient.trim() || null,
+      service_period: servicePeriod.trim() || null,
+      vat_rate: Number(vatRate.replace(',', '.')) || 0,
     }
     const res = invoice
       ? await supabase.from('invoices').update(payload).eq('id', invoice.id)
@@ -183,10 +214,14 @@ function InvoiceModal({ invoice, clients, userId, nextNumber, onClose, onSaved }
         </div>
         <div>
           <label>Kunde</label>
-          <select value={clientId} onChange={(e) => setClientId(e.target.value)}>
+          <select value={clientId} onChange={(e) => pickClient(e.target.value)}>
             <option value="">— keiner —</option>
             {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
+        </div>
+        <div>
+          <label>Empfänger-Adresse (steht auf der PDF)</label>
+          <textarea value={recipient} onChange={(e) => setRecipient(e.target.value)} placeholder={'Restaurant Muster GmbH\nMusterstraße 1\n48143 Münster'} rows={3} />
         </div>
         <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 130 }}>
@@ -206,9 +241,19 @@ function InvoiceModal({ invoice, clients, userId, nextNumber, onClose, onSaved }
             </select>
           </div>
         </div>
+        <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ flex: 2, minWidth: 160 }}>
+            <label>Leistungszeitraum</label>
+            <input value={servicePeriod} onChange={(e) => setServicePeriod(e.target.value)} placeholder="z. B. August 2026" />
+          </div>
+          <div style={{ flex: 1, minWidth: 110 }}>
+            <label>USt-Satz %</label>
+            <input value={vatRate} onChange={(e) => setVatRate(e.target.value)} inputMode="decimal" placeholder="19" />
+          </div>
+        </div>
         <div>
-          <label>Notiz</label>
-          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
+          <label>Leistungsbeschreibung (steht als Position auf der PDF)</label>
+          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="z. B. Social-Media-Betreuung, 8 Reels, Community-Management" />
         </div>
         <div className="modal-actions">
           <button type="button" className="btn btn-ghost" onClick={onClose}>Abbrechen</button>
