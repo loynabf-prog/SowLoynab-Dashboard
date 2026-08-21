@@ -1248,3 +1248,5 @@ a.fin-tile:hover { transform: translateY(-3px); box-shadow: var(--shadow); borde
 @media (max-width: 640px) {
   .nudge-panel { position: fixed; top: 64px; right: 12px; left: 12px; width: auto; }
 }
+
+.nudge-push-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }

@@ -5,6 +5,7 @@ import { useTeam } from '../context/TeamContext'
 import { useIdentity } from '../context/IdentityContext'
 import { useToast } from '../context/ToastContext'
 import { enablePush, isPushEnabled, pushConfigured, pushSupported } from '../lib/push'
+import { sendTestPush } from '../lib/nudge'
 
 interface Nudge {
   id: string
@@ -94,6 +95,19 @@ export default function NudgeCenter() {
     await supabase.from('nudges').update({ read: true }).eq('to_member_id', memberId).eq('read', false)
   }
 
+  async function testPush() {
+    if (!memberId) return
+    setPushBusy(true)
+    try {
+      const { sent } = await sendTestPush(memberId)
+      toast(sent > 0 ? `Test gesendet an ${sent} Gerät(e) 🔔` : 'Kein aktives Abo für dich gefunden — bitte Push (neu) aktivieren.')
+    } catch (e) {
+      toast('Test fehlgeschlagen: ' + (e as Error).message)
+    } finally {
+      setPushBusy(false)
+    }
+  }
+
   async function turnOnPush() {
     if (!memberId) return
     setPushBusy(true)
@@ -156,7 +170,12 @@ export default function NudgeCenter() {
             {me && pushConfigured() && pushSupported() && (
               <div className="nudge-push">
                 {pushOn ? (
-                  <span className="nudge-push-on">✓ Handy-Push aktiv</span>
+                  <div className="nudge-push-row">
+                    <span className="nudge-push-on">✓ Handy-Push aktiv</span>
+                    <button className="btn btn-sm" onClick={testPush} disabled={pushBusy}>
+                      {pushBusy ? '…' : 'Test an mich'}
+                    </button>
+                  </div>
                 ) : (
                   <button className="btn btn-sm btn-primary" onClick={turnOnPush} disabled={pushBusy}>
                     {pushBusy ? 'Aktiviere …' : '🔔 Handy-Push aktivieren'}

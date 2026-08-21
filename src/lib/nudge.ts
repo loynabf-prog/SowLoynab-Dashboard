@@ -32,3 +32,17 @@ export async function sendNudge(input: NudgeInput): Promise<void> {
     /* Push nicht eingerichtet -> nur In-App-Glocke */
   }
 }
+
+// Schickt eine Test-Push an das eigene Gerät (zur Fehlersuche).
+export async function sendTestPush(memberId: string): Promise<{ sent: number }> {
+  const { data, error } = await supabase.functions.invoke('send-push', {
+    body: {
+      member_id: memberId,
+      title: '✅ Test',
+      body: 'Push funktioniert auf diesem Gerät!',
+      link: '/',
+    },
+  })
+  if (error) throw error
+  return { sent: (data as any)?.sent ?? 0 }
+}
