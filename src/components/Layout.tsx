@@ -14,6 +14,7 @@ const NAV = [
   { to: '/kalender', label: 'Kalender' },
   { to: '/leistung', label: 'Leistung' },
   { to: '/finanzen', label: 'Finanzen' },
+  { to: '/rechnungen', label: 'Rechnungen' },
   { to: '/team', label: 'Team' },
   { to: '/papierkorb', label: 'Papierkorb' },
 ]
