@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { euro, dateRelative } from '../lib/format'
 import { LEAD_STAGE_LABELS, LEAD_STAGE_ORDER, type Lead, type LeadStage } from '../lib/types'
+import { usePointerBoard } from '../lib/usePointerBoard'
 import Modal from '../components/Modal'
 import ActivityLog from '../components/ActivityLog'
 import { AssigneePicker, AssigneeChips } from '../components/Assignee'
@@ -19,9 +20,9 @@ export default function Leads() {
   const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState<Lead | null>(null)
   const [creating, setCreating] = useState(false)
-  const [draggingId, setDraggingId] = useState<string | null>(null)
   const [q, setQ] = useState('')
   const [filterMember, setFilterMember] = useState<string>('')
+  const { dragId, drop, startDrag } = usePointerBoard(moveLead)
 
   async function load() {
     setError(null)
@@ -38,7 +39,7 @@ export default function Leads() {
     return l.sort_order ?? new Date(l.created_at).getTime() / 1000
   }
 
-  async function moveLead(leadId: string, targetStage: LeadStage, beforeId: string | null) {
+  async function moveLead(leadId: string, targetStage: string, beforeId: string | null) {
     const col = leads
       .filter((l) => l.stage === targetStage && l.id !== leadId)
       .sort((a, b) => orderVal(a) - orderVal(b))
@@ -51,8 +52,7 @@ export default function Leads() {
       const prev = col[idx - 1]
       newOrder = idx <= 0 ? orderVal(target) - 1 : (orderVal(prev) + orderVal(target)) / 2
     }
-    setDraggingId(null)
-    await patchLead(leadId, { stage: targetStage, sort_order: newOrder })
+    await patchLead(leadId, { stage: targetStage as LeadStage, sort_order: newOrder })
   }
 
   useEffect(() => {
@@ -173,13 +173,9 @@ export default function Leads() {
           const sum = items.reduce((s, l) => s + (l.potential_fee ?? 0), 0)
           return (
             <div
-              className={`pipe-col stage-${stage}`}
+              className={`pipe-col stage-${stage} ${drop?.lane === stage && dragId ? 'drop-active' : ''}`}
               key={stage}
-              onDragOver={(e) => draggingId && e.preventDefault()}
-              onDrop={(e) => {
-                e.preventDefault()
-                if (draggingId) moveLead(draggingId, stage, null)
-              }}
+              data-lane={stage}
             >
               <div className="pipe-head">
                 <span className="pipe-dot" />
@@ -188,32 +184,26 @@ export default function Leads() {
               </div>
               {sum > 0 && <div className="pipe-sum">{euro(sum)}/Mon.</div>}
               <div className="col-body">
-                {items.length === 0 && <div className="col-empty">hierher ziehen</div>}
+                {items.length === 0 && (
+                  <div className="col-empty">{dragId ? 'hierher ziehen' : 'noch nichts'}</div>
+                )}
                 {items.map((l) => {
                   const fu = dateRelative(l.next_followup)
                   return (
                     <div
-                      className={`lead-card drag-wrap ${draggingId === l.id ? 'dragging' : ''}`}
+                      className={`lead-card drag-wrap ${dragId === l.id ? 'ghost-source' : ''}`}
                       key={l.id}
-                      draggable
-                      onDragStart={(e) => {
-                        const t = e.target as HTMLElement
-                        if (t.closest('input, textarea, button, select, a')) {
-                          e.preventDefault()
-                          return
-                        }
-                        setDraggingId(l.id)
-                        e.dataTransfer.effectAllowed = 'move'
-                      }}
-                      onDragEnd={() => setDraggingId(null)}
-                      onDragOver={(e) => draggingId && draggingId !== l.id && e.preventDefault()}
-                      onDrop={(e) => {
-                        if (!draggingId || draggingId === l.id) return
-                        e.preventDefault()
-                        e.stopPropagation()
-                        moveLead(draggingId, stage, l.id)
-                      }}
+                      data-card={l.id}
                     >
+                      {drop?.lane === stage && drop.beforeId === l.id && <div className="drop-line" />}
+                      <div
+                        className="vc-grip"
+                        data-drag-handle
+                        title="Zum Verschieben ziehen"
+                        onPointerDown={(e) => startDrag(e, l.id, stage)}
+                      >
+                        <span /><span /><span />
+                      </div>
                       <div className="lead-name">
                         {l.name}
                         <AssigneeChips ids={l.assignee_ids ?? []} />
@@ -267,6 +257,7 @@ export default function Leads() {
                     </div>
                   )
                 })}
+                {drop?.lane === stage && drop.beforeId === null && dragId && <div className="drop-line" />}
               </div>
             </div>
           )

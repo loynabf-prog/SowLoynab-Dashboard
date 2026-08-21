@@ -19,6 +19,7 @@ import ActivityLog from '../components/ActivityLog'
 import Spinner from '../components/Spinner'
 import { generateCaption } from '../lib/caption'
 import { generateIdeas } from '../lib/ideas'
+import { usePointerBoard } from '../lib/usePointerBoard'
 import NudgeModal from '../components/NudgeModal'
 import { useToast } from '../context/ToastContext'
 
@@ -33,7 +34,6 @@ export default function ClientPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState<Video | null>(null)
-  const [draggingId, setDraggingId] = useState<string | null>(null)
   const [linking, setLinking] = useState<Video | null>(null)
   const [captioning, setCaptioning] = useState<Video | null>(null)
   const [editClient, setEditClient] = useState(false)
@@ -43,7 +43,6 @@ export default function ClientPage() {
   const [ideas, setIdeas] = useState<VideoIdea[]>([])
   const [nudging, setNudging] = useState<Video | null>(null)
   const [flashId, setFlashId] = useState<string | null>(null)
-  const [dragOverCol, setDragOverCol] = useState<VideoStatus | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
 
   const loadClient = useCallback(async () => {
@@ -141,8 +140,8 @@ export default function ClientPage() {
     return v.sort_order ?? new Date(v.created_at).getTime() / 1000
   }
 
-  // Drag & Drop: Video in eine Spalte (Status) und an eine Position verschieben
-  async function moveVideo(videoId: string, targetStatus: VideoStatus, beforeId: string | null) {
+  // Drag & Drop (Finger/Maus): Video in eine Spalte (Status) + Position verschieben
+  async function moveVideo(videoId: string, targetStatus: string, beforeId: string | null) {
     const dragged = videos.find((v) => v.id === videoId)
     if (!dragged) return
     const col = videos
@@ -157,9 +156,10 @@ export default function ClientPage() {
       const prev = col[idx - 1]
       newOrder = idx <= 0 ? orderVal(target) - 1 : (orderVal(prev) + orderVal(target)) / 2
     }
-    setDraggingId(null)
-    await patchVideo(videoId, { status: targetStatus, sort_order: newOrder })
+    await patchVideo(videoId, { status: targetStatus as VideoStatus, sort_order: newOrder })
   }
+
+  const { dragId, drop, startDrag } = usePointerBoard(moveVideo)
 
   async function createIdea(fields: {
     title: string
@@ -338,18 +338,9 @@ export default function ClientPage() {
             .sort((a, b) => orderVal(a) - orderVal(b))
           return (
             <div
-              className={`board-col ${dragOverCol === status && draggingId ? 'drop-active' : ''}`}
+              className={`board-col ${drop?.lane === status && dragId ? 'drop-active' : ''}`}
               key={status}
-              onDragOver={(e) => {
-                if (!draggingId) return
-                e.preventDefault()
-                if (dragOverCol !== status) setDragOverCol(status)
-              }}
-              onDrop={(e) => {
-                e.preventDefault()
-                setDragOverCol(null)
-                if (draggingId) moveVideo(draggingId, status, null)
-              }}
+              data-lane={status}
             >
               <div
                 className={`col-head status-pill ${status}`}
@@ -360,31 +351,25 @@ export default function ClientPage() {
                 <span className="col-count">{items.length}</span>
               </div>
               <div className="col-body">
-                {items.length === 0 && <div className="col-empty">hierher ziehen</div>}
+                {items.length === 0 && (
+                  <div className="col-empty">{dragId ? 'hierher ziehen' : 'noch nichts'}</div>
+                )}
                 {items.map((v) => (
                   <div
                     key={v.id}
                     id={`vid-${v.id}`}
-                    className={`drag-wrap ${draggingId === v.id ? 'dragging' : ''} ${flashId === v.id ? 'flash' : ''}`}
-                    draggable
-                    onDragStart={(e) => {
-                      const t = e.target as HTMLElement
-                      if (t.closest('input, textarea, button, select, a')) {
-                        e.preventDefault()
-                        return
-                      }
-                      setDraggingId(v.id)
-                      e.dataTransfer.effectAllowed = 'move'
-                    }}
-                    onDragEnd={() => { setDraggingId(null); setDragOverCol(null) }}
-                    onDragOver={(e) => draggingId && draggingId !== v.id && e.preventDefault()}
-                    onDrop={(e) => {
-                      if (!draggingId || draggingId === v.id) return
-                      e.preventDefault()
-                      e.stopPropagation()
-                      moveVideo(draggingId, status, v.id)
-                    }}
+                    data-card={v.id}
+                    className={`drag-wrap ${dragId === v.id ? 'ghost-source' : ''} ${flashId === v.id ? 'flash' : ''}`}
                   >
+                    {drop?.lane === status && drop.beforeId === v.id && <div className="drop-line" />}
+                    <div
+                      className="vc-grip"
+                      data-drag-handle
+                      title="Zum Verschieben ziehen"
+                      onPointerDown={(e) => startDrag(e, v.id, status)}
+                    >
+                      <span /><span /><span />
+                    </div>
                     <VideoCard
                       video={v}
                       onPatch={(patch) => patchVideo(v.id, patch)}
@@ -396,6 +381,7 @@ export default function ClientPage() {
                     />
                   </div>
                 ))}
+                {drop?.lane === status && drop.beforeId === null && dragId && <div className="drop-line" />}
               </div>
             </div>
           )

@@ -1423,3 +1423,60 @@ button, a, .flag, .nudge-item, .ai-idea, .pool-card, .seg-btn {
   *::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; border: 3px solid transparent; background-clip: content-box; }
   *::-webkit-scrollbar-thumb:hover { background: var(--gold-soft); background-clip: content-box; }
 }
+
+/* ============================ Touch-Drag (Finger & Maus) ============================ */
+.drag-wrap { position: relative; }
+
+/* Zieh-Griff oben rechts auf der Karte */
+.vc-grip {
+  position: absolute;
+  top: 8px; right: 8px;
+  z-index: 3;
+  width: 30px; height: 26px;
+  display: grid;
+  grid-template-columns: repeat(2, 4px);
+  grid-auto-rows: 4px;
+  gap: 3px;
+  align-content: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  cursor: grab;
+  touch-action: none;            /* wichtig: kein Scrollen beim Ziehen am iPhone */
+  opacity: 0.55;
+  transition: opacity 0.15s ease, background 0.15s ease, transform 0.1s ease;
+}
+.vc-grip:hover { opacity: 1; background: var(--bg-card-hover); border-color: var(--gold-soft); }
+.vc-grip:active { cursor: grabbing; transform: scale(0.94); }
+.vc-grip span { width: 4px; height: 4px; border-radius: 50%; background: var(--text-dim); }
+/* Platz schaffen, damit der Griff den Titel nicht überlappt */
+.drag-wrap .video-card .vc-title { padding-right: 34px; }
+
+/* schwebende Kopie am Finger/Cursor */
+.drag-ghost {
+  transform: rotate(-2.5deg) scale(1.04);
+  box-shadow: var(--shadow-lg);
+  opacity: 0.97;
+  border-radius: var(--radius-sm);
+}
+.drag-ghost .vc-grip { display: none; }
+
+/* Original bleibt gedimmt an Ort und Stelle */
+.drag-wrap.ghost-source { opacity: 0.32; filter: grayscale(0.2); }
+.drag-wrap.ghost-source .vc-grip { visibility: hidden; }
+
+/* Ablage-Linie, wohin die Karte fällt */
+.drop-line {
+  height: 4px;
+  margin: 2px 2px 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--brand), var(--brand-light));
+  box-shadow: 0 0 10px rgba(255, 138, 80, 0.75);
+  animation: dropPulse 1s ease-in-out infinite;
+}
+@keyframes dropPulse { 0%, 100% { opacity: 0.75; } 50% { opacity: 1; } }
+
+/* Griff-Platz auf Lead-Karten */
+.lead-card.drag-wrap { padding-right: 14px; }
+.lead-card .lead-name { padding-right: 34px; }
