@@ -13,6 +13,12 @@ export interface Client {
   ai_brief: string | null
   brand_notes: string | null
   city: string | null
+  contact_person: string | null
+  phone: string | null
+  email: string | null
+  website: string | null
+  health: string | null
+  monthly_quota: number | null
   created_by: string | null
   created_at: string
   updated_at: string
@@ -57,6 +63,7 @@ export interface Lead {
   potential_fee: number | null
   notes: string | null
   next_followup: string | null
+  source: string | null
   assigned_to: string | null
   assignee_ids: string[]
   sort_order: number | null
@@ -131,6 +138,12 @@ export interface Video {
   posted_ig: boolean
   posted_tiktok: boolean
   posted_at: string | null
+  views: number | null
+  likes: number | null
+  comments: number | null
+  saves: number | null
+  shares: number | null
+  reach: number | null
   sort_order: number | null
   assignee_ids: string[]
   created_by: string | null

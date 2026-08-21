@@ -291,6 +291,9 @@ export default function ClientPage() {
     toast(`${rows.length} Videos angelegt ✓`)
   }
 
+  const monthKey = new Date().toISOString().slice(0, 7)
+  const postedThisMonth = videos.filter((v) => (v.posted_at ?? '').slice(0, 7) === monthKey).length
+
   if (loading) return <Spinner />
 
   if (!client) {
@@ -334,6 +337,8 @@ export default function ClientPage() {
           + Idee
         </button>
       </div>
+
+      <ClientCockpit client={client} postedThisMonth={postedThisMonth} />
 
       {client.notes && (
         <div className="info-box" style={{ marginBottom: 20 }}>
@@ -834,6 +839,13 @@ function EditClientModal({
   const [pkg, setPkg] = useState(client.package ?? '')
   const [fee, setFee] = useState(client.monthly_fee != null ? String(client.monthly_fee) : '')
   const [active, setActive] = useState(client.active ?? true)
+  const [contact, setContact] = useState(client.contact_person ?? '')
+  const [phone, setPhone] = useState(client.phone ?? '')
+  const [email, setEmail] = useState(client.email ?? '')
+  const [website, setWebsite] = useState(client.website ?? '')
+  const [city, setCity] = useState(client.city ?? '')
+  const [quota, setQuota] = useState(client.monthly_quota != null ? String(client.monthly_quota) : '')
+  const [health, setHealth] = useState(client.health ?? '')
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [logoPreview, setLogoPreview] = useState<string | null>(client.logo_url)
   const [cropFile, setCropFile] = useState<File | null>(null)
@@ -866,6 +878,13 @@ function EditClientModal({
           package: pkg.trim() || null,
           monthly_fee: fee ? Number(fee.replace(',', '.')) : null,
           active,
+          contact_person: contact.trim() || null,
+          phone: phone.trim() || null,
+          email: email.trim() || null,
+          website: website.trim() || null,
+          city: city.trim() || null,
+          monthly_quota: quota ? Number(quota) : null,
+          health: health || null,
           ...(aiBrief.trim() || client.ai_brief ? { ai_brief: aiBrief.trim() || null } : {}),
         })
         .eq('id', client.id)
@@ -919,6 +938,48 @@ function EditClientModal({
             <input id="ecfee" value={fee} onChange={(e) => setFee(e.target.value)} inputMode="decimal" placeholder="z. B. 500" />
           </div>
         </div>
+        <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: 150 }}>
+            <label>Ziel Videos/Monat</label>
+            <input value={quota} onChange={(e) => setQuota(e.target.value)} inputMode="numeric" placeholder="z. B. 8" />
+          </div>
+          <div style={{ flex: 1, minWidth: 150 }}>
+            <label>Status</label>
+            <select value={health} onChange={(e) => setHealth(e.target.value)}>
+              <option value="">— neutral —</option>
+              <option value="gut">🟢 Gut</option>
+              <option value="mittel">🟡 Mittel</option>
+              <option value="kritisch">🔴 Kritisch</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="section-divider">Kontakt</div>
+        <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: 150 }}>
+            <label>Ansprechpartner</label>
+            <input value={contact} onChange={(e) => setContact(e.target.value)} placeholder="z. B. Herr Sahin" />
+          </div>
+          <div style={{ flex: 1, minWidth: 150 }}>
+            <label>Telefon</label>
+            <input value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" placeholder="+49 …" />
+          </div>
+        </div>
+        <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: 150 }}>
+            <label>E-Mail</label>
+            <input value={email} onChange={(e) => setEmail(e.target.value)} inputMode="email" />
+          </div>
+          <div style={{ flex: 1, minWidth: 150 }}>
+            <label>Ort</label>
+            <input value={city} onChange={(e) => setCity(e.target.value)} />
+          </div>
+        </div>
+        <div>
+          <label>Website</label>
+          <input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://…" />
+        </div>
+
         <label className="check-row">
           <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} style={{ width: 'auto' }} />
           Aktiver Kunde (zählt zu den monatlichen Einnahmen)
@@ -1284,5 +1345,72 @@ function SeriesModal({
         </div>
       </div>
     </Modal>
+  )
+}
+
+// ============================ Kunden-Cockpit ============================
+function ProgressRing({ value, max }: { value: number; max: number }) {
+  const r = 26
+  const c = 2 * Math.PI * r
+  const pct = max > 0 ? Math.min(value / max, 1) : 0
+  const done = pct >= 1
+  return (
+    <svg width="64" height="64" viewBox="0 0 64 64" className="ring">
+      <circle cx="32" cy="32" r={r} fill="none" stroke="var(--bg-sunken)" strokeWidth="7" />
+      <circle
+        cx="32" cy="32" r={r} fill="none"
+        stroke={done ? 'var(--posted)' : 'var(--brand)'}
+        strokeWidth="7" strokeLinecap="round"
+        strokeDasharray={c} strokeDashoffset={c * (1 - pct)}
+        transform="rotate(-90 32 32)"
+        style={{ transition: 'stroke-dashoffset 0.6s ease' }}
+      />
+      <text x="32" y="37" textAnchor="middle" fontSize="17" fontWeight="700" fill="var(--text)" fontFamily="var(--font-head)">{value}</text>
+    </svg>
+  )
+}
+
+function ContactBtn({ href, icon, label }: { href: string; icon: string; label: string }) {
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer" className="contact-btn" title={label}>
+      <span>{icon}</span>
+      <span className="contact-btn-label">{label}</span>
+    </a>
+  )
+}
+
+function ClientCockpit({ client, postedThisMonth }: { client: Client; postedThisMonth: number }) {
+  const quota = client.monthly_quota ?? 0
+  const digits = (client.phone ?? '').replace(/[^\d+]/g, '').replace(/^\+/, '')
+  const ig = client.handle_ig?.replace(/^@/, '')
+  const tt = client.handle_tiktok?.replace(/^@/, '')
+  const contacts = [
+    client.phone && { href: `tel:${client.phone}`, icon: '📞', label: 'Anrufen' },
+    digits && { href: `https://wa.me/${digits}`, icon: '💬', label: 'WhatsApp' },
+    client.email && { href: `mailto:${client.email}`, icon: '✉️', label: 'Mail' },
+    ig && { href: `https://instagram.com/${ig}`, icon: '📸', label: 'Instagram' },
+    tt && { href: `https://www.tiktok.com/@${tt}`, icon: '🎵', label: 'TikTok' },
+    client.website && { href: client.website, icon: '🌐', label: 'Website' },
+  ].filter(Boolean) as { href: string; icon: string; label: string }[]
+
+  if (quota <= 0 && contacts.length === 0) return null
+
+  return (
+    <div className="client-cockpit">
+      {quota > 0 && (
+        <div className="cockpit-quota">
+          <ProgressRing value={postedThisMonth} max={quota} />
+          <div>
+            <div className="cockpit-quota-title">{postedThisMonth} / {quota} Posts</div>
+            <div className="cockpit-quota-sub">diesen Monat</div>
+          </div>
+        </div>
+      )}
+      {contacts.length > 0 && (
+        <div className="contact-bar">
+          {contacts.map((c, i) => <ContactBtn key={i} {...c} />)}
+        </div>
+      )}
+    </div>
   )
 }

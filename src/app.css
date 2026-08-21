@@ -1586,3 +1586,32 @@ html { scroll-behavior: smooth; }
 /* Content-Serie: Terminvorschau */
 .series-preview { display: flex; flex-wrap: wrap; gap: 6px; }
 .series-chip { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: var(--bg-sunken); border: 1px solid var(--border); color: var(--text-muted); }
+
+/* ============================ Kunden-Cockpit & Schnellkontakt ============================ */
+.section-divider {
+  font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--text-dim); margin: 6px 0 -4px; padding-top: 6px; border-top: 1px solid var(--border);
+}
+.client-cockpit {
+  display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+  background: linear-gradient(180deg, #ffffff, #fefcf9);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow-sm); padding: 14px 18px; margin-bottom: 20px;
+}
+.cockpit-quota { display: flex; align-items: center; gap: 12px; }
+.cockpit-quota-title { font-family: var(--font-head); font-weight: 700; font-size: 17px; }
+.cockpit-quota-sub { font-size: 12px; color: var(--text-dim); }
+.contact-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+.contact-btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 13px; border-radius: 999px;
+  border: 1px solid var(--border-strong); background: var(--bg-elev);
+  color: var(--text); font-size: 13px; font-weight: 600;
+  transition: border-color 0.15s ease, transform 0.12s ease, box-shadow 0.15s ease;
+}
+.contact-btn:hover { text-decoration: none; border-color: var(--brand); transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+@media (max-width: 560px) {
+  .contact-bar { margin-left: 0; width: 100%; }
+  .contact-btn-label { display: none; }
+  .contact-btn { padding: 9px 12px; font-size: 15px; }
+}
