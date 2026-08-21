@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { dateRelative } from '../lib/format'
 import type { Task } from '../lib/types'
 import Modal from '../components/Modal'
+import SwipeRow from '../components/SwipeRow'
 import { AssigneePicker, AssigneeChips } from '../components/Assignee'
 import { useTeam } from '../context/TeamContext'
 import { useIdentity } from '../context/IdentityContext'
@@ -31,6 +33,7 @@ export default function Tasks() {
   const [showDone, setShowDone] = useState(false)
   const [q, setQ] = useState('')
   const [filterMember, setFilterMember] = useState('')
+  const [searchParams, setSearchParams] = useSearchParams()
 
   async function load() {
     setError(null)
@@ -57,6 +60,19 @@ export default function Tasks() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Direktlink: /aufgaben?open=<id> öffnet die Aufgabe sofort
+  useEffect(() => {
+    const openId = searchParams.get('open')
+    if (!openId || loading) return
+    const t = tasks.find((x) => x.id === openId)
+    if (t) {
+      setEditing(t)
+      searchParams.delete('open')
+      setSearchParams(searchParams, { replace: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tasks, loading, searchParams])
 
   async function toggle(t: TaskRow) {
     setTasks((prev) => prev.map((x) => (x.id === t.id ? { ...x, done: !x.done } : x)))
@@ -138,7 +154,9 @@ export default function Tasks() {
       <div className="task-list">
         {open.length === 0 && !loading && <div className="col-empty">Keine offenen Aufgaben. 🎉</div>}
         {open.map((t) => (
-          <TaskItem key={t.id} t={t} onToggle={() => toggle(t)} onEdit={() => setEditing(t)} onDelete={() => remove(t.id)} />
+          <SwipeRow key={t.id} onDelete={() => remove(t.id)}>
+            <TaskItem t={t} onToggle={() => toggle(t)} onEdit={() => setEditing(t)} onDelete={() => remove(t.id)} />
+          </SwipeRow>
         ))}
       </div>
 
@@ -150,7 +168,9 @@ export default function Tasks() {
           {showDone && (
             <div className="task-list" style={{ marginTop: 12, opacity: 0.7 }}>
               {done.map((t) => (
-                <TaskItem key={t.id} t={t} onToggle={() => toggle(t)} onEdit={() => setEditing(t)} onDelete={() => remove(t.id)} />
+                <SwipeRow key={t.id} onDelete={() => remove(t.id)}>
+                  <TaskItem t={t} onToggle={() => toggle(t)} onEdit={() => setEditing(t)} onDelete={() => remove(t.id)} />
+                </SwipeRow>
               ))}
             </div>
           )}

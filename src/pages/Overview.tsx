@@ -151,7 +151,7 @@ export default function Overview() {
                 return (
                   <div key={t.id} className="task-item">
                     <button className="task-check" onClick={() => completeTask(t.id)} title="Als erledigt abhaken" aria-label="erledigt" />
-                    <div className="task-body" style={{ cursor: 'pointer' }} onClick={() => navigate('/aufgaben')}>
+                    <div className="task-body" style={{ cursor: 'pointer' }} onClick={() => navigate(`/aufgaben?open=${t.id}`)}>
                       <div className="task-title">{t.title}</div>
                       <div className="task-meta">
                         <span className={`task-due ${due.overdue ? 'overdue' : 'soon'}`}>{due.overdue ? '⚠️ ' : '📌 '}{due.text}</span>
