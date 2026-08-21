@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -43,6 +43,7 @@ export default function ClientPage() {
   const [tab, setTab] = useState<ClientTab>('board')
   const [ideas, setIdeas] = useState<VideoIdea[]>([])
   const [nudging, setNudging] = useState<Video | null>(null)
+  const [seriesOpen, setSeriesOpen] = useState(false)
   const [flashId, setFlashId] = useState<string | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
 
@@ -279,6 +280,17 @@ export default function ClientPage() {
     })
   }
 
+  async function createSeries(rows: { title: string; scheduled_date: string; scheduled_time: string | null }[]) {
+    if (!id || rows.length === 0) return
+    const { error } = await supabase.from('videos').insert(
+      rows.map((r) => ({ client_id: id, title: r.title, status: 'todo' as VideoStatus, scheduled_date: r.scheduled_date, scheduled_time: r.scheduled_time, created_by: user?.id ?? null })),
+    )
+    if (error) { setError(error.message); return }
+    setSeriesOpen(false)
+    loadVideos()
+    toast(`${rows.length} Videos angelegt ✓`)
+  }
+
   if (loading) return <Spinner />
 
   if (!client) {
@@ -314,6 +326,9 @@ export default function ClientPage() {
         <div className="spacer" />
         <button className="btn btn-sm btn-ghost" onClick={() => setEditClient(true)}>
           Kunde bearbeiten
+        </button>
+        <button className="btn btn-sm" onClick={() => setSeriesOpen(true)}>
+          🔁 Serie
         </button>
         <button className="btn btn-primary" onClick={() => setCreating(true)}>
           + Idee
@@ -438,6 +453,8 @@ export default function ClientPage() {
           onClose={() => setNudging(null)}
         />
       )}
+
+      {seriesOpen && <SeriesModal onClose={() => setSeriesOpen(false)} onCreate={createSeries} />}
 
       {linking && (
         <LinkModal
@@ -1176,6 +1193,95 @@ function AiIdeasModal({
             </div>
           </>
         )}
+      </div>
+    </Modal>
+  )
+}
+
+// ============================ Content-Serie ============================
+const WEEKDAYS = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag']
+
+function iso(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function SeriesModal({
+  onClose,
+  onCreate,
+}: {
+  onClose: () => void
+  onCreate: (rows: { title: string; scheduled_date: string; scheduled_time: string | null }[]) => void
+}) {
+  const [title, setTitle] = useState('')
+  const [weekday, setWeekday] = useState(0) // 0 = Montag
+  const [time, setTime] = useState('')
+  const [weeks, setWeeks] = useState(4)
+
+  // Vorschau der Termine
+  const dates = useMemo(() => {
+    const out: Date[] = []
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    // Wochentag 0=Mo..6=So -> JS getDay 0=So..6=Sa
+    const targetDow = (weekday + 1) % 7
+    const d = new Date(today)
+    const diff = (targetDow - d.getDay() + 7) % 7
+    d.setDate(d.getDate() + diff)
+    for (let i = 0; i < weeks; i++) {
+      out.push(new Date(d))
+      d.setDate(d.getDate() + 7)
+    }
+    return out
+  }, [weekday, weeks])
+
+  function generate() {
+    if (!title.trim()) return
+    onCreate(dates.map((d) => ({ title: title.trim(), scheduled_date: iso(d), scheduled_time: time || null })))
+  }
+
+  return (
+    <Modal title="🔁 Content-Serie anlegen" onClose={onClose}>
+      <div className="stack">
+        <p className="info-box">
+          Erzeugt für die nächsten Wochen automatisch Video-Karten (Status „Zu bearbeiten") –
+          z. B. „jeden Montag ein Reel". Spart das ständige Neu-Eintippen.
+        </p>
+        <div>
+          <label>Titel der Serie *</label>
+          <input value={title} onChange={(e) => setTitle(e.target.value)} autoFocus placeholder="z. B. Wochen-Reel" />
+        </div>
+        <div className="row" style={{ gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <label>Wochentag</label>
+            <select value={weekday} onChange={(e) => setWeekday(Number(e.target.value))}>
+              {WEEKDAYS.map((w, i) => <option key={i} value={i}>{w}</option>)}
+            </select>
+          </div>
+          <div style={{ flex: 1 }}>
+            <label>Uhrzeit (optional)</label>
+            <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label>Wie viele Wochen</label>
+            <select value={weeks} onChange={(e) => setWeeks(Number(e.target.value))}>
+              {[2, 4, 8, 12].map((n) => <option key={n} value={n}>{n} Wochen</option>)}
+            </select>
+          </div>
+        </div>
+        <div>
+          <label>Vorschau ({dates.length} Termine)</label>
+          <div className="series-preview">
+            {dates.map((d, i) => (
+              <span className="series-chip" key={i}>{d.toLocaleDateString('de-DE', { day: '2-digit', month: 'short' })}</span>
+            ))}
+          </div>
+        </div>
+        <div className="modal-actions">
+          <button type="button" className="btn btn-ghost" onClick={onClose}>Abbrechen</button>
+          <button type="button" className="btn btn-primary" onClick={generate} disabled={!title.trim()}>
+            {dates.length} Videos anlegen
+          </button>
+        </div>
       </div>
     </Modal>
   )

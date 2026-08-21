@@ -1582,3 +1582,7 @@ html { scroll-behavior: smooth; }
   .quick-add-label { display: none; }
   .quick-add-btn { padding: 7px 11px; }
 }
+
+/* Content-Serie: Terminvorschau */
+.series-preview { display: flex; flex-wrap: wrap; gap: 6px; }
+.series-chip { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: var(--bg-sunken); border: 1px solid var(--border); color: var(--text-muted); }
