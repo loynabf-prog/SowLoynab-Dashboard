@@ -39,7 +39,9 @@ function mondayOf(d: Date): Date {
 export default function Calendar() {
   const navigate = useNavigate()
   const today = new Date()
-  const [view, setView] = useState<ViewMode>(() => (localStorage.getItem('cal-view') as ViewMode) || 'week')
+  const [view, setView] = useState<ViewMode>(() => {
+    try { return (localStorage.getItem('cal-view') as ViewMode) || 'week' } catch { return 'week' }
+  })
   const [anchor, setAnchor] = useState<Date>(today)
   const [events, setEvents] = useState<CalEvent[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -47,7 +49,7 @@ export default function Calendar() {
   const touchX = useRef<number | null>(null)
 
   useEffect(() => {
-    localStorage.setItem('cal-view', view)
+    try { localStorage.setItem('cal-view', view) } catch { /* Speicher gesperrt -> egal */ }
   }, [view])
 
   // Sichtbare Tage je Ansicht

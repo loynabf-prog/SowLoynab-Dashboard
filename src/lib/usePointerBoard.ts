@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 
 // Pointer-basiertes Drag & Drop für Kanban-Boards — funktioniert mit Finger
 // (iPhone/iPad) UND Maus. Zieht eine schwebende Kopie der Karte, erkennt Spalte
-// und Einfüge-Position, scrollt am Rand automatisch.
+// und Einfüge-Position, scrollt am Rand automatisch. Ziehen startet erst nach
+// einer kleinen Bewegungs-Schwelle -> reines Antippen bleibt sauber.
 //
 // Verkabelung im Markup:
 //   - Spalte:  data-lane="<laneKey>"
@@ -25,10 +26,20 @@ interface DragState {
   drop: DropInfo | null
 }
 
+interface Pending {
+  id: string
+  wrap: HTMLElement
+  startX: number
+  startY: number
+}
+
+const THRESHOLD = 6 // px Bewegung, bevor das Ziehen startet
+
 export function usePointerBoard(onDrop: (itemId: string, lane: string, beforeId: string | null) => void) {
   const [dragId, setDragId] = useState<string | null>(null)
   const [drop, setDrop] = useState<DropInfo | null>(null)
   const st = useRef<DragState | null>(null)
+  const pending = useRef<Pending | null>(null)
   const onDropRef = useRef(onDrop)
   onDropRef.current = onDrop
 
@@ -44,15 +55,46 @@ export function usePointerBoard(onDrop: (itemId: string, lane: string, beforeId:
       }
     }
 
+    function beginDrag(p: Pending, clientX: number, clientY: number) {
+      const rect = p.wrap.getBoundingClientRect()
+      const ghost = p.wrap.cloneNode(true) as HTMLElement
+      const srcFields = p.wrap.querySelectorAll('input, textarea, select')
+      const dstFields = ghost.querySelectorAll('input, textarea, select')
+      srcFields.forEach((s, i) => {
+        const d = dstFields[i] as HTMLInputElement | undefined
+        if (d) d.value = (s as HTMLInputElement).value
+      })
+      ghost.classList.add('drag-ghost')
+      ghost.style.position = 'fixed'
+      ghost.style.left = '0'
+      ghost.style.top = '0'
+      ghost.style.width = rect.width + 'px'
+      ghost.style.margin = '0'
+      ghost.style.pointerEvents = 'none'
+      ghost.style.zIndex = '99998'
+      ghost.style.willChange = 'transform'
+      const offX = p.startX - rect.left
+      const offY = p.startY - rect.top
+      ghost.style.transform = `translate3d(${clientX - offX}px, ${clientY - offY}px, 0) rotate(-2.5deg) scale(1.04)`
+      document.body.appendChild(ghost)
+      st.current = { id: p.id, ghost, offX, offY, drop: null }
+      pending.current = null
+      setDragId(p.id)
+    }
+
     function move(e: PointerEvent) {
+      // Schwelle: erst ab kleiner Bewegung wirklich ziehen
+      const p = pending.current
+      if (p && !st.current) {
+        if (Math.abs(e.clientX - p.startX) + Math.abs(e.clientY - p.startY) < THRESHOLD) return
+        beginDrag(p, e.clientX, e.clientY)
+      }
       const s = st.current
       if (!s) return
       e.preventDefault()
-      // per transform bewegen (kein Layout -> butterweich auf dem iPhone)
       s.ghost.style.transform =
         `translate3d(${e.clientX - s.offX}px, ${e.clientY - s.offY}px, 0) rotate(-2.5deg) scale(1.04)`
 
-      // Auto-Scroll nahe den Rändern
       const vh = window.innerHeight
       if (e.clientY < 96) scrollDir = -Math.ceil((96 - e.clientY) / 6)
       else if (e.clientY > vh - 96) scrollDir = Math.ceil((e.clientY - (vh - 96)) / 6)
@@ -83,6 +125,7 @@ export function usePointerBoard(onDrop: (itemId: string, lane: string, beforeId:
       const s = st.current
       scrollDir = 0
       if (scrollRAF) { cancelAnimationFrame(scrollRAF); scrollRAF = 0 }
+      pending.current = null
       if (s) {
         s.ghost.remove()
         if (s.drop) onDropRef.current(s.id, s.drop.lane, s.drop.beforeId)
@@ -104,33 +147,11 @@ export function usePointerBoard(onDrop: (itemId: string, lane: string, beforeId:
   }, [])
 
   function startDrag(e: React.PointerEvent, itemId: string, _lane: string) {
-    if (e.button != null && e.button > 0) return // nur linke Maustaste / Finger
+    if (e.button != null && e.button > 0) return
     const wrap = (e.currentTarget as HTMLElement).closest('[data-card]') as HTMLElement | null
     if (!wrap) return
-    e.preventDefault()
     e.stopPropagation()
-    const rect = wrap.getBoundingClientRect()
-    const ghost = wrap.cloneNode(true) as HTMLElement
-    // Feld-Werte in den Klon übernehmen (cloneNode kopiert Live-Werte nicht)
-    const srcFields = wrap.querySelectorAll('input, textarea, select')
-    const dstFields = ghost.querySelectorAll('input, textarea, select')
-    srcFields.forEach((s, i) => {
-      const d = dstFields[i] as HTMLInputElement | undefined
-      if (d) d.value = (s as HTMLInputElement).value
-    })
-    ghost.classList.add('drag-ghost')
-    ghost.style.position = 'fixed'
-    ghost.style.left = '0'
-    ghost.style.top = '0'
-    ghost.style.width = rect.width + 'px'
-    ghost.style.margin = '0'
-    ghost.style.pointerEvents = 'none'
-    ghost.style.zIndex = '99998'
-    ghost.style.willChange = 'transform'
-    ghost.style.transform = `translate3d(${rect.left}px, ${rect.top}px, 0) rotate(-2.5deg) scale(1.04)`
-    document.body.appendChild(ghost)
-    st.current = { id: itemId, ghost, offX: e.clientX - rect.left, offY: e.clientY - rect.top, drop: null }
-    setDragId(itemId)
+    pending.current = { id: itemId, wrap, startX: e.clientX, startY: e.clientY }
   }
 
   return { dragId, drop, startDrag }

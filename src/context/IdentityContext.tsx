@@ -9,12 +9,21 @@ interface IdentityValue {
 
 const IdentityContext = createContext<IdentityValue | undefined>(undefined)
 
+function safeGet(key: string): string | null {
+  try { return localStorage.getItem(key) } catch { return null }
+}
+function safeSet(key: string, val: string | null) {
+  try {
+    if (val) localStorage.setItem(key, val)
+    else localStorage.removeItem(key)
+  } catch { /* iOS Privatmodus / Speicher gesperrt -> ignorieren */ }
+}
+
 export function IdentityProvider({ children }: { children: ReactNode }) {
-  const [memberId, setMemberIdState] = useState<string | null>(() => localStorage.getItem(KEY))
+  const [memberId, setMemberIdState] = useState<string | null>(() => safeGet(KEY))
 
   useEffect(() => {
-    if (memberId) localStorage.setItem(KEY, memberId)
-    else localStorage.removeItem(KEY)
+    safeSet(KEY, memberId)
   }, [memberId])
 
   return (

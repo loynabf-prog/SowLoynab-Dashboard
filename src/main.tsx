@@ -6,6 +6,7 @@ import { AuthProvider } from './context/AuthContext'
 import { TeamProvider } from './context/TeamContext'
 import { IdentityProvider } from './context/IdentityContext'
 import { ToastProvider } from './context/ToastContext'
+import ErrorBoundary from './components/ErrorBoundary'
 import './index.css'
 import './app.css'
 
@@ -23,6 +24,7 @@ const basename = import.meta.env.BASE_URL.replace(/\/$/, '') || '/'
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter basename={basename}>
+      <ErrorBoundary>
       <AuthProvider>
         <TeamProvider>
           <IdentityProvider>
@@ -32,6 +34,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           </IdentityProvider>
         </TeamProvider>
       </AuthProvider>
+      </ErrorBoundary>
     </BrowserRouter>
   </React.StrictMode>,
 )
