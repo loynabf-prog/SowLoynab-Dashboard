@@ -22,8 +22,172 @@
       rel="stylesheet"
     />
     <title>Sow &amp; Loynab — Dashboard</title>
+
+    <!-- ==================== Kult-Intro / Ladescreen ==================== -->
+    <style>
+      #splash {
+        position: fixed;
+        inset: 0;
+        z-index: 99999;
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+        background:
+          radial-gradient(120% 90% at 50% 30%, #3a2412 0%, #1c130b 55%, #120c07 100%);
+        opacity: 1;
+        transition: opacity 0.6s ease, transform 0.6s ease;
+        -webkit-tap-highlight-color: transparent;
+      }
+      #splash.splash-hide { opacity: 0; transform: scale(1.06); pointer-events: none; }
+
+      /* wandernder Gold-Glanz im Hintergrund */
+      #splash::before {
+        content: '';
+        position: absolute;
+        width: 140vmax; height: 140vmax;
+        top: -20vmax; left: 50%;
+        transform: translateX(-50%);
+        background: radial-gradient(circle, rgba(255, 138, 80, 0.20) 0%, rgba(224, 82, 26, 0.06) 35%, transparent 60%);
+        animation: splashGlow 3.2s ease-in-out infinite;
+      }
+      @keyframes splashGlow {
+        0%, 100% { opacity: 0.6; transform: translateX(-50%) scale(1); }
+        50%      { opacity: 1;   transform: translateX(-50%) scale(1.08); }
+      }
+
+      .sp-inner {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 22px;
+        padding: 24px;
+      }
+
+      /* Foto im goldenen Ring */
+      .sp-badge {
+        position: relative;
+        width: 132px; height: 132px;
+        border-radius: 50%;
+        display: grid; place-items: center;
+        animation: spPop 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+      }
+      .sp-badge img {
+        width: 118px; height: 118px;
+        border-radius: 50%;
+        object-fit: cover;
+        box-shadow: 0 12px 40px rgba(224, 82, 26, 0.45);
+      }
+      /* rotierender Gold-Ring */
+      .sp-ring {
+        position: absolute;
+        inset: -6px;
+        border-radius: 50%;
+        background: conic-gradient(from 0deg, transparent 0deg, #ff8a50 90deg, #e0521a 180deg, transparent 300deg);
+        -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+        mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+        animation: spSpin 1.4s linear infinite;
+      }
+      @keyframes spSpin { to { transform: rotate(360deg); } }
+      @keyframes spPop {
+        0%   { opacity: 0; transform: scale(0.6); }
+        100% { opacity: 1; transform: scale(1); }
+      }
+
+      /* Wortmarke mit Gold-Shimmer */
+      .sp-word {
+        font-family: 'Space Grotesk', system-ui, sans-serif;
+        font-weight: 700;
+        font-size: 30px;
+        letter-spacing: 0.01em;
+        line-height: 1;
+        background: linear-gradient(100deg, #f6ead9 0%, #fff 25%, #ffb98a 45%, #fff 60%, #f6ead9 80%);
+        background-size: 250% 100%;
+        -webkit-background-clip: text; background-clip: text;
+        color: transparent;
+        animation: spUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.25s both, spShine 2.6s ease-in-out 0.4s infinite;
+      }
+      .sp-tag {
+        font-family: 'Space Grotesk', system-ui, sans-serif;
+        font-weight: 500;
+        font-size: 12px;
+        letter-spacing: 0.62em;
+        text-indent: 0.62em;
+        color: #ff9c63;
+        text-transform: uppercase;
+        animation: spUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.45s both;
+      }
+      @keyframes spUp {
+        0%   { opacity: 0; transform: translateY(14px); }
+        100% { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes spShine {
+        0%   { background-position: 130% 0; }
+        60%, 100% { background-position: -30% 0; }
+      }
+
+      /* Ladebalken */
+      .sp-bar {
+        margin-top: 6px;
+        width: 148px; height: 4px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.12);
+        overflow: hidden;
+        animation: spUp 0.6s ease 0.6s both;
+      }
+      .sp-bar > i {
+        display: block; height: 100%; width: 0;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #e0521a, #ff8a50);
+        box-shadow: 0 0 12px rgba(255, 138, 80, 0.7);
+        animation: spGrow 2.1s cubic-bezier(0.4, 0, 0.2, 1) 0.55s forwards;
+      }
+      @keyframes spGrow {
+        0%   { width: 0; }
+        70%  { width: 82%; }
+        100% { width: 100%; }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        #splash::before, .sp-ring, .sp-word, .sp-bar > i { animation-duration: 0.01ms !important; }
+      }
+    </style>
   </head>
   <body>
+    <div id="splash" aria-hidden="true">
+      <div class="sp-inner">
+        <div class="sp-badge">
+          <span class="sp-ring"></span>
+          <img src="/icons/icon-512.png" alt="" />
+        </div>
+        <div class="sp-word">Sow&nbsp;&amp;&nbsp;Loynab</div>
+        <div class="sp-tag">Media</div>
+        <div class="sp-bar"><i></i></div>
+      </div>
+    </div>
+    <script>
+      (function () {
+        var splash = document.getElementById('splash')
+        if (!splash) return
+        var MIN = 2600 // Mindest-Showtime, damit man sich drauf freut ;)
+        var start = Date.now()
+        var gone = false
+        function hide() {
+          if (gone) return
+          gone = true
+          splash.classList.add('splash-hide')
+          setTimeout(function () { if (splash && splash.parentNode) splash.parentNode.removeChild(splash) }, 650)
+        }
+        function ready() {
+          var wait = Math.max(0, MIN - (Date.now() - start))
+          setTimeout(hide, wait)
+        }
+        if (document.readyState === 'complete') ready()
+        else window.addEventListener('load', ready)
+        splash.addEventListener('click', hide) // Antippen zum Überspringen
+        setTimeout(hide, 6000) // Sicherheitsnetz: nie länger als 6s
+      })()
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
