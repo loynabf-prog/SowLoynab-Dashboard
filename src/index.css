@@ -41,6 +41,19 @@
 
 * { box-sizing: border-box; }
 
+/* Keine Text-Markierung beim Ziehen/Tippen (kein blaues Markieren).
+   Eingabefelder bleiben markierbar, damit Bearbeiten/Kopieren dort geht. */
+* {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+input, textarea, select, [contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
 html, body, #root { height: 100%; }
 
 body {
