@@ -84,6 +84,7 @@ export interface Task {
   lead_id: string | null
   notes: string | null
   series_id: string | null
+  category: string | null
   created_by: string | null
   created_at: string
   updated_at: string

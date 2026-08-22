@@ -5,6 +5,7 @@ import App from './App'
 import { AuthProvider } from './context/AuthContext'
 import { TeamProvider } from './context/TeamContext'
 import { IdentityProvider } from './context/IdentityContext'
+import { CategoryProvider } from './context/CategoryContext'
 import { ToastProvider } from './context/ToastContext'
 import ErrorBoundary from './components/ErrorBoundary'
 import './index.css'
@@ -28,9 +29,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <AuthProvider>
         <TeamProvider>
           <IdentityProvider>
-            <ToastProvider>
-              <App />
-            </ToastProvider>
+            <CategoryProvider>
+              <ToastProvider>
+                <App />
+              </ToastProvider>
+            </CategoryProvider>
           </IdentityProvider>
         </TeamProvider>
       </AuthProvider>

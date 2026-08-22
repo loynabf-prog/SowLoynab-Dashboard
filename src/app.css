@@ -2150,3 +2150,54 @@ body::before {
 .wd-chip:hover { border-color: var(--border-strong); }
 .wd-chip.on { background: var(--brand); border-color: var(--brand); color: #fff; }
 .repeat-preview { margin-top: 10px; font-size: 13px; font-variant-numeric: tabular-nums; }
+
+/* =========================================================================
+   Kategorien / Farben
+   ========================================================================= */
+.cat-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 4px; }
+.cat-chip {
+  display: inline-flex; align-items: center; gap: 7px; padding: 6px 11px; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--bg-card); cursor: pointer; font-size: 13px; font-weight: 600;
+  color: var(--text); transition: border-color 0.12s ease, background 0.12s ease;
+}
+.cat-chip:hover { border-color: var(--border-strong); }
+.cat-chip.on { border-color: var(--brand); background: var(--bg-card-hover); box-shadow: 0 0 0 2px rgba(224, 82, 26, 0.12); }
+.cat-swatch { width: 12px; height: 12px; border-radius: 50%; flex: 0 0 auto; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.12); }
+.cat-tag {
+  display: inline-block; padding: 1px 8px; border-radius: 999px; color: #fff; font-size: 11px; font-weight: 700;
+  letter-spacing: 0.01em; line-height: 1.5;
+}
+
+/* Kategorien-Editor (Einstellungen) */
+.cat-edit { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 10px; background: var(--bg-card); }
+.cat-edit-row { display: flex; align-items: center; gap: 10px; }
+.cat-edit-row input { flex: 1; min-width: 0; }
+.cat-swatch-btn { flex: 0 0 auto; width: 30px; height: 30px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.15); cursor: pointer; }
+.cat-palette { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.cat-pal { width: 26px; height: 26px; border-radius: 7px; border: 2px solid transparent; cursor: pointer; }
+.cat-pal.on { border-color: var(--text); box-shadow: 0 0 0 2px var(--bg-card), 0 0 0 4px var(--text); }
+
+/* Kalender: klickbare Tage + Tages-„+" */
+.cal-cell.clickable { cursor: pointer; }
+.cal-cell.clickable:hover { background: var(--bg-card-hover); }
+.agenda-head.clickable { cursor: pointer; position: relative; }
+.agenda-add {
+  margin-left: auto; width: 20px; height: 20px; border-radius: 6px; display: inline-flex;
+  align-items: center; justify-content: center; font-size: 15px; color: var(--text-dim);
+  background: var(--bg-card); border: 1px solid var(--border);
+}
+.agenda-add:hover { color: var(--brand); border-color: var(--brand); }
+
+/* Tagesübersicht-Modal */
+.day-list { display: flex; flex-direction: column; gap: 8px; }
+.day-ev {
+  display: flex; align-items: baseline; gap: 10px; width: 100%; text-align: left;
+  background: var(--bg-card); border: 1px solid var(--border); border-left: 3px solid var(--border-strong);
+  border-radius: var(--radius-sm); padding: 10px 12px; cursor: pointer;
+}
+.day-ev:hover { border-color: var(--border-strong); box-shadow: var(--shadow-sm); }
+.day-ev.post { border-left-color: var(--brand); }
+.day-ev.followup { border-left-color: var(--gold); }
+.day-ev-kind { flex: 0 0 auto; font-size: 12px; font-weight: 700; color: var(--text-dim); font-variant-numeric: tabular-nums; min-width: 52px; }
+.day-ev-title { font-weight: 600; font-size: 14px; }
+.day-ev-sub { color: var(--text-dim); font-size: 12px; margin-left: auto; }

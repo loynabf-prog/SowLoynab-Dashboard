@@ -1,7 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { usePointerBoard } from '../lib/usePointerBoard'
+import { useCategories } from '../context/CategoryContext'
+import { useAuth } from '../context/AuthContext'
+import { useToast } from '../context/ToastContext'
+import Modal from '../components/Modal'
+import TaskModal from '../components/TaskModal'
 
 type ViewMode = 'day' | '3day' | 'week' | 'month'
 type EventKind = 'post' | 'task' | 'followup'
@@ -14,6 +19,7 @@ interface CalEvent {
   title: string
   sub?: string
   to?: string
+  color?: string // Kategorie-Farbe (Aufgaben)
 }
 
 const MONTHS = [
@@ -38,8 +44,13 @@ function mondayOf(d: Date): Date {
   return addDays(d, -((d.getDay() + 6) % 7))
 }
 
+interface Option { id: string; name: string }
+
 export default function Calendar() {
   const navigate = useNavigate()
+  const { byId } = useCategories()
+  const { user } = useAuth()
+  const { toast } = useToast()
   const today = new Date()
   const [view, setView] = useState<ViewMode>(() => {
     try { return (localStorage.getItem('cal-view') as ViewMode) || 'week' } catch { return 'week' }
@@ -47,8 +58,17 @@ export default function Calendar() {
   const [anchor, setAnchor] = useState<Date>(today)
   const [events, setEvents] = useState<CalEvent[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [dayOpen, setDayOpen] = useState<string | null>(null)   // Tagesübersicht (ISO)
+  const [addFor, setAddFor] = useState<string | null>(null)      // neue Aufgabe für Tag (ISO)
+  const [clientOpts, setClientOpts] = useState<Option[]>([])
+  const [leadOpts, setLeadOpts] = useState<Option[]>([])
   const containerRef = useRef<HTMLDivElement>(null)
   const touchX = useRef<number | null>(null)
+
+  useEffect(() => {
+    supabase.from('clients').select('id, name').is('deleted_at', null).order('name').then(({ data }) => setClientOpts((data ?? []) as Option[]))
+    supabase.from('leads').select('id, name').is('deleted_at', null).order('name').then(({ data }) => setLeadOpts((data ?? []) as Option[]))
+  }, [])
 
   useEffect(() => {
     try { localStorage.setItem('cal-view', view) } catch { /* Speicher gesperrt -> egal */ }
@@ -68,50 +88,49 @@ export default function Calendar() {
     return Array.from({ length: 42 }, (_, i) => addDays(start, i))
   }, [view, anchor])
 
-  useEffect(() => {
-    async function load() {
-      setError(null)
-      const from = iso(days[0])
-      const to = iso(days[days.length - 1])
-      const [vids, tasks, leads] = await Promise.all([
-        supabase
-          .from('videos')
-          .select('id, title, scheduled_date, scheduled_time, client_id, clients(name)')
-          .is('deleted_at', null)
-          .gte('scheduled_date', from)
-          .lte('scheduled_date', to),
-        supabase
-          .from('tasks')
-          .select('id, title, due_date, done, clients(name), leads(name)')
-          .eq('done', false)
-          .is('deleted_at', null)
-          .gte('due_date', from)
-          .lte('due_date', to),
-        supabase
-          .from('leads')
-          .select('id, name, next_followup')
-          .is('deleted_at', null)
-          .gte('next_followup', from)
-          .lte('next_followup', to),
-      ])
-      if (vids.error || tasks.error || leads.error) {
-        setError((vids.error || tasks.error || leads.error)!.message)
-        return
-      }
-      const ev: CalEvent[] = []
-      for (const v of (vids.data ?? []) as any[]) {
-        ev.push({ id: v.id, date: v.scheduled_date, time: v.scheduled_time ?? null, kind: 'post', title: v.title, sub: v.clients?.name, to: `/client/${v.client_id}` })
-      }
-      for (const t of (tasks.data ?? []) as any[]) {
-        ev.push({ date: t.due_date, time: null, kind: 'task', title: t.title, sub: t.clients?.name || t.leads?.name, to: '/aufgaben' })
-      }
-      for (const l of (leads.data ?? []) as any[]) {
-        ev.push({ date: l.next_followup, time: null, kind: 'followup', title: l.name, sub: 'Follow-up', to: '/leads' })
-      }
-      setEvents(ev)
+  const load = useCallback(async () => {
+    setError(null)
+    const from = iso(days[0])
+    const to = iso(days[days.length - 1])
+    const [vids, tasks, leads] = await Promise.all([
+      supabase
+        .from('videos')
+        .select('id, title, scheduled_date, scheduled_time, client_id, clients(name)')
+        .is('deleted_at', null)
+        .gte('scheduled_date', from)
+        .lte('scheduled_date', to),
+      supabase
+        .from('tasks')
+        .select('id, title, due_date, done, category, clients(name), leads(name)')
+        .eq('done', false)
+        .is('deleted_at', null)
+        .gte('due_date', from)
+        .lte('due_date', to),
+      supabase
+        .from('leads')
+        .select('id, name, next_followup')
+        .is('deleted_at', null)
+        .gte('next_followup', from)
+        .lte('next_followup', to),
+    ])
+    if (vids.error || tasks.error || leads.error) {
+      setError((vids.error || tasks.error || leads.error)!.message)
+      return
     }
-    load()
-  }, [days])
+    const ev: CalEvent[] = []
+    for (const v of (vids.data ?? []) as any[]) {
+      ev.push({ id: v.id, date: v.scheduled_date, time: v.scheduled_time ?? null, kind: 'post', title: v.title, sub: v.clients?.name, to: `/client/${v.client_id}` })
+    }
+    for (const t of (tasks.data ?? []) as any[]) {
+      ev.push({ id: t.id, date: t.due_date, time: null, kind: 'task', title: t.title, sub: t.clients?.name || t.leads?.name, to: `/aufgaben?open=${t.id}`, color: byId(t.category)?.color })
+    }
+    for (const l of (leads.data ?? []) as any[]) {
+      ev.push({ date: l.next_followup, time: null, kind: 'followup', title: l.name, sub: 'Follow-up', to: '/leads' })
+    }
+    setEvents(ev)
+  }, [days, byId])
+
+  useEffect(() => { load() }, [load])
 
   function eventsFor(dIso: string): CalEvent[] {
     return events
@@ -213,11 +232,12 @@ export default function Calendar() {
             const inMonth = d.getMonth() === anchor.getMonth()
             const list = eventsFor(dIso)
             return (
-              <div className={`cal-cell ${inMonth ? '' : 'muted-cell'} ${dIso === todayIso ? 'today' : ''}`} key={i}>
+              <div className={`cal-cell clickable ${inMonth ? '' : 'muted-cell'} ${dIso === todayIso ? 'today' : ''}`} key={i} onClick={() => setDayOpen(dIso)}>
                 <div className="cal-daynum">{d.getDate()}</div>
                 <div className="cal-events">
                   {list.map((e, j) => (
-                    <button key={j} className={`cal-event ${e.kind}`} onClick={() => e.to && navigate(e.to)} title={e.title}>
+                    <button key={j} className={`cal-event ${e.kind}`} style={e.color ? { borderLeft: `3px solid ${e.color}` } : undefined}
+                      onClick={(ev) => { ev.stopPropagation(); e.to && navigate(e.to) }} title={e.title}>
                       {e.title}
                     </button>
                   ))}
@@ -238,10 +258,11 @@ export default function Calendar() {
                 key={i}
                 data-lane={dIso}
               >
-                <div className="agenda-head">
+                <div className="agenda-head clickable" onClick={() => setDayOpen(dIso)} title="Tag öffnen">
                   <span className="agenda-wd">{WEEKDAYS[(d.getDay() + 6) % 7]}</span>
                   <span className="agenda-day">{d.getDate()}. {MONTHS[d.getMonth()].slice(0, 3)}</span>
                   {isToday && <span className="agenda-today">Heute</span>}
+                  <span className="agenda-add" onClick={(e) => { e.stopPropagation(); setAddFor(dIso) }} title="Aufgabe für diesen Tag">＋</span>
                 </div>
                 <div className="agenda-body">
                   {list.length === 0 && <div className="col-empty">{dragId ? 'hierher' : '—'}</div>}
@@ -256,7 +277,7 @@ export default function Calendar() {
                         </button>
                       </div>
                     ) : (
-                      <button key={j} className={`agenda-event ${e.kind}`} onClick={() => e.to && navigate(e.to)}>
+                      <button key={j} className={`agenda-event ${e.kind}`} style={e.color ? { borderLeftColor: e.color } : undefined} onClick={() => e.to && navigate(e.to)}>
                         {e.time && <span className="ev-time">{e.time.slice(0, 5)}</span>}
                         <span className="ev-title">{e.title}</span>
                         {e.sub && <span className="ev-sub">{e.sub}</span>}
@@ -269,6 +290,66 @@ export default function Calendar() {
           })}
         </div>
       )}
+
+      {dayOpen && (
+        <DayModal
+          dIso={dayOpen}
+          events={eventsFor(dayOpen)}
+          onClose={() => setDayOpen(null)}
+          onNavigate={(to) => { setDayOpen(null); navigate(to) }}
+          onAdd={() => { const d = dayOpen; setDayOpen(null); setAddFor(d) }}
+          color={(e) => e.color}
+        />
+      )}
+
+      {addFor && (
+        <TaskModal
+          task={null}
+          userId={user?.id ?? null}
+          clients={clientOpts}
+          leads={leadOpts}
+          defaults={{ due_date: addFor }}
+          onClose={() => setAddFor(null)}
+          onSaved={() => { setAddFor(null); load(); toast('Aufgabe angelegt ✓') }}
+        />
+      )}
     </div>
+  )
+}
+
+function DayModal({
+  dIso, events, onClose, onNavigate, onAdd, color,
+}: {
+  dIso: string
+  events: CalEvent[]
+  onClose: () => void
+  onNavigate: (to: string) => void
+  onAdd: () => void
+  color: (e: CalEvent) => string | undefined
+}) {
+  const title = new Date(dIso + 'T00:00:00').toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })
+  const KIND: Record<EventKind, string> = { post: 'Post', task: 'Aufgabe', followup: 'Follow-up' }
+  return (
+    <Modal title={title} onClose={onClose}>
+      <div className="stack">
+        {events.length === 0 ? (
+          <div className="col-empty">Nichts geplant an diesem Tag.</div>
+        ) : (
+          <div className="day-list">
+            {events.map((e, i) => (
+              <button key={i} className={`day-ev ${e.kind}`} style={color(e) ? { borderLeftColor: color(e) } : undefined} onClick={() => e.to && onNavigate(e.to)}>
+                <span className="day-ev-kind">{e.time ? e.time.slice(0, 5) : KIND[e.kind]}</span>
+                <span className="day-ev-title">{e.title}</span>
+                {e.sub && <span className="day-ev-sub">{e.sub}</span>}
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="modal-actions">
+          <button type="button" className="btn btn-ghost" onClick={onClose}>Schließen</button>
+          <button type="button" className="btn btn-primary" onClick={onAdd}>＋ Aufgabe für diesen Tag</button>
+        </div>
+      </div>
+    </Modal>
   )
 }

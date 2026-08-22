@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { getCompany, saveCompany, type Company } from '../lib/settings'
+import { getCategories, saveCategories, CATEGORY_PALETTE, DEFAULT_CATEGORIES, type Category } from '../lib/categories'
 import { testMailConnection } from '../lib/mail'
 import { supabase } from '../lib/supabase'
+import { useCategories } from '../context/CategoryContext'
 import { useToast } from '../context/ToastContext'
 
 interface StatusRow { job: string; last_ok: string | null; last_error: string | null; last_error_at: string | null; detail: string | null }
@@ -114,6 +116,8 @@ export default function Settings() {
         <button className="btn" onClick={testZoho} disabled={testing}>{testing ? 'Prüfe …' : '🔌 Zoho-Verbindung testen'}</button>
       </div>
 
+      <CategoriesCard />
+
       <div className="settings-card" style={{ marginTop: 18 }}>
         <div className="section-divider" style={{ borderTop: 'none', paddingTop: 0 }}>Systemstatus</div>
         <p className="muted" style={{ fontSize: 13, margin: '4px 0 12px' }}>
@@ -139,5 +143,74 @@ export default function Settings() {
         )}
       </div>
     </>
+  )
+}
+
+function CategoriesCard() {
+  const { toast } = useToast()
+  const { reload } = useCategories()
+  const [cats, setCats] = useState<Category[]>([])
+  const [busy, setBusy] = useState(false)
+  const [open, setOpen] = useState<string | null>(null) // welche Farbauswahl offen ist
+
+  useEffect(() => { getCategories().then(setCats) }, [])
+
+  const upd = (id: string, patch: Partial<Category>) => setCats((p) => p.map((c) => (c.id === id ? { ...c, ...patch } : c)))
+  const del = (id: string) => setCats((p) => p.filter((c) => c.id !== id))
+  const add = () => {
+    const used = new Set(cats.map((c) => c.color))
+    const color = CATEGORY_PALETTE.find((c) => !used.has(c)) ?? CATEGORY_PALETTE[0]
+    setCats((p) => [...p, { id: crypto.randomUUID(), name: '', color }])
+  }
+
+  async function save() {
+    const clean = cats.map((c) => ({ ...c, name: c.name.trim() })).filter((c) => c.name)
+    setBusy(true)
+    await saveCategories(clean)
+    setCats(clean)
+    reload()
+    setBusy(false)
+    toast('Kategorien gespeichert ✓')
+  }
+
+  return (
+    <div className="settings-card" style={{ marginTop: 18 }}>
+      <div className="section-divider" style={{ borderTop: 'none', paddingTop: 0 }}>Kategorien &amp; Farben</div>
+      <p className="muted" style={{ fontSize: 13, margin: '4px 0 12px' }}>
+        Leg fest, welche Farbe was bedeutet (z. B. Rot = Kundendreh). Aufgaben mit dieser Kategorie
+        erscheinen im Kalender in der Farbe — so siehst du auf einen Blick, was ansteht.
+      </p>
+
+      {cats.length === 0 && (
+        <button className="btn btn-sm" style={{ marginBottom: 12 }} onClick={() => setCats(DEFAULT_CATEGORIES.map((c) => ({ ...c, id: crypto.randomUUID() })))}>
+          ✨ Vorschläge laden
+        </button>
+      )}
+
+      <div className="stack" style={{ gap: 10 }}>
+        {cats.map((c) => (
+          <div key={c.id} className="cat-edit">
+            <div className="cat-edit-row">
+              <button type="button" className="cat-swatch-btn" style={{ background: c.color }} onClick={() => setOpen(open === c.id ? null : c.id)} title="Farbe wählen" />
+              <input value={c.name} onChange={(e) => upd(c.id, { name: e.target.value })} placeholder="Name (z. B. Kundendreh)" />
+              <button type="button" className="pos-del" onClick={() => del(c.id)} title="Kategorie entfernen">✕</button>
+            </div>
+            {open === c.id && (
+              <div className="cat-palette">
+                {CATEGORY_PALETTE.map((col) => (
+                  <button type="button" key={col} className={`cat-pal ${c.color === col ? 'on' : ''}`} style={{ background: col }}
+                    onClick={() => { upd(c.id, { color: col }); setOpen(null) }} />
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div className="modal-actions" style={{ justifyContent: 'space-between' }}>
+        <button className="btn btn-sm" onClick={add}>+ Kategorie</button>
+        <button className="btn btn-primary" onClick={save} disabled={busy}>{busy ? 'Speichere …' : 'Speichern'}</button>
+      </div>
+    </div>
   )
 }
