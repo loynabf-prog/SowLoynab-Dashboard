@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import Modal from './Modal'
 import { AssigneePicker } from './Assignee'
 import RepeatPicker from './RepeatPicker'
+import { insertRows, updateRow } from '../lib/db'
 import { occurrences, type RepeatRule } from '../lib/recurrence'
 import { useCategories } from '../context/CategoryContext'
 import type { TaskRow } from './TaskItem'
@@ -62,7 +63,7 @@ export default function TaskModal({
       const series_id = crypto.randomUUID()
       setBusy(true); setError(null)
       const rows = dates.map((d) => ({ ...base, due_date: d, series_id, created_by: userId }))
-      const res = await supabase.from('tasks').insert(rows)
+      const res = await insertRows('tasks', rows)
       setBusy(false)
       if (res.error) setError(res.error.message)
       else onSaved()
@@ -72,8 +73,8 @@ export default function TaskModal({
     setBusy(true); setError(null)
     const payload = { ...base, due_date: due || null }
     const res = task
-      ? await supabase.from('tasks').update(payload).eq('id', task.id)
-      : await supabase.from('tasks').insert({ ...payload, created_by: userId })
+      ? await updateRow('tasks', payload, 'id', task.id)
+      : await insertRows('tasks', [{ ...payload, created_by: userId }])
     setBusy(false)
     if (res.error) setError(res.error.message)
     else onSaved()

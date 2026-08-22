@@ -24,6 +24,7 @@ import { celebrate } from '../lib/confetti'
 import NudgeModal from '../components/NudgeModal'
 import RepeatPicker from '../components/RepeatPicker'
 import { occurrences, type RepeatRule } from '../lib/recurrence'
+import { insertRows, updateRow } from '../lib/db'
 import { useCategories } from '../context/CategoryContext'
 import LineChart, { type Series } from '../components/LineChart'
 import { useToast } from '../context/ToastContext'
@@ -155,7 +156,7 @@ export default function ClientPage() {
       toast('Gepostet — stark! 🎉')
     }
     setVideos((prev) => prev.map((v) => (v.id === videoId ? { ...v, ...p } : v)))
-    const { error } = await supabase.from('videos').update(p).eq('id', videoId)
+    const { error } = await updateRow('videos', p as Record<string, any>, 'id', videoId)
     if (error) {
       setError(error.message)
       loadVideos()
@@ -299,7 +300,7 @@ export default function ClientPage() {
   async function createSeries(rows: { title: string; scheduled_date: string; scheduled_time: string | null }[]) {
     if (!id || rows.length === 0) return
     const series_id = crypto.randomUUID()
-    const { error } = await supabase.from('videos').insert(
+    const { error } = await insertRows('videos',
       rows.map((r) => ({ client_id: id, title: r.title, status: 'todo' as VideoStatus, scheduled_date: r.scheduled_date, scheduled_time: r.scheduled_time, series_id, created_by: user?.id ?? null })),
     )
     if (error) { setError(error.message); return }
