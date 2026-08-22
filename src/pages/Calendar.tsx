@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import Modal from '../components/Modal'
 import TaskModal from '../components/TaskModal'
+import LogoFrame from '../components/LogoFrame'
 
 type ViewMode = 'day' | '3day' | 'week' | 'month'
 type EventKind = 'post' | 'task' | 'followup'
@@ -20,6 +21,7 @@ interface CalEvent {
   sub?: string
   to?: string
   color?: string // Kategorie-Farbe (Aufgaben)
+  logo?: string | null // Kunden-Logo (Posts)
 }
 
 const MONTHS = [
@@ -95,7 +97,7 @@ export default function Calendar() {
     const [vids, tasks, leads] = await Promise.all([
       supabase
         .from('videos')
-        .select('id, title, scheduled_date, scheduled_time, client_id, clients(name)')
+        .select('id, title, scheduled_date, scheduled_time, client_id, clients(name, logo_url)')
         .is('deleted_at', null)
         .gte('scheduled_date', from)
         .lte('scheduled_date', to),
@@ -119,7 +121,7 @@ export default function Calendar() {
     }
     const ev: CalEvent[] = []
     for (const v of (vids.data ?? []) as any[]) {
-      ev.push({ id: v.id, date: v.scheduled_date, time: v.scheduled_time ?? null, kind: 'post', title: v.title, sub: v.clients?.name, to: `/client/${v.client_id}` })
+      ev.push({ id: v.id, date: v.scheduled_date, time: v.scheduled_time ?? null, kind: 'post', title: v.title, sub: v.clients?.name, to: `/client/${v.client_id}`, logo: v.clients?.logo_url ?? null })
     }
     for (const t of (tasks.data ?? []) as any[]) {
       ev.push({ id: t.id, date: t.due_date, time: null, kind: 'task', title: t.title, sub: t.clients?.name || t.leads?.name, to: `/aufgaben?open=${t.id}`, color: byId(t.category)?.color })
@@ -238,7 +240,8 @@ export default function Calendar() {
                   {list.map((e, j) => (
                     <button key={j} className={`cal-event ${e.kind}`} style={e.color ? { borderLeft: `3px solid ${e.color}` } : undefined}
                       onClick={(ev) => { ev.stopPropagation(); e.to && navigate(e.to) }} title={e.title}>
-                      {e.title}
+                      {e.kind === 'post' && <LogoFrame name={e.sub ?? ''} logoUrl={e.logo ?? null} className="cal-logo-xs" />}
+                      <span className="cal-event-t">{e.title}</span>
                     </button>
                   ))}
                 </div>
@@ -271,9 +274,12 @@ export default function Calendar() {
                       <div className={`agenda-event-wrap ${dragId === e.id ? 'ghost-source' : ''}`} key={e.id} data-card={e.id}>
                         <span className="cal-grip" data-drag-handle onPointerDown={(ev) => startDrag(ev, e.id!, dIso)}>⠿</span>
                         <button className={`agenda-event ${e.kind}`} onClick={() => e.to && navigate(e.to)}>
-                          {e.time && <span className="ev-time">{e.time.slice(0, 5)}</span>}
-                          <span className="ev-title">{e.title}</span>
-                          {e.sub && <span className="ev-sub">{e.sub}</span>}
+                          <LogoFrame name={e.sub ?? ''} logoUrl={e.logo ?? null} className="cal-logo" />
+                          <span className="ev-body">
+                            {e.time && <span className="ev-time">{e.time.slice(0, 5)}</span>}
+                            <span className="ev-title">{e.title}</span>
+                            {e.sub && <span className="ev-sub">{e.sub}</span>}
+                          </span>
                         </button>
                       </div>
                     ) : (
@@ -338,6 +344,7 @@ function DayModal({
           <div className="day-list">
             {events.map((e, i) => (
               <button key={i} className={`day-ev ${e.kind}`} style={color(e) ? { borderLeftColor: color(e) } : undefined} onClick={() => e.to && onNavigate(e.to)}>
+                {e.kind === 'post' && <LogoFrame name={e.sub ?? ''} logoUrl={e.logo ?? null} className="cal-logo" />}
                 <span className="day-ev-kind">{e.time ? e.time.slice(0, 5) : KIND[e.kind]}</span>
                 <span className="day-ev-title">{e.title}</span>
                 {e.sub && <span className="day-ev-sub">{e.sub}</span>}

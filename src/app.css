@@ -2201,3 +2201,16 @@ body::before {
 .day-ev-kind { flex: 0 0 auto; font-size: 12px; font-weight: 700; color: var(--text-dim); font-variant-numeric: tabular-nums; min-width: 52px; }
 .day-ev-title { font-weight: 600; font-size: 14px; }
 .day-ev-sub { color: var(--text-dim); font-size: 12px; margin-left: auto; }
+
+/* =========================================================================
+   Kunden-Logo auf Kalender-Posts (Wiedererkennung am Logo)
+   ========================================================================= */
+.cal-event { display: flex; align-items: center; gap: 5px; }
+.cal-event-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.logo-frame.cal-logo { width: 26px; height: 26px; border-radius: 7px; flex: 0 0 auto; }
+.logo-frame.cal-logo-xs { width: 15px; height: 15px; border-radius: 4px; flex: 0 0 auto; box-shadow: none; }
+.logo-frame.cal-logo .logo-fallback,
+.logo-frame.cal-logo-xs .logo-fallback { font-size: 9px; }
+.agenda-event.post { flex-direction: row; align-items: center; gap: 8px; }
+.agenda-event .ev-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.day-ev .logo-frame.cal-logo { align-self: center; }
