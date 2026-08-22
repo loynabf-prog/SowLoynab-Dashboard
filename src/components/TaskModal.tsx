@@ -4,6 +4,7 @@ import Modal from './Modal'
 import { AssigneePicker } from './Assignee'
 import RepeatPicker from './RepeatPicker'
 import { occurrences, type RepeatRule } from '../lib/recurrence'
+import { useCategories } from '../context/CategoryContext'
 import type { TaskRow } from './TaskItem'
 
 interface Option { id: string; name: string }
@@ -14,6 +15,7 @@ export default function TaskModal({
   userId,
   clients,
   leads,
+  defaults,
   onClose,
   onSaved,
 }: {
@@ -21,12 +23,15 @@ export default function TaskModal({
   userId: string | null
   clients: Option[]
   leads: Option[]
+  defaults?: { due_date?: string }
   onClose: () => void
   onSaved: () => void
 }) {
+  const { categories } = useCategories()
   const [title, setTitle] = useState(task?.title ?? '')
-  const [due, setDue] = useState(task?.due_date ?? '')
+  const [due, setDue] = useState(task?.due_date ?? defaults?.due_date ?? '')
   const [notes, setNotes] = useState(task?.notes ?? '')
+  const [category, setCategory] = useState<string | null>(task?.category ?? null)
   const [link, setLink] = useState(
     task?.client_id ? `client:${task.client_id}` : task?.lead_id ? `lead:${task.lead_id}` : '',
   )
@@ -45,6 +50,7 @@ export default function TaskModal({
       notes: notes.trim() || null,
       client_id,
       lead_id,
+      category: category || null,
       ...(assignees.length ? { assignee_ids: assignees } : {}),
     }
 
@@ -121,6 +127,21 @@ export default function TaskModal({
           <label>Zuständig</label>
           <AssigneePicker value={assignees} onChange={setAssignees} />
         </div>
+        {categories.length > 0 && (
+          <div>
+            <label>Kategorie <span className="muted">(Farbe im Kalender)</span></label>
+            <div className="cat-chips">
+              <button type="button" className={`cat-chip ${!category ? 'on' : ''}`} onClick={() => setCategory(null)}>
+                <span className="cat-swatch" style={{ background: 'var(--border-strong)' }} />Keine
+              </button>
+              {categories.map((c) => (
+                <button type="button" key={c.id} className={`cat-chip ${category === c.id ? 'on' : ''}`} onClick={() => setCategory(c.id)}>
+                  <span className="cat-swatch" style={{ background: c.color }} />{c.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <div>
           <label>Notizen</label>
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
