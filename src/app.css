@@ -2214,3 +2214,7 @@ body::before {
 .agenda-event.post { flex-direction: row; align-items: center; gap: 8px; }
 .agenda-event .ev-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .day-ev .logo-frame.cal-logo { align-self: center; }
+
+/* Kategorie-Ring ums Kunden-Logo (Video-Posts) */
+.post-logo { display: inline-flex; border-radius: 7px; flex: 0 0 auto; }
+.post-logo.xs { border-radius: 4px; }

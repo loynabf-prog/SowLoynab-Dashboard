@@ -19,6 +19,7 @@ gebaut, ein erneuter Lauf schadet also nicht.
 - [ ] `supabase/migrations/0014_system_status.sql` — Systemstatus (zeigt Hintergrund-Fehler)
 - [ ] `supabase/migrations/0015_series.sql` — Wiederholungen/Serien (Aufgaben & Videos)
 - [ ] `supabase/migrations/0016_task_category.sql` — Farb-Kategorien für Aufgaben
+- [ ] `supabase/migrations/0017_video_category.sql` — Farb-Kategorie/Ring für Videos
 
 *(0001–0009 bzw. `ALLES_offen_5-9.sql` sollten schon gelaufen sein — sonst zuerst die.)*
 
