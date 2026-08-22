@@ -8,15 +8,12 @@ import { IdentityProvider } from './context/IdentityContext'
 import { CategoryProvider } from './context/CategoryContext'
 import { ToastProvider } from './context/ToastContext'
 import ErrorBoundary from './components/ErrorBoundary'
+import { registerSW } from './lib/swUpdate'
 import './index.css'
 import './app.css'
 
-// Service Worker registrieren (fuer Handy-Push & App-Feeling)
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {})
-  })
-}
+// Service Worker registrieren (Handy-Push, Offline & Auto-Update-Hinweis)
+window.addEventListener('load', () => registerSW())
 
 // basename = Vite BASE_URL ohne abschliessenden Slash (fuer GitHub-Pages-Unterpfad).
 // Bei Root-Hosting ("/") ergibt das "/" und aendert nichts.

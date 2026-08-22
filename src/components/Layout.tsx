@@ -7,6 +7,7 @@ import NudgeCenter from './NudgeCenter'
 import MailIndicator from './MailIndicator'
 import CommandPalette from './CommandPalette'
 import QuickAdd from './QuickAdd'
+import UpdatePrompt from './UpdatePrompt'
 
 // Primär = Tagesgeschäft (immer sichtbar)
 const PRIMARY = [
@@ -93,6 +94,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <VoiceButton />
       <CommandPalette />
       <QuickAdd />
+      <UpdatePrompt />
     </>
   )
 }
