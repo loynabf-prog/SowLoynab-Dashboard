@@ -16,6 +16,7 @@ gebaut, ein erneuter Lauf schadet also nicht.
 - [ ] `supabase/migrations/0011_live_stats.sql` — Auto-Statistik (Reichweite)
 - [ ] `supabase/migrations/0012_invoice_pdf.sql` — Rechnungsfelder (Empfänger, USt …)
 - [ ] `supabase/migrations/0013_mail.sql` — Postfach (Tabelle `mails`)
+- [ ] `supabase/migrations/0014_system_status.sql` — Systemstatus (zeigt Hintergrund-Fehler)
 
 *(0001–0009 bzw. `ALLES_offen_5-9.sql` sollten schon gelaufen sein — sonst zuerst die.)*
 

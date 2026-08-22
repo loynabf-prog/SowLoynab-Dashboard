@@ -124,8 +124,15 @@ Deno.serve(async (req) => {
       updated++
     }
 
+    const now = new Date().toISOString()
+    try { await supa.from('system_status').upsert({ job: 'refresh-stats', last_ok: now, last_error: null, detail: `${updated} aktualisiert von ${vids?.length ?? 0}`, updated_at: now }, { onConflict: 'job' }) } catch { /* ignore */ }
     return json({ updated, checked: vids?.length ?? 0, errors: errors.slice(0, 8) })
   } catch (err) {
+    try {
+      const supa = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
+      const now = new Date().toISOString()
+      await supa.from('system_status').upsert({ job: 'refresh-stats', last_error: `${(err as Error).message}`, last_error_at: now, updated_at: now }, { onConflict: 'job' })
+    } catch { /* ignore */ }
     return json({ error: `Fehler: ${(err as Error).message}` }, 500)
   }
 })

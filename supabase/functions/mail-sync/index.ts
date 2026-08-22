@@ -58,10 +58,18 @@ function toISO(v: any): string {
   const d = new Date(v); return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString()
 }
 
+async function recordStatus(supa: any, ok: boolean, detail: string) {
+  const now = new Date().toISOString()
+  const row = ok
+    ? { job: 'mail-sync', last_ok: now, last_error: null, detail, updated_at: now }
+    : { job: 'mail-sync', last_error: detail, last_error_at: now, updated_at: now }
+  try { await supa.from('system_status').upsert(row, { onConflict: 'job' }) } catch { /* ignore */ }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+  const supa = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
   try {
-    const supa = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
     const t = await accessToken()
     const acc = await accountId(t)
     const folderId = await inboxFolderId(t, acc)
@@ -106,8 +114,10 @@ Deno.serve(async (req) => {
       if (!error) imported++
     }
 
+    await recordStatus(supa, true, `${imported} neu von ${msgs.length}`)
     return json({ ok: true, checked: msgs.length, imported })
   } catch (e) {
+    await recordStatus(supa, false, (e as Error).message)
     return json({ error: (e as Error).message }, 500)
   }
 })

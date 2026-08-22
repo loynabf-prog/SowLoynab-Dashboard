@@ -95,7 +95,7 @@ export default function Postfach() {
 
       <div className="mail-list">
         {rows.map((m) => (
-          <SwipeRow key={m.id} onDelete={() => archive(m)} label="Archivieren">
+          <SwipeRow key={m.id} onDelete={() => archive(m)} label="Archivieren" tone="archive">
             <button className={`mail-row ${m.is_read ? '' : 'unread'}`} onClick={() => openMail(m)}>
               {!m.is_read && <span className="mail-dot" />}
               <div className="mail-main">

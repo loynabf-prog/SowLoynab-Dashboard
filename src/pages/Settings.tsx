@@ -1,15 +1,47 @@
 import { useEffect, useState } from 'react'
 import { getCompany, saveCompany, type Company } from '../lib/settings'
+import { testMailConnection } from '../lib/mail'
+import { supabase } from '../lib/supabase'
 import { useToast } from '../context/ToastContext'
+
+interface StatusRow { job: string; last_ok: string | null; last_error: string | null; last_error_at: string | null; detail: string | null }
+const JOB_LABEL: Record<string, string> = { 'mail-sync': 'Postfach-Abruf', 'refresh-stats': 'Auto-Statistik' }
+
+function ago(s: string | null): string {
+  if (!s) return 'noch nie'
+  const min = Math.round((Date.now() - new Date(s).getTime()) / 60000)
+  if (min < 1) return 'gerade eben'
+  if (min < 60) return `vor ${min} Min`
+  const h = Math.round(min / 60)
+  if (h < 24) return `vor ${h} Std`
+  return `vor ${Math.round(h / 24)} Tg`
+}
 
 export default function Settings() {
   const { toast } = useToast()
   const [c, setC] = useState<Company>({})
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
+  const [testing, setTesting] = useState(false)
+  const [status, setStatus] = useState<StatusRow[]>([])
   const set = (k: keyof Company, v: any) => setC((p) => ({ ...p, [k]: v }))
 
-  useEffect(() => { getCompany().then((x) => { setC(x); setLoading(false) }) }, [])
+  useEffect(() => {
+    getCompany().then((x) => { setC(x); setLoading(false) })
+    supabase.from('system_status').select('*').then(({ data }) => setStatus((data ?? []) as StatusRow[]))
+  }, [])
+
+  async function testZoho() {
+    setTesting(true)
+    try {
+      const r = await testMailConnection()
+      toast(`Zoho verbunden ✓ Absender: ${r.from ?? '—'}`)
+    } catch (e) {
+      toast('Zoho-Fehler: ' + (e as Error).message)
+    } finally {
+      setTesting(false)
+    }
+  }
 
   async function save() {
     setBusy(true)
@@ -72,6 +104,39 @@ export default function Settings() {
             <button className="btn btn-primary" onClick={save} disabled={busy || !c.name}>{busy ? 'Speichere …' : 'Speichern'}</button>
           </div>
         </div>
+      </div>
+
+      <div className="settings-card" style={{ marginTop: 18 }}>
+        <div className="section-divider" style={{ borderTop: 'none', paddingTop: 0 }}>E-Mail-Anbindung (Zoho)</div>
+        <p className="muted" style={{ fontSize: 13, margin: '4px 0 12px' }}>
+          Prüft Token & Postfach, ohne etwas zu verschicken. Grün = du kannst Rechnungen direkt aus der App senden.
+        </p>
+        <button className="btn" onClick={testZoho} disabled={testing}>{testing ? 'Prüfe …' : '🔌 Zoho-Verbindung testen'}</button>
+      </div>
+
+      <div className="settings-card" style={{ marginTop: 18 }}>
+        <div className="section-divider" style={{ borderTop: 'none', paddingTop: 0 }}>Systemstatus</div>
+        <p className="muted" style={{ fontSize: 13, margin: '4px 0 12px' }}>
+          Zeigt, ob die automatischen Hintergrund-Aufgaben laufen. Ein roter Eintrag = da klemmt etwas.
+        </p>
+        {status.length === 0 ? (
+          <div className="col-empty">Noch keine Läufe erfasst. (Nach der Einrichtung erscheinen hier Postfach-Abruf & Statistik.)</div>
+        ) : (
+          <div className="status-list">
+            {status.map((s) => {
+              const bad = !!s.last_error && (!s.last_ok || (s.last_error_at ?? '') > (s.last_ok ?? ''))
+              return (
+                <div className={`status-row ${bad ? 'bad' : 'ok'}`} key={s.job}>
+                  <span className="status-dot" />
+                  <div className="status-main">
+                    <strong>{JOB_LABEL[s.job] ?? s.job}</strong>
+                    <span className="muted">{bad ? `Fehler ${ago(s.last_error_at)}: ${s.last_error}` : `zuletzt OK ${ago(s.last_ok)}${s.detail ? ` · ${s.detail}` : ''}`}</span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
     </>
   )

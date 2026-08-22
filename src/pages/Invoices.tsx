@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { euro } from '../lib/format'
 import { getCompany, type Company } from '../lib/settings'
-import { exportInvoicePdf, invoicePdfBlob } from '../lib/invoicePdf'
+import { exportInvoicePdf, invoicePdfBlob, itemsNet, type InvoiceItem } from '../lib/invoicePdf'
 import { sendMail, blobToBase64 } from '../lib/mail'
 import Modal from '../components/Modal'
 
@@ -21,6 +21,7 @@ interface Invoice {
   recipient?: string | null
   service_period?: string | null
   vat_rate?: number | null
+  items?: InvoiceItem[] | null
   client_name?: string
 }
 interface Opt { id: string; name: string }
@@ -240,7 +241,6 @@ function InvoiceModal({ invoice, clients, company, userId, nextNumber, onClose, 
 }) {
   const [number, setNumber] = useState(invoice?.number ?? nextNumber)
   const [clientId, setClientId] = useState(invoice?.client_id ?? '')
-  const [amount, setAmount] = useState(invoice ? String(invoice.amount) : '')
   const [status, setStatus] = useState(invoice?.status ?? 'sent')
   const [issued, setIssued] = useState(invoice?.issued_on ?? new Date().toISOString().slice(0, 10))
   const [due, setDue] = useState(invoice?.due_date ?? '')
@@ -249,8 +249,24 @@ function InvoiceModal({ invoice, clients, company, userId, nextNumber, onClose, 
   const [servicePeriod, setServicePeriod] = useState(invoice?.service_period ?? '')
   const defaultVat = company.kleinunternehmer ? 0 : (company.defaultVat ?? 19)
   const [vatRate, setVatRate] = useState(String(invoice?.vat_rate ?? defaultVat))
+  // Positionen: aus items, sonst aus altem notes+amount, sonst leere Zeile
+  const [items, setItems] = useState<InvoiceItem[]>(() => {
+    const src = invoice?.items?.length ? invoice.items : null
+    if (src) return src.map((it) => ({ desc: it.desc ?? '', qty: Number(it.qty) || 1, price: Number(it.price) || 0 }))
+    if (invoice) return [{ desc: invoice.notes ?? 'Social-Media-Betreuung', qty: 1, price: Number(invoice.amount) || 0 }]
+    return [{ desc: '', qty: 1, price: 0 }]
+  })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const net = itemsNet(items)
+  const vat = net * (Number(vatRate.replace(',', '.')) || 0) / 100
+
+  function setItem(i: number, patch: Partial<InvoiceItem>) {
+    setItems((prev) => prev.map((it, idx) => (idx === i ? { ...it, ...patch } : it)))
+  }
+  function addItem() { setItems((prev) => [...prev, { desc: '', qty: 1, price: 0 }]) }
+  function removeItem(i: number) { setItems((prev) => (prev.length > 1 ? prev.filter((_, idx) => idx !== i) : prev)) }
 
   // Empfängeradresse aus Kundennamen vorbelegen, wenn noch leer
   function pickClient(id: string) {
@@ -262,12 +278,14 @@ function InvoiceModal({ invoice, clients, company, userId, nextNumber, onClose, 
   }
 
   async function save() {
-    if (!amount.trim()) { setError('Bitte einen Betrag angeben.'); return }
+    const clean = items.map((it) => ({ desc: it.desc.trim(), qty: Number(it.qty) || 0, price: Number(it.price) || 0 })).filter((it) => it.desc || it.price)
+    if (clean.length === 0 || itemsNet(clean) <= 0) { setError('Bitte mindestens eine Position mit Betrag angeben.'); return }
     setBusy(true); setError(null)
     const payload = {
       number: number.trim() || null,
       client_id: clientId || null,
-      amount: Number(amount.replace(',', '.')),
+      amount: itemsNet(clean),
+      items: clean,
       status,
       issued_on: issued,
       due_date: due || null,
@@ -289,37 +307,33 @@ function InvoiceModal({ invoice, clients, company, userId, nextNumber, onClose, 
     <Modal title={invoice ? 'Rechnung bearbeiten' : 'Neue Rechnung'} onClose={onClose}>
       <div className="stack">
         {error && <div className="error-box">{error}</div>}
-        <div className="row" style={{ gap: 12 }}>
-          <div style={{ flex: 1 }}>
+        <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: 130 }}>
             <label>Rechnungsnummer</label>
             <input value={number} onChange={(e) => setNumber(e.target.value)} />
           </div>
-          <div style={{ flex: 1 }}>
-            <label>Betrag € *</label>
-            <input value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="decimal" placeholder="z. B. 500" autoFocus />
+          <div style={{ flex: 1, minWidth: 130 }}>
+            <label>Kunde</label>
+            <select value={clientId} onChange={(e) => pickClient(e.target.value)}>
+              <option value="">— keiner —</option>
+              {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
           </div>
-        </div>
-        <div>
-          <label>Kunde</label>
-          <select value={clientId} onChange={(e) => pickClient(e.target.value)}>
-            <option value="">— keiner —</option>
-            {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
         </div>
         <div>
           <label>Empfänger-Adresse (steht auf der PDF)</label>
           <textarea value={recipient} onChange={(e) => setRecipient(e.target.value)} placeholder={'Restaurant Muster GmbH\nMusterstraße 1\n48143 Münster'} rows={3} />
         </div>
         <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
-          <div style={{ flex: 1, minWidth: 130 }}>
+          <div style={{ flex: 1, minWidth: 120 }}>
             <label>Rechnungsdatum</label>
             <input type="date" value={issued} onChange={(e) => setIssued(e.target.value)} />
           </div>
-          <div style={{ flex: 1, minWidth: 130 }}>
+          <div style={{ flex: 1, minWidth: 120 }}>
             <label>Fällig am</label>
             <input type="date" value={due} onChange={(e) => setDue(e.target.value)} />
           </div>
-          <div style={{ flex: 1, minWidth: 130 }}>
+          <div style={{ flex: 1, minWidth: 120 }}>
             <label>Status</label>
             <select value={status} onChange={(e) => setStatus(e.target.value)}>
               <option value="draft">Entwurf</option>
@@ -338,9 +352,31 @@ function InvoiceModal({ invoice, clients, company, userId, nextNumber, onClose, 
             <input value={vatRate} onChange={(e) => setVatRate(e.target.value)} inputMode="decimal" placeholder="19" />
           </div>
         </div>
+
         <div>
-          <label>Leistungsbeschreibung (steht als Position auf der PDF)</label>
-          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="z. B. Social-Media-Betreuung, 8 Reels, Community-Management" />
+          <label>Positionen</label>
+          <div className="pos-list">
+            {items.map((it, i) => (
+              <div className="pos-row" key={i}>
+                <input className="pos-desc" value={it.desc} onChange={(e) => setItem(i, { desc: e.target.value })} placeholder="z. B. 8 Reels inkl. Schnitt" />
+                <input className="pos-qty" value={String(it.qty)} onChange={(e) => setItem(i, { qty: Number(e.target.value.replace(',', '.')) || 0 })} inputMode="decimal" title="Menge" />
+                <input className="pos-price" value={String(it.price)} onChange={(e) => setItem(i, { price: Number(e.target.value.replace(',', '.')) || 0 })} inputMode="decimal" title="Einzelpreis netto €" placeholder="€" />
+                <button type="button" className="pos-del" onClick={() => removeItem(i)} disabled={items.length <= 1} title="Position entfernen">✕</button>
+              </div>
+            ))}
+          </div>
+          <button type="button" className="btn btn-sm" onClick={addItem} style={{ marginTop: 8 }}>+ Position</button>
+        </div>
+
+        <div className="pos-sum">
+          <div><span>Netto</span><strong>{euro(net)}</strong></div>
+          {vat > 0 && <div><span>zzgl. {vatRate}% USt</span><strong>{euro(vat)}</strong></div>}
+          <div className="pos-sum-total"><span>Gesamt</span><strong>{euro(net + vat)}</strong></div>
+        </div>
+
+        <div>
+          <label>Notiz (intern, nicht auf der Rechnung)</label>
+          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
         </div>
         <div className="modal-actions">
           <button type="button" className="btn btn-ghost" onClick={onClose}>Abbrechen</button>

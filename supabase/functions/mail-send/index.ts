@@ -73,14 +73,18 @@ async function uploadAttachment(access: string, acc: string, att: { filename: st
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
   try {
-    const { to, subject, html, attachments } = await req.json()
-    if (!to || !subject) return json({ error: 'to und subject sind Pflicht.' }, 400)
+    const { to, subject, html, attachments, test } = await req.json()
 
     const from = Deno.env.get('ZOHO_FROM_ADDRESS')
     if (!from) throw new Error('ZOHO_FROM_ADDRESS ist nicht gesetzt.')
 
     const access = await accessToken()
     const acc = await accountId(access)
+
+    // Verbindungstest: nur Token + Konto prüfen, nichts verschicken
+    if (test) return json({ ok: true, from, accountId: acc })
+
+    if (!to || !subject) return json({ error: 'to und subject sind Pflicht.' }, 400)
 
     const uploaded: any[] = []
     for (const att of (attachments ?? [])) {
