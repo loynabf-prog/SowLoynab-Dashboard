@@ -16,6 +16,14 @@ export async function sendMail(input: SendMailInput): Promise<void> {
   if ((data as any)?.error) throw new Error((data as any).error)
 }
 
+// Zoho-Verbindung prüfen (Token + Konto), ohne etwas zu verschicken
+export async function testMailConnection(): Promise<{ from?: string; accountId?: string }> {
+  const { data, error } = await supabase.functions.invoke('mail-send', { body: { test: true } })
+  if (error) throw new Error(error.message)
+  if ((data as any)?.error) throw new Error((data as any).error)
+  return { from: (data as any)?.from, accountId: (data as any)?.accountId }
+}
+
 // Blob -> reines Base64 (ohne data:-Präfix) für den Anhang
 export function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {

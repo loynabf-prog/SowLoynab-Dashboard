@@ -1,16 +1,34 @@
 import { jsPDF } from 'jspdf'
 import type { Company } from './settings'
 
+export interface InvoiceItem {
+  desc: string
+  qty: number
+  price: number   // Einzelpreis netto
+}
+
 export interface InvoiceData {
   number: string | null
-  amount: number            // Netto-Betrag
+  amount: number            // Netto-Gesamt (Summe der Positionen)
   vat_rate?: number | null  // 0 = Kleinunternehmer
   issued_on: string
   due_date: string | null
   service_period?: string | null
-  notes?: string | null     // Leistungsbeschreibung
+  notes?: string | null     // Leistungsbeschreibung (Fallback bei einer Position)
   recipient?: string | null // mehrzeilige Empfängeradresse
+  items?: InvoiceItem[] | null
   client_name?: string
+}
+
+// Positionen normalisieren: echte items oder Fallback aus notes+amount
+export function normalizeItems(inv: InvoiceData): InvoiceItem[] {
+  const items = (inv.items ?? []).filter((it) => it && (it.desc || it.price))
+  if (items.length) return items.map((it) => ({ desc: it.desc || 'Leistung', qty: Number(it.qty) || 1, price: Number(it.price) || 0 }))
+  return [{ desc: inv.notes || 'Social-Media-Betreuung', qty: 1, price: Number(inv.amount) || 0 }]
+}
+
+export function itemsNet(items: InvoiceItem[]): number {
+  return items.reduce((s, it) => s + (Number(it.qty) || 0) * (Number(it.price) || 0), 0)
 }
 
 const euro = (n: number) => n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
@@ -57,24 +75,40 @@ export function buildInvoicePdf(inv: InvoiceData, co: Company): jsPDF {
   doc.text(`Rechnung ${inv.number || ''}`.trim(), L, 82)
 
   // --- Positions-Kopf ---
+  const items = normalizeItems(inv)
+  const multi = items.length > 1 || items.some((it) => (Number(it.qty) || 1) !== 1)
+  const colMenge = 120, colEinzel = 148 // Spalten-x nur bei mehreren Positionen
   let y = 94
   doc.setFillColor(247, 242, 234); doc.rect(L, y - 6, R - L, 9, 'F')
   doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(...ink)
   doc.text('Beschreibung', L + 2, y)
+  if (multi) {
+    doc.text('Menge', colMenge, y, { align: 'right' })
+    doc.text('Einzel', colEinzel + 8, y, { align: 'right' })
+  }
   doc.text('Betrag', R - 2, y, { align: 'right' })
   y += 9
 
-  // --- Position ---
+  // --- Positionen ---
   doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(...ink)
-  const desc = doc.splitTextToSize(inv.notes || 'Social-Media-Betreuung', 120)
-  doc.text(desc, L + 2, y)
-  doc.text(euro(inv.amount), R - 2, y, { align: 'right' })
-  y += Math.max(desc.length * 5, 8) + 4
+  for (const it of items) {
+    const lineTotal = (Number(it.qty) || 1) * (Number(it.price) || 0)
+    const descLines = doc.splitTextToSize(it.desc || 'Leistung', multi ? 96 : 120)
+    doc.text(descLines, L + 2, y)
+    if (multi) {
+      doc.text(String(Number(it.qty) || 1), colMenge, y, { align: 'right' })
+      doc.text(euro(Number(it.price) || 0), colEinzel + 8, y, { align: 'right' })
+    }
+    doc.text(euro(lineTotal), R - 2, y, { align: 'right' })
+    y += Math.max(descLines.length * 5, 6) + 3
+    if (y > 250) break // Sicherheits-Stopp (eine Seite)
+  }
+  y += 1
   doc.setDrawColor(230, 224, 214); doc.setLineWidth(0.3); doc.line(L, y, R, y); y += 8
 
   // --- Summen ---
   const vatRate = inv.vat_rate ?? 0
-  const net = inv.amount
+  const net = itemsNet(items)
   const vat = net * vatRate / 100
   const gross = net + vat
   const sumX = 130

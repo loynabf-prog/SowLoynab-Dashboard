@@ -13,11 +13,13 @@ export default function SwipeRow({
   children,
   onDelete,
   label = 'Löschen',
+  tone = 'danger',
   className = '',
 }: {
   children: React.ReactNode
   onDelete: () => void
   label?: string
+  tone?: 'danger' | 'archive'
   className?: string
 }) {
   const [reveal, setReveal] = useState(0)   // aktuell sichtbare rote Breite (px)
@@ -103,7 +105,7 @@ export default function SwipeRow({
     <div className={`swipe-outer ${className}`}>
       <button
         type="button"
-        className={`swipe-action ${armed ? 'armed' : ''}`}
+        className={`swipe-action tone-${tone} ${armed ? 'armed' : ''}`}
         style={{ width: reveal }}
         onClick={() => { setCommitting(true); setReveal(width.current); setTimeout(onDelete, 120) }}
         tabIndex={reveal > 0 ? 0 : -1}
