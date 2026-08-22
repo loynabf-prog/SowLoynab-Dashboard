@@ -83,6 +83,7 @@ export interface Task {
   client_id: string | null
   lead_id: string | null
   notes: string | null
+  series_id: string | null
   created_by: string | null
   created_at: string
   updated_at: string
@@ -152,6 +153,7 @@ export interface Video {
   stats_updated_at: string | null
   sort_order: number | null
   assignee_ids: string[]
+  series_id: string | null
   created_by: string | null
   created_at: string
   updated_at: string

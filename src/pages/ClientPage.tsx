@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -22,6 +22,8 @@ import { generateIdeas } from '../lib/ideas'
 import { usePointerBoard } from '../lib/usePointerBoard'
 import { celebrate } from '../lib/confetti'
 import NudgeModal from '../components/NudgeModal'
+import RepeatPicker from '../components/RepeatPicker'
+import { occurrences, type RepeatRule } from '../lib/recurrence'
 import LineChart, { type Series } from '../components/LineChart'
 import { useToast } from '../context/ToastContext'
 
@@ -295,8 +297,9 @@ export default function ClientPage() {
 
   async function createSeries(rows: { title: string; scheduled_date: string; scheduled_time: string | null }[]) {
     if (!id || rows.length === 0) return
+    const series_id = crypto.randomUUID()
     const { error } = await supabase.from('videos').insert(
-      rows.map((r) => ({ client_id: id, title: r.title, status: 'todo' as VideoStatus, scheduled_date: r.scheduled_date, scheduled_time: r.scheduled_time, created_by: user?.id ?? null })),
+      rows.map((r) => ({ client_id: id, title: r.title, status: 'todo' as VideoStatus, scheduled_date: r.scheduled_date, scheduled_time: r.scheduled_time, series_id, created_by: user?.id ?? null })),
     )
     if (error) { setError(error.message); return }
     setSeriesOpen(false)
@@ -453,6 +456,14 @@ export default function ClientPage() {
           onSave={async (patch) => {
             await patchVideo(editing.id, patch)
             setEditing(null)
+          }}
+          onDeleteSeries={async () => {
+            if (!editing.series_id) return
+            if (!confirm('Die ganze Serie (alle noch offenen Karten dieser Wiederholung) in den Papierkorb legen?')) return
+            await supabase.from('videos').update({ deleted_at: new Date().toISOString() }).eq('series_id', editing.series_id).is('deleted_at', null)
+            setEditing(null)
+            loadVideos()
+            toast('Serie in den Papierkorb ✓')
           }}
         />
       )}
@@ -780,10 +791,12 @@ function EditVideoModal({
   video,
   onClose,
   onSave,
+  onDeleteSeries,
 }: {
   video: Video
   onClose: () => void
   onSave: (patch: Partial<Video>) => void
+  onDeleteSeries: () => void
 }) {
   const [title, setTitle] = useState(video.title)
   const [date, setDate] = useState(video.scheduled_date ?? '')
@@ -896,6 +909,13 @@ function EditVideoModal({
             <input value={comments} onChange={(e) => setComments(e.target.value)} inputMode="numeric" placeholder="0" />
           </div>
         </div>
+
+        {video.series_id && (
+          <div className="info-box" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+            <span>🔁 Teil einer Serie.</span>
+            <button type="button" className="btn btn-sm btn-danger" onClick={onDeleteSeries}>Ganze Serie löschen</button>
+          </div>
+        )}
 
         <div className="modal-actions">
           <button type="button" className="btn btn-ghost" onClick={onClose}>
@@ -1348,8 +1368,6 @@ function AiIdeasModal({
 }
 
 // ============================ Content-Serie ============================
-const WEEKDAYS = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag']
-
 function iso(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
@@ -1361,73 +1379,44 @@ function SeriesModal({
   onClose: () => void
   onCreate: (rows: { title: string; scheduled_date: string; scheduled_time: string | null }[]) => void
 }) {
+  const today = iso(new Date())
   const [title, setTitle] = useState('')
-  const [weekday, setWeekday] = useState(0) // 0 = Montag
+  const [start, setStart] = useState(today)
   const [time, setTime] = useState('')
-  const [weeks, setWeeks] = useState(4)
+  const [rule, setRule] = useState<RepeatRule>({ kind: 'weekly' })
 
-  // Vorschau der Termine
-  const dates = useMemo(() => {
-    const out: Date[] = []
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    // Wochentag 0=Mo..6=So -> JS getDay 0=So..6=Sa
-    const targetDow = (weekday + 1) % 7
-    const d = new Date(today)
-    const diff = (targetDow - d.getDay() + 7) % 7
-    d.setDate(d.getDate() + diff)
-    for (let i = 0; i < weeks; i++) {
-      out.push(new Date(d))
-      d.setDate(d.getDate() + 7)
-    }
-    return out
-  }, [weekday, weeks])
+  const dates = start ? (rule.kind === 'none' ? [start] : occurrences(start, rule)) : []
 
   function generate() {
-    if (!title.trim()) return
-    onCreate(dates.map((d) => ({ title: title.trim(), scheduled_date: iso(d), scheduled_time: time || null })))
+    if (!title.trim() || dates.length === 0) return
+    onCreate(dates.map((d) => ({ title: title.trim(), scheduled_date: d, scheduled_time: time || null })))
   }
 
   return (
-    <Modal title="🔁 Content-Serie anlegen" onClose={onClose}>
+    <Modal title="🔁 Serie / Wiederholung anlegen" onClose={onClose}>
       <div className="stack">
         <p className="info-box">
-          Erzeugt für die nächsten Wochen automatisch Video-Karten (Status „Zu bearbeiten") –
-          z. B. „jeden Montag ein Reel". Spart das ständige Neu-Eintippen.
+          Legt automatisch mehrere Video-Karten an – z. B. „alle 3 Tage", „jeden Montag &amp; Donnerstag"
+          oder „monatlich". Enddatum leer = unbegrenzt (erstmal 3 Monate, später verlängerbar).
         </p>
         <div>
-          <label>Titel der Serie *</label>
+          <label>Titel *</label>
           <input value={title} onChange={(e) => setTitle(e.target.value)} autoFocus placeholder="z. B. Wochen-Reel" />
         </div>
         <div className="row" style={{ gap: 12 }}>
           <div style={{ flex: 1 }}>
-            <label>Wochentag</label>
-            <select value={weekday} onChange={(e) => setWeekday(Number(e.target.value))}>
-              {WEEKDAYS.map((w, i) => <option key={i} value={i}>{w}</option>)}
-            </select>
+            <label>Startdatum</label>
+            <input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
           </div>
           <div style={{ flex: 1 }}>
             <label>Uhrzeit (optional)</label>
             <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
           </div>
-          <div style={{ flex: 1 }}>
-            <label>Wie viele Wochen</label>
-            <select value={weeks} onChange={(e) => setWeeks(Number(e.target.value))}>
-              {[2, 4, 8, 12].map((n) => <option key={n} value={n}>{n} Wochen</option>)}
-            </select>
-          </div>
         </div>
-        <div>
-          <label>Vorschau ({dates.length} Termine)</label>
-          <div className="series-preview">
-            {dates.map((d, i) => (
-              <span className="series-chip" key={i}>{d.toLocaleDateString('de-DE', { day: '2-digit', month: 'short' })}</span>
-            ))}
-          </div>
-        </div>
+        <RepeatPicker value={rule} onChange={setRule} anchor={start} />
         <div className="modal-actions">
           <button type="button" className="btn btn-ghost" onClick={onClose}>Abbrechen</button>
-          <button type="button" className="btn btn-primary" onClick={generate} disabled={!title.trim()}>
+          <button type="button" className="btn btn-primary" onClick={generate} disabled={!title.trim() || dates.length === 0}>
             {dates.length} Videos anlegen
           </button>
         </div>
