@@ -2136,3 +2136,17 @@ body::before {
 .status-row.bad .status-dot { background: #d9432c; box-shadow: 0 0 0 3px rgba(217, 67, 44, 0.14); }
 .status-main { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .status-main .muted { font-size: 12.5px; }
+
+/* =========================================================================
+   Wiederholung / Serie (RepeatPicker)
+   ========================================================================= */
+.repeat { background: var(--bg-card-hover); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px; }
+.wd-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.wd-chip {
+  min-width: 40px; padding: 7px 10px; border-radius: 10px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--bg-card); color: var(--text-dim);
+  font-size: 13px; font-weight: 700; transition: all 0.12s ease;
+}
+.wd-chip:hover { border-color: var(--border-strong); }
+.wd-chip.on { background: var(--brand); border-color: var(--brand); color: #fff; }
+.repeat-preview { margin-top: 10px; font-size: 13px; font-variant-numeric: tabular-nums; }

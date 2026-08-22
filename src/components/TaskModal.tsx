@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import Modal from './Modal'
 import { AssigneePicker } from './Assignee'
+import RepeatPicker from './RepeatPicker'
+import { occurrences, type RepeatRule } from '../lib/recurrence'
 import type { TaskRow } from './TaskItem'
 
 interface Option { id: string; name: string }
@@ -29,27 +31,53 @@ export default function TaskModal({
     task?.client_id ? `client:${task.client_id}` : task?.lead_id ? `lead:${task.lead_id}` : '',
   )
   const [assignees, setAssignees] = useState<string[]>(task?.assignee_ids ?? [])
+  const [repeat, setRepeat] = useState<RepeatRule>({ kind: 'none' })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function save(e: React.FormEvent) {
     e.preventDefault()
     if (!title.trim()) return
-    setBusy(true)
-    setError(null)
     const client_id = link.startsWith('client:') ? link.slice(7) : null
     const lead_id = link.startsWith('lead:') ? link.slice(5) : null
-    const payload = {
+    const base = {
       title: title.trim(),
-      due_date: due || null,
       notes: notes.trim() || null,
       client_id,
       lead_id,
       ...(assignees.length ? { assignee_ids: assignees } : {}),
     }
+
+    // Wiederkehrend (nur beim Neuanlegen): mehrere Aufgaben als Serie
+    if (!task && repeat.kind !== 'none') {
+      if (!due) { setError('Für eine Wiederholung bitte oben „Fällig am" als Startdatum setzen.'); return }
+      const dates = occurrences(due, repeat)
+      if (dates.length === 0) { setError('Diese Wiederholung ergibt keine Termine.'); return }
+      const series_id = crypto.randomUUID()
+      setBusy(true); setError(null)
+      const rows = dates.map((d) => ({ ...base, due_date: d, series_id, created_by: userId }))
+      const res = await supabase.from('tasks').insert(rows)
+      setBusy(false)
+      if (res.error) setError(res.error.message)
+      else onSaved()
+      return
+    }
+
+    setBusy(true); setError(null)
+    const payload = { ...base, due_date: due || null }
     const res = task
       ? await supabase.from('tasks').update(payload).eq('id', task.id)
       : await supabase.from('tasks').insert({ ...payload, created_by: userId })
+    setBusy(false)
+    if (res.error) setError(res.error.message)
+    else onSaved()
+  }
+
+  async function deleteSeries() {
+    if (!task?.series_id) return
+    if (!confirm('Die ganze Serie (alle noch offenen Termine dieser Wiederholung) in den Papierkorb legen?')) return
+    setBusy(true)
+    const res = await supabase.from('tasks').update({ deleted_at: new Date().toISOString() }).eq('series_id', task.series_id).is('deleted_at', null)
     setBusy(false)
     if (res.error) setError(res.error.message)
     else onSaved()
@@ -97,12 +125,21 @@ export default function TaskModal({
           <label>Notizen</label>
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
+
+        {!task && <RepeatPicker value={repeat} onChange={setRepeat} anchor={due} />}
+        {task?.series_id && (
+          <div className="info-box" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+            <span>🔁 Teil einer Serie.</span>
+            <button type="button" className="btn btn-sm btn-danger" onClick={deleteSeries} disabled={busy}>Ganze Serie löschen</button>
+          </div>
+        )}
+
         <div className="modal-actions">
           <button type="button" className="btn btn-ghost" onClick={onClose}>
             Abbrechen
           </button>
           <button type="submit" className="btn btn-primary" disabled={busy || !title.trim()}>
-            {busy ? 'Speichere …' : task ? 'Speichern' : 'Anlegen'}
+            {busy ? 'Speichere …' : task ? 'Speichern' : repeat.kind !== 'none' ? 'Serie anlegen' : 'Anlegen'}
           </button>
         </div>
       </form>
