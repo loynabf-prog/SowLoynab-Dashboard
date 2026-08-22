@@ -24,6 +24,7 @@ import { celebrate } from '../lib/confetti'
 import NudgeModal from '../components/NudgeModal'
 import RepeatPicker from '../components/RepeatPicker'
 import { occurrences, type RepeatRule } from '../lib/recurrence'
+import { useCategories } from '../context/CategoryContext'
 import LineChart, { type Series } from '../components/LineChart'
 import { useToast } from '../context/ToastContext'
 
@@ -809,7 +810,9 @@ function EditVideoModal({
   const [reach, setReach] = useState(video.reach != null ? String(video.reach) : '')
   const [ttUrl, setTtUrl] = useState(video.tiktok_url ?? '')
   const [igUrl, setIgUrl] = useState(video.instagram_url ?? '')
+  const [category, setCategory] = useState<string | null>(video.category ?? null)
   const [copied, setCopied] = useState(false)
+  const { categories } = useCategories()
   const num = (s: string) => (s.trim() === '' ? null : Number(s.replace(/[^\d]/g, '')))
 
   return (
@@ -830,6 +833,7 @@ function EditVideoModal({
             reach: num(reach),
             tiktok_url: ttUrl.trim() || null,
             instagram_url: igUrl.trim() || null,
+            category: category || null,
           })
         }}
       >
@@ -847,6 +851,21 @@ function EditVideoModal({
             <input id="vtime" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
           </div>
         </div>
+        {categories.length > 0 && (
+          <div>
+            <label>Markierung <span className="muted">(farbiger Ring im Kalender)</span></label>
+            <div className="cat-chips">
+              <button type="button" className={`cat-chip ${!category ? 'on' : ''}`} onClick={() => setCategory(null)}>
+                <span className="cat-swatch" style={{ background: 'var(--border-strong)' }} />Keine
+              </button>
+              {categories.map((c) => (
+                <button type="button" key={c.id} className={`cat-chip ${category === c.id ? 'on' : ''}`} onClick={() => setCategory(c.id)}>
+                  <span className="cat-swatch" style={{ background: c.color }} />{c.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <div>
           <label htmlFor="vcap">Caption</label>
           <textarea

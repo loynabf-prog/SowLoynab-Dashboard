@@ -155,6 +155,7 @@ export interface Video {
   sort_order: number | null
   assignee_ids: string[]
   series_id: string | null
+  category: string | null
   created_by: string | null
   created_at: string
   updated_at: string
