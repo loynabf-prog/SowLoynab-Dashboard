@@ -29,7 +29,7 @@ import { useCategories } from '../context/CategoryContext'
 import LineChart, { type Series } from '../components/LineChart'
 import { useToast } from '../context/ToastContext'
 
-type ClientTab = 'board' | 'pool'
+type ClientTab = 'board' | 'pool' | 'analyse'
 
 export default function ClientPage() {
   const { id } = useParams<{ id: string }>()
@@ -314,6 +314,16 @@ export default function ClientPage() {
   const postedThisMonth = postedMonthVideos.length
   const reachThisMonth = postedMonthVideos.reduce((s, v) => s + (v.reach ?? v.views ?? 0), 0)
 
+  // „Gepostet" ist eine 24-h-Leiste: heute gepostete bleiben bis Mitternacht, danach fallen sie vom Board.
+  const isToday = (ts: string | null) => {
+    if (!ts) return false
+    const d = new Date(ts), n = new Date()
+    return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate()
+  }
+  const boardVideos = videos.filter((v) => v.status !== 'posted' || isToday(v.posted_at))
+  // Analyse: alle geposteten Videos dieses Kunden — dauerhaft, neueste zuerst
+  const postedVideos = videos.filter((v) => v.status === 'posted').sort((a, b) => (b.posted_at ?? '').localeCompare(a.posted_at ?? ''))
+
   if (loading) return <Spinner />
 
   if (!client) {
@@ -373,18 +383,22 @@ export default function ClientPage() {
       <div className="seg client-tabs">
         <button className={`seg-btn ${tab === 'board' ? 'on' : ''}`} onClick={() => setTab('board')}>
           🎬 In Umsetzung
-          <span className="col-count">{videos.length}</span>
+          <span className="col-count">{boardVideos.length}</span>
         </button>
         <button className={`seg-btn ${tab === 'pool' ? 'on' : ''}`} onClick={() => setTab('pool')}>
           💡 Ideenspeicher
           <span className="col-count">{ideas.length}</span>
+        </button>
+        <button className={`seg-btn ${tab === 'analyse' ? 'on' : ''}`} onClick={() => setTab('analyse')}>
+          📊 Analyse
+          <span className="col-count">{postedVideos.length}</span>
         </button>
       </div>
 
       {tab === 'board' && (
       <div className="board">
         {STATUS_ORDER.map((status) => {
-          const items = videos
+          const items = boardVideos
             .filter((v) => v.status === status)
             .sort((a, b) => orderVal(a) - orderVal(b))
           return (
@@ -449,6 +463,10 @@ export default function ClientPage() {
           onDelete={deletePoolIdea}
           onEditClient={() => setEditClient(true)}
         />
+      )}
+
+      {tab === 'analyse' && (
+        <AnalyseSection videos={postedVideos} onEdit={(v) => setEditing(v)} />
       )}
 
       {editing && (
@@ -1442,6 +1460,47 @@ function SeriesModal({
         </div>
       </div>
     </Modal>
+  )
+}
+
+// ============================ Analyse (gepostete Videos) ============================
+function AnalyseSection({ videos, onEdit }: { videos: Video[]; onEdit: (v: Video) => void }) {
+  const num = (n: number) => n.toLocaleString('de-DE')
+  const posts = videos.length
+  if (posts === 0) {
+    return (
+      <div className="col-empty" style={{ padding: '28px 4px' }}>
+        Noch keine geposteten Videos. Sobald du ein Video auf „Gepostet" ziehst, landet es hier dauerhaft in der Analyse. 📊
+      </div>
+    )
+  }
+  const totalReach = videos.reduce((s, v) => s + (v.reach ?? v.views ?? 0), 0)
+  const totalLikes = videos.reduce((s, v) => s + (v.likes ?? 0), 0)
+  const totalComments = videos.reduce((s, v) => s + (v.comments ?? 0), 0)
+  return (
+    <div className="analyse">
+      <div className="fin-tiles" style={{ marginBottom: 18 }}>
+        <div className="fin-tile"><span className="fin-label">Posts gesamt</span><span className="fin-value">{num(posts)}</span><span className="fin-sub">gepostete Videos</span></div>
+        <div className="fin-tile"><span className="fin-label">Reichweite gesamt</span><span className="fin-value income">{num(totalReach)}</span><span className="fin-sub">Ø {num(Math.round(totalReach / posts))} / Post</span></div>
+        <div className="fin-tile"><span className="fin-label">Interaktionen</span><span className="fin-value">{num(totalLikes)}</span><span className="fin-sub">Likes · {num(totalComments)} Kommentare</span></div>
+      </div>
+      <div className="analyse-list">
+        {videos.map((v) => (
+          <button className="analyse-row" key={v.id} onClick={() => onEdit(v)} title="Zahlen bearbeiten">
+            <div className="analyse-main">
+              <div className="analyse-title">{v.title}</div>
+              <div className="analyse-date">{v.posted_at ? new Date(v.posted_at).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</div>
+            </div>
+            <div className="analyse-stats">
+              <span title="Reichweite">▶ {num(v.reach ?? v.views ?? 0)}</span>
+              <span title="Likes">❤ {num(v.likes ?? 0)}</span>
+              <span title="Kommentare">💬 {num(v.comments ?? 0)}</span>
+              <span title="Shares">↗ {num(v.shares ?? 0)}</span>
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
   )
 }
 
