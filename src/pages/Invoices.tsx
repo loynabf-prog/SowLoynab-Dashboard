@@ -6,6 +6,7 @@ import { euro } from '../lib/format'
 import { getCompany, type Company } from '../lib/settings'
 import { exportInvoicePdf, invoicePdfBlob, itemsNet, type InvoiceItem } from '../lib/invoicePdf'
 import { sendMail, blobToBase64 } from '../lib/mail'
+import { insertRows, updateRow } from '../lib/db'
 import Modal from '../components/Modal'
 
 interface Invoice {
@@ -296,8 +297,8 @@ function InvoiceModal({ invoice, clients, company, userId, nextNumber, onClose, 
       vat_rate: Number(vatRate.replace(',', '.')) || 0,
     }
     const res = invoice
-      ? await supabase.from('invoices').update(payload).eq('id', invoice.id)
-      : await supabase.from('invoices').insert({ ...payload, created_by: userId })
+      ? await updateRow('invoices', payload, 'id', invoice.id)
+      : await insertRows('invoices', [{ ...payload, created_by: userId }])
     setBusy(false)
     if (res.error) setError(res.error.message)
     else onSaved()
