@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { uploadLogo } from '../lib/storage'
@@ -210,9 +210,12 @@ function AddClientModal({
   onClose: () => void
   onSaved: () => void
 }) {
+  const navigate = useNavigate()
   const [name, setName] = useState('')
   const [ig, setIg] = useState('')
   const [tiktok, setTiktok] = useState('')
+  const [quota, setQuota] = useState('')
+  const [contractEnd, setContractEnd] = useState('')
   const [notes, setNotes] = useState('')
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
@@ -235,16 +238,27 @@ function AddClientModal({
     try {
       let logo_url: string | null = null
       if (logoFile) logo_url = await uploadLogo(logoFile)
-      const { error } = await supabase.from('clients').insert({
+      const payload: Record<string, any> = {
         name: name.trim(),
         logo_url,
         handle_ig: ig.trim() || null,
         handle_tiktok: tiktok.trim() || null,
+        monthly_quota: quota ? Number(quota) : null,
+        contract_end: contractEnd || null,
         notes: notes.trim() || null,
         created_by: userId,
-      })
-      if (error) throw error
+      }
+      // schema-sicher: falls contract_end-Spalte noch fehlt, ohne sie erneut versuchen
+      let res = await supabase.from('clients').insert(payload).select('id').single()
+      if (res.error && (res.error.code === 'PGRST204' || /contract_end|schema cache/i.test(res.error.message))) {
+        const { contract_end, ...rest } = payload
+        res = await supabase.from('clients').insert(rest).select('id').single()
+      }
+      if (res.error) throw res.error
       onSaved()
+      // Direkt weiter zum Content-Plan-Schritt beim neuen Kunden
+      const newId = (res.data as any)?.id
+      if (newId) navigate(`/client/${newId}?onboard=1`)
     } catch (err: any) {
       setError(err.message ?? 'Fehler beim Speichern')
       setBusy(false)
@@ -283,16 +297,29 @@ function AddClientModal({
             <input id="ctt" value={tiktok} onChange={(e) => setTiktok(e.target.value)} placeholder="restaurant_xy" />
           </div>
         </div>
+        <div className="row" style={{ gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <label htmlFor="cquota">Videos pro Monat</label>
+            <input id="cquota" value={quota} onChange={(e) => setQuota(e.target.value)} inputMode="numeric" placeholder="z. B. 10" />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label htmlFor="cend">Vertragsende <span className="muted" style={{ textTransform: 'none', letterSpacing: 0 }}>(optional)</span></label>
+            <input id="cend" type="date" value={contractEnd} onChange={(e) => setContractEnd(e.target.value)} />
+          </div>
+        </div>
         <div>
           <label htmlFor="cnotes">Notizen</label>
           <textarea id="cnotes" value={notes} onChange={(e) => setNotes(e.target.value)} />
+        </div>
+        <div className="info-box" style={{ fontSize: 13 }}>
+          Nach dem Anlegen schlagen wir dir direkt einen <b>Content-Plan</b> vor (gleichmäßiger Rhythmus passend zu den Videos/Monat) — du kannst ihn dort anpassen.
         </div>
         <div className="modal-actions">
           <button type="button" className="btn btn-ghost" onClick={onClose}>
             Abbrechen
           </button>
           <button type="submit" className="btn btn-primary" disabled={busy || !name.trim()}>
-            {busy ? 'Speichere …' : 'Anlegen'}
+            {busy ? 'Speichere …' : 'Anlegen & weiter'}
           </button>
         </div>
       </form>

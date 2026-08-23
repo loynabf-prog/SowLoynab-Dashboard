@@ -23,7 +23,7 @@ import { usePointerBoard } from '../lib/usePointerBoard'
 import { celebrate } from '../lib/confetti'
 import NudgeModal from '../components/NudgeModal'
 import RepeatPicker from '../components/RepeatPicker'
-import { occurrences, type RepeatRule } from '../lib/recurrence'
+import { occurrences, recommendedIntervalDays, type RepeatRule } from '../lib/recurrence'
 import { insertRows, updateRow } from '../lib/db'
 import { useCategories } from '../context/CategoryContext'
 import LineChart, { type Series } from '../components/LineChart'
@@ -145,6 +145,16 @@ export default function ClientPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, videos])
+
+  // Onboarding (?onboard=1): direkt den Content-Plan-Schritt öffnen
+  useEffect(() => {
+    if (loading || !client) return
+    if (searchParams.get('onboard') !== '1') return
+    setSeriesOpen(true)
+    searchParams.delete('onboard')
+    setSearchParams(searchParams, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, client])
 
   async function patchVideo(videoId: string, patch: Partial<Video>) {
     // Wechsel auf "Gepostet" -> feiern + Zeitstempel setzen (echte Post-Statistik)
@@ -361,7 +371,7 @@ export default function ClientPage() {
           Kunde bearbeiten
         </button>
         <button className="btn btn-sm" onClick={() => setSeriesOpen(true)}>
-          🔁 Serie
+          📅 Content-Plan
         </button>
         <button className="btn btn-primary" onClick={() => setCreating(true)}>
           + Idee
@@ -507,7 +517,15 @@ export default function ClientPage() {
         />
       )}
 
-      {seriesOpen && <SeriesModal onClose={() => setSeriesOpen(false)} onCreate={createSeries} />}
+      {seriesOpen && (
+        <SeriesModal
+          onClose={() => setSeriesOpen(false)}
+          onCreate={createSeries}
+          quota={client.monthly_quota ?? 0}
+          recommendDays={recommendedIntervalDays(client.monthly_quota ?? 0)}
+          defaultUntil={client.contract_end ?? null}
+        />
+      )}
 
       {growthOpen && (
         <GrowthModal
@@ -991,6 +1009,7 @@ function EditClientModal({
   const [website, setWebsite] = useState(client.website ?? '')
   const [city, setCity] = useState(client.city ?? '')
   const [quota, setQuota] = useState(client.monthly_quota != null ? String(client.monthly_quota) : '')
+  const [contractEnd, setContractEnd] = useState(client.contract_end ?? '')
   const [health, setHealth] = useState(client.health ?? '')
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [logoPreview, setLogoPreview] = useState<string | null>(client.logo_url)
@@ -1013,27 +1032,25 @@ function EditClientModal({
     try {
       let logo_url = client.logo_url
       if (logoFile) logo_url = await uploadLogo(logoFile)
-      const { error } = await supabase
-        .from('clients')
-        .update({
-          name: name.trim(),
-          logo_url,
-          handle_ig: ig.trim() || null,
-          handle_tiktok: tiktok.trim() || null,
-          notes: notes.trim() || null,
-          package: pkg.trim() || null,
-          monthly_fee: fee ? Number(fee.replace(',', '.')) : null,
-          active,
-          contact_person: contact.trim() || null,
-          phone: phone.trim() || null,
-          email: email.trim() || null,
-          website: website.trim() || null,
-          city: city.trim() || null,
-          monthly_quota: quota ? Number(quota) : null,
-          health: health || null,
-          ...(aiBrief.trim() || client.ai_brief ? { ai_brief: aiBrief.trim() || null } : {}),
-        })
-        .eq('id', client.id)
+      const { error } = await updateRow('clients', {
+        name: name.trim(),
+        logo_url,
+        handle_ig: ig.trim() || null,
+        handle_tiktok: tiktok.trim() || null,
+        notes: notes.trim() || null,
+        package: pkg.trim() || null,
+        monthly_fee: fee ? Number(fee.replace(',', '.')) : null,
+        active,
+        contact_person: contact.trim() || null,
+        phone: phone.trim() || null,
+        email: email.trim() || null,
+        website: website.trim() || null,
+        city: city.trim() || null,
+        monthly_quota: quota ? Number(quota) : null,
+        contract_end: contractEnd || null,
+        health: health || null,
+        ...(aiBrief.trim() || client.ai_brief ? { ai_brief: aiBrief.trim() || null } : {}),
+      }, 'id', client.id)
       if (error) throw error
       onSaved()
     } catch (err: any) {
@@ -1088,6 +1105,10 @@ function EditClientModal({
           <div style={{ flex: 1, minWidth: 150 }}>
             <label>Ziel Videos/Monat</label>
             <input value={quota} onChange={(e) => setQuota(e.target.value)} inputMode="numeric" placeholder="z. B. 8" />
+          </div>
+          <div style={{ flex: 1, minWidth: 150 }}>
+            <label>Vertragsende</label>
+            <input type="date" value={contractEnd} onChange={(e) => setContractEnd(e.target.value)} />
           </div>
           <div style={{ flex: 1, minWidth: 150 }}>
             <label>Status</label>
@@ -1413,15 +1434,26 @@ function iso(d: Date): string {
 function SeriesModal({
   onClose,
   onCreate,
+  quota = 0,
+  recommendDays,
+  defaultUntil = null,
 }: {
   onClose: () => void
   onCreate: (rows: { title: string; scheduled_date: string; scheduled_time: string | null }[]) => void
+  quota?: number
+  recommendDays?: number
+  defaultUntil?: string | null
 }) {
   const today = iso(new Date())
-  const [title, setTitle] = useState('')
+  const [title, setTitle] = useState('Reel')
   const [start, setStart] = useState(today)
   const [time, setTime] = useState('')
-  const [rule, setRule] = useState<RepeatRule>({ kind: 'weekly' })
+  // Vorbelegt mit dem empfohlenen Rhythmus (falls Videos/Monat gepflegt) + Vertragsende als Enddatum
+  const [rule, setRule] = useState<RepeatRule>(
+    recommendDays
+      ? { kind: 'days', interval: recommendDays, until: defaultUntil }
+      : { kind: 'weekly', until: defaultUntil },
+  )
 
   const dates = start ? (rule.kind === 'none' ? [start] : occurrences(start, rule)) : []
 
@@ -1431,12 +1463,20 @@ function SeriesModal({
   }
 
   return (
-    <Modal title="🔁 Serie / Wiederholung anlegen" onClose={onClose}>
+    <Modal title="📅 Content-Plan anlegen" onClose={onClose}>
       <div className="stack">
-        <p className="info-box">
-          Legt automatisch mehrere Video-Karten an – z. B. „alle 3 Tage", „jeden Montag &amp; Donnerstag"
-          oder „monatlich". Enddatum leer = unbegrenzt (erstmal 3 Monate, später verlängerbar).
-        </p>
+        {recommendDays && quota > 0 ? (
+          <p className="info-box">
+            💡 Empfehlung bei <b>{quota} Videos/Monat</b>: <b>alle {recommendDays} Tage</b> — gleichmäßiger Abstand.
+            {defaultUntil ? ' Bis zum Vertragsende vorbelegt.' : ' Enddatum leer = erstmal 3 Monate.'} Du kannst alles unten ändern
+            (andere Tage, feste Wochentage, monatlich …).
+          </p>
+        ) : (
+          <p className="info-box">
+            Legt automatisch mehrere Video-Karten an – z. B. „alle 3 Tage", „jeden Montag &amp; Donnerstag"
+            oder „monatlich". Enddatum leer = unbegrenzt (erstmal 3 Monate, später verlängerbar).
+          </p>
+        )}
         <div>
           <label>Titel *</label>
           <input value={title} onChange={(e) => setTitle(e.target.value)} autoFocus placeholder="z. B. Wochen-Reel" />

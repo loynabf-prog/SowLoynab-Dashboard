@@ -59,6 +59,13 @@ export function occurrences(
   return out
 }
 
+// Empfohlener gleichmäßiger Abstand (in Tagen) für X Videos pro Monat.
+// 10/Monat -> alle 3 Tage · 5/Monat -> alle 6 Tage (≈ 1× pro Woche) · usw.
+export function recommendedIntervalDays(perMonth: number): number {
+  if (!perMonth || perMonth <= 0) return 3
+  return Math.max(1, Math.round(30 / perMonth))
+}
+
 // Menschlicher Kurztext für die Vorschau
 export function describeRule(rule: RepeatRule): string {
   if (rule.kind === 'none') return 'Einmalig'

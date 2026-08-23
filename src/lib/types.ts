@@ -19,6 +19,7 @@ export interface Client {
   website: string | null
   health: string | null
   monthly_quota: number | null
+  contract_end: string | null
   created_by: string | null
   created_at: string
   updated_at: string

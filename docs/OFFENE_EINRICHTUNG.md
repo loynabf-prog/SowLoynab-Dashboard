@@ -21,6 +21,7 @@ gebaut, ein erneuter Lauf schadet also nicht.
 - [ ] `supabase/migrations/0016_task_category.sql` — Farb-Kategorien für Aufgaben
 - [ ] `supabase/migrations/0017_video_category.sql` — Farb-Kategorie/Ring für Videos
 - [ ] `supabase/migrations/0018_task_priority.sql` — Dringlichkeit/Priorität für Aufgaben
+- [ ] `supabase/migrations/0019_client_contract.sql` — Vertragsende pro Kunde (Content-Plan)
 
 *(0001–0009 bzw. `ALLES_offen_5-9.sql` sollten schon gelaufen sein — sonst zuerst die.)*
 
