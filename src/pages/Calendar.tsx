@@ -97,13 +97,13 @@ export default function Calendar() {
     const [vids, tasks, leads] = await Promise.all([
       supabase
         .from('videos')
-        .select('id, title, scheduled_date, scheduled_time, client_id, category, clients(name, logo_url)')
+        .select('*, clients(name, logo_url)')
         .is('deleted_at', null)
         .gte('scheduled_date', from)
         .lte('scheduled_date', to),
       supabase
         .from('tasks')
-        .select('id, title, due_date, done, category, clients(name), leads(name)')
+        .select('*, clients(name), leads(name)')
         .eq('done', false)
         .is('deleted_at', null)
         .gte('due_date', from)
