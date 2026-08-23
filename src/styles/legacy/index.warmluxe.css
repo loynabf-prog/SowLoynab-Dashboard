@@ -1,42 +1,42 @@
 :root {
-  /* Apple-Look — hell (System-Grau + Weiß) */
-  --bg:            #f2f2f7;
+  /* Helles, hochwertiges Creme-Theme */
+  --bg:            #faf7f2;
   --bg-elev:       #ffffff;
   --bg-card:       #ffffff;
-  --bg-card-hover: #f6f6fa;
-  --bg-sunken:     #e9e9ef;
-  --border:        #e4e4ea;
-  --border-strong: #d1d1d6;
+  --bg-card-hover: #fdfbf7;
+  --bg-sunken:     #f3ede4;
+  --border:        #ece4d8;
+  --border-strong: #ddd0bf;
 
-  --text:          #1d1d1f;
-  --text-muted:    #55555c;
-  --text-dim:      #86868b;
+  --text:          #211b14;
+  --text-muted:    #6a5f52;
+  --text-dim:      #9c9082;
 
-  --brand:         #0071e3;
-  --brand-light:   #4a9bff;
-  --brand-deep:    #0059b8;
-  --brand-glow:    rgba(0, 113, 227, 0.18);
-  --gold:          #8e8e93;
-  --gold-soft:     rgba(142, 142, 147, 0.42);
+  --brand:         #e0521a;
+  --brand-light:   #ff8a50;
+  --brand-deep:    #b8410f;
+  --brand-glow:    rgba(224, 82, 26, 0.16);
+  --gold:          #c69749;
+  --gold-soft:     rgba(198, 151, 73, 0.5);
 
-  --todo:    #86868b;
-  --ready:   #ff9500;
-  --planned: #0071e3;
-  --posted:  #34c759;
+  --todo:    #9c9082;
+  --ready:   #c98a00;
+  --planned: #2563eb;
+  --posted:  #2f9e44;
 
-  --danger: #ff3b30;
+  --danger: #dc2626;
 
   --radius:    18px;
-  --radius-lg: 24px;
-  --radius-sm: 12px;
-  /* Apple: weiche, neutrale Schatten */
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
-  --shadow:    0 6px 20px -8px rgba(0, 0, 0, 0.12);
-  --shadow-lg: 0 20px 50px -16px rgba(0, 0, 0, 0.18);
-  --hairline:  1px solid rgba(0, 0, 0, 0.08);
+  --radius-lg: 26px;
+  --radius-sm: 11px;
+  /* Mehrschichtige Luxus-Schatten: knapper Kontakt + weiche Tiefe */
+  --shadow-sm: 0 1px 2px rgba(72, 50, 22, 0.05), 0 4px 14px rgba(72, 50, 22, 0.055);
+  --shadow:    0 2px 4px rgba(72, 50, 22, 0.05), 0 16px 40px rgba(72, 50, 22, 0.10);
+  --shadow-lg: 0 8px 16px rgba(72, 50, 22, 0.06), 0 34px 80px rgba(72, 50, 22, 0.16);
+  --hairline:  1px solid rgba(198, 151, 73, 0.22);
 
-  --font-head: -apple-system, 'SF Pro Display', system-ui, 'Inter', sans-serif;
-  --font-body: -apple-system, 'SF Pro Text', system-ui, 'Inter', sans-serif;
+  --font-head: 'Space Grotesk', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -58,7 +58,10 @@ html, body, #root { height: 100%; }
 
 body {
   margin: 0;
-  background: var(--bg);
+  background:
+    radial-gradient(900px 500px at 88% -140px, rgba(198, 151, 73, 0.10), transparent 62%),
+    radial-gradient(1100px 640px at 12% -180px, rgba(224, 82, 26, 0.07), transparent 60%),
+    linear-gradient(180deg, #fbf8f3 0%, var(--bg) 40%, #f7f2ea 100%);
   color: var(--text);
   font-family: var(--font-body);
   font-size: 15px;
@@ -128,12 +131,13 @@ label {
 
 .btn-primary {
   position: relative;
-  background: var(--brand);
+  background: linear-gradient(135deg, var(--brand-deep), var(--brand) 55%, var(--brand-light));
   border-color: transparent;
   color: #fff;
-  box-shadow: none;
+  box-shadow: 0 6px 18px rgba(224, 82, 26, 0.30), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  text-shadow: 0 1px 1px rgba(120, 40, 10, 0.25);
 }
-.btn-primary:hover { filter: brightness(1.05); background: var(--brand); border-color: transparent; }
+.btn-primary:hover { filter: brightness(1.06) saturate(1.05); background: linear-gradient(135deg, var(--brand-deep), var(--brand) 55%, var(--brand-light)); border-color: transparent; }
 
 .btn-ghost { background: transparent; border-color: transparent; box-shadow: none; }
 .btn-ghost:hover { background: var(--bg-sunken); border-color: transparent; box-shadow: none; }
@@ -162,7 +166,7 @@ label {
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes glowPulse {
   0%, 100% { box-shadow: 0 0 0 4px var(--brand-glow); }
-  50%      { box-shadow: 0 0 0 8px rgba(0, 113, 227, 0); }
+  50%      { box-shadow: 0 0 0 8px rgba(224, 82, 26, 0); }
 }
 @keyframes modalPop {
   from { opacity: 0; transform: translateY(12px) scale(0.97); }
@@ -179,7 +183,7 @@ label {
 .btn { transition: background 0.18s ease, border-color 0.18s ease, transform 0.12s cubic-bezier(0.22, 0.61, 0.36, 1), box-shadow 0.18s ease; }
 .btn:hover { transform: translateY(-1px); }
 .btn:active { transform: translateY(0); }
-.btn-primary:hover { box-shadow: 0 4px 14px rgba(0, 113, 227, 0.28); }
+.btn-primary:hover { box-shadow: 0 10px 24px rgba(224, 82, 26, 0.34); }
 
 /* Modale ploppen weich auf */
 .modal { animation: modalPop 0.3s cubic-bezier(0.22, 0.61, 0.36, 1) both; }

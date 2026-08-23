@@ -38,6 +38,19 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => { setMoreOpen(false) }, [location.pathname])
 
+  // Ohne manuelle Wahl der iPhone-Einstellung (hell/dunkel) live folgen
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    const onChange = () => {
+      try { if (localStorage.getItem('sl-theme')) return } catch { /* ignore */ }
+      const next = mq.matches ? 'dark' : 'light'
+      setTheme(next)
+      document.documentElement.setAttribute('data-theme', next)
+    }
+    mq.addEventListener?.('change', onChange)
+    return () => mq.removeEventListener?.('change', onChange)
+  }, [])
+
   function toggleTheme() {
     const next = theme === 'dark' ? 'light' : 'dark'
     setTheme(next)

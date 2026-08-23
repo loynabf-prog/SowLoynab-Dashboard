@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { euro, dateRelative } from '../lib/format'
+import { dateRelative } from '../lib/format'
 import { celebrate } from '../lib/confetti'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
@@ -27,13 +27,8 @@ export default function Overview() {
   const navigate = useNavigate()
   const { toast } = useToast()
   const { user } = useAuth()
-  const [openLeads, setOpenLeads] = useState(0)
-  const [pipeline, setPipeline] = useState(0)
-  const [mrr, setMrr] = useState(0)
-  const [monthNet, setMonthNet] = useState(0)
   const [tasks, setTasks] = useState<TaskRow[]>([])
   const [posts, setPosts] = useState<PostLite[]>([])
-  const [postedMonth, setPostedMonth] = useState(0)
   const [loading, setLoading] = useState(true)
   const [clientOpts, setClientOpts] = useState<Option[]>([])
   const [leadOpts, setLeadOpts] = useState<Option[]>([])
@@ -58,13 +53,8 @@ export default function Overview() {
       const today = new Date()
       const in7 = new Date()
       in7.setDate(in7.getDate() + 7)
-      const monthPrefix = iso(today).slice(0, 7)
-      const monthStart = monthPrefix + '-01'
 
-      const [leadsRes, clientsRes, txRes, tasksRes, postsRes, postedRes] = await Promise.all([
-        supabase.from('leads').select('stage, potential_fee').is('deleted_at', null),
-        supabase.from('clients').select('monthly_fee, active'),
-        supabase.from('transactions').select('type, amount, occurred_on'),
+      const [tasksRes, postsRes] = await Promise.all([
         supabase
           .from('tasks')
           .select('*, clients(name), leads(name)')
@@ -82,22 +72,7 @@ export default function Overview() {
           .gte('scheduled_date', iso(today))
           .lte('scheduled_date', iso(in7))
           .order('scheduled_date', { ascending: true }),
-        supabase.from('videos').select('id').is('deleted_at', null).gte('posted_at', monthStart),
       ])
-      setPostedMonth(postedRes.data?.length ?? 0)
-
-      const leads = (leadsRes.data ?? []) as any[]
-      const open = leads.filter((l) => l.stage !== 'won' && l.stage !== 'lost')
-      setOpenLeads(open.length)
-      setPipeline(open.reduce((s, l) => s + (Number(l.potential_fee) || 0), 0))
-
-      const clients = (clientsRes.data ?? []) as any[]
-      setMrr(clients.filter((c) => c.active).reduce((s, c) => s + (Number(c.monthly_fee) || 0), 0))
-
-      const tx = (txRes.data ?? []) as any[]
-      const inc = tx.filter((t) => t.type === 'income' && String(t.occurred_on).startsWith(monthPrefix)).reduce((s, t) => s + Number(t.amount), 0)
-      const exp = tx.filter((t) => t.type === 'expense' && String(t.occurred_on).startsWith(monthPrefix)).reduce((s, t) => s + Number(t.amount), 0)
-      setMonthNet(inc - exp)
 
       setTasks((tasksRes.data ?? []) as unknown as TaskRow[])
       setPosts((postsRes.data ?? []) as unknown as PostLite[])
@@ -132,6 +107,9 @@ export default function Overview() {
   }
 
   const firstName = (user?.email ?? '').split('@')[0].split('.')[0]
+  const todayIso = iso(new Date())
+  const postsToday = posts.filter((p) => p.scheduled_date === todayIso).length
+  const dringend = tasks.filter((t) => (t.priority ?? 0) === 3).length
 
   return (
     <>
@@ -142,32 +120,10 @@ export default function Overview() {
         </div>
       </div>
 
-      <div className="fin-tiles" style={{ marginBottom: 28 }}>
-        <Link to="/leads" className="fin-tile" style={{ color: 'inherit' }}>
-          <span className="fin-label">Offene Leads</span>
-          <span className="fin-value">{openLeads}</span>
-          <span className="fin-sub">{euro(pipeline)}/Mon. Potenzial</span>
-        </Link>
-        <Link to="/aufgaben" className="fin-tile" style={{ color: 'inherit' }}>
-          <span className="fin-label">Fällige Aufgaben</span>
-          <span className={`fin-value ${tasks.length > 0 ? 'expense' : ''}`}>{tasks.length}</span>
-          <span className="fin-sub">heute &amp; überfällig</span>
-        </Link>
-        <Link to="/leistung" className="fin-tile" style={{ color: 'inherit' }}>
-          <span className="fin-label">Posts diesen Monat</span>
-          <span className="fin-value income">{postedMonth}</span>
-          <span className="fin-sub">🎉 → Zahlen eintragen</span>
-        </Link>
-        <Link to="/finanzen" className="fin-tile" style={{ color: 'inherit' }}>
-          <span className="fin-label">Einnahmen / Monat</span>
-          <span className="fin-value income">{euro(mrr)}</span>
-          <span className="fin-sub">aus aktiven Kunden</span>
-        </Link>
-        <Link to="/finanzen" className="fin-tile" style={{ color: 'inherit' }}>
-          <span className="fin-label">Saldo diesen Monat</span>
-          <span className={`fin-value ${monthNet >= 0 ? 'income' : 'expense'}`}>{euro(monthNet)}</span>
-          <span className="fin-sub">Einnahmen − Ausgaben</span>
-        </Link>
+      <div className="today-strip">
+        <span><strong>{tasks.length}</strong> {tasks.length === 1 ? 'Aufgabe' : 'Aufgaben'} offen</span>
+        <span><strong>{postsToday}</strong> {postsToday === 1 ? 'Post' : 'Posts'} heute</span>
+        {dringend > 0 && <span className="hot"><strong>{dringend}</strong> dringend</span>}
       </div>
 
       <div className="overview-cols">
