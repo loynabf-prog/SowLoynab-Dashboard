@@ -85,6 +85,7 @@ export interface Task {
   notes: string | null
   series_id: string | null
   category: string | null
+  priority: number | null
   created_by: string | null
   created_at: string
   updated_at: string

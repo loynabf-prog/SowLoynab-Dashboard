@@ -5,6 +5,7 @@ import { AssigneePicker } from './Assignee'
 import RepeatPicker from './RepeatPicker'
 import { insertRows, updateRow } from '../lib/db'
 import { occurrences, type RepeatRule } from '../lib/recurrence'
+import { PRIORITIES } from '../lib/priority'
 import { useCategories } from '../context/CategoryContext'
 import type { TaskRow } from './TaskItem'
 
@@ -33,6 +34,7 @@ export default function TaskModal({
   const [due, setDue] = useState(task?.due_date ?? defaults?.due_date ?? '')
   const [notes, setNotes] = useState(task?.notes ?? '')
   const [category, setCategory] = useState<string | null>(task?.category ?? null)
+  const [priority, setPriority] = useState<number>(task?.priority ?? 0)
   const [link, setLink] = useState(
     task?.client_id ? `client:${task.client_id}` : task?.lead_id ? `lead:${task.lead_id}` : '',
   )
@@ -52,6 +54,7 @@ export default function TaskModal({
       client_id,
       lead_id,
       category: category || null,
+      priority,
       ...(assignees.length ? { assignee_ids: assignees } : {}),
     }
 
@@ -122,6 +125,19 @@ export default function TaskModal({
                 </optgroup>
               )}
             </select>
+          </div>
+        </div>
+        <div>
+          <label>Dringlichkeit</label>
+          <div className="cat-chips">
+            <button type="button" className={`cat-chip ${!priority ? 'on' : ''}`} onClick={() => setPriority(0)}>
+              <span className="cat-swatch" style={{ background: 'var(--border-strong)' }} />Ohne
+            </button>
+            {PRIORITIES.map((p) => (
+              <button type="button" key={p.value} className={`cat-chip ${priority === p.value ? 'on' : ''}`} onClick={() => setPriority(p.value)}>
+                <span className="cat-swatch" style={{ background: p.color }} />{p.label}
+              </button>
+            ))}
           </div>
         </div>
         <div>
