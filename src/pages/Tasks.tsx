@@ -5,11 +5,17 @@ import { useAuth } from '../context/AuthContext'
 import SwipeRow from '../components/SwipeRow'
 import TaskItem, { type TaskRow } from '../components/TaskItem'
 import TaskModal from '../components/TaskModal'
+import { PRIORITIES } from '../lib/priority'
 import { useTeam } from '../context/TeamContext'
 import { useIdentity } from '../context/IdentityContext'
 import { useToast } from '../context/ToastContext'
 
 interface Option { id: string; name: string }
+
+// Innerhalb einer Dringlichkeits-Gruppe nach Fälligkeit sortieren (undatiert zuletzt)
+function byDue(list: TaskRow[]): TaskRow[] {
+  return [...list].sort((a, b) => (a.due_date ?? '9999-99-99').localeCompare(b.due_date ?? '9999-99-99'))
+}
 
 export default function Tasks() {
   const { user } = useAuth()
@@ -26,7 +32,12 @@ export default function Tasks() {
   const [showDone, setShowDone] = useState(false)
   const [q, setQ] = useState('')
   const [filterMember, setFilterMember] = useState('')
+  const [sortMode, setSortMode] = useState<'priority' | 'date'>(() => {
+    try { return (localStorage.getItem('task-sort') as 'priority' | 'date') || 'priority' } catch { return 'priority' }
+  })
   const [searchParams, setSearchParams] = useSearchParams()
+
+  useEffect(() => { try { localStorage.setItem('task-sort', sortMode) } catch { /* egal */ } }, [sortMode])
 
   async function load() {
     setError(null)
@@ -140,18 +151,42 @@ export default function Tasks() {
             🙋 Nur meine
           </button>
         )}
+        <div className="seg">
+          <button className={`seg-btn ${sortMode === 'priority' ? 'on' : ''}`} onClick={() => setSortMode('priority')}>Dringlichkeit</button>
+          <button className={`seg-btn ${sortMode === 'date' ? 'on' : ''}`} onClick={() => setSortMode('date')}>Datum</button>
+        </div>
       </div>
 
       {error && <div className="error-box" style={{ marginBottom: 16 }}>{error}</div>}
 
-      <div className="task-list">
-        {open.length === 0 && !loading && <div className="col-empty">Keine offenen Aufgaben. 🎉</div>}
-        {open.map((t) => (
-          <SwipeRow key={t.id} onDelete={() => remove(t.id)}>
-            <TaskItem t={t} onToggle={() => toggle(t)} onEdit={() => setEditing(t)} onDelete={() => remove(t.id)} />
-          </SwipeRow>
-        ))}
-      </div>
+      {open.length === 0 && !loading && <div className="col-empty">Keine offenen Aufgaben. 🎉</div>}
+
+      {sortMode === 'date' ? (
+        <div className="task-list">
+          {open.map((t) => (
+            <SwipeRow key={t.id} onDelete={() => remove(t.id)}>
+              <TaskItem t={t} onToggle={() => toggle(t)} onEdit={() => setEditing(t)} onDelete={() => remove(t.id)} />
+            </SwipeRow>
+          ))}
+        </div>
+      ) : (
+        [...PRIORITIES, { value: 0, label: 'Ohne Priorität', color: 'var(--border-strong)', icon: '⚪' }].map((p) => {
+          const group = byDue(open.filter((t) => (t.priority ?? 0) === p.value))
+          if (group.length === 0) return null
+          return (
+            <div key={p.value} className="prio-group">
+              <div className="prio-head"><span className="prio-dot" style={{ background: p.color }} />{p.label}<span className="prio-count">{group.length}</span></div>
+              <div className="task-list">
+                {group.map((t) => (
+                  <SwipeRow key={t.id} onDelete={() => remove(t.id)}>
+                    <TaskItem t={t} onToggle={() => toggle(t)} onEdit={() => setEditing(t)} onDelete={() => remove(t.id)} />
+                  </SwipeRow>
+                ))}
+              </div>
+            </div>
+          )
+        })
+      )}
 
       {done.length > 0 && (
         <div style={{ marginTop: 22 }}>
