@@ -34,10 +34,18 @@ function isDue(v: Video): boolean {
   return d.getTime() <= today.getTime() + 86400000
 }
 
+function compactDate(v: Video): string | null {
+  if (v.status === 'posted' && v.posted_at) return new Date(v.posted_at).toLocaleDateString('de-DE', { day: '2-digit', month: 'short' })
+  if (v.scheduled_date) return new Date(v.scheduled_date + 'T00:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: 'short' })
+  return null
+}
+
 export default function VideoCard({ video, onPatch, onEdit, onDelete, onCaption, onLink, onNudge }: Props) {
   const [title, setTitle] = useState(video.title)
   const [hint, setHint] = useState<string | null>(null)
+  const [open, setOpen] = useState(false)
   const due = isDue(video)
+  const cDate = compactDate(video)
   const sw = useRef<{ x: number; y: number } | null>(null)
 
   function onTouchStart(e: React.TouchEvent) {
@@ -66,19 +74,30 @@ export default function VideoCard({ video, onPatch, onEdit, onDelete, onCaption,
   }
 
   return (
-    <div className={`video-card ${due ? 'due' : ''}`} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+    <div className={`video-card ${open ? 'open' : 'compact'} ${due ? 'due' : ''}`} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
       {hint && <div className="swipe-hint">{hint}</div>}
-      <input
-        className="vc-title"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        onBlur={commitTitle}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
-        }}
-        aria-label="Video-Titel"
-      />
 
+      {/* Kompakter Kopf — immer sichtbar */}
+      <div className="vc-head">
+        {due && !open && <span className="vc-due-dot" title="fällig" />}
+        {open ? (
+          <input
+            className="vc-title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            onBlur={commitTitle}
+            onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+            aria-label="Video-Titel"
+          />
+        ) : (
+          <button className="vc-title-btn" onClick={() => setOpen(true)} title="Aufklappen">{video.title}</button>
+        )}
+        {!open && cDate && <span className="vc-compact-date">📅 {cDate}</span>}
+        <button className="vc-toggle" onClick={() => setOpen((o) => !o)} aria-label={open ? 'Zuklappen' : 'Aufklappen'}>{open ? '▲' : '▾'}</button>
+      </div>
+
+      {!open ? null : (
+      <div className="vc-expand">
       <div className="vc-line">
         <StatusPill status={video.status} onChange={(next: VideoStatus) => onPatch({ status: next })} />
         {video.approval_status === 'approved' && <span className="approval-badge ok">✅ Freigegeben</span>}
@@ -154,6 +173,8 @@ export default function VideoCard({ video, onPatch, onEdit, onDelete, onCaption,
           Loeschen
         </button>
       </div>
+      </div>
+      )}
     </div>
   )
 }
