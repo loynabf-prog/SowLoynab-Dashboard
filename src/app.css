@@ -2257,3 +2257,21 @@ html { scroll-behavior: smooth; }
 .today-strip span { display: inline-flex; gap: 6px; align-items: baseline; }
 .today-strip strong { color: var(--text); font-weight: 700; font-variant-numeric: tabular-nums; font-size: 15px; }
 .today-strip .hot strong, .today-strip .hot { color: var(--danger); }
+
+/* =========================================================================
+   Kunden-Analyse (gepostete Videos)
+   ========================================================================= */
+.analyse-list { display: flex; flex-direction: column; gap: 8px; }
+.analyse-row {
+  display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 12px 14px; cursor: pointer; transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.analyse-row:hover { border-color: var(--border-strong); box-shadow: var(--shadow-sm); }
+.analyse-main { min-width: 0; flex: 1; }
+.analyse-title { font-weight: 600; font-size: 14px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.analyse-date { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+.analyse-stats { display: flex; gap: 14px; flex: 0 0 auto; font-size: 13px; font-weight: 600; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+@media (max-width: 560px) {
+  .analyse-stats { gap: 9px; font-size: 12px; }
+}
