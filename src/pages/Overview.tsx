@@ -5,6 +5,8 @@ import { dateRelative } from '../lib/format'
 import { celebrate } from '../lib/confetti'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
+import { useIdentity } from '../context/IdentityContext'
+import { useTeam } from '../context/TeamContext'
 import SwipeRow from '../components/SwipeRow'
 import TaskItem, { type TaskRow } from '../components/TaskItem'
 import TaskModal from '../components/TaskModal'
@@ -27,6 +29,8 @@ export default function Overview() {
   const navigate = useNavigate()
   const { toast } = useToast()
   const { user } = useAuth()
+  const { memberId } = useIdentity()
+  const { byId } = useTeam()
   const [tasks, setTasks] = useState<TaskRow[]>([])
   const [posts, setPosts] = useState<PostLite[]>([])
   const [loading, setLoading] = useState(true)
@@ -106,7 +110,8 @@ export default function Overview() {
     toast('Gepostet — stark! 🎉')
   }
 
-  const firstName = (user?.email ?? '').split('@')[0].split('.')[0]
+  // Mit dem echten Namen der aktiven Identität grüßen (Fassie / Lion), nicht dem Mail-Namen
+  const meName = ((memberId ? byId(memberId)?.name : '') ?? '').trim().split(' ')[0]
   const todayIso = iso(new Date())
   const postsToday = posts.filter((p) => p.scheduled_date === todayIso).length
   const dringend = tasks.filter((t) => (t.priority ?? 0) === 3).length
@@ -115,7 +120,7 @@ export default function Overview() {
     <>
       <div className="page-head">
         <div>
-          <h1>{greeting()}{firstName ? `, ${firstName.charAt(0).toUpperCase() + firstName.slice(1)}` : ''} 👋</h1>
+          <h1>{greeting()}{meName ? `, ${meName}` : ''} 👋</h1>
           <span className="sub">{loading ? 'Lade …' : 'Dein Cockpit — heute im Fokus'}</span>
         </div>
       </div>
