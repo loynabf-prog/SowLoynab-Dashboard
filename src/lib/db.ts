@@ -3,7 +3,11 @@ import { supabase } from './supabase'
 // Spalten, die erst durch spätere SQL-Skripte entstehen. Fehlen sie noch,
 // soll das Anlegen/Speichern trotzdem klappen (nur ohne diese Extras) —
 // damit ein nicht eingespieltes Skript nie die Kernfunktion blockiert.
-const OPTIONAL_COLS = ['category', 'series_id', 'priority', 'contract_end', 'recipient', 'service_period', 'vat_rate', 'items']
+const OPTIONAL_COLS = [
+  'category', 'series_id', 'priority', 'contract_end', 'recipient', 'service_period', 'vat_rate', 'items',
+  'views_ig', 'likes_ig', 'comments_ig', 'shares_ig', 'saves_ig',
+  'views_tiktok', 'likes_tiktok', 'comments_tiktok', 'shares_tiktok', 'saves_tiktok',
+]
 
 function schemaMiss(err: any): boolean {
   if (!err) return false

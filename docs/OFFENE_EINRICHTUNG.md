@@ -22,6 +22,7 @@ gebaut, ein erneuter Lauf schadet also nicht.
 - [ ] `supabase/migrations/0017_video_category.sql` — Farb-Kategorie/Ring für Videos
 - [ ] `supabase/migrations/0018_task_priority.sql` — Dringlichkeit/Priorität für Aufgaben
 - [ ] `supabase/migrations/0019_client_contract.sql` — Vertragsende pro Kunde (Content-Plan)
+- [ ] `supabase/migrations/0020_video_platform_stats.sql` — Zahlen getrennt nach Instagram/TikTok (Vergleich + Nachtragen)
 
 *(0001–0009 bzw. `ALLES_offen_5-9.sql` sollten schon gelaufen sein — sonst zuerst die.)*
 
@@ -48,6 +49,7 @@ gebaut, ein erneuter Lauf schadet also nicht.
 | `mail-send` | **AN** | Rechnung/Mail verschicken |
 | `daily-reminders` | **AUS** | täglicher Reminder-Cron |
 | `refresh-stats` | **AUS** | Statistik-Cron |
+| `apify-lookup` | AN | Altes Video nachtragen (Sofort-Abruf) |
 | `mail-sync` | **AUS** | Postfach-Abruf-Cron |
 
 ## 4. Zeitpläne (Cron) einrichten
@@ -64,6 +66,9 @@ Jeweils Projekt-Ref + Anon-Key eintragen und im SQL Editor ausführen:
 - [ ] **Zoho anbinden**: Schritte in `docs/ZOHO_MAIL_SETUP.md`
 - [ ] Push erlauben (Handy fragt beim ersten Mal)
 - [ ] Auto-Statistik: bei den Videos die TikTok-/Instagram-Links hinterlegen
+- [ ] Altes Video nachtragen: **＋ Neu → 🔗 Nachtragen** — Instagram-/TikTok-Link
+      einfügen, „Daten abrufen", Kunde/Titel/Datum prüfen, anlegen. Braucht
+      0020 + `apify-lookup` deployed + `APIFY_TOKEN`-Secret (oben, Punkt 2).
 
 ---
 

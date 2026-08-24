@@ -40,12 +40,22 @@ function compactDate(v: Video): string | null {
   return null
 }
 
+type StatView = 'all' | 'ig' | 'tiktok'
+
 export default function VideoCard({ video, onPatch, onEdit, onDelete, onCaption, onLink, onNudge }: Props) {
   const [title, setTitle] = useState(video.title)
   const [hint, setHint] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
+  const [statView, setStatView] = useState<StatView>('all')
   const due = isDue(video)
   const cDate = compactDate(video)
+  const hasIg = video.views_ig != null || video.likes_ig != null || video.comments_ig != null
+  const hasTiktok = video.views_tiktok != null || video.likes_tiktok != null || video.comments_tiktok != null
+  const stat = statView === 'ig'
+    ? { views: video.views_ig, likes: video.likes_ig, comments: video.comments_ig }
+    : statView === 'tiktok'
+      ? { views: video.views_tiktok, likes: video.likes_tiktok, comments: video.comments_tiktok }
+      : { views: video.views, likes: video.likes, comments: video.comments }
   const sw = useRef<{ x: number; y: number } | null>(null)
 
   function onTouchStart(e: React.TouchEvent) {
@@ -131,12 +141,21 @@ export default function VideoCard({ video, onPatch, onEdit, onDelete, onCaption,
       )}
 
       {video.status === 'posted' && (video.views || video.reach || video.likes || video.comments) ? (
-        <div className="vc-stats">
-          {video.views != null && <span>👁 {fmtNum(video.views)}</span>}
-          {video.reach != null && <span>📡 {fmtNum(video.reach)}</span>}
-          {video.likes != null && <span>❤️ {fmtNum(video.likes)}</span>}
-          {video.comments != null && <span>💬 {fmtNum(video.comments)}</span>}
-        </div>
+        <>
+          {hasIg && hasTiktok && (
+            <div className="seg vc-platform-seg">
+              <button type="button" className={`seg-btn ${statView === 'all' ? 'on' : ''}`} onClick={() => setStatView('all')}>Gesamt</button>
+              <button type="button" className={`seg-btn ${statView === 'ig' ? 'on' : ''}`} onClick={() => setStatView('ig')}>📸 IG</button>
+              <button type="button" className={`seg-btn ${statView === 'tiktok' ? 'on' : ''}`} onClick={() => setStatView('tiktok')}>🎵 TikTok</button>
+            </div>
+          )}
+          <div className="vc-stats">
+            {stat.views != null && <span>👁 {fmtNum(stat.views)}</span>}
+            {statView === 'all' && video.reach != null && <span>📡 {fmtNum(video.reach)}</span>}
+            {stat.likes != null && <span>❤️ {fmtNum(stat.likes)}</span>}
+            {stat.comments != null && <span>💬 {fmtNum(stat.comments)}</span>}
+          </div>
+        </>
       ) : null}
 
       <div className="vc-flags">
