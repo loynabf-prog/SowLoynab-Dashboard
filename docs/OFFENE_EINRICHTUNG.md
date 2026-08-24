@@ -52,6 +52,7 @@ gebaut, ein erneuter Lauf schadet also nicht.
 | `refresh-stats` | **AUS** | Video-Statistik-Cron (7 Tage täglich, dann wöchentlich/monatlich) |
 | `refresh-account-stats` | **AUS** | Account-Statistik-Cron (Follower/Following/Posts, täglich) |
 | `apify-lookup` | AN | Altes Video nachtragen (Sofort-Abruf) |
+| `apify-places-search` | AN | Leads aus Google Maps suchen |
 | `mail-sync` | **AUS** | Postfach-Abruf-Cron |
 
 ## 4. Zeitpläne (Cron) einrichten
@@ -76,6 +77,11 @@ Jeweils Projekt-Ref + Anon-Key eintragen und im SQL Editor ausführen:
       → Follower/Following/Posts werden dann täglich automatisch nachgezogen
       und erscheinen bei jedem Kunden unter „📊 Wachstum". Braucht 0021 +
       `refresh-account-stats` deployed + Cron eingerichtet.
+- [ ] Leads aus Google Maps: **Leads → 🗺️ Google Maps** — Kategorie (z. B.
+      Restaurant/Imbiss/Eisdiele) + Ort eingeben, suchen, auswählen,
+      importieren. Braucht nur `apify-places-search` deployed +
+      `APIFY_TOKEN`-Secret (oben, Punkt 2) — keine neue Migration nötig.
+      Kostet ca. 4 $ pro 1.000 Treffer bei Apify.
 
 ---
 

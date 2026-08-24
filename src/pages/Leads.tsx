@@ -22,6 +22,7 @@ export default function Leads() {
   const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState<Lead | null>(null)
   const [creating, setCreating] = useState(false)
+  const [mapsOpen, setMapsOpen] = useState(false)
   const [q, setQ] = useState('')
   const [filterMember, setFilterMember] = useState<string>('')
   const { dragId, drop, startDrag } = usePointerBoard(moveLead)
@@ -147,6 +148,9 @@ export default function Leads() {
           </span>
         </div>
         <div className="spacer" />
+        <button className="btn" onClick={() => setMapsOpen(true)}>
+          🗺️ Google Maps
+        </button>
         <button className="btn btn-primary" onClick={() => setCreating(true)}>
           + Lead
         </button>
@@ -293,7 +297,200 @@ export default function Leads() {
           }}
         />
       )}
+
+      {mapsOpen && (
+        <GoogleMapsSearchModal
+          userId={user?.id ?? null}
+          onClose={() => setMapsOpen(false)}
+          onImported={(n) => {
+            setMapsOpen(false)
+            load()
+            toast(`${n} Leads importiert ✓`)
+          }}
+        />
+      )}
     </>
+  )
+}
+
+// ============================ Google Maps -> Leads ============================
+interface Place {
+  name: string
+  address: string | null
+  city: string | null
+  phone: string | null
+  website: string | null
+  category: string | null
+  rating: number | null
+  reviews: number | null
+  mapsUrl: string | null
+}
+
+const MAPS_CATEGORIES = ['Restaurant', 'Café', 'Imbiss', 'Eisdiele', 'Bar']
+
+function GoogleMapsSearchModal({
+  userId,
+  onClose,
+  onImported,
+}: {
+  userId: string | null
+  onClose: () => void
+  onImported: (count: number) => void
+}) {
+  const [category, setCategory] = useState('Restaurant')
+  const [city, setCity] = useState('Münster')
+  const [maxResults, setMaxResults] = useState(60)
+  const [results, setResults] = useState<Place[] | null>(null)
+  const [selected, setSelected] = useState<Set<number>>(new Set())
+  const [existingNames, setExistingNames] = useState<Set<string>>(new Set())
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const norm = (s: string) => s.toLowerCase().trim()
+    Promise.all([
+      supabase.from('leads').select('name').is('deleted_at', null),
+      supabase.from('clients').select('name').is('deleted_at', null),
+    ]).then(([l, c]) => {
+      const names = new Set<string>()
+      ;(l.data ?? []).forEach((r: any) => names.add(norm(r.name)))
+      ;(c.data ?? []).forEach((r: any) => names.add(norm(r.name)))
+      setExistingNames(names)
+    })
+  }, [])
+
+  function isDuplicate(name: string): boolean {
+    return existingNames.has(name.toLowerCase().trim())
+  }
+
+  async function runSearch() {
+    if (!category.trim()) { setError('Bitte eine Kategorie angeben.'); return }
+    setBusy(true)
+    setError(null)
+    setResults(null)
+    try {
+      const query = `${category.trim()} in ${city.trim() || 'Münster'}`
+      const { data, error } = await supabase.functions.invoke('apify-places-search', { body: { query, maxResults } })
+      if (error) throw error
+      if (data?.error) throw new Error(data.error)
+      const places = (data?.places ?? []) as Place[]
+      setResults(places)
+      setSelected(new Set(places.map((_, i) => i).filter((i) => !isDuplicate(places[i].name))))
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function toggle(i: number) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(i)) next.delete(i)
+      else next.add(i)
+      return next
+    })
+  }
+
+  async function importSelected() {
+    if (!results || selected.size === 0) return
+    setBusy(true)
+    setError(null)
+    try {
+      const rows = results
+        .filter((_, i) => selected.has(i))
+        .map((p) => ({
+          name: p.name,
+          phone: p.phone,
+          website: p.website,
+          city: p.city || city.trim() || null,
+          stage: 'new',
+          source: 'Google Maps',
+          notes: [p.category, p.address, p.rating != null ? `⭐ ${p.rating}${p.reviews != null ? ` (${p.reviews} Bewertungen)` : ''}` : null, p.mapsUrl]
+            .filter(Boolean)
+            .join('\n'),
+          created_by: userId,
+        }))
+      const { error } = await supabase.from('leads').insert(rows)
+      if (error) throw error
+      onImported(rows.length)
+    } catch (e) {
+      setError((e as Error).message)
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Modal title="🗺️ Google Maps durchsuchen" onClose={onClose}>
+      <div className="stack">
+        {error && <div className="error-box">{error}</div>}
+
+        {!results ? (
+          <>
+            <div className="info-box" style={{ fontSize: 13 }}>
+              Sucht öffentliche Google-Maps-Einträge (Name, Adresse, Telefon, Website, Bewertung) und schlägt sie dir zum Import vor. Kostet ca. 4 $ pro 1.000 Ergebnisse bei Apify.
+            </div>
+            <div>
+              <label>Kategorie</label>
+              <div className="cat-chips">
+                {MAPS_CATEGORIES.map((c) => (
+                  <button type="button" key={c} className={`cat-chip ${category === c ? 'on' : ''}`} onClick={() => setCategory(c)}>
+                    {c}
+                  </button>
+                ))}
+              </div>
+              <input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="oder eigener Begriff, z. B. Bäckerei" style={{ marginTop: 8 }} />
+            </div>
+            <div className="row" style={{ gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <label>Ort</label>
+                <input value={city} onChange={(e) => setCity(e.target.value)} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label>Max. Ergebnisse</label>
+                <select value={maxResults} onChange={(e) => setMaxResults(Number(e.target.value))}>
+                  {[30, 60, 100, 150].map((n) => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="modal-actions">
+              <button type="button" className="btn btn-ghost" onClick={onClose}>Abbrechen</button>
+              <button type="button" className="btn btn-primary" onClick={runSearch} disabled={busy || !category.trim()}>
+                {busy ? 'Suche läuft …' : '🔍 Suchen'}
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="muted">{results.length} gefunden{results.length > 0 ? `, ${selected.size} ausgewählt` : ''}. Bereits vorhandene sind abgewählt.</p>
+            {results.length === 0 && <div className="col-empty">Nichts gefunden. Anderen Begriff oder Ort versuchen.</div>}
+            <div className="ai-idea-list">
+              {results.map((p, i) => (
+                <label className={`ai-idea ${selected.has(i) ? 'on' : ''}`} key={i}>
+                  <input type="checkbox" checked={selected.has(i)} onChange={() => toggle(i)} />
+                  <span>
+                    <span className="ai-idea-title">
+                      {p.name}
+                      {isDuplicate(p.name) && <span className="muted"> · bereits vorhanden</span>}
+                    </span>
+                    <span className="ai-idea-notes">
+                      {[p.category, p.address, p.rating != null ? `⭐ ${p.rating}` : null].filter(Boolean).join(' · ')}
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </div>
+            <div className="modal-actions">
+              <button type="button" className="btn btn-ghost" onClick={() => setResults(null)}>← Neue Suche</button>
+              <div className="spacer" />
+              <button type="button" className="btn btn-primary" onClick={importSelected} disabled={busy || selected.size === 0}>
+                {busy ? 'Importiere …' : `${selected.size} Leads importieren`}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </Modal>
   )
 }
 
@@ -419,7 +616,7 @@ function LeadModal({
             <label>Quelle</label>
             <select value={f.source} onChange={(e) => set('source', e.target.value)}>
               <option value="">— unbekannt —</option>
-              {['Instagram', 'TikTok', 'Empfehlung', 'Kaltakquise', 'Website', 'Netzwerk', 'Sonstige'].map((s) => (
+              {['Instagram', 'TikTok', 'Google Maps', 'Empfehlung', 'Kaltakquise', 'Website', 'Netzwerk', 'Sonstige'].map((s) => (
                 <option key={s} value={s}>{s}</option>
               ))}
             </select>
