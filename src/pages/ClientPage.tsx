@@ -173,27 +173,19 @@ export default function ClientPage() {
     }
   }
 
+  // Reihenfolge im Board ist immer fix nach Postingdatum (nächster Termin oben) —
+  // kein Datum landet ganz hinten. So bleibt die Liste übersichtlich und lässt
+  // sich nicht mehr aus Versehen durcheinanderbringen.
   function orderVal(v: Video) {
-    return v.sort_order ?? new Date(v.created_at).getTime() / 1000
+    return v.scheduled_date ? new Date(v.scheduled_date + 'T00:00:00').getTime() : Infinity
   }
 
-  // Drag & Drop (Finger/Maus): Video in eine Spalte (Status) + Position verschieben
-  async function moveVideo(videoId: string, targetStatus: string, beforeId: string | null) {
+  // Drag & Drop (Finger/Maus): Video nur zwischen Spalten (Status) verschieben —
+  // die Position innerhalb einer Spalte lässt sich nicht mehr manuell setzen.
+  async function moveVideo(videoId: string, targetStatus: string, _beforeId: string | null) {
     const dragged = videos.find((v) => v.id === videoId)
-    if (!dragged) return
-    const col = videos
-      .filter((v) => v.status === targetStatus && v.id !== videoId)
-      .sort((a, b) => orderVal(a) - orderVal(b))
-    let newOrder: number
-    if (!beforeId) {
-      newOrder = (col.length ? orderVal(col[col.length - 1]) : 0) + 1
-    } else {
-      const idx = col.findIndex((v) => v.id === beforeId)
-      const target = col[idx]
-      const prev = col[idx - 1]
-      newOrder = idx <= 0 ? orderVal(target) - 1 : (orderVal(prev) + orderVal(target)) / 2
-    }
-    await patchVideo(videoId, { status: targetStatus as VideoStatus, sort_order: newOrder })
+    if (!dragged || dragged.status === targetStatus) return
+    await patchVideo(videoId, { status: targetStatus as VideoStatus })
   }
 
   const { dragId, drop, startDrag } = usePointerBoard(moveVideo)
@@ -407,7 +399,10 @@ export default function ClientPage() {
 
       {tab === 'board' && (
       <div className="board">
-        {STATUS_ORDER.map((status) => {
+        {(() => {
+          const draggedStatus = dragId ? videos.find((v) => v.id === dragId)?.status : null
+          const laneChanging = !!drop && !!draggedStatus && drop.lane !== draggedStatus
+          return STATUS_ORDER.map((status) => {
           const items = boardVideos
             .filter((v) => v.status === status)
             .sort((a, b) => orderVal(a) - orderVal(b))
@@ -436,11 +431,11 @@ export default function ClientPage() {
                     data-card={v.id}
                     className={`drag-wrap ${dragId === v.id ? 'ghost-source' : ''} ${flashId === v.id ? 'flash' : ''}`}
                   >
-                    {drop?.lane === status && drop.beforeId === v.id && <div className="drop-line" />}
+                    {laneChanging && drop?.lane === status && drop.beforeId === v.id && <div className="drop-line" />}
                     <div
                       className="vc-grip"
                       data-drag-handle
-                      title="Zum Verschieben ziehen"
+                      title="In eine andere Spalte ziehen"
                       onPointerDown={(e) => startDrag(e, v.id, status)}
                     >
                       <span /><span /><span />
@@ -456,11 +451,12 @@ export default function ClientPage() {
                     />
                   </div>
                 ))}
-                {drop?.lane === status && drop.beforeId === null && dragId && <div className="drop-line" />}
+                {laneChanging && drop?.lane === status && drop.beforeId === null && <div className="drop-line" />}
               </div>
             </div>
           )
-        })}
+          })
+        })()}
       </div>
       )}
 
