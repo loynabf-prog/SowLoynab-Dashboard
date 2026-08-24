@@ -55,6 +55,11 @@ input, textarea, select, [contenteditable="true"] {
 }
 
 html, body, #root { height: 100%; }
+/* Kein horizontales Verrutschen: die Seite ist nie breiter als der Bildschirm.
+   Breite Inhalte (Board, Kalender, Tabellen) scrollen in ihrem eigenen Container. */
+html, body, #root { max-width: 100%; overflow-x: hidden; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body { overscroll-behavior-x: none; }
 
 body {
   margin: 0;
