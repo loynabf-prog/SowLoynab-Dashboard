@@ -317,7 +317,7 @@ function AddClientModal({
             <input id="cquota" value={quota} onChange={(e) => setQuota(e.target.value)} inputMode="numeric" placeholder="z. B. 10" />
           </div>
           <div style={{ flex: 1 }}>
-            <label htmlFor="cend">Vertragsende <span className="muted" style={{ textTransform: 'none', letterSpacing: 0 }}>(optional)</span></label>
+            <label htmlFor="cend">Vertragsende <span className="muted">(optional)</span></label>
             <input id="cend" type="date" value={contractEnd} onChange={(e) => setContractEnd(e.target.value)} />
           </div>
         </div>

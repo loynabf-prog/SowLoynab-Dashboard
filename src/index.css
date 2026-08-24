@@ -97,6 +97,22 @@ input, textarea, select {
   outline: none;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
+/* Ankreuzfelder, Regler & Datei-Wahl sind keine Textfelder — sie duerfen
+   weder volle Breite noch Rahmen/Polsterung eines Eingabefelds erben. */
+input[type="checkbox"], input[type="radio"], input[type="range"], input[type="file"] {
+  width: auto;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+}
+input[type="checkbox"], input[type="radio"] { accent-color: var(--brand); flex: 0 0 auto; }
+/* Einzeilige Felder auf eine gemeinsame Hoehe bringen — sonst stehen
+   Text- und Datumsfeld nebeneinander um ein paar Pixel versetzt. */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+select {
+  height: 42px;
+}
 input:focus, textarea:focus, select:focus {
   border-color: var(--brand);
   box-shadow: 0 0 0 3px var(--brand-glow);
@@ -110,6 +126,13 @@ label {
   letter-spacing: 0.04em;
   color: var(--text-dim);
   margin-bottom: 6px;
+}
+/* Erklärender Zusatz im Label ("(optional)", "(leer = unbegrenzt)") bleibt
+   klein geschrieben — sonst bläht die Grossschrift das Label auf zwei Zeilen. */
+label .muted {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
 }
 
 /* Buttons */
@@ -152,6 +175,10 @@ label {
 .muted { color: var(--text-dim); }
 .spacer { flex: 1; }
 .row { display: flex; align-items: center; gap: 12px; }
+/* Feld-Paare im Dialog: an der Unterkante ausrichten, damit die Eingabe-
+   felder auf einer Linie stehen, auch wenn ein Label zweizeilig umbricht. */
+.modal .row { align-items: flex-end; }
+.modal .row > div { min-width: 0; }
 .stack { display: flex; flex-direction: column; gap: 14px; }
 .center { display: flex; align-items: center; justify-content: center; }
 
