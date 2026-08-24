@@ -1,8 +1,17 @@
 import { useMemo, useRef, useState } from 'react'
 import Modal from './Modal'
 
-const S = 280 // Groesse des quadratischen Zuschneide-Rahmens (px)
 const OUT = 512 // Ausgabegroesse (quadratisch)
+
+// Groesse des quadratischen Zuschneide-Rahmens (px). Auf schmalen iPhones
+// kleiner, damit der Rahmen nicht ueber den Dialogrand hinauslaeuft und
+// rechts abgeschnitten wird. Einmal beim Oeffnen bestimmt -- die Zuschneide-
+// Rechnung unten rechnet durchgehend mit demselben Wert.
+function frameSize(): number {
+  if (typeof window === 'undefined') return 280
+  // Dialog-Innenbreite: Bildschirm minus Backdrop- und Dialog-Polsterung
+  return Math.max(200, Math.min(280, window.innerWidth - 72))
+}
 
 // Zuschneide-Dialog: Bild schieben + zoomen, damit das Logo mittig im
 // quadratischen Rahmen sitzt. Ergebnis wird als quadratische PNG ausgegeben.
@@ -16,6 +25,7 @@ export default function LogoCropper({
   onDone: (cropped: File) => void
 }) {
   const url = useMemo(() => URL.createObjectURL(file), [file])
+  const [S] = useState(frameSize)
   const [nat, setNat] = useState({ w: 1, h: 1 })
   const [scale, setScale] = useState(1)
   const [off, setOff] = useState({ x: 0, y: 0 })
