@@ -21,7 +21,7 @@ const MORE_GROUPS = [
   { title: 'Kommunikation', items: [{ to: '/postfach', label: 'Postfach', icon: '✉️' }] },
   { title: 'Vertrieb', items: [{ to: '/leads', label: 'Leads-Pipeline', icon: '🎯' }, { to: '/aufgaben', label: 'Aufgaben', icon: '✓' }] },
   { title: 'Buchhaltung', items: [{ to: '/rechnungen', label: 'Rechnungen', icon: '🧾' }, { to: '/finanzen', label: 'Finanzen', icon: '💶' }] },
-  { title: 'Analyse', items: [{ to: '/leistung', label: 'Leistung', icon: '📈' }] },
+  { title: 'Analyse', items: [{ to: '/analyse', label: 'Gesamt-Analyse', icon: '📊' }, { to: '/leistung', label: 'Leistung', icon: '📈' }] },
   { title: 'Verwaltung', items: [{ to: '/team', label: 'Team', icon: '🧑‍🤝‍🧑' }, { to: '/einstellungen', label: 'Einstellungen', icon: '⚙️' }, { to: '/papierkorb', label: 'Papierkorb', icon: '🗑' }] },
 ]
 const SECONDARY_PATHS = MORE_GROUPS.flatMap((g) => g.items.map((i) => i.to))

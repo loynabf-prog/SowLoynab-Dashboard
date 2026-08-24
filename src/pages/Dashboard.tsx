@@ -12,6 +12,14 @@ interface ClientWithCount extends Client {
   video_count: number
 }
 
+// Tage bis Vertragsende (negativ = abgelaufen); null = kein Vertrag hinterlegt
+function contractDaysLeft(end: string | null | undefined): number | null {
+  if (!end) return null
+  const d = new Date(end + 'T00:00:00')
+  const n = new Date(); n.setHours(0, 0, 0, 0)
+  return Math.round((d.getTime() - n.getTime()) / 86400000)
+}
+
 interface UpcomingItem {
   id: string
   title: string
@@ -139,6 +147,12 @@ export default function Dashboard() {
                 {c.monthly_quota
                   ? <span className={`quota-chip ${(postedMonth[c.id] ?? 0) >= c.monthly_quota ? 'done' : ''}`}>🎬 {postedMonth[c.id] ?? 0}/{c.monthly_quota} · Monat</span>
                   : <>{c.video_count} {c.video_count === 1 ? 'Video' : 'Videos'}</>}
+                {(() => {
+                  const dl = contractDaysLeft(c.contract_end)
+                  if (dl === null || dl > 30) return null
+                  if (dl < 0) return <span className="contract-chip expired">⚠ Vertrag abgelaufen</span>
+                  return <span className="contract-chip soon">⏳ Vertrag endet {dl === 0 ? 'heute' : dl === 1 ? 'morgen' : `in ${dl} Tg`}</span>
+                })()}
               </div>
             </div>
           </Link>
