@@ -2296,3 +2296,29 @@ html { scroll-behavior: smooth; }
 .vc-toggle:hover { border-color: var(--brand); color: var(--brand); }
 .video-card.open .vc-title { flex: 1 1 auto; min-width: 0; margin: 0; }
 .vc-expand { margin-top: 10px; }
+
+/* =========================================================================
+   Vertrags-Warnung (Kundenkachel) + Gesamt-Analyse
+   ========================================================================= */
+.contract-chip {
+  display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px;
+  font-size: 11px; font-weight: 700; white-space: nowrap;
+}
+.contract-chip.soon { background: rgba(255,149,0,0.16); color: #b35b00; }
+.contract-chip.expired { background: rgba(255,59,48,0.15); color: var(--danger); }
+:root[data-theme="dark"] .contract-chip.soon { color: #ffb340; }
+
+.ga-row {
+  display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 10px 13px; cursor: pointer; transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.ga-row:hover { border-color: var(--border-strong); box-shadow: var(--shadow-sm); }
+.logo-frame.ga-logo { width: 34px; height: 34px; border-radius: 9px; flex: 0 0 auto; }
+.ga-main { flex: 1; min-width: 0; }
+.ga-name { font-weight: 600; font-size: 14px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ga-bar { height: 6px; border-radius: 999px; background: var(--bg-sunken); margin-top: 6px; overflow: hidden; }
+.ga-bar span { display: block; height: 100%; background: var(--brand); border-radius: 999px; }
+.ga-stats { flex: 0 0 auto; text-align: right; font-variant-numeric: tabular-nums; }
+.ga-reach { display: block; font-weight: 700; font-size: 15px; color: var(--text); }
+.ga-posts { display: block; font-size: 11.5px; color: var(--text-dim); margin-top: 1px; }
