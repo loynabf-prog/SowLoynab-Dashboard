@@ -4,7 +4,14 @@
 // die aktuellen Zahlen (Views/Likes/Kommentare/Shares) über Apify aus und
 // schreibt sie ins Video + als Tages-Schnappschuss in video_stats.
 //
-// Gedacht für einen täglichen Cron-Aufruf (siehe cron-setup.sql).
+// Prüf-Rhythmus pro Video (ab dem Post-Datum, spart unnötige Apify-Kosten):
+//   Tag 0–7   -> jeden Tag       (Zahlen bewegen sich frisch am meisten)
+//   Tag 8–28  -> einmal pro Woche (noch 3 Wochen lang)
+//   ab Tag 29 -> einmal im Monat  (fängt späte Viral-Sprünge ab)
+//
+// Gedacht für einen täglichen Cron-Aufruf (siehe cron-setup.sql) — der Cron
+// läuft jeden Tag, die Funktion selbst entscheidet pro Video, ob heute
+// dran ist.
 //
 // Secrets (Supabase -> Edge Functions -> Secrets):
 //   APIFY_TOKEN            – dein Apify-API-Token (Pflicht)
@@ -76,6 +83,18 @@ function sum(a: number | null, b: number | null): number | null {
   return (a ?? 0) + (b ?? 0)
 }
 
+// Tag 0-7 taeglich, Tag 8-28 woechentlich (Tag 14/21/28), ab Tag 29 einmal
+// im Monat am selben Kalendertag wie gepostet (ueberspringt kurze Monate
+// sauber -- holt es im Folgemonat automatisch nach).
+function shouldCheckToday(postedAt: string, today: Date): boolean {
+  const posted = new Date(postedAt)
+  const days = Math.floor((today.getTime() - posted.getTime()) / 86400000)
+  if (days < 0) return false
+  if (days <= 7) return true
+  if (days <= 28) return days % 7 === 0
+  return today.getDate() === posted.getDate()
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
   try {
@@ -86,22 +105,28 @@ Deno.serve(async (req) => {
 
     const supa = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
 
-    // Videos mit mindestens einem Live-Link, die letzten 90 Tage
-    const cutoff = new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 10)
+    // Alle geposteten Videos mit mindestens einem Live-Link -- welche davon
+    // heute wirklich geprueft werden, entscheidet shouldCheckToday() weiter
+    // unten anhand des Post-Datums.
     const { data: vids, error } = await supa
       .from('videos')
-      .select('id, tiktok_url, instagram_url, scheduled_date')
+      .select('id, tiktok_url, instagram_url, posted_at')
+      .eq('status', 'posted')
       .is('deleted_at', null)
+      .not('posted_at', 'is', null)
       .or('tiktok_url.not.is.null,instagram_url.not.is.null')
-      .limit(120)
+      .limit(2000)
     if (error) return json({ error: error.message }, 500)
 
-    const today = new Date().toISOString().slice(0, 10)
+    const now = new Date()
+    const today = now.toISOString().slice(0, 10)
     let updated = 0
+    let due = 0
     const errors: string[] = []
 
     for (const v of (vids ?? []) as any[]) {
-      if (v.scheduled_date && v.scheduled_date < cutoff) continue // sehr alte auslassen (Kosten)
+      if (!v.posted_at || !shouldCheckToday(v.posted_at, now)) continue
+      due++
       let tt: Stats | null = null
       let ig: Stats | null = null
       try { if (v.tiktok_url) tt = await tiktokStats(v.tiktok_url, ttActor, token) } catch (e) { errors.push(`tt ${v.id}: ${(e as Error).message}`) }
@@ -132,9 +157,9 @@ Deno.serve(async (req) => {
       updated++
     }
 
-    const now = new Date().toISOString()
-    try { await supa.from('system_status').upsert({ job: 'refresh-stats', last_ok: now, last_error: null, detail: `${updated} aktualisiert von ${vids?.length ?? 0}`, updated_at: now }, { onConflict: 'job' }) } catch { /* ignore */ }
-    return json({ updated, checked: vids?.length ?? 0, errors: errors.slice(0, 8) })
+    const nowIso = new Date().toISOString()
+    try { await supa.from('system_status').upsert({ job: 'refresh-stats', last_ok: nowIso, last_error: null, detail: `${updated} aktualisiert von ${due} fälligen (${vids?.length ?? 0} insgesamt mit Link)`, updated_at: nowIso }, { onConflict: 'job' }) } catch { /* ignore */ }
+    return json({ updated, due, checked: vids?.length ?? 0, errors: errors.slice(0, 8) })
   } catch (err) {
     try {
       const supa = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
