@@ -6,6 +6,9 @@ import { useToast } from '../context/ToastContext'
 import { pickMimeType, sendVoice, type VoiceIntent, type VoiceIntentType } from '../lib/voice'
 import { generateIdeas } from '../lib/ideas'
 import type { Client } from '../lib/types'
+import { occurrences, type RepeatRule } from '../lib/recurrence'
+import { insertRows } from '../lib/db'
+import RepeatPicker from './RepeatPicker'
 import Modal from './Modal'
 
 interface Opt { id: string; name: string }
@@ -220,6 +223,7 @@ function ReviewModal({
   const [notes, setNotes] = useState(intent?.notes || '')
   const [count, setCount] = useState(intent?.count && intent.count > 0 ? Math.min(intent.count, 12) : 5)
   const [theme, setTheme] = useState(intent?.theme || '')
+  const [rule, setRule] = useState<RepeatRule>({ kind: 'none' })
   const [gen, setGen] = useState<{ title: string; notes: string | null; on: boolean }[] | null>(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -228,8 +232,23 @@ function ReviewModal({
     setBusy(true)
     setErr(null)
     try {
+      if (rule.kind !== 'none' && !date && (type === 'task' || type === 'video')) {
+        setErr('Für die Wiederholung bitte ein Startdatum wählen.'); setBusy(false); return
+      }
       if (type === 'task') {
         if (!title.trim()) { setErr('Bitte einen Titel angeben.'); setBusy(false); return }
+        if (rule.kind !== 'none' && date) {
+          const series_id = crypto.randomUUID()
+          const dates = occurrences(date, rule)
+          const { error } = await insertRows('tasks', dates.map((d) => ({
+            title: title.trim(), due_date: d, notes: notes.trim() || null,
+            client_id: clientId || null, lead_id: leadId || null, series_id, created_by: userId,
+          })))
+          if (error) throw error
+          onDone(`${dates.length} Aufgaben angelegt ✓`)
+          navigate('/aufgaben')
+          return
+        }
         const { data, error } = await supabase
           .from('tasks')
           .insert({
@@ -269,6 +288,19 @@ function ReviewModal({
         // video
         if (!clientId) { setErr('Bitte einen Kunden auswählen.'); setBusy(false); return }
         if (!title.trim()) { setErr('Bitte eine Idee/Titel angeben.'); setBusy(false); return }
+        if (rule.kind !== 'none' && date) {
+          const series_id = crypto.randomUUID()
+          const dates = occurrences(date, rule)
+          const { error } = await insertRows('videos', dates.map((d) => ({
+            client_id: clientId, title: title.trim(), status: 'todo',
+            scheduled_date: d, scheduled_time: time || null, notes: notes.trim() || null,
+            series_id, created_by: userId,
+          })))
+          if (error) throw error
+          onDone(`${dates.length} Videos angelegt ✓`)
+          navigate(`/client/${clientId}`)
+          return
+        }
         const { data, error } = await supabase
           .from('videos')
           .insert({
@@ -481,6 +513,10 @@ function ReviewModal({
             </div>
           )}
         </div>
+
+        {(type === 'video' || type === 'task') && (
+          <RepeatPicker value={rule} onChange={setRule} anchor={date} />
+        )}
 
         {type === 'lead' && (
           <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
