@@ -116,8 +116,16 @@ Deno.serve(async (req) => {
         saves: sum(tt?.saves ?? null, ig?.saves ?? null),
       }
       const reach = merged.views // beste verfügbare Näherung
+      // getrennt pro Plattform (für den IG-vs-TikTok-Vergleich in der Analyse) --
+      // braucht Migration 0020, siehe supabase/migrations/0020_video_platform_stats.sql
+      const perPlatform = {
+        views_ig: ig?.views ?? null, likes_ig: ig?.likes ?? null, comments_ig: ig?.comments ?? null,
+        shares_ig: ig?.shares ?? null, saves_ig: ig?.saves ?? null,
+        views_tiktok: tt?.views ?? null, likes_tiktok: tt?.likes ?? null, comments_tiktok: tt?.comments ?? null,
+        shares_tiktok: tt?.shares ?? null, saves_tiktok: tt?.saves ?? null,
+      }
 
-      await supa.from('videos').update({ ...merged, reach, stats_updated_at: new Date().toISOString() }).eq('id', v.id)
+      await supa.from('videos').update({ ...merged, ...perPlatform, reach, stats_updated_at: new Date().toISOString() }).eq('id', v.id)
       // Tages-Schnappschuss (heutigen Eintrag ersetzen, damit die Kurve sauber bleibt)
       await supa.from('video_stats').delete().eq('video_id', v.id).eq('captured_on', today)
       await supa.from('video_stats').insert({ video_id: v.id, captured_on: today, ...merged, reach })

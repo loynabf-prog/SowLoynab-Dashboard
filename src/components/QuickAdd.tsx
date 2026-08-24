@@ -8,14 +8,44 @@ import { insertRows } from '../lib/db'
 import RepeatPicker from './RepeatPicker'
 import Modal from './Modal'
 
-type QType = 'task' | 'lead' | 'video'
-interface Opt { id: string; name: string }
+type QType = 'task' | 'lead' | 'video' | 'backfill'
+interface Opt { id: string; name: string; handle_ig?: string | null; handle_tiktok?: string | null }
+
+interface PlatformResult {
+  views: number | null
+  likes: number | null
+  comments: number | null
+  shares: number | null
+  saves: number | null
+  caption: string | null
+  username: string | null
+  postedAt: string | null
+}
+interface LookupResult { tiktok: PlatformResult | null; instagram: PlatformResult | null }
 
 const TABS: { key: QType; label: string; icon: string }[] = [
   { key: 'task', label: 'Aufgabe', icon: '✓' },
   { key: 'lead', label: 'Lead', icon: '🎯' },
   { key: 'video', label: 'Video', icon: '🎬' },
+  { key: 'backfill', label: 'Nachtragen', icon: '🔗' },
 ]
+
+function fmtN(n: number | null | undefined): string {
+  if (n == null) return '–'
+  if (n >= 1000000) return (n / 1000000).toFixed(1).replace('.0', '') + 'M'
+  if (n >= 1000) return (n / 1000).toFixed(1).replace('.0', '') + 'k'
+  return String(n)
+}
+
+function normHandle(s: string | null | undefined): string {
+  return (s ?? '').toLowerCase().replace(/^@/, '').trim()
+}
+function matchClientByHandle(handle: string | null, opts: Opt[]): string {
+  const h = normHandle(handle)
+  if (!h) return ''
+  const hit = opts.find((o) => normHandle(o.handle_ig) === h || normHandle(o.handle_tiktok) === h)
+  return hit?.id ?? ''
+}
 
 // Schnell-Erfassen von überall — per Header-Knopf oder Event "open-quickadd".
 export default function QuickAdd() {
@@ -39,6 +69,15 @@ export default function QuickAdd() {
   const [city, setCity] = useState('')
   const [phone, setPhone] = useState('')
   const [rule, setRule] = useState<RepeatRule>({ kind: 'none' })
+
+  // Nachtragen (Apify-Backfill)
+  const [ttUrl, setTtUrl] = useState('')
+  const [igUrl, setIgUrl] = useState('')
+  const [lookup, setLookup] = useState<LookupResult | null>(null)
+  const [lookupBusy, setLookupBusy] = useState(false)
+  const [bfTitle, setBfTitle] = useState('')
+  const [bfClientId, setBfClientId] = useState('')
+  const [bfDate, setBfDate] = useState('')
 
   useEffect(() => {
     function openEvt(e: Event) {
@@ -65,9 +104,35 @@ export default function QuickAdd() {
     if (!open) return
     setError(null)
     setTitle(''); setName(''); setClientId(''); setLink(''); setDate(''); setTime(''); setCity(''); setPhone(''); setRule({ kind: 'none' })
-    supabase.from('clients').select('id, name').is('deleted_at', null).order('name').then(({ data }) => setClients((data ?? []) as Opt[]))
+    setTtUrl(''); setIgUrl(''); setLookup(null); setBfTitle(''); setBfClientId(''); setBfDate('')
+    supabase.from('clients').select('id, name, handle_ig, handle_tiktok').is('deleted_at', null).order('name').then(({ data }) => setClients((data ?? []) as Opt[]))
     supabase.from('leads').select('id, name').is('deleted_at', null).order('name').then(({ data }) => setLeads((data ?? []) as Opt[]))
   }, [open])
+
+  async function runLookup() {
+    if (!igUrl.trim() && !ttUrl.trim()) { setError('Bitte mindestens einen Link einfügen.'); return }
+    setLookupBusy(true)
+    setError(null)
+    try {
+      const { data, error } = await supabase.functions.invoke('apify-lookup', {
+        body: { instagram_url: igUrl.trim() || null, tiktok_url: ttUrl.trim() || null },
+      })
+      if (error) throw error
+      if (data?.error) throw new Error(data.error)
+      const res = data as LookupResult
+      setLookup(res)
+      const handle = res.instagram?.username || res.tiktok?.username || null
+      setBfClientId(matchClientByHandle(handle, clients))
+      const caption = res.instagram?.caption || res.tiktok?.caption || ''
+      setBfTitle(caption ? (caption.length > 70 ? caption.slice(0, 70) + '…' : caption) : '')
+      const postedAt = res.instagram?.postedAt || res.tiktok?.postedAt || null
+      setBfDate(postedAt ? new Date(postedAt).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10))
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setLookupBusy(false)
+    }
+  }
 
   async function save() {
     setBusy(true)
@@ -100,6 +165,34 @@ export default function QuickAdd() {
         if (error) throw error
         toast('Lead angelegt ✓')
         navigate('/leads')
+      } else if (type === 'backfill') {
+        if (!lookup) { setError('Bitte zuerst die Daten abrufen.'); setBusy(false); return }
+        if (!bfClientId) { setError('Bitte einen Kunden auswählen.'); setBusy(false); return }
+        if (!bfTitle.trim()) { setError('Bitte einen Titel angeben.'); setBusy(false); return }
+        const tt = lookup.tiktok
+        const ig = lookup.instagram
+        const sum2 = (a?: number | null, b?: number | null) => (a == null && b == null ? null : (a ?? 0) + (b ?? 0))
+        const { error } = await insertRows('videos', [{
+          client_id: bfClientId,
+          title: bfTitle.trim(),
+          status: 'posted',
+          posted_at: bfDate ? new Date(bfDate + 'T12:00:00').toISOString() : new Date().toISOString(),
+          tiktok_url: ttUrl.trim() || null,
+          instagram_url: igUrl.trim() || null,
+          views: sum2(tt?.views, ig?.views),
+          likes: sum2(tt?.likes, ig?.likes),
+          comments: sum2(tt?.comments, ig?.comments),
+          shares: sum2(tt?.shares, ig?.shares),
+          saves: sum2(tt?.saves, ig?.saves),
+          reach: sum2(tt?.views, ig?.views),
+          views_ig: ig?.views ?? null, likes_ig: ig?.likes ?? null, comments_ig: ig?.comments ?? null, shares_ig: ig?.shares ?? null, saves_ig: ig?.saves ?? null,
+          views_tiktok: tt?.views ?? null, likes_tiktok: tt?.likes ?? null, comments_tiktok: tt?.comments ?? null, shares_tiktok: tt?.shares ?? null, saves_tiktok: tt?.saves ?? null,
+          stats_updated_at: new Date().toISOString(),
+          created_by: user?.id ?? null,
+        }])
+        if (error) throw error
+        toast('Altes Video nachgetragen ✓')
+        navigate(`/client/${bfClientId}`)
       } else {
         if (!clientId) { setError('Bitte einen Kunden wählen.'); setBusy(false); return }
         if (!title.trim()) { setError('Bitte einen Titel angeben.'); setBusy(false); return }
@@ -127,6 +220,10 @@ export default function QuickAdd() {
 
   if (!open) return null
 
+  const sumViews = lookup && (lookup.instagram?.views == null && lookup.tiktok?.views == null)
+    ? null
+    : lookup ? (lookup.instagram?.views ?? 0) + (lookup.tiktok?.views ?? 0) : null
+
   return (
     <Modal title="⚡ Schnell erfassen" onClose={() => setOpen(false)}>
       <div className="stack">
@@ -139,6 +236,64 @@ export default function QuickAdd() {
         </div>
 
         {error && <div className="error-box">{error}</div>}
+
+        {type === 'backfill' ? (
+          <>
+            {!lookup ? (
+              <>
+                <div className="info-box" style={{ fontSize: 13 }}>
+                  Instagram- und/oder TikTok-Link eines bereits geposteten Videos einfügen — Titel-Vorschlag, Kunde und Zahlen werden automatisch geholt.
+                </div>
+                <div>
+                  <label>📸 Instagram-Link</label>
+                  <input type="url" value={igUrl} onChange={(e) => setIgUrl(e.target.value)} autoFocus placeholder="https://www.instagram.com/reel/…" onKeyDown={(e) => e.key === 'Enter' && runLookup()} />
+                </div>
+                <div>
+                  <label>🎵 TikTok-Link</label>
+                  <input type="url" value={ttUrl} onChange={(e) => setTtUrl(e.target.value)} placeholder="https://www.tiktok.com/@…/video/…" onKeyDown={(e) => e.key === 'Enter' && runLookup()} />
+                </div>
+                <div className="modal-actions">
+                  <button type="button" className="btn btn-ghost" onClick={() => setOpen(false)}>Abbrechen</button>
+                  <button type="button" className="btn btn-primary" onClick={runLookup} disabled={lookupBusy}>
+                    {lookupBusy ? 'Hole Daten …' : '🔍 Daten abrufen'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="vc-stats">
+                  {lookup.instagram && <span title="Instagram">📸 {fmtN(lookup.instagram.views)}</span>}
+                  {lookup.tiktok && <span title="TikTok">🎵 {fmtN(lookup.tiktok.views)}</span>}
+                  <span title="Gesamt"><strong>Σ {fmtN(sumViews)} Views</strong></span>
+                </div>
+                <div>
+                  <label>Titel *</label>
+                  <input value={bfTitle} onChange={(e) => setBfTitle(e.target.value)} autoFocus onKeyDown={(e) => e.key === 'Enter' && save()} />
+                </div>
+                <div>
+                  <label>Kunde *</label>
+                  <select value={bfClientId} onChange={(e) => setBfClientId(e.target.value)}>
+                    <option value="">— Kunde wählen —</option>
+                    {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                  {!bfClientId && <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>Kein Kunde automatisch erkannt — bitte auswählen.</p>}
+                </div>
+                <div>
+                  <label>Postdatum</label>
+                  <input type="date" value={bfDate} onChange={(e) => setBfDate(e.target.value)} />
+                </div>
+                <div className="modal-actions">
+                  <button type="button" className="btn btn-ghost" onClick={() => setLookup(null)}>← Neuer Link</button>
+                  <div className="spacer" />
+                  <button type="button" className="btn btn-primary" onClick={save} disabled={busy}>
+                    {busy ? 'Speichere …' : 'Video anlegen'}
+                  </button>
+                </div>
+              </>
+            )}
+          </>
+        ) : (
+        <>
 
         {type === 'lead' ? (
           <div>
@@ -209,6 +364,8 @@ export default function QuickAdd() {
             {busy ? 'Speichere …' : 'Anlegen'}
           </button>
         </div>
+        </>
+        )}
       </div>
     </Modal>
   )

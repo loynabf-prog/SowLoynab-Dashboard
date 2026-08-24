@@ -154,6 +154,16 @@ export interface Video {
   tiktok_url: string | null
   instagram_url: string | null
   stats_updated_at: string | null
+  views_ig: number | null
+  likes_ig: number | null
+  comments_ig: number | null
+  shares_ig: number | null
+  saves_ig: number | null
+  views_tiktok: number | null
+  likes_tiktok: number | null
+  comments_tiktok: number | null
+  shares_tiktok: number | null
+  saves_tiktok: number | null
   sort_order: number | null
   assignee_ids: string[]
   series_id: string | null

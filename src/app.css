@@ -1724,6 +1724,8 @@ html { scroll-behavior: smooth; }
 
 /* Video-Kennzahlen auf der Karte */
 .vc-stats { display: flex; flex-wrap: wrap; gap: 10px; font-size: 12px; font-weight: 600; color: var(--text-muted); margin: 2px 0 4px; }
+.vc-platform-seg { display: inline-flex; gap: 2px; background: var(--bg-sunken); padding: 2px; border-radius: 8px; margin-bottom: 6px; width: fit-content; }
+.vc-platform-seg .seg-btn { flex: none; padding: 4px 9px; font-size: 11px; border-radius: 6px; }
 .cockpit-stat { padding-left: 4px; }
 
 /* Lead-Quelle Chip */

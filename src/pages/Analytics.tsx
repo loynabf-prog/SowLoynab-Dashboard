@@ -10,6 +10,8 @@ interface PostRow {
   reach: number | null
   likes: number | null
   comments: number | null
+  views_ig: number | null
+  views_tiktok: number | null
   clients?: { name: string; logo_url: string | null } | null
 }
 
@@ -24,7 +26,9 @@ export default function Analytics() {
   useEffect(() => {
     supabase
       .from('videos')
-      .select('client_id, posted_at, views, reach, likes, comments, clients(name, logo_url)')
+      // "*" statt fester Spaltenliste -- damit die Abfrage nicht hart fehlschlägt,
+      // solange Migration 0020 (views_ig/views_tiktok) noch nicht eingespielt ist
+      .select('*, clients(name, logo_url)')
       .eq('status', 'posted')
       .is('deleted_at', null)
       .then(({ data }) => { setRows((data ?? []) as unknown as PostRow[]); setLoading(false) })

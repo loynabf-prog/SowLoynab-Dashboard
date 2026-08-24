@@ -1513,13 +1513,22 @@ function AnalyseSection({ videos, onEdit }: { videos: Video[]; onEdit: (v: Video
   const totalReach = videos.reduce((s, v) => s + (v.reach ?? v.views ?? 0), 0)
   const totalLikes = videos.reduce((s, v) => s + (v.likes ?? 0), 0)
   const totalComments = videos.reduce((s, v) => s + (v.comments ?? 0), 0)
+  const totalViewsIg = videos.reduce((s, v) => s + (v.views_ig ?? 0), 0)
+  const totalViewsTiktok = videos.reduce((s, v) => s + (v.views_tiktok ?? 0), 0)
+  const hasPlatformSplit = videos.some((v) => v.views_ig != null || v.views_tiktok != null)
   return (
     <div className="analyse">
-      <div className="fin-tiles" style={{ marginBottom: 18 }}>
+      <div className="fin-tiles" style={{ marginBottom: hasPlatformSplit ? 10 : 18 }}>
         <div className="fin-tile"><span className="fin-label">Posts gesamt</span><span className="fin-value">{num(posts)}</span><span className="fin-sub">gepostete Videos</span></div>
         <div className="fin-tile"><span className="fin-label">Reichweite gesamt</span><span className="fin-value income">{num(totalReach)}</span><span className="fin-sub">Ø {num(Math.round(totalReach / posts))} / Post</span></div>
         <div className="fin-tile"><span className="fin-label">Interaktionen</span><span className="fin-value">{num(totalLikes)}</span><span className="fin-sub">Likes · {num(totalComments)} Kommentare</span></div>
       </div>
+      {hasPlatformSplit && (
+        <div className="fin-tiles" style={{ marginBottom: 18 }}>
+          <div className="fin-tile"><span className="fin-label">📸 Instagram</span><span className="fin-value">{num(totalViewsIg)}</span><span className="fin-sub">Views gesamt</span></div>
+          <div className="fin-tile"><span className="fin-label">🎵 TikTok</span><span className="fin-value">{num(totalViewsTiktok)}</span><span className="fin-sub">Views gesamt</span></div>
+        </div>
+      )}
       <div className="analyse-list">
         {videos.map((v) => (
           <button className="analyse-row" key={v.id} onClick={() => onEdit(v)} title="Zahlen bearbeiten">
