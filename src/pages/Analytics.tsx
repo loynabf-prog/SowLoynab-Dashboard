@@ -15,11 +15,19 @@ interface PostRow {
   clients?: { name: string; logo_url: string | null } | null
 }
 
+interface StatRow {
+  client_id: string
+  captured_on: string
+  followers_ig: number | null
+  followers_tiktok: number | null
+}
+
 const num = (n: number) => n.toLocaleString('de-DE')
 
 export default function Analytics() {
   const navigate = useNavigate()
   const [rows, setRows] = useState<PostRow[]>([])
+  const [statRows, setStatRows] = useState<StatRow[]>([])
   const [loading, setLoading] = useState(true)
   const [range, setRange] = useState<'all' | 'month'>('all')
 
@@ -32,7 +40,21 @@ export default function Analytics() {
       .eq('status', 'posted')
       .is('deleted_at', null)
       .then(({ data }) => { setRows((data ?? []) as unknown as PostRow[]); setLoading(false) })
+    supabase
+      .from('client_stats')
+      .select('client_id, captured_on, followers_ig, followers_tiktok')
+      .order('captured_on', { ascending: true })
+      .then(({ data }) => setStatRows((data ?? []) as StatRow[]))
   }, [])
+
+  // Neuester Follower-Stand je Kunde (statRows ist aufsteigend sortiert -> letzter Eintrag gewinnt)
+  const followerTotals = useMemo(() => {
+    const latestByClient = new Map<string, { ig: number; tt: number }>()
+    for (const r of statRows) latestByClient.set(r.client_id, { ig: r.followers_ig ?? 0, tt: r.followers_tiktok ?? 0 })
+    let ig = 0, tt = 0
+    for (const v of latestByClient.values()) { ig += v.ig; tt += v.tt }
+    return { ig, tt, total: ig + tt }
+  }, [statRows])
 
   const monthPrefix = new Date().toISOString().slice(0, 7)
   const filtered = useMemo(
@@ -79,6 +101,9 @@ export default function Analytics() {
         <div className="fin-tile"><span className="fin-label">Reichweite gesamt</span><span className="fin-value income">{num(totals.reach)}</span><span className="fin-sub">Menschen erreicht</span></div>
         <div className="fin-tile"><span className="fin-label">Ø Reichweite / Post</span><span className="fin-value">{num(totals.posts ? Math.round(totals.reach / totals.posts) : 0)}</span><span className="fin-sub">Schnitt</span></div>
         <div className="fin-tile"><span className="fin-label">Interaktionen</span><span className="fin-value">{num(totals.likes)}</span><span className="fin-sub">Likes · {num(totals.comments)} Kommentare</span></div>
+        {followerTotals.total > 0 && (
+          <div className="fin-tile"><span className="fin-label">👥 Follower gesamt</span><span className="fin-value">{num(followerTotals.total)}</span><span className="fin-sub">📸 {num(followerTotals.ig)} · 🎵 {num(followerTotals.tt)}</span></div>
+        )}
       </div>
 
       <h2 className="section-title" style={{ marginBottom: 12 }}>Nach Kunde</h2>
