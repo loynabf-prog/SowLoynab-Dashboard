@@ -87,6 +87,7 @@ interface PlatformResult {
   caption: string | null
   username: string | null
   postedAt: string | null
+  duration: number | null
 }
 
 async function tiktokLookup(urlStr: string, actor: string, token: string): Promise<PlatformResult | null> {
@@ -102,6 +103,7 @@ async function tiktokLookup(urlStr: string, actor: string, token: string): Promi
     caption: pickStr(it, ['text', 'desc', 'title']),
     username: pickStr(it, ['authorUniqueId', 'authorName']) ?? pickNested(it, ['authorMeta.name', 'author.uniqueId']),
     postedAt: pickDateISO(it, ['createTimeISO', 'createTime', 'createdAt']),
+    duration: pickNum(it?.videoMeta ?? {}, ['duration']) ?? pickNum(it, ['duration']),
   }
 }
 
@@ -118,6 +120,7 @@ async function instagramLookup(urlStr: string, actor: string, token: string): Pr
     caption: pickStr(it, ['caption', 'text']),
     username: pickStr(it, ['ownerUsername', 'username']),
     postedAt: pickDateISO(it, ['timestamp', 'takenAt', 'takenAtTimestamp']),
+    duration: pickNum(it, ['videoDuration', 'duration']),
   }
 }
 

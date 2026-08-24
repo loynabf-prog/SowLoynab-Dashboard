@@ -50,7 +50,7 @@ async function apifyRun(actor: string, input: unknown, token: string): Promise<a
   return Array.isArray(data) ? data : []
 }
 
-interface Stats { views: number | null; likes: number | null; comments: number | null; shares: number | null; saves: number | null }
+interface Stats { views: number | null; likes: number | null; comments: number | null; shares: number | null; saves: number | null; duration: number | null }
 
 async function tiktokStats(urlStr: string, actor: string, token: string): Promise<Stats | null> {
   const items = await apifyRun(actor, { postURLs: [urlStr], resultsPerPage: 1, shouldDownloadVideos: false, shouldDownloadCovers: false }, token)
@@ -62,6 +62,7 @@ async function tiktokStats(urlStr: string, actor: string, token: string): Promis
     comments: pick(it, ['commentCount', 'comments']),
     shares: pick(it, ['shareCount', 'shares']),
     saves: pick(it, ['collectCount', 'saves']),
+    duration: pick(it, ['videoMeta.duration', 'duration']) ?? pick(it?.videoMeta ?? {}, ['duration']),
   }
 }
 
@@ -75,6 +76,7 @@ async function instagramStats(urlStr: string, actor: string, token: string): Pro
     comments: pick(it, ['commentsCount', 'comments']),
     shares: pick(it, ['sharesCount', 'shares', 'reshareCount']),
     saves: pick(it, ['savesCount', 'saves']),
+    duration: pick(it, ['videoDuration', 'duration']),
   }
 }
 
@@ -141,6 +143,7 @@ Deno.serve(async (req) => {
         saves: sum(tt?.saves ?? null, ig?.saves ?? null),
       }
       const reach = merged.views // beste verfügbare Näherung
+      const duration = tt?.duration ?? ig?.duration ?? null
       // getrennt pro Plattform (für den IG-vs-TikTok-Vergleich in der Analyse) --
       // braucht Migration 0020, siehe supabase/migrations/0020_video_platform_stats.sql
       const perPlatform = {
@@ -150,7 +153,9 @@ Deno.serve(async (req) => {
         shares_tiktok: tt?.shares ?? null, saves_tiktok: tt?.saves ?? null,
       }
 
-      await supa.from('videos').update({ ...merged, ...perPlatform, reach, stats_updated_at: new Date().toISOString() }).eq('id', v.id)
+      const videoPatch: Record<string, unknown> = { ...merged, ...perPlatform, reach, stats_updated_at: new Date().toISOString() }
+      if (duration != null) videoPatch.duration_seconds = duration
+      await supa.from('videos').update(videoPatch).eq('id', v.id)
       // Tages-Schnappschuss (heutigen Eintrag ersetzen, damit die Kurve sauber bleibt)
       await supa.from('video_stats').delete().eq('video_id', v.id).eq('captured_on', today)
       await supa.from('video_stats').insert({ video_id: v.id, captured_on: today, ...merged, reach })

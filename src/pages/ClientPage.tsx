@@ -370,7 +370,7 @@ export default function ClientPage() {
         </button>
       </div>
 
-      <ClientCockpit client={client} postedThisMonth={postedThisMonth} reachThisMonth={reachThisMonth} />
+      <ClientCockpit client={client} postedThisMonth={postedThisMonth} reachThisMonth={reachThisMonth} stats={stats} />
 
       <GrowthSection stats={stats} onAdd={() => setGrowthOpen(true)} />
 
@@ -1586,7 +1586,7 @@ function fmtK(n: number): string {
   return String(n)
 }
 
-function ClientCockpit({ client, postedThisMonth, reachThisMonth }: { client: Client; postedThisMonth: number; reachThisMonth: number }) {
+function ClientCockpit({ client, postedThisMonth, reachThisMonth, stats }: { client: Client; postedThisMonth: number; reachThisMonth: number; stats: any[] }) {
   const quota = client.monthly_quota ?? 0
   const digits = (client.phone ?? '').replace(/[^\d+]/g, '').replace(/^\+/, '')
   const ig = client.handle_ig?.replace(/^@/, '')
@@ -1600,7 +1600,11 @@ function ClientCockpit({ client, postedThisMonth, reachThisMonth }: { client: Cl
     client.website && { href: client.website, icon: '🌐', label: 'Website' },
   ].filter(Boolean) as { href: string; icon: string; label: string }[]
 
-  if (quota <= 0 && contacts.length === 0 && reachThisMonth === 0) return null
+  // Neuester Follower-Stand (stats ist aufsteigend nach Datum sortiert)
+  const latestStat = stats.length ? stats[stats.length - 1] : null
+  const totalFollowers = latestStat ? (latestStat.followers_ig ?? 0) + (latestStat.followers_tiktok ?? 0) : 0
+
+  if (quota <= 0 && contacts.length === 0 && reachThisMonth === 0 && totalFollowers === 0) return null
 
   return (
     <div className="client-cockpit">
@@ -1611,6 +1615,12 @@ function ClientCockpit({ client, postedThisMonth, reachThisMonth }: { client: Cl
             <div className="cockpit-quota-title">{postedThisMonth} / {quota} Posts</div>
             <div className="cockpit-quota-sub">diesen Monat</div>
           </div>
+        </div>
+      )}
+      {totalFollowers > 0 && (
+        <div className="cockpit-stat" title={`📸 ${fmtK(latestStat.followers_ig ?? 0)} · 🎵 ${fmtK(latestStat.followers_tiktok ?? 0)}`}>
+          <div className="cockpit-quota-title">👥 {fmtK(totalFollowers)}</div>
+          <div className="cockpit-quota-sub">Follower gesamt</div>
         </div>
       )}
       {reachThisMonth > 0 && (

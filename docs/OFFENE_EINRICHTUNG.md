@@ -23,6 +23,7 @@ gebaut, ein erneuter Lauf schadet also nicht.
 - [ ] `supabase/migrations/0018_task_priority.sql` — Dringlichkeit/Priorität für Aufgaben
 - [ ] `supabase/migrations/0019_client_contract.sql` — Vertragsende pro Kunde (Content-Plan)
 - [ ] `supabase/migrations/0020_video_platform_stats.sql` — Zahlen getrennt nach Instagram/TikTok (Vergleich + Nachtragen)
+- [ ] `supabase/migrations/0021_account_stats.sql` — Following/Posts-Anzahl pro Kunde (Account-Statistik)
 
 *(0001–0009 bzw. `ALLES_offen_5-9.sql` sollten schon gelaufen sein — sonst zuerst die.)*
 
@@ -48,7 +49,8 @@ gebaut, ein erneuter Lauf schadet also nicht.
 | `send-push` | AN | Push senden |
 | `mail-send` | **AN** | Rechnung/Mail verschicken |
 | `daily-reminders` | **AUS** | täglicher Reminder-Cron |
-| `refresh-stats` | **AUS** | Statistik-Cron |
+| `refresh-stats` | **AUS** | Video-Statistik-Cron (7 Tage täglich, dann wöchentlich/monatlich) |
+| `refresh-account-stats` | **AUS** | Account-Statistik-Cron (Follower/Following/Posts, täglich) |
 | `apify-lookup` | AN | Altes Video nachtragen (Sofort-Abruf) |
 | `mail-sync` | **AUS** | Postfach-Abruf-Cron |
 
@@ -58,6 +60,7 @@ Jeweils Projekt-Ref + Anon-Key eintragen und im SQL Editor ausführen:
 
 - [ ] `supabase/functions/daily-reminders/cron-setup.sql`
 - [ ] `supabase/functions/refresh-stats/cron-setup.sql`
+- [ ] `supabase/functions/refresh-account-stats/cron-setup.sql`
 - [ ] `supabase/functions/mail-sync/cron-setup.sql`
 
 ## 5. In der App
@@ -69,6 +72,10 @@ Jeweils Projekt-Ref + Anon-Key eintragen und im SQL Editor ausführen:
 - [ ] Altes Video nachtragen: **＋ Neu → 🔗 Nachtragen** — Instagram-/TikTok-Link
       einfügen, „Daten abrufen", Kunde/Titel/Datum prüfen, anlegen. Braucht
       0020 + `apify-lookup` deployed + `APIFY_TOKEN`-Secret (oben, Punkt 2).
+- [ ] Account-Statistik: bei den Kunden die Handles (Instagram/TikTok) hinterlegen
+      → Follower/Following/Posts werden dann täglich automatisch nachgezogen
+      und erscheinen bei jedem Kunden unter „📊 Wachstum". Braucht 0021 +
+      `refresh-account-stats` deployed + Cron eingerichtet.
 
 ---
 

@@ -20,6 +20,7 @@ interface PlatformResult {
   caption: string | null
   username: string | null
   postedAt: string | null
+  duration: number | null
 }
 interface LookupResult { tiktok: PlatformResult | null; instagram: PlatformResult | null }
 
@@ -179,6 +180,7 @@ export default function QuickAdd() {
           posted_at: bfDate ? new Date(bfDate + 'T12:00:00').toISOString() : new Date().toISOString(),
           tiktok_url: ttUrl.trim() || null,
           instagram_url: igUrl.trim() || null,
+          duration_seconds: tt?.duration ?? ig?.duration ?? null,
           views: sum2(tt?.views, ig?.views),
           likes: sum2(tt?.likes, ig?.likes),
           comments: sum2(tt?.comments, ig?.comments),
