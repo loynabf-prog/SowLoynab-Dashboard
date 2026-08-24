@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
+import { occurrences, type RepeatRule } from '../lib/recurrence'
+import { insertRows } from '../lib/db'
+import RepeatPicker from './RepeatPicker'
 import Modal from './Modal'
 
 type QType = 'task' | 'lead' | 'video'
@@ -35,6 +38,7 @@ export default function QuickAdd() {
   const [time, setTime] = useState('')
   const [city, setCity] = useState('')
   const [phone, setPhone] = useState('')
+  const [rule, setRule] = useState<RepeatRule>({ kind: 'none' })
 
   useEffect(() => {
     function openEvt(e: Event) {
@@ -60,7 +64,7 @@ export default function QuickAdd() {
   useEffect(() => {
     if (!open) return
     setError(null)
-    setTitle(''); setName(''); setClientId(''); setLink(''); setDate(''); setTime(''); setCity(''); setPhone('')
+    setTitle(''); setName(''); setClientId(''); setLink(''); setDate(''); setTime(''); setCity(''); setPhone(''); setRule({ kind: 'none' })
     supabase.from('clients').select('id, name').is('deleted_at', null).order('name').then(({ data }) => setClients((data ?? []) as Opt[]))
     supabase.from('leads').select('id, name').is('deleted_at', null).order('name').then(({ data }) => setLeads((data ?? []) as Opt[]))
   }, [open])
@@ -69,10 +73,23 @@ export default function QuickAdd() {
     setBusy(true)
     setError(null)
     try {
+      if (rule.kind !== 'none' && !date && (type === 'task' || type === 'video')) {
+        setError('Für die Wiederholung bitte ein Startdatum wählen.'); setBusy(false); return
+      }
       if (type === 'task') {
         if (!title.trim()) { setError('Bitte einen Titel angeben.'); setBusy(false); return }
         const client_id = link.startsWith('client:') ? link.slice(7) : null
         const lead_id = link.startsWith('lead:') ? link.slice(5) : null
+        if (rule.kind !== 'none' && date) {
+          const series_id = crypto.randomUUID()
+          const dates = occurrences(date, rule)
+          const { error } = await insertRows('tasks', dates.map((d) => ({ title: title.trim(), due_date: d, client_id, lead_id, series_id, created_by: user?.id ?? null })))
+          if (error) throw error
+          toast(`${dates.length} Aufgaben angelegt ✓`)
+          navigate('/aufgaben')
+          setOpen(false)
+          return
+        }
         const { error } = await supabase.from('tasks').insert({ title: title.trim(), due_date: date || null, client_id, lead_id, created_by: user?.id ?? null })
         if (error) throw error
         toast('Aufgabe angelegt ✓')
@@ -86,6 +103,16 @@ export default function QuickAdd() {
       } else {
         if (!clientId) { setError('Bitte einen Kunden wählen.'); setBusy(false); return }
         if (!title.trim()) { setError('Bitte einen Titel angeben.'); setBusy(false); return }
+        if (rule.kind !== 'none' && date) {
+          const series_id = crypto.randomUUID()
+          const dates = occurrences(date, rule)
+          const { error } = await insertRows('videos', dates.map((d) => ({ client_id: clientId, title: title.trim(), status: 'todo', scheduled_date: d, scheduled_time: time || null, series_id, created_by: user?.id ?? null })))
+          if (error) throw error
+          toast(`${dates.length} Videos angelegt ✓`)
+          navigate(`/client/${clientId}`)
+          setOpen(false)
+          return
+        }
         const { error } = await supabase.from('videos').insert({ client_id: clientId, title: title.trim(), status: 'todo', scheduled_date: date || null, scheduled_time: time || null, created_by: user?.id ?? null })
         if (error) throw error
         toast('Video angelegt ✓')
@@ -164,6 +191,10 @@ export default function QuickAdd() {
             </div>
           )}
         </div>
+
+        {(type === 'video' || type === 'task') && (
+          <RepeatPicker value={rule} onChange={setRule} anchor={date} />
+        )}
 
         {type === 'lead' && (
           <div>
