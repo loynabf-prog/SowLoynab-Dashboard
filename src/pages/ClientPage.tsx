@@ -27,6 +27,7 @@ import { occurrences, recommendedIntervalDays, type RepeatRule } from '../lib/re
 import { insertRows, updateRow } from '../lib/db'
 import { useCategories } from '../context/CategoryContext'
 import LineChart, { type Series } from '../components/LineChart'
+import SwipeRow from '../components/SwipeRow'
 import { useToast } from '../context/ToastContext'
 
 type ClientTab = 'board' | 'pool' | 'analyse'
@@ -472,7 +473,7 @@ export default function ClientPage() {
       )}
 
       {tab === 'analyse' && (
-        <AnalyseSection videos={postedVideos} onEdit={(v) => setEditing(v)} />
+        <AnalyseSection videos={postedVideos} onEdit={(v) => setEditing(v)} onDelete={deleteVideo} />
       )}
 
       {editing && (
@@ -1500,7 +1501,7 @@ function SeriesModal({
 }
 
 // ============================ Analyse (gepostete Videos) ============================
-function AnalyseSection({ videos, onEdit }: { videos: Video[]; onEdit: (v: Video) => void }) {
+function AnalyseSection({ videos, onEdit, onDelete }: { videos: Video[]; onEdit: (v: Video) => void; onDelete: (id: string) => void }) {
   const num = (n: number) => n.toLocaleString('de-DE')
   const posts = videos.length
   if (posts === 0) {
@@ -1531,18 +1532,29 @@ function AnalyseSection({ videos, onEdit }: { videos: Video[]; onEdit: (v: Video
       )}
       <div className="analyse-list">
         {videos.map((v) => (
-          <button className="analyse-row" key={v.id} onClick={() => onEdit(v)} title="Zahlen bearbeiten">
-            <div className="analyse-main">
-              <div className="analyse-title">{v.title}</div>
-              <div className="analyse-date">{v.posted_at ? new Date(v.posted_at).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</div>
+          <SwipeRow key={v.id} onDelete={() => onDelete(v.id)}>
+            <div className="analyse-row-wrap">
+              <button className="analyse-row" onClick={() => onEdit(v)} title="Zahlen bearbeiten">
+                <div className="analyse-main">
+                  <div className="analyse-title">{v.title}</div>
+                  <div className="analyse-date">{v.posted_at ? new Date(v.posted_at).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</div>
+                </div>
+                <div className="analyse-stats">
+                  <span title="Reichweite">▶ {num(v.reach ?? v.views ?? 0)}</span>
+                  <span title="Likes">❤ {num(v.likes ?? 0)}</span>
+                  <span title="Kommentare">💬 {num(v.comments ?? 0)}</span>
+                  <span title="Shares">↗ {num(v.shares ?? 0)}</span>
+                </div>
+              </button>
+              <button
+                className="btn btn-sm btn-danger analyse-del hide-mobile"
+                onClick={() => onDelete(v.id)}
+                title="Video löschen — fliegt aus allen Statistiken"
+              >
+                ✕
+              </button>
             </div>
-            <div className="analyse-stats">
-              <span title="Reichweite">▶ {num(v.reach ?? v.views ?? 0)}</span>
-              <span title="Likes">❤ {num(v.likes ?? 0)}</span>
-              <span title="Kommentare">💬 {num(v.comments ?? 0)}</span>
-              <span title="Shares">↗ {num(v.shares ?? 0)}</span>
-            </div>
-          </button>
+          </SwipeRow>
         ))}
       </div>
     </div>
