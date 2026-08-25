@@ -104,6 +104,10 @@ export default function QuickAdd() {
   useEffect(() => {
     if (!open) return
     setError(null)
+    // busy/lookupBusy mit zuruecksetzen: das Fenster wird nur aus- und wieder
+    // eingeblendet, der Zustand ueberlebt sonst und der Knopf bliebe auf
+    // "Speichere …" haengen.
+    setBusy(false); setLookupBusy(false)
     setTitle(''); setName(''); setClientId(''); setLink(''); setDate(''); setTime(''); setCity(''); setPhone(''); setRule({ kind: 'none' })
     setTtUrl(''); setIgUrl(''); setLookup(null); setBfTitle(''); setBfClientId(''); setBfDate('')
     supabase.from('clients').select('id, name, handle_ig, handle_tiktok').is('deleted_at', null).order('name').then(({ data }) => setClients((data ?? []) as Opt[]))
@@ -216,6 +220,10 @@ export default function QuickAdd() {
       setOpen(false)
     } catch (e) {
       setError((e as Error).message)
+    } finally {
+      // Muss auf JEDEM Weg zurueck — auch bei Erfolg und bei den fruehen
+      // return-Zweigen. Sonst bleibt der Knopf beim naechsten Oeffnen
+      // dauerhaft auf "Speichere …".
       setBusy(false)
     }
   }
