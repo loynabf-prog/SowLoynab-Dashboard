@@ -21,6 +21,7 @@ interface PlatformResult {
   username: string | null
   postedAt: string | null
   duration: number | null
+  debug?: string[]
 }
 interface LookupResult { tiktok: PlatformResult | null; instagram: PlatformResult | null; errors?: string[] }
 
@@ -142,13 +143,22 @@ export default function QuickAdd() {
       if (data?.error) throw new Error(data.error)
       const res = data as LookupResult
       setLookup(res)
-      // Teil-Fehlschlag sichtbar machen: Link angegeben, aber nichts bekommen
+      // Teil-Fehlschlag sichtbar machen — auch wenn die Plattform zwar
+      // geantwortet hat, aber keine Aufrufzahl dabei war.
       const fehlt: string[] = []
-      if (ttUrl.trim() && !res.tiktok) fehlt.push('TikTok')
-      if (igUrl.trim() && !res.instagram) fehlt.push('Instagram')
+      const details: string[] = []
+      if (ttUrl.trim() && (!res.tiktok || res.tiktok.views == null)) {
+        fehlt.push('TikTok')
+        if (res.tiktok?.debug?.length) details.push(`TikTok lieferte: ${res.tiktok.debug.join(', ')}`)
+      }
+      if (igUrl.trim() && (!res.instagram || res.instagram.views == null)) {
+        fehlt.push('Instagram')
+        if (res.instagram?.debug?.length) details.push(`Instagram lieferte: ${res.instagram.debug.join(', ')}`)
+      }
+      const grund = [...(res.errors ?? []), ...details].join(' · ')
       setLookupWarn(
         fehlt.length
-          ? `Von ${fehlt.join(' und ')} kamen keine Zahlen. ${(res.errors ?? []).join(' · ') || 'Kein Grund gemeldet.'}`
+          ? `Von ${fehlt.join(' und ')} kam keine Aufrufzahl. ${grund || 'Kein Grund gemeldet.'}`
           : null,
       )
       const handle = res.instagram?.username || res.tiktok?.username || null
