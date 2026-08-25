@@ -54,6 +54,22 @@ async function readFnError(err: any): Promise<string> {
   return err?.message ?? 'Unbekannter Fehler'
 }
 
+// Scraper-Meldungen in Klartext uebersetzen — "POST_NOT_FOUND_OR_PRIVATE"
+// hilft niemandem weiter.
+function klartext(msg: string): string {
+  const m = msg.toLowerCase()
+  if (m.includes('not found or private') || m.includes('post_not_found')) {
+    return 'TikTok gibt dieses Video öffentlich nicht heraus — es ist gelöscht, auf privat gestellt, altersbeschränkt oder regional gesperrt. Zum Prüfen: den Link in einem privaten Browserfenster (ausgeloggt) öffnen. Lädt er dort nicht, sieht der Abruf dasselbe.'
+  }
+  if (m.includes('usage') || m.includes('limit') || m.includes('credit') || m.includes('quota')) {
+    return 'Das Apify-Guthaben ist aufgebraucht. Unter Apify → Billing → Usage nachsehen.'
+  }
+  if (m.includes('401') || m.includes('unauthor') || m.includes('token')) {
+    return 'Apify weist den Zugang ab — bitte den APIFY_TOKEN in den Supabase-Secrets prüfen.'
+  }
+  return msg
+}
+
 function normHandle(s: string | null | undefined): string {
   return (s ?? '').toLowerCase().replace(/^@/, '').trim()
 }
@@ -92,6 +108,7 @@ export default function QuickAdd() {
   const [igUrl, setIgUrl] = useState('')
   const [lookup, setLookup] = useState<LookupResult | null>(null)
   const [lookupWarn, setLookupWarn] = useState<string | null>(null)
+  const [lookupFailed, setLookupFailed] = useState(false)
   const [lookupBusy, setLookupBusy] = useState(false)
   const [bfTitle, setBfTitle] = useState('')
   const [bfClientId, setBfClientId] = useState('')
@@ -126,7 +143,7 @@ export default function QuickAdd() {
     // "Speichere …" haengen.
     setBusy(false); setLookupBusy(false)
     setTitle(''); setName(''); setClientId(''); setLink(''); setDate(''); setTime(''); setCity(''); setPhone(''); setRule({ kind: 'none' })
-    setTtUrl(''); setIgUrl(''); setLookup(null); setLookupWarn(null); setBfTitle(''); setBfClientId(''); setBfDate('')
+    setTtUrl(''); setIgUrl(''); setLookup(null); setLookupWarn(null); setLookupFailed(false); setBfTitle(''); setBfClientId(''); setBfDate('')
     supabase.from('clients').select('id, name, handle_ig, handle_tiktok').is('deleted_at', null).order('name').then(({ data }) => setClients((data ?? []) as Opt[]))
     supabase.from('leads').select('id, name').is('deleted_at', null).order('name').then(({ data }) => setLeads((data ?? []) as Opt[]))
   }, [open])
@@ -135,6 +152,7 @@ export default function QuickAdd() {
     if (!igUrl.trim() && !ttUrl.trim()) { setError('Bitte mindestens einen Link einfügen.'); return }
     setLookupBusy(true)
     setError(null)
+    setLookupFailed(false)
     try {
       const { data, error } = await supabase.functions.invoke('apify-lookup', {
         body: { instagram_url: igUrl.trim() || null, tiktok_url: ttUrl.trim() || null },
@@ -168,10 +186,23 @@ export default function QuickAdd() {
       const postedAt = res.instagram?.postedAt || res.tiktok?.postedAt || null
       setBfDate(postedAt ? new Date(postedAt).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10))
     } catch (e) {
-      setError((e as Error).message)
+      setError(klartext((e as Error).message))
+      setLookupFailed(true)
     } finally {
       setLookupBusy(false)
     }
+  }
+
+  // Abruf fehlgeschlagen (z. B. Video nicht oeffentlich): trotzdem anlegen
+  // koennen. Links werden gespeichert, der Nachtjob versucht es spaeter neu.
+  function skipLookup() {
+    setError(null)
+    setLookup({ tiktok: null, instagram: null })
+    setLookupWarn('Ohne Zahlen angelegt — die Links sind gespeichert, die Zahlen kannst du beim Video von Hand eintragen.')
+    setLookupFailed(false)
+    setBfTitle('')
+    setBfClientId('')
+    setBfDate(new Date().toISOString().slice(0, 10))
   }
 
   async function save() {
@@ -207,6 +238,7 @@ export default function QuickAdd() {
         navigate('/leads')
       } else if (type === 'backfill') {
         if (!lookup) { setError('Bitte zuerst die Daten abrufen.'); setBusy(false); return }
+        // lookup kann bewusst leer sein (siehe skipLookup) — dann ohne Zahlen anlegen
         if (!bfClientId) { setError('Bitte einen Kunden auswählen.'); setBusy(false); return }
         if (!bfTitle.trim()) { setError('Bitte einen Titel angeben.'); setBusy(false); return }
         const tt = lookup.tiktok
@@ -301,6 +333,16 @@ export default function QuickAdd() {
                   <label>🎵 TikTok-Link</label>
                   <input type="url" value={ttUrl} onChange={(e) => setTtUrl(e.target.value)} placeholder="https://www.tiktok.com/@…/video/…" onKeyDown={(e) => e.key === 'Enter' && runLookup()} />
                 </div>
+                {lookupFailed && (
+                  <div className="info-box" style={{ fontSize: 13 }}>
+                    Du kannst das Video trotzdem anlegen — die Links werden gespeichert und die
+                    nächtliche Aktualisierung versucht es später erneut. Die Zahlen kannst du beim
+                    Video jederzeit von Hand eintragen.
+                    <button type="button" className="btn" style={{ width: '100%', marginTop: 10 }} onClick={skipLookup}>
+                      Trotzdem anlegen — ohne Zahlen
+                    </button>
+                  </div>
+                )}
                 <div className="modal-actions">
                   <button type="button" className="btn btn-ghost" onClick={() => setOpen(false)}>Abbrechen</button>
                   <button type="button" className="btn btn-primary" onClick={runLookup} disabled={lookupBusy}>
