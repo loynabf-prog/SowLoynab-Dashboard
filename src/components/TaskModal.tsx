@@ -32,6 +32,7 @@ export default function TaskModal({
   const { categories } = useCategories()
   const [title, setTitle] = useState(task?.title ?? '')
   const [due, setDue] = useState(task?.due_date ?? defaults?.due_date ?? '')
+  const [dueTime, setDueTime] = useState(task?.due_time ? task.due_time.slice(0, 5) : '')
   const [notes, setNotes] = useState(task?.notes ?? '')
   const [category, setCategory] = useState<string | null>(task?.category ?? null)
   const [priority, setPriority] = useState<number>(task?.priority ?? 0)
@@ -55,6 +56,7 @@ export default function TaskModal({
       lead_id,
       category: category || null,
       priority,
+      due_time: dueTime || null,
       ...(assignees.length ? { assignee_ids: assignees } : {}),
     }
 
@@ -106,6 +108,12 @@ export default function TaskModal({
             <label>Fällig am</label>
             <input type="date" value={due} onChange={(e) => setDue(e.target.value)} />
           </div>
+          <div style={{ flex: 1 }}>
+            <label>Uhrzeit <span className="muted">(macht daraus einen Termin)</span></label>
+            <input type="time" value={dueTime} onChange={(e) => setDueTime(e.target.value)} />
+          </div>
+        </div>
+        <div className="row" style={{ gap: 12 }}>
           <div style={{ flex: 1 }}>
             <label>Verknüpfen mit</label>
             <select value={link} onChange={(e) => setLink(e.target.value)}>
