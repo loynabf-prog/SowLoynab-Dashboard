@@ -2287,6 +2287,19 @@ html { scroll-behavior: smooth; }
 .today-strip strong { color: var(--text); font-weight: 700; font-variant-numeric: tabular-nums; font-size: 15px; }
 .today-strip .hot strong, .today-strip .hot { color: var(--danger); }
 
+/* Feierabend-Blick auf morgen (Startseite, Knopf oben rechts) */
+.peek-btn {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.peek-btn.on {
+  background: var(--brand);
+  border-color: transparent;
+  color: #fff;
+}
+.peek-btn.on:hover { background: var(--brand); filter: brightness(1.05); border-color: transparent; }
+
 /* "Alle zeigen" am Ende einer Board-Spalte */
 .col-more {
   width: 100%;

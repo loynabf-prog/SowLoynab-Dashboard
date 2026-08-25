@@ -42,6 +42,11 @@ const hhmm = (t: string) => t.slice(0, 5)
 function iso(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
+function tomorrowIso(): string {
+  const d = new Date()
+  d.setDate(d.getDate() + 1)
+  return iso(d)
+}
 
 export default function Overview() {
   const navigate = useNavigate()
@@ -55,24 +60,27 @@ export default function Overview() {
   const [clientOpts, setClientOpts] = useState<Option[]>([])
   const [leadOpts, setLeadOpts] = useState<Option[]>([])
   const [editing, setEditing] = useState<TaskRow | null>(null)
+  // Feierabend-Blick: zwischen heute und morgen umschalten
+  const [day, setDay] = useState<'today' | 'tomorrow'>('today')
 
   // Nur die fälligen Aufgaben nachladen (nach Speichern/Löschen)
   const reloadTasks = useCallback(async () => {
-    const today = iso(new Date())
     const { data } = await supabase
       .from('tasks')
       .select('*, clients(name), leads(name)')
       .eq('done', false)
       .is('deleted_at', null)
       .not('due_date', 'is', null)
-      .lte('due_date', today)
+      .lte('due_date', tomorrowIso())
       .order('due_date', { ascending: true })
     setTasks((data ?? []) as unknown as TaskRow[])
   }, [])
 
   useEffect(() => {
     async function load() {
-      const today = iso(new Date())
+      // Heute UND morgen in einem Rutsch holen, damit das Umschalten
+      // ohne Nachladen sofort reagiert.
+      const bis = tomorrowIso()
 
       const [tasksRes, postsRes] = await Promise.all([
         supabase
@@ -81,15 +89,15 @@ export default function Overview() {
           .eq('done', false)
           .is('deleted_at', null)
           .not('due_date', 'is', null)
-          .lte('due_date', today)
+          .lte('due_date', bis)
           .order('due_date', { ascending: true }),
-        // Nur die Uploads von heute — kein Vorausblick auf der Startseite
+        // Uploads von heute und morgen — mehr Vorausblick gibt es hier nicht
         supabase
           .from('videos')
           .select('*, clients(name)')
           .neq('status', 'posted')
           .is('deleted_at', null)
-          .eq('scheduled_date', today)
+          .in('scheduled_date', [iso(new Date()), bis])
           .order('scheduled_time', { ascending: true, nullsFirst: false }),
       ])
 
@@ -128,14 +136,23 @@ export default function Overview() {
   // Mit dem echten Namen der aktiven Identität grüßen (Fassie / Lion), nicht dem Mail-Namen
   const meName = ((memberId ? byId(memberId)?.name : '') ?? '').trim().split(' ')[0]
   const todayIso = iso(new Date())
-  const dringend = tasks.filter((t) => (t.priority ?? 0) === 3).length
-  // Liegengebliebenes bleibt sichtbar — es ist heute zu erledigen, nicht morgen
-  const overdue = tasks.filter((t) => (t.due_date ?? '') < todayIso)
+  const morgen = day === 'tomorrow'
+  const tagIso = morgen ? tomorrowIso() : todayIso
 
-  // Tagesplan: alles mit fester Uhrzeit heute, chronologisch
+  // Heute: alles bis einschliesslich heute (Liegengebliebenes bleibt sichtbar).
+  // Morgen: ausschliesslich der morgige Tag — Vorschau, keine Altlasten.
+  const tagTasks = morgen
+    ? tasks.filter((t) => t.due_date === tagIso)
+    : tasks.filter((t) => (t.due_date ?? '') <= todayIso)
+  const tagPosts = posts.filter((p) => p.scheduled_date === tagIso)
+
+  const dringend = tagTasks.filter((t) => (t.priority ?? 0) === 3).length
+  const overdue = morgen ? [] : tagTasks.filter((t) => (t.due_date ?? '') < todayIso)
+
+  // Tagesplan: alles mit fester Uhrzeit am gewaehlten Tag, chronologisch
   const plan: PlanEntry[] = [
-    ...tasks
-      .filter((t) => t.due_date === todayIso && t.due_time)
+    ...tagTasks
+      .filter((t) => t.due_time)
       .map((t) => ({
         key: `t-${t.id}`,
         time: hhmm(t.due_time as string),
@@ -144,7 +161,7 @@ export default function Overview() {
         kind: 'task' as const,
         onOpen: () => setEditing(t),
       })),
-    ...posts
+    ...tagPosts
       .filter((p) => p.scheduled_time)
       .map((p) => ({
         key: `p-${p.id}`,
@@ -160,14 +177,28 @@ export default function Overview() {
     <>
       <div className="page-head">
         <div>
-          <h1>{greeting()}{meName ? `, ${meName}` : ''} 👋</h1>
-          <span className="sub">{loading ? 'Lade …' : 'Dein Cockpit — heute im Fokus'}</span>
+          <h1>{morgen ? 'Blick auf morgen 🌙' : `${greeting()}${meName ? `, ${meName}` : ''} 👋`}</h1>
+          <span className="sub">
+            {loading
+              ? 'Lade …'
+              : morgen
+                ? `Was ${new Date(tagIso + 'T00:00:00').toLocaleDateString('de-DE', { weekday: 'long' })} ansteht — in Ruhe vorbereiten`
+                : 'Dein Cockpit — heute im Fokus'}
+          </span>
         </div>
+        <div className="spacer" />
+        <button
+          className={`btn btn-sm peek-btn ${morgen ? 'on' : ''}`}
+          onClick={() => setDay(morgen ? 'today' : 'tomorrow')}
+          title={morgen ? 'Zurück zu heute' : 'Blick auf morgen'}
+        >
+          {morgen ? '← Heute' : 'Morgen →'}
+        </button>
       </div>
 
       <div className="today-strip">
-        <span><strong>{tasks.length}</strong> {tasks.length === 1 ? 'Aufgabe' : 'Aufgaben'} offen</span>
-        <span><strong>{posts.length}</strong> {posts.length === 1 ? 'Upload' : 'Uploads'} heute</span>
+        <span><strong>{tagTasks.length}</strong> {tagTasks.length === 1 ? 'Aufgabe' : 'Aufgaben'} {morgen ? 'morgen' : 'offen'}</span>
+        <span><strong>{tagPosts.length}</strong> {tagPosts.length === 1 ? 'Upload' : 'Uploads'} {morgen ? 'morgen' : 'heute'}</span>
         {plan.length > 0 && <span><strong>{plan.length}</strong> {plan.length === 1 ? 'Termin' : 'Termine'}</span>}
         {dringend > 0 && <span className="hot"><strong>{dringend}</strong> dringend</span>}
         {overdue.length > 0 && <span className="hot"><strong>{overdue.length}</strong> überfällig</span>}
@@ -176,7 +207,7 @@ export default function Overview() {
       {/* Tagesplan — nur wenn heute wirklich etwas zu einer Uhrzeit ansteht */}
       {plan.length > 0 && (
         <div className="section-block">
-          <h2 className="section-title">Heute nach Uhrzeit</h2>
+          <h2 className="section-title">{morgen ? 'Morgen nach Uhrzeit' : 'Heute nach Uhrzeit'}</h2>
           <div className="dayplan">
             {plan.map((e) => (
               <button className="dayplan-row" key={e.key} onClick={e.onOpen}>
@@ -195,12 +226,12 @@ export default function Overview() {
 
       <div className="overview-cols">
         <div className="section-block">
-          <h2 className="section-title">Aufgaben heute</h2>
-          {tasks.length === 0 ? (
-            <div className="col-empty">Nichts fällig. 🎉</div>
+          <h2 className="section-title">{morgen ? 'Aufgaben morgen' : 'Aufgaben heute'}</h2>
+          {tagTasks.length === 0 ? (
+            <div className="col-empty">{morgen ? 'Morgen ist nichts fällig. 🌙' : 'Nichts fällig. 🎉'}</div>
           ) : (
             <div className="task-list">
-              {tasks.map((t) => (
+              {tagTasks.map((t) => (
                 <SwipeRow key={t.id} onDelete={() => removeTask(t.id)}>
                   <TaskItem t={t} onToggle={() => completeTask(t.id)} onEdit={() => setEditing(t)} onDelete={() => removeTask(t.id)} />
                 </SwipeRow>
@@ -210,12 +241,12 @@ export default function Overview() {
         </div>
 
         <div className="section-block">
-          <h2 className="section-title">Video-Uploads heute</h2>
-          {posts.length === 0 ? (
-            <div className="col-empty">Heute kein Upload geplant.</div>
+          <h2 className="section-title">{morgen ? 'Video-Uploads morgen' : 'Video-Uploads heute'}</h2>
+          {tagPosts.length === 0 ? (
+            <div className="col-empty">{morgen ? 'Morgen kein Upload geplant.' : 'Heute kein Upload geplant.'}</div>
           ) : (
             <div className="task-list">
-              {posts.map((p) => (
+              {tagPosts.map((p) => (
                 <div key={p.id} className="task-item">
                   <span className="activity-icon" style={{ cursor: 'pointer' }} onClick={() => navigate(`/client/${p.client_id}`)}>🎬</span>
                   <div className="task-body" style={{ cursor: 'pointer' }} onClick={() => navigate(`/client/${p.client_id}`)}>
@@ -223,7 +254,7 @@ export default function Overview() {
                     <div className="task-meta">
                       {p.scheduled_time
                         ? <span className="task-time">⏰ {hhmm(p.scheduled_time)} Uhr</span>
-                        : <span className="task-due">📅 heute</span>}
+                        : <span className="task-due">📅 {morgen ? 'morgen' : 'heute'}</span>}
                       {p.clients?.name && <span className="chip">{p.clients.name}</span>}
                     </div>
                   </div>
