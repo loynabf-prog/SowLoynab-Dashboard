@@ -22,7 +22,7 @@ interface PlatformResult {
   postedAt: string | null
   duration: number | null
 }
-interface LookupResult { tiktok: PlatformResult | null; instagram: PlatformResult | null }
+interface LookupResult { tiktok: PlatformResult | null; instagram: PlatformResult | null; errors?: string[] }
 
 const TABS: { key: QType; label: string; icon: string }[] = [
   { key: 'task', label: 'Aufgabe', icon: '✓' },
@@ -90,6 +90,7 @@ export default function QuickAdd() {
   const [ttUrl, setTtUrl] = useState('')
   const [igUrl, setIgUrl] = useState('')
   const [lookup, setLookup] = useState<LookupResult | null>(null)
+  const [lookupWarn, setLookupWarn] = useState<string | null>(null)
   const [lookupBusy, setLookupBusy] = useState(false)
   const [bfTitle, setBfTitle] = useState('')
   const [bfClientId, setBfClientId] = useState('')
@@ -124,7 +125,7 @@ export default function QuickAdd() {
     // "Speichere …" haengen.
     setBusy(false); setLookupBusy(false)
     setTitle(''); setName(''); setClientId(''); setLink(''); setDate(''); setTime(''); setCity(''); setPhone(''); setRule({ kind: 'none' })
-    setTtUrl(''); setIgUrl(''); setLookup(null); setBfTitle(''); setBfClientId(''); setBfDate('')
+    setTtUrl(''); setIgUrl(''); setLookup(null); setLookupWarn(null); setBfTitle(''); setBfClientId(''); setBfDate('')
     supabase.from('clients').select('id, name, handle_ig, handle_tiktok').is('deleted_at', null).order('name').then(({ data }) => setClients((data ?? []) as Opt[]))
     supabase.from('leads').select('id, name').is('deleted_at', null).order('name').then(({ data }) => setLeads((data ?? []) as Opt[]))
   }, [open])
@@ -141,6 +142,15 @@ export default function QuickAdd() {
       if (data?.error) throw new Error(data.error)
       const res = data as LookupResult
       setLookup(res)
+      // Teil-Fehlschlag sichtbar machen: Link angegeben, aber nichts bekommen
+      const fehlt: string[] = []
+      if (ttUrl.trim() && !res.tiktok) fehlt.push('TikTok')
+      if (igUrl.trim() && !res.instagram) fehlt.push('Instagram')
+      setLookupWarn(
+        fehlt.length
+          ? `Von ${fehlt.join(' und ')} kamen keine Zahlen. ${(res.errors ?? []).join(' · ') || 'Kein Grund gemeldet.'}`
+          : null,
+      )
       const handle = res.instagram?.username || res.tiktok?.username || null
       setBfClientId(matchClientByHandle(handle, clients))
       const caption = res.instagram?.caption || res.tiktok?.caption || ''
@@ -290,6 +300,7 @@ export default function QuickAdd() {
               </>
             ) : (
               <>
+                {lookupWarn && <div className="warn-box">⚠ {lookupWarn}</div>}
                 <div className="vc-stats">
                   {lookup.instagram && <span title="Instagram">📸 {fmtN(lookup.instagram.views)}</span>}
                   {lookup.tiktok && <span title="TikTok">🎵 {fmtN(lookup.tiktok.views)}</span>}

@@ -123,7 +123,9 @@ interface PlatformResult {
 async function tiktokLookup(urlStr: string, actor: string, token: string): Promise<PlatformResult | null> {
   const items = await apifyRun(actor, { postURLs: [urlStr], resultsPerPage: 1, shouldDownloadVideos: false, shouldDownloadCovers: false }, token)
   const it = items[0]
-  if (!it) return null
+  // Leeres Ergebnis nicht stillschweigend schlucken — sonst steht in der App
+  // nur "–" und niemand weiss, woran es lag.
+  if (!it) throw new Error(`kein Ergebnis von Actor "${actor}" für ${urlStr}`)
   return {
     views: pickNum(it, ['playCount', 'views', 'videoViewCount', 'playcount']),
     likes: pickNum(it, ['diggCount', 'likes', 'likeCount']),
@@ -140,7 +142,7 @@ async function tiktokLookup(urlStr: string, actor: string, token: string): Promi
 async function instagramLookup(urlStr: string, actor: string, token: string): Promise<PlatformResult | null> {
   const items = await apifyRun(actor, { directUrls: [urlStr], resultsType: 'posts', resultsLimit: 1 }, token)
   const it = items[0]
-  if (!it) return null
+  if (!it) throw new Error(`kein Ergebnis von Actor "${actor}" für ${urlStr}`)
   return {
     views: pickNum(it, ['videoViewCount', 'videoPlayCount', 'views', 'playCount']),
     likes: pickNum(it, ['likesCount', 'likes']),
