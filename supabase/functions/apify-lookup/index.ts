@@ -59,6 +59,8 @@ function shape(obj: any, depth = 1): string[] {
       out.push(...shape(v, depth - 1).map((s) => `${k}.${s}`))
     } else if (typeof v === 'number') {
       out.push(`${k}=${v}`)
+    } else if (typeof v === 'string' && v.length <= 80) {
+      out.push(`${k}="${v}"`)
     } else {
       out.push(k)
     }
@@ -135,12 +137,23 @@ interface PlatformResult {
   debug?: string[]
 }
 
+// Apify liefert bei Problemen statt eines Videos einen Fehler-Datensatz
+// ({ error, errorCode, url }). Den als solchen erkennen und den echten
+// Text weiterreichen, statt ihn als "keine Zahlen" zu behandeln.
+function throwIfApifyError(it: any, plattform: string): void {
+  const msg = it?.errorDescription ?? it?.errorMessage ?? it?.error
+  if (msg == null) return
+  const code = it?.errorCode ? ` [${it.errorCode}]` : ''
+  throw new Error(`${plattform}: ${String(typeof msg === 'string' ? msg : JSON.stringify(msg)).slice(0, 200)}${code}`)
+}
+
 async function tiktokLookup(urlStr: string, actor: string, token: string): Promise<PlatformResult | null> {
   const items = await apifyRun(actor, { postURLs: [urlStr], resultsPerPage: 1, shouldDownloadVideos: false, shouldDownloadCovers: false }, token)
   const it = items[0]
   // Leeres Ergebnis nicht stillschweigend schlucken — sonst steht in der App
   // nur "–" und niemand weiss, woran es lag.
   if (!it) throw new Error(`kein Ergebnis von Actor "${actor}" für ${urlStr}`)
+  throwIfApifyError(it, 'TikTok')
   // Je nach Actor-Version stehen die Zahlen oben oder verschachtelt unter
   // "stats"/"statistics" — deshalb beide Ebenen abklopfen.
   const views = pickNum(it, [
@@ -167,6 +180,7 @@ async function instagramLookup(urlStr: string, actor: string, token: string): Pr
   const items = await apifyRun(actor, { directUrls: [urlStr], resultsType: 'posts', resultsLimit: 1 }, token)
   const it = items[0]
   if (!it) throw new Error(`kein Ergebnis von Actor "${actor}" für ${urlStr}`)
+  throwIfApifyError(it, 'Instagram')
   const views = pickNum(it, [
     'videoPlayCount', 'videoViewCount', 'playCount', 'views',
     'igPlayCount', 'video_play_count', 'video_view_count',
