@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { Fragment, useCallback, useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -822,6 +822,14 @@ function NewIdeaModal({
   )
 }
 
+// Summe zweier Eingabefelder als Text — leer bleibt leer
+function sumPair(a: string, b: string): string {
+  const x = a.trim() === '' ? null : Number(a.replace(/[^\d]/g, ''))
+  const y = b.trim() === '' ? null : Number(b.replace(/[^\d]/g, ''))
+  if (x == null && y == null) return ''
+  return String((x ?? 0) + (y ?? 0))
+}
+
 function EditVideoModal({
   video,
   onClose,
@@ -842,6 +850,16 @@ function EditVideoModal({
   const [likes, setLikes] = useState(video.likes != null ? String(video.likes) : '')
   const [comments, setComments] = useState(video.comments != null ? String(video.comments) : '')
   const [reach, setReach] = useState(video.reach != null ? String(video.reach) : '')
+  // Getrennt pro Plattform — damit sichtbar ist, welche Zahlen woher stammen
+  const st = (v: number | null | undefined) => (v != null ? String(v) : '')
+  const [igStats, setIgStats] = useState({
+    views: st(video.views_ig), likes: st(video.likes_ig),
+    comments: st(video.comments_ig), shares: st(video.shares_ig),
+  })
+  const [ttStats, setTtStats] = useState({
+    views: st(video.views_tiktok), likes: st(video.likes_tiktok),
+    comments: st(video.comments_tiktok), shares: st(video.shares_tiktok),
+  })
   const [ttUrl, setTtUrl] = useState(video.tiktok_url ?? '')
   const [igUrl, setIgUrl] = useState(video.instagram_url ?? '')
   const [category, setCategory] = useState<string | null>(video.category ?? null)
@@ -865,6 +883,10 @@ function EditVideoModal({
             likes: num(likes),
             comments: num(comments),
             reach: num(reach),
+            views_ig: num(igStats.views), likes_ig: num(igStats.likes),
+            comments_ig: num(igStats.comments), shares_ig: num(igStats.shares),
+            views_tiktok: num(ttStats.views), likes_tiktok: num(ttStats.likes),
+            comments_tiktok: num(ttStats.comments), shares_tiktok: num(ttStats.shares),
             tiktok_url: ttUrl.trim() || null,
             instagram_url: igUrl.trim() || null,
             category: category || null,
@@ -943,24 +965,53 @@ function EditVideoModal({
           <input type="url" value={igUrl} onChange={(e) => setIgUrl(e.target.value)} placeholder="https://www.instagram.com/reel/…" />
         </div>
 
-        <div className="section-divider">📈 Zahlen (automatisch oder von Hand)</div>
-        <div className="row" style={{ gap: 10, flexWrap: 'wrap' }}>
-          <div style={{ flex: 1, minWidth: 110 }}>
-            <label>Aufrufe</label>
-            <input value={views} onChange={(e) => setViews(e.target.value)} inputMode="numeric" placeholder="0" />
-          </div>
-          <div style={{ flex: 1, minWidth: 110 }}>
-            <label>Reichweite</label>
-            <input value={reach} onChange={(e) => setReach(e.target.value)} inputMode="numeric" placeholder="0" />
-          </div>
-          <div style={{ flex: 1, minWidth: 90 }}>
-            <label>Likes</label>
-            <input value={likes} onChange={(e) => setLikes(e.target.value)} inputMode="numeric" placeholder="0" />
-          </div>
-          <div style={{ flex: 1, minWidth: 90 }}>
-            <label>Kommentare</label>
-            <input value={comments} onChange={(e) => setComments(e.target.value)} inputMode="numeric" placeholder="0" />
-          </div>
+        <div className="section-divider">📈 Zahlen — getrennt nach Plattform</div>
+        <div className="info-box" style={{ fontSize: 13 }}>
+          Hier siehst du genau, welche Zahlen von welcher Plattform stammen. Änderst du Instagram
+          oder TikTok, wird die Gesamtspalte automatisch neu gerechnet — du kannst sie aber auch
+          direkt überschreiben.
+        </div>
+        <div className="stats-grid">
+          <div className="stats-head" />
+          <div className="stats-head">📸 Instagram</div>
+          <div className="stats-head">🎵 TikTok</div>
+          <div className="stats-head">Σ Gesamt</div>
+          {([
+            ['views', 'Aufrufe', views, setViews],
+            ['likes', 'Likes', likes, setLikes],
+            ['comments', 'Kommentare', comments, setComments],
+          ] as const).map(([key, label, total, setTotal]) => (
+            <Fragment key={key}>
+              <div className="stats-label">{label}</div>
+              <input
+                inputMode="numeric" placeholder="–" value={igStats[key]}
+                onChange={(e) => {
+                  const next = { ...igStats, [key]: e.target.value }
+                  setIgStats(next)
+                  setTotal(sumPair(next[key], ttStats[key]))
+                }}
+              />
+              <input
+                inputMode="numeric" placeholder="–" value={ttStats[key]}
+                onChange={(e) => {
+                  const next = { ...ttStats, [key]: e.target.value }
+                  setTtStats(next)
+                  setTotal(sumPair(igStats[key], next[key]))
+                }}
+              />
+              <input inputMode="numeric" placeholder="0" value={total} onChange={(e) => setTotal(e.target.value)} />
+            </Fragment>
+          ))}
+          <div className="stats-label">Shares</div>
+          <input inputMode="numeric" placeholder="–" value={igStats.shares}
+            onChange={(e) => setIgStats({ ...igStats, shares: e.target.value })} />
+          <input inputMode="numeric" placeholder="–" value={ttStats.shares}
+            onChange={(e) => setTtStats({ ...ttStats, shares: e.target.value })} />
+          <div className="stats-sum">{sumPair(igStats.shares, ttStats.shares) || '–'}</div>
+          <div className="stats-label">Reichweite</div>
+          <div className="stats-na">—</div>
+          <div className="stats-na">—</div>
+          <input inputMode="numeric" placeholder="0" value={reach} onChange={(e) => setReach(e.target.value)} />
         </div>
 
         {video.series_id && (
