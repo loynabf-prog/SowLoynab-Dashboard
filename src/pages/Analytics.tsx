@@ -36,15 +36,23 @@ export default function Analytics() {
       .from('videos')
       // "*" statt fester Spaltenliste -- damit die Abfrage nicht hart fehlschlägt,
       // solange Migration 0020 (views_ig/views_tiktok) noch nicht eingespielt ist
-      .select('*, clients(name, logo_url)')
+      .select('*, clients(name, logo_url, deleted_at)')
       .eq('status', 'posted')
       .is('deleted_at', null)
-      .then(({ data }) => { setRows((data ?? []) as unknown as PostRow[]); setLoading(false) })
+      .then(({ data }) => {
+        // Videos geloeschter Kunden ebenfalls raus (ihr eigenes deleted_at ist leer)
+        const rows = (data ?? []).filter((r: any) => !r.clients?.deleted_at)
+        setRows(rows as unknown as PostRow[])
+        setLoading(false)
+      })
     supabase
       .from('client_stats')
-      .select('client_id, captured_on, followers_ig, followers_tiktok')
+      .select('client_id, captured_on, followers_ig, followers_tiktok, clients(deleted_at)')
       .order('captured_on', { ascending: true })
-      .then(({ data }) => setStatRows((data ?? []) as StatRow[]))
+      .then(({ data }) => {
+        const rows = (data ?? []).filter((r: any) => !r.clients?.deleted_at)
+        setStatRows(rows as StatRow[])
+      })
   }, [])
 
   // Neuester Follower-Stand je Kunde (statRows ist aufsteigend sortiert -> letzter Eintrag gewinnt)
