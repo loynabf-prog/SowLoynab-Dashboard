@@ -436,6 +436,18 @@
   padding: 10px 12px;
   font-size: 13px;
 }
+/* Warnung: hat teilweise geklappt — kein Fehler, aber Aufmerksamkeit noetig */
+.warn-box {
+  background: rgba(180, 120, 0, 0.10);
+  border: 1px solid rgba(180, 120, 0, 0.35);
+  color: #8a5a00;
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.45;
+  word-break: break-word;
+}
+:root[data-theme="dark"] .warn-box { color: #e0a760; background: rgba(224, 167, 96, 0.10); }
 .empty-state {
   text-align: center;
   padding: 60px 20px;
