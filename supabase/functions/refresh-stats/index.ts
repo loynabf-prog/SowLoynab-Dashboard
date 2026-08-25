@@ -29,11 +29,14 @@ const CORS = {
 }
 
 // Erste vorhandene Zahl aus mehreren möglichen Feldnamen ziehen
+// Alle Zielspalten in der Datenbank sind Ganzzahlen. Apify liefert aber
+// teils Kommazahlen (z. B. Videolaenge 34.7356 s) — ungerundet scheitert
+// das Speichern mit "invalid input syntax for type integer".
 function pick(obj: any, keys: string[]): number | null {
   for (const k of keys) {
     const v = obj?.[k]
-    if (typeof v === 'number' && !isNaN(v)) return v
-    if (typeof v === 'string' && v.trim() !== '' && !isNaN(Number(v))) return Number(v)
+    if (typeof v === 'number' && !isNaN(v)) return Math.round(v)
+    if (typeof v === 'string' && v.trim() !== '' && !isNaN(Number(v))) return Math.round(Number(v))
   }
   return null
 }
