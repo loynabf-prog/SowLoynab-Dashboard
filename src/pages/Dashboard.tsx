@@ -8,9 +8,9 @@ import Modal from '../components/Modal'
 import LogoFrame from '../components/LogoFrame'
 import LogoCropper from '../components/LogoCropper'
 
-interface ClientWithCount extends Client {
-  video_count: number
-}
+// Die Video-Zahlen kommen nicht mehr aus der Kunden-Abfrage, sondern aus
+// loadCounts() — sonst zaehlt Postgres auch die geloeschten Videos mit.
+type ClientWithCount = Client
 
 // Tage bis Vertragsende (negativ = abgelaufen); null = kein Vertrag hinterlegt
 function contractDaysLeft(end: string | null | undefined): number | null {
@@ -35,6 +35,7 @@ export default function Dashboard() {
   const [clients, setClients] = useState<ClientWithCount[]>([])
   const [upcoming, setUpcoming] = useState<UpcomingItem[]>([])
   const [postedMonth, setPostedMonth] = useState<Record<string, number>>({})
+  const [videoCount, setVideoCount] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showAdd, setShowAdd] = useState(false)
@@ -43,7 +44,8 @@ export default function Dashboard() {
     setError(null)
     const { data, error } = await supabase
       .from('clients')
-      .select('*, videos(count)')
+      .select('*')
+      .is('deleted_at', null)
       .order('name', { ascending: true })
 
     if (error) {
@@ -51,11 +53,7 @@ export default function Dashboard() {
       setLoading(false)
       return
     }
-    const mapped: ClientWithCount[] = (data ?? []).map((c: any) => ({
-      ...c,
-      video_count: c.videos?.[0]?.count ?? 0,
-    }))
-    setClients(mapped)
+    setClients((data ?? []) as ClientWithCount[])
     setLoading(false)
   }
 
@@ -80,30 +78,38 @@ export default function Dashboard() {
     setUpcoming(mapped)
   }
 
-  async function loadPostedMonth() {
+  // Beide Kachel-Zahlen aus EINER Abfrage — und ausschliesslich ueber Videos,
+  // die nicht im Papierkorb liegen. Vorher kam die Gesamtzahl aus einer
+  // eingebetteten Zaehlung (clients -> videos(count)); die zaehlt geloeschte
+  // Videos mit, deshalb ging die Zahl beim Loeschen nie runter.
+  async function loadCounts() {
     const now = new Date()
     const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
     const { data } = await supabase
       .from('videos')
-      .select('client_id')
+      .select('client_id, posted_at')
       .is('deleted_at', null)
-      .gte('posted_at', monthStart)
-    const map: Record<string, number> = {}
-    for (const v of (data ?? []) as any[]) map[v.client_id] = (map[v.client_id] ?? 0) + 1
-    setPostedMonth(map)
+    const total: Record<string, number> = {}
+    const month: Record<string, number> = {}
+    for (const v of (data ?? []) as any[]) {
+      total[v.client_id] = (total[v.client_id] ?? 0) + 1
+      if (v.posted_at && v.posted_at >= monthStart) month[v.client_id] = (month[v.client_id] ?? 0) + 1
+    }
+    setVideoCount(total)
+    setPostedMonth(month)
   }
 
   useEffect(() => {
     load()
     loadUpcoming()
-    loadPostedMonth()
+    loadCounts()
     const channel = supabase
       .channel('dashboard-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'clients' }, () => load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'videos' }, () => {
         load()
         loadUpcoming()
-        loadPostedMonth()
+        loadCounts()
       })
       .subscribe()
     return () => {
@@ -146,7 +152,7 @@ export default function Dashboard() {
               <div className="tile-meta">
                 {c.monthly_quota
                   ? <span className={`quota-chip ${(postedMonth[c.id] ?? 0) >= c.monthly_quota ? 'done' : ''}`}>🎬 {postedMonth[c.id] ?? 0}/{c.monthly_quota} · Monat</span>
-                  : <>{c.video_count} {c.video_count === 1 ? 'Video' : 'Videos'}</>}
+                  : <>{videoCount[c.id] ?? 0} {(videoCount[c.id] ?? 0) === 1 ? 'Video' : 'Videos'}</>}
                 {(() => {
                   const dl = contractDaysLeft(c.contract_end)
                   if (dl === null || dl > 30) return null
