@@ -66,6 +66,33 @@ function pickDateISO(obj: any, keys: string[]): string | null {
   return null
 }
 
+// Teil-Links aufloesen: Beim Teilen liefert TikTok "vm.tiktok.com/XXXX" und
+// Instagram "instagram.com/share/XXXX". Die Apify-Scraper brauchen aber die
+// vollstaendige Adresse (.../@name/video/123...). Wir folgen der Weiterleitung
+// einmal und schneiden die Tracking-Parameter ab.
+function isShortLink(u: string): boolean {
+  return /(?:vm|vt)\.tiktok\.com/i.test(u)
+    || /instagram\.com\/share\//i.test(u)
+    || (/tiktok\.com/i.test(u) && !/\/video\/\d/i.test(u))
+}
+
+async function resolveUrl(raw: string): Promise<string> {
+  const u = raw.trim()
+  if (!isShortLink(u)) return stripQuery(u)
+  try {
+    const resp = await fetch(u, { redirect: 'follow', headers: { 'user-agent': 'Mozilla/5.0' } })
+    try { await resp.body?.cancel() } catch { /* egal */ }
+    return stripQuery(resp.url || u)
+  } catch {
+    return stripQuery(u)
+  }
+}
+
+function stripQuery(u: string): string {
+  const i = u.indexOf('?')
+  return i === -1 ? u : u.slice(0, i)
+}
+
 async function apifyRun(actor: string, input: unknown, token: string): Promise<any[]> {
   const url = `https://api.apify.com/v2/acts/${actor}/run-sync-get-dataset-items?token=${token}&timeout=90`
   const resp = await fetch(url, {
@@ -139,15 +166,30 @@ Deno.serve(async (req) => {
     let instagram: PlatformResult | null = null
     const errors: string[] = []
 
-    if (tiktok_url) {
-      try { tiktok = await tiktokLookup(tiktok_url, ttActor, token) } catch (e) { errors.push(`TikTok: ${(e as Error).message}`) }
-    }
-    if (instagram_url) {
-      try { instagram = await instagramLookup(instagram_url, igActor, token) } catch (e) { errors.push(`Instagram: ${(e as Error).message}`) }
-    }
-    if (!tiktok && !instagram) return json({ error: errors.join(' · ') || 'Kein Ergebnis gefunden. Link prüfen.' }, 502)
+    // Kurz-/Teil-Links zuerst in die vollstaendige Adresse aufloesen
+    const ttUrl = tiktok_url ? await resolveUrl(tiktok_url) : null
+    const igUrl = instagram_url ? await resolveUrl(instagram_url) : null
 
-    return json({ tiktok, instagram, errors })
+    if (ttUrl) {
+      try { tiktok = await tiktokLookup(ttUrl, ttActor, token) } catch (e) { errors.push(`TikTok: ${(e as Error).message}`) }
+    }
+    if (igUrl) {
+      try { instagram = await instagramLookup(igUrl, igActor, token) } catch (e) { errors.push(`Instagram: ${(e as Error).message}`) }
+    }
+
+    // Bewusst Status 200 auch bei "nichts gefunden": sonst verschluckt der
+    // Supabase-Client die Meldung und zeigt nur "non-2xx status code" an.
+    if (!tiktok && !instagram) {
+      const detail = errors.join(' · ')
+      return json({
+        error: detail
+          ? `Kein Ergebnis. ${detail}`
+          : 'Kein Ergebnis für diesen Link. Bitte den vollständigen Link aus der App verwenden (bei TikTok: „Teilen → Link kopieren", nicht der Kurzlink aus dem Browser).',
+        resolved: { tiktok: ttUrl, instagram: igUrl },
+      })
+    }
+
+    return json({ tiktok, instagram, errors, resolved: { tiktok: ttUrl, instagram: igUrl } })
   } catch (err) {
     return json({ error: `Fehler: ${(err as Error).message}` }, 500)
   }
