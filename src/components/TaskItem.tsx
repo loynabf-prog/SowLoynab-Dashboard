@@ -26,6 +26,7 @@ export default function TaskItem({
   const prio = prioById(t.priority)
   const barColor = prio?.color ?? cat?.color
   const due = t.due_date ? dateRelative(t.due_date) : null
+  const time = t.due_time ? t.due_time.slice(0, 5) : null
   const linked = t.clients?.name || t.leads?.name
   return (
     <div className="task-item" style={barColor ? { borderLeft: `3px solid ${barColor}` } : undefined}>
@@ -41,6 +42,7 @@ export default function TaskItem({
               {due.text}
             </span>
           )}
+          {time && <span className="task-time">⏰ {time} Uhr</span>}
           {prio && <span className="cat-tag" style={{ background: prio.color }}>{prio.label}</span>}
           {cat && <span className="cat-tag" style={{ background: cat.color }}>{cat.name}</span>}
           {linked && <span className="chip">{t.clients?.name ? '👤 ' : '🎯 '}{linked}</span>}

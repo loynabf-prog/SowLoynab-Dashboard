@@ -79,6 +79,7 @@ export interface Task {
   title: string
   done: boolean
   due_date: string | null
+  due_time: string | null
   assigned_to: string | null
   assignee_ids: string[]
   client_id: string | null

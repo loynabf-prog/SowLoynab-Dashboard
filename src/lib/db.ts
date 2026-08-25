@@ -5,6 +5,7 @@ import { supabase } from './supabase'
 // damit ein nicht eingespieltes Skript nie die Kernfunktion blockiert.
 const OPTIONAL_COLS = [
   'category', 'series_id', 'priority', 'contract_end', 'recipient', 'service_period', 'vat_rate', 'items',
+  'due_time',
   'views_ig', 'likes_ig', 'comments_ig', 'shares_ig', 'saves_ig',
   'views_tiktok', 'likes_tiktok', 'comments_tiktok', 'shares_tiktok', 'saves_tiktok',
 ]

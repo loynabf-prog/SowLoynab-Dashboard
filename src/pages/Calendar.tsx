@@ -124,7 +124,7 @@ export default function Calendar() {
       ev.push({ id: v.id, date: v.scheduled_date, time: v.scheduled_time ?? null, kind: 'post', title: v.title, sub: v.clients?.name, to: `/client/${v.client_id}`, logo: v.clients?.logo_url ?? null, color: byId(v.category)?.color })
     }
     for (const t of (tasks.data ?? []) as any[]) {
-      ev.push({ id: t.id, date: t.due_date, time: null, kind: 'task', title: t.title, sub: t.clients?.name || t.leads?.name, to: `/aufgaben?open=${t.id}`, color: byId(t.category)?.color })
+      ev.push({ id: t.id, date: t.due_date, time: t.due_time ?? null, kind: 'task', title: t.title, sub: t.clients?.name || t.leads?.name, to: `/aufgaben?open=${t.id}`, color: byId(t.category)?.color })
     }
     for (const l of (leads.data ?? []) as any[]) {
       ev.push({ date: l.next_followup, time: null, kind: 'followup', title: l.name, sub: 'Follow-up', to: '/leads' })

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { dateRelative } from '../lib/format'
 import { celebrate } from '../lib/confetti'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
@@ -18,8 +17,27 @@ function greeting(): string {
   return 'Guten Abend'
 }
 
-interface PostLite { id: string; title: string; scheduled_date: string; client_id: string; clients?: { name: string } | null }
+interface PostLite {
+  id: string
+  title: string
+  scheduled_date: string
+  scheduled_time: string | null
+  client_id: string
+  clients?: { name: string } | null
+}
 interface Option { id: string; name: string }
+
+// Ein Eintrag im Tagesplan — Aufgabe mit Uhrzeit oder Video mit Post-Zeit.
+interface PlanEntry {
+  key: string
+  time: string
+  title: string
+  sub: string | null
+  kind: 'task' | 'post'
+  onOpen: () => void
+}
+
+const hhmm = (t: string) => t.slice(0, 5)
 
 function iso(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -54,9 +72,7 @@ export default function Overview() {
 
   useEffect(() => {
     async function load() {
-      const today = new Date()
-      const in7 = new Date()
-      in7.setDate(in7.getDate() + 7)
+      const today = iso(new Date())
 
       const [tasksRes, postsRes] = await Promise.all([
         supabase
@@ -65,17 +81,16 @@ export default function Overview() {
           .eq('done', false)
           .is('deleted_at', null)
           .not('due_date', 'is', null)
-          .lte('due_date', iso(today))
+          .lte('due_date', today)
           .order('due_date', { ascending: true }),
+        // Nur die Uploads von heute — kein Vorausblick auf der Startseite
         supabase
           .from('videos')
-          .select('id, title, scheduled_date, client_id, status, clients(name)')
+          .select('*, clients(name)')
           .neq('status', 'posted')
           .is('deleted_at', null)
-          .not('scheduled_date', 'is', null)
-          .gte('scheduled_date', iso(today))
-          .lte('scheduled_date', iso(in7))
-          .order('scheduled_date', { ascending: true }),
+          .eq('scheduled_date', today)
+          .order('scheduled_time', { ascending: true, nullsFirst: false }),
       ])
 
       setTasks((tasksRes.data ?? []) as unknown as TaskRow[])
@@ -113,8 +128,33 @@ export default function Overview() {
   // Mit dem echten Namen der aktiven Identität grüßen (Fassie / Lion), nicht dem Mail-Namen
   const meName = ((memberId ? byId(memberId)?.name : '') ?? '').trim().split(' ')[0]
   const todayIso = iso(new Date())
-  const postsToday = posts.filter((p) => p.scheduled_date === todayIso).length
   const dringend = tasks.filter((t) => (t.priority ?? 0) === 3).length
+  // Liegengebliebenes bleibt sichtbar — es ist heute zu erledigen, nicht morgen
+  const overdue = tasks.filter((t) => (t.due_date ?? '') < todayIso)
+
+  // Tagesplan: alles mit fester Uhrzeit heute, chronologisch
+  const plan: PlanEntry[] = [
+    ...tasks
+      .filter((t) => t.due_date === todayIso && t.due_time)
+      .map((t) => ({
+        key: `t-${t.id}`,
+        time: hhmm(t.due_time as string),
+        title: t.title,
+        sub: t.clients?.name ?? t.leads?.name ?? null,
+        kind: 'task' as const,
+        onOpen: () => setEditing(t),
+      })),
+    ...posts
+      .filter((p) => p.scheduled_time)
+      .map((p) => ({
+        key: `p-${p.id}`,
+        time: hhmm(p.scheduled_time as string),
+        title: p.title,
+        sub: p.clients?.name ?? null,
+        kind: 'post' as const,
+        onOpen: () => navigate(`/client/${p.client_id}`),
+      })),
+  ].sort((a, b) => a.time.localeCompare(b.time))
 
   return (
     <>
@@ -127,13 +167,35 @@ export default function Overview() {
 
       <div className="today-strip">
         <span><strong>{tasks.length}</strong> {tasks.length === 1 ? 'Aufgabe' : 'Aufgaben'} offen</span>
-        <span><strong>{postsToday}</strong> {postsToday === 1 ? 'Post' : 'Posts'} heute</span>
+        <span><strong>{posts.length}</strong> {posts.length === 1 ? 'Upload' : 'Uploads'} heute</span>
+        {plan.length > 0 && <span><strong>{plan.length}</strong> {plan.length === 1 ? 'Termin' : 'Termine'}</span>}
         {dringend > 0 && <span className="hot"><strong>{dringend}</strong> dringend</span>}
+        {overdue.length > 0 && <span className="hot"><strong>{overdue.length}</strong> überfällig</span>}
       </div>
+
+      {/* Tagesplan — nur wenn heute wirklich etwas zu einer Uhrzeit ansteht */}
+      {plan.length > 0 && (
+        <div className="section-block">
+          <h2 className="section-title">Heute nach Uhrzeit</h2>
+          <div className="dayplan">
+            {plan.map((e) => (
+              <button className="dayplan-row" key={e.key} onClick={e.onOpen}>
+                <span className="dayplan-time">{e.time}</span>
+                <span className={`dayplan-dot ${e.kind}`} />
+                <span className="dayplan-main">
+                  <span className="dayplan-title">{e.title}</span>
+                  {e.sub && <span className="dayplan-sub">{e.sub}</span>}
+                </span>
+                <span className="dayplan-kind">{e.kind === 'post' ? '🎬' : '✓'}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="overview-cols">
         <div className="section-block">
-          <h2 className="section-title">Heute &amp; überfällig</h2>
+          <h2 className="section-title">Aufgaben heute</h2>
           {tasks.length === 0 ? (
             <div className="col-empty">Nichts fällig. 🎉</div>
           ) : (
@@ -148,27 +210,26 @@ export default function Overview() {
         </div>
 
         <div className="section-block">
-          <h2 className="section-title">Anstehende Posts (7 Tage)</h2>
+          <h2 className="section-title">Video-Uploads heute</h2>
           {posts.length === 0 ? (
-            <div className="col-empty">Keine geplanten Posts.</div>
+            <div className="col-empty">Heute kein Upload geplant.</div>
           ) : (
             <div className="task-list">
-              {posts.map((p) => {
-                const when = dateRelative(p.scheduled_date)
-                return (
-                  <div key={p.id} className="task-item">
-                    <span className="activity-icon" style={{ cursor: 'pointer' }} onClick={() => navigate(`/client/${p.client_id}`)}>🎬</span>
-                    <div className="task-body" style={{ cursor: 'pointer' }} onClick={() => navigate(`/client/${p.client_id}`)}>
-                      <div className="task-title">{p.title}</div>
-                      <div className="task-meta">
-                        <span className={`task-due ${when.soon ? 'soon' : ''}`}>📅 {when.text}</span>
-                        {p.clients?.name && <span className="chip">{p.clients.name}</span>}
-                      </div>
+              {posts.map((p) => (
+                <div key={p.id} className="task-item">
+                  <span className="activity-icon" style={{ cursor: 'pointer' }} onClick={() => navigate(`/client/${p.client_id}`)}>🎬</span>
+                  <div className="task-body" style={{ cursor: 'pointer' }} onClick={() => navigate(`/client/${p.client_id}`)}>
+                    <div className="task-title">{p.title}</div>
+                    <div className="task-meta">
+                      {p.scheduled_time
+                        ? <span className="task-time">⏰ {hhmm(p.scheduled_time)} Uhr</span>
+                        : <span className="task-due">📅 heute</span>}
+                      {p.clients?.name && <span className="chip">{p.clients.name}</span>}
                     </div>
-                    <button className="btn btn-sm" onClick={() => markPosted(p)} title="Als gepostet markieren">✓ Gepostet</button>
                   </div>
-                )
-              })}
+                  <button className="btn btn-sm" onClick={() => markPosted(p)} title="Als gepostet markieren">✓ Gepostet</button>
+                </div>
+              ))}
             </div>
           )}
         </div>
