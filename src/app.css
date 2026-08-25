@@ -2287,6 +2287,31 @@ html { scroll-behavior: smooth; }
 .today-strip strong { color: var(--text); font-weight: 700; font-variant-numeric: tabular-nums; font-size: 15px; }
 .today-strip .hot strong, .today-strip .hot { color: var(--danger); }
 
+/* Zahlen getrennt nach Plattform (Video bearbeiten) */
+.stats-grid {
+  display: grid;
+  grid-template-columns: minmax(72px, 1fr) 1fr 1fr 1fr;
+  gap: 7px;
+  align-items: center;
+}
+.stats-grid input { text-align: center; }
+.stats-head {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.03em;
+  color: var(--text-dim); text-align: center; padding-bottom: 2px;
+}
+.stats-label { font-size: 13px; font-weight: 600; color: var(--text-muted); }
+.stats-sum {
+  text-align: center; font-size: 14px; font-weight: 700;
+  font-variant-numeric: tabular-nums; color: var(--text);
+}
+.stats-na { text-align: center; color: var(--text-dim); }
+@media (max-width: 560px) {
+  .stats-grid { grid-template-columns: 92px 1fr 1fr 1fr; gap: 5px; }
+  .stats-grid input { padding: 8px 4px; font-size: 13px; }
+  .stats-head { font-size: 10px; }
+  .stats-label { font-size: 12px; line-height: 1.25; }
+}
+
 /* Uhrzeit-Marke in Aufgaben- und Upload-Zeilen */
 .task-time { color: var(--brand); font-weight: 600; font-variant-numeric: tabular-nums; }
 
