@@ -24,12 +24,16 @@ const CORS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-// Alle Zielspalten in der Datenbank sind Ganzzahlen. Apify liefert aber
-// teils Kommazahlen (z. B. Videolaenge 34.7356 s) — ungerundet scheitert
-// das Speichern mit "invalid input syntax for type integer".
+// Wert ueber einen Pfad holen: "playCount" oder verschachtelt "stats.playCount"
+function at(obj: any, path: string): any {
+  return path.split('.').reduce((o: any, k: string) => (o == null ? undefined : o[k]), obj)
+}
+
+// Alle Zielspalten in der Datenbank sind Ganzzahlen, Apify liefert aber teils
+// Kommazahlen (z. B. Videolaenge 34.7356 s) — daher runden.
 function pickNum(obj: any, keys: string[]): number | null {
   for (const k of keys) {
-    const v = obj?.[k]
+    const v = at(obj, k)
     if (typeof v === 'number' && !isNaN(v)) return Math.round(v)
     if (typeof v === 'string' && v.trim() !== '' && !isNaN(Number(v))) return Math.round(Number(v))
   }
@@ -38,18 +42,28 @@ function pickNum(obj: any, keys: string[]): number | null {
 
 function pickStr(obj: any, keys: string[]): string | null {
   for (const k of keys) {
-    const v = obj?.[k]
+    const v = at(obj, k)
     if (typeof v === 'string' && v.trim() !== '') return v.trim()
   }
   return null
 }
 
-function pickNested(obj: any, paths: string[]): string | null {
-  for (const p of paths) {
-    const v = p.split('.').reduce((o: any, k: string) => (o == null ? undefined : o[k]), obj)
-    if (typeof v === 'string' && v.trim() !== '') return v.trim()
+// Diagnose: welche Felder hat der Actor ueberhaupt geliefert? Wird nur
+// mitgeschickt, wenn keine Aufrufzahl gefunden wurde — dann sieht man in
+// der App sofort, unter welchem Namen die Zahl wirklich steckt.
+function shape(obj: any, depth = 1): string[] {
+  if (!obj || typeof obj !== 'object') return []
+  const out: string[] = []
+  for (const [k, v] of Object.entries(obj)) {
+    if (v && typeof v === 'object' && !Array.isArray(v) && depth > 0) {
+      out.push(...shape(v, depth - 1).map((s) => `${k}.${s}`))
+    } else if (typeof v === 'number') {
+      out.push(`${k}=${v}`)
+    } else {
+      out.push(k)
+    }
   }
-  return null
+  return out
 }
 
 // Erkennt sowohl ISO-Datumsstrings als auch Unix-Zeitstempel (Sekunden/Millisekunden)
@@ -118,6 +132,7 @@ interface PlatformResult {
   username: string | null
   postedAt: string | null
   duration: number | null
+  debug?: string[]
 }
 
 async function tiktokLookup(urlStr: string, actor: string, token: string): Promise<PlatformResult | null> {
@@ -126,16 +141,25 @@ async function tiktokLookup(urlStr: string, actor: string, token: string): Promi
   // Leeres Ergebnis nicht stillschweigend schlucken — sonst steht in der App
   // nur "–" und niemand weiss, woran es lag.
   if (!it) throw new Error(`kein Ergebnis von Actor "${actor}" für ${urlStr}`)
+  // Je nach Actor-Version stehen die Zahlen oben oder verschachtelt unter
+  // "stats"/"statistics" — deshalb beide Ebenen abklopfen.
+  const views = pickNum(it, [
+    'playCount', 'stats.playCount', 'statistics.playCount', 'statsV2.playCount',
+    'viewCount', 'stats.viewCount', 'videoViewCount', 'views', 'stats.views',
+    'playcount', 'play_count', 'stats.play_count',
+  ])
   return {
-    views: pickNum(it, ['playCount', 'views', 'videoViewCount', 'playcount']),
-    likes: pickNum(it, ['diggCount', 'likes', 'likeCount']),
-    comments: pickNum(it, ['commentCount', 'comments']),
-    shares: pickNum(it, ['shareCount', 'shares']),
-    saves: pickNum(it, ['collectCount', 'saves']),
-    caption: pickStr(it, ['text', 'desc', 'title']),
-    username: pickStr(it, ['authorUniqueId', 'authorName']) ?? pickNested(it, ['authorMeta.name', 'author.uniqueId']),
-    postedAt: pickDateISO(it, ['createTimeISO', 'createTime', 'createdAt']),
-    duration: pickNum(it?.videoMeta ?? {}, ['duration']) ?? pickNum(it, ['duration']),
+    views,
+    likes: pickNum(it, ['diggCount', 'stats.diggCount', 'statistics.diggCount', 'statsV2.diggCount', 'likeCount', 'stats.likeCount', 'likes', 'stats.likes']),
+    comments: pickNum(it, ['commentCount', 'stats.commentCount', 'statistics.commentCount', 'statsV2.commentCount', 'comments', 'stats.comments']),
+    shares: pickNum(it, ['shareCount', 'stats.shareCount', 'statistics.shareCount', 'statsV2.shareCount', 'shares', 'stats.shares']),
+    saves: pickNum(it, ['collectCount', 'stats.collectCount', 'statistics.collectCount', 'statsV2.collectCount', 'saves', 'stats.saves']),
+    caption: pickStr(it, ['text', 'desc', 'title', 'description']),
+    username: pickStr(it, ['authorUniqueId', 'authorName', 'authorMeta.name', 'authorMeta.nickName', 'author.uniqueId', 'author.nickname']),
+    postedAt: pickDateISO(it, ['createTimeISO', 'createTime', 'createdAt', 'uploadedAt']),
+    duration: pickNum(it, ['videoMeta.duration', 'duration', 'video.duration']),
+    // Nur wenn keine Aufrufzahl gefunden wurde: Feldliste zur Diagnose
+    debug: views == null ? shape(it).slice(0, 40) : undefined,
   }
 }
 
@@ -143,16 +167,21 @@ async function instagramLookup(urlStr: string, actor: string, token: string): Pr
   const items = await apifyRun(actor, { directUrls: [urlStr], resultsType: 'posts', resultsLimit: 1 }, token)
   const it = items[0]
   if (!it) throw new Error(`kein Ergebnis von Actor "${actor}" für ${urlStr}`)
+  const views = pickNum(it, [
+    'videoPlayCount', 'videoViewCount', 'playCount', 'views',
+    'igPlayCount', 'video_play_count', 'video_view_count',
+  ])
   return {
-    views: pickNum(it, ['videoViewCount', 'videoPlayCount', 'views', 'playCount']),
-    likes: pickNum(it, ['likesCount', 'likes']),
-    comments: pickNum(it, ['commentsCount', 'comments']),
-    shares: pickNum(it, ['sharesCount', 'shares', 'reshareCount']),
-    saves: pickNum(it, ['savesCount', 'saves']),
-    caption: pickStr(it, ['caption', 'text']),
-    username: pickStr(it, ['ownerUsername', 'username']),
-    postedAt: pickDateISO(it, ['timestamp', 'takenAt', 'takenAtTimestamp']),
-    duration: pickNum(it, ['videoDuration', 'duration']),
+    views,
+    likes: pickNum(it, ['likesCount', 'likes', 'like_count', 'edge_liked_by.count']),
+    comments: pickNum(it, ['commentsCount', 'comments', 'comment_count']),
+    shares: pickNum(it, ['sharesCount', 'shares', 'reshareCount', 'reshare_count']),
+    saves: pickNum(it, ['savesCount', 'saves', 'save_count']),
+    caption: pickStr(it, ['caption', 'text', 'description']),
+    username: pickStr(it, ['ownerUsername', 'username', 'owner.username']),
+    postedAt: pickDateISO(it, ['timestamp', 'takenAt', 'takenAtTimestamp', 'taken_at']),
+    duration: pickNum(it, ['videoDuration', 'duration', 'video_duration']),
+    debug: views == null ? shape(it).slice(0, 40) : undefined,
   }
 }
 
