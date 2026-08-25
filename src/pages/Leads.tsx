@@ -328,6 +328,20 @@ interface Place {
 
 const MAPS_CATEGORIES = ['Restaurant', 'Café', 'Imbiss', 'Eisdiele', 'Bar']
 
+// Der Supabase-Client zeigt bei Fehlerstatus nur "non-2xx status code" —
+// die eigentliche Meldung steckt im Antwort-Körper.
+async function readFnError(err: any): Promise<string> {
+  try {
+    const body = await err?.context?.json?.()
+    if (body?.error) return String(body.error)
+  } catch { /* kein JSON-Körper */ }
+  try {
+    const txt = await err?.context?.text?.()
+    if (txt) return String(txt).slice(0, 300)
+  } catch { /* nichts lesbar */ }
+  return err?.message ?? 'Unbekannter Fehler'
+}
+
 function GoogleMapsSearchModal({
   userId,
   onClose,
@@ -371,7 +385,7 @@ function GoogleMapsSearchModal({
     try {
       const query = `${category.trim()} in ${city.trim() || 'Münster'}`
       const { data, error } = await supabase.functions.invoke('apify-places-search', { body: { query, maxResults } })
-      if (error) throw error
+      if (error) throw new Error(await readFnError(error))
       if (data?.error) throw new Error(data.error)
       const places = (data?.places ?? []) as Place[]
       setResults(places)
