@@ -42,6 +42,8 @@ export default function ClientPage() {
   const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState<Video | null>(null)
   const [linking, setLinking] = useState<Video | null>(null)
+  // Pro Spalte werden nur die naechsten 3 gezeigt; aufgeklappt alle.
+  const [openCols, setOpenCols] = useState<Record<string, boolean>>({})
   const [captioning, setCaptioning] = useState<Video | null>(null)
   const [editClient, setEditClient] = useState(false)
   const [creating, setCreating] = useState(false)
@@ -407,6 +409,11 @@ export default function ClientPage() {
           const items = boardVideos
             .filter((v) => v.status === status)
             .sort((a, b) => orderVal(a) - orderVal(b))
+          // Nur die naechsten 3 — beim Ziehen immer alle, sonst kann man
+          // nicht auf eine verdeckte Position ablegen.
+          const expanded = !!openCols[status] || !!dragId
+          const shown = expanded ? items : items.slice(0, 3)
+          const rest = items.length - shown.length
           return (
             <div
               className={`board-col ${drop?.lane === status && dragId ? 'drop-active' : ''}`}
@@ -425,7 +432,7 @@ export default function ClientPage() {
                 {items.length === 0 && (
                   <div className="col-empty">{dragId ? 'hierher ziehen' : 'noch nichts'}</div>
                 )}
-                {items.map((v) => (
+                {shown.map((v) => (
                   <div
                     key={v.id}
                     id={`vid-${v.id}`}
@@ -453,6 +460,17 @@ export default function ClientPage() {
                   </div>
                 ))}
                 {laneChanging && drop?.lane === status && drop.beforeId === null && <div className="drop-line" />}
+                {items.length > 3 && !dragId && (
+                  <button
+                    type="button"
+                    className="col-more"
+                    onClick={() => setOpenCols((o) => ({ ...o, [status]: !o[status] }))}
+                  >
+                    {expanded
+                      ? <>▴ Weniger zeigen</>
+                      : <>▾ Alle {items.length} zeigen <span className="col-more-rest">+{rest}</span></>}
+                  </button>
+                )}
               </div>
             </div>
           )
