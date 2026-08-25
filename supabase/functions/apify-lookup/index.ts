@@ -95,13 +95,42 @@ function isShortLink(u: string): boolean {
     || (/tiktok\.com/i.test(u) && !/\/video\/\d/i.test(u))
 }
 
+// Wie ein echtes Handy auftreten — mit "Mozilla/5.0" allein liefert TikTok
+// keine saubere Weiterleitung, sondern eine Zwischenseite.
+const BROWSER_HEADERS = {
+  'user-agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+  'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+  'accept-language': 'de-DE,de;q=0.9,en;q=0.8',
+}
+
+// Falls die Weiterleitung nicht greift: die echte Adresse aus dem Seitentext
+// fischen (TikTok setzt sie als canonical/og:url bzw. direkt im Markup).
+export function canonicalFromHtml(html: string): string | null {
+  const direct = html.match(/https?:\/\/(?:www\.)?tiktok\.com\/@[\w.\-]+\/video\/\d+/i)
+  if (direct) return direct[0]
+  const reel = html.match(/https?:\/\/(?:www\.)?instagram\.com\/(?:reel|p)\/[\w\-]+/i)
+  if (reel) return reel[0]
+  const canon = html.match(/<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)["']/i)
+  if (canon) return canon[1]
+  const og = html.match(/<meta[^>]+property=["']og:url["'][^>]+content=["']([^"']+)["']/i)
+  if (og) return og[1]
+  return null
+}
+
 async function resolveUrl(raw: string): Promise<string> {
   const u = raw.trim()
   if (!isShortLink(u)) return stripQuery(u)
   try {
-    const resp = await fetch(u, { redirect: 'follow', headers: { 'user-agent': 'Mozilla/5.0' } })
-    try { await resp.body?.cancel() } catch { /* egal */ }
-    return stripQuery(resp.url || u)
+    const resp = await fetch(u, { redirect: 'follow', headers: BROWSER_HEADERS })
+    const final = resp.url || u
+    // Weiterleitung hat gegriffen
+    if (!isShortLink(final)) {
+      try { await resp.body?.cancel() } catch { /* egal */ }
+      return stripQuery(final)
+    }
+    // Immer noch kurz -> im Seiteninhalt nachsehen
+    const html = await resp.text()
+    return stripQuery(canonicalFromHtml(html) ?? final)
   } catch {
     return stripQuery(u)
   }
@@ -140,11 +169,14 @@ interface PlatformResult {
 // Apify liefert bei Problemen statt eines Videos einen Fehler-Datensatz
 // ({ error, errorCode, url }). Den als solchen erkennen und den echten
 // Text weiterreichen, statt ihn als "keine Zahlen" zu behandeln.
-function throwIfApifyError(it: any, plattform: string): void {
+function throwIfApifyError(it: any, urlStr: string): void {
   const msg = it?.errorDescription ?? it?.errorMessage ?? it?.error
   if (msg == null) return
   const code = it?.errorCode ? ` [${it.errorCode}]` : ''
-  throw new Error(`${plattform}: ${String(typeof msg === 'string' ? msg : JSON.stringify(msg)).slice(0, 200)}${code}`)
+  const text = String(typeof msg === 'string' ? msg : JSON.stringify(msg)).slice(0, 200)
+  // Die tatsaechlich abgefragte Adresse mitgeben — daran sieht man sofort,
+  // ob der Kurzlink aufgeloest wurde oder nicht.
+  throw new Error(`${text}${code} — abgefragt: ${urlStr}`)
 }
 
 async function tiktokLookup(urlStr: string, actor: string, token: string): Promise<PlatformResult | null> {
@@ -153,7 +185,7 @@ async function tiktokLookup(urlStr: string, actor: string, token: string): Promi
   // Leeres Ergebnis nicht stillschweigend schlucken — sonst steht in der App
   // nur "–" und niemand weiss, woran es lag.
   if (!it) throw new Error(`kein Ergebnis von Actor "${actor}" für ${urlStr}`)
-  throwIfApifyError(it, 'TikTok')
+  throwIfApifyError(it, urlStr)
   // Je nach Actor-Version stehen die Zahlen oben oder verschachtelt unter
   // "stats"/"statistics" — deshalb beide Ebenen abklopfen.
   const views = pickNum(it, [
@@ -180,7 +212,7 @@ async function instagramLookup(urlStr: string, actor: string, token: string): Pr
   const items = await apifyRun(actor, { directUrls: [urlStr], resultsType: 'posts', resultsLimit: 1 }, token)
   const it = items[0]
   if (!it) throw new Error(`kein Ergebnis von Actor "${actor}" für ${urlStr}`)
-  throwIfApifyError(it, 'Instagram')
+  throwIfApifyError(it, urlStr)
   const views = pickNum(it, [
     'videoPlayCount', 'videoViewCount', 'playCount', 'views',
     'igPlayCount', 'video_play_count', 'video_view_count',
