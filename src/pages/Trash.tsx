@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../context/ToastContext'
 
-type Kind = 'videos' | 'video_ideas' | 'leads' | 'tasks'
+type Kind = 'videos' | 'video_ideas' | 'inspirations' | 'leads' | 'tasks'
 interface Item {
   id: string
   label: string
@@ -11,17 +11,18 @@ interface Item {
 const KINDS: { key: Kind; title: string; icon: string; labelField: string }[] = [
   { key: 'videos', title: 'Videos', icon: '🎬', labelField: 'title' },
   { key: 'video_ideas', title: 'Ideen', icon: '💡', labelField: 'title' },
+  { key: 'inspirations', title: 'Inspirationen', icon: '🔖', labelField: 'title' },
   { key: 'leads', title: 'Leads', icon: '🎯', labelField: 'name' },
   { key: 'tasks', title: 'Aufgaben', icon: '✓', labelField: 'title' },
 ]
 
 export default function Trash() {
   const { toast } = useToast()
-  const [data, setData] = useState<Record<Kind, Item[]>>({ videos: [], video_ideas: [], leads: [], tasks: [] })
+  const [data, setData] = useState<Record<Kind, Item[]>>({ videos: [], video_ideas: [], inspirations: [], leads: [], tasks: [] })
   const [loading, setLoading] = useState(true)
 
   async function load() {
-    const out: Record<Kind, Item[]> = { videos: [], video_ideas: [], leads: [], tasks: [] }
+    const out: Record<Kind, Item[]> = { videos: [], video_ideas: [], inspirations: [], leads: [], tasks: [] }
     for (const k of KINDS) {
       const { data: rows } = await supabase
         .from(k.key)
@@ -56,7 +57,7 @@ export default function Trash() {
     toast('Endgültig gelöscht')
   }
 
-  const total = data.videos.length + data.leads.length + data.tasks.length
+  const total = KINDS.reduce((n, k) => n + data[k.key].length, 0)
 
   return (
     <>

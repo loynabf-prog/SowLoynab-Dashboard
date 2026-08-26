@@ -38,6 +38,33 @@ export interface VideoIdea {
   created_at: string
 }
 
+export type InspirationPlatform = 'tiktok' | 'instagram' | 'other'
+
+// Ein fremdes Video, das wir uns als Vorbild gemerkt haben.
+// client_id = null -> allgemeine Inspiration ohne Kunden.
+export interface Inspiration {
+  id: string
+  client_id: string | null
+  url: string
+  platform: InspirationPlatform
+  title: string | null
+  author: string | null
+  thumbnail_url: string | null
+  notes: string | null
+  views: number | null
+  likes: number | null
+  comments: number | null
+  shares: number | null
+  saves: number | null
+  duration_seconds: number | null
+  posted_at: string | null
+  stats_updated_at: string | null
+  deleted_at: string | null
+  created_by: string | null
+  created_at: string
+  clients?: { name: string } | null
+}
+
 export type LeadStage = 'new' | 'contacted' | 'talking' | 'offer' | 'won' | 'lost'
 
 export const LEAD_STAGE_LABELS: Record<LeadStage, string> = {

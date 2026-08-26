@@ -1,35 +1,23 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { occurrences, type RepeatRule } from '../lib/recurrence'
 import { insertRows } from '../lib/db'
+import { detectPlatform, klartext, lookupVideo, readFnError, type LookupResult, type PlatformResult } from '../lib/apify'
 import RepeatPicker from './RepeatPicker'
 import Modal from './Modal'
 
-type QType = 'task' | 'lead' | 'video' | 'backfill'
+type QType = 'task' | 'lead' | 'video' | 'backfill' | 'inspiration'
 interface Opt { id: string; name: string; handle_ig?: string | null; handle_tiktok?: string | null }
-
-interface PlatformResult {
-  views: number | null
-  likes: number | null
-  comments: number | null
-  shares: number | null
-  saves: number | null
-  caption: string | null
-  username: string | null
-  postedAt: string | null
-  duration: number | null
-  debug?: string[]
-}
-interface LookupResult { tiktok: PlatformResult | null; instagram: PlatformResult | null; errors?: string[] }
 
 const TABS: { key: QType; label: string; icon: string }[] = [
   { key: 'task', label: 'Aufgabe', icon: '✓' },
   { key: 'lead', label: 'Lead', icon: '🎯' },
   { key: 'video', label: 'Video', icon: '🎬' },
   { key: 'backfill', label: 'Nachtragen', icon: '🔗' },
+  { key: 'inspiration', label: 'Inspiration', icon: '🔖' },
 ]
 
 function fmtN(n: number | null | undefined): string {
@@ -37,37 +25,6 @@ function fmtN(n: number | null | undefined): string {
   if (n >= 1000000) return (n / 1000000).toFixed(1).replace('.0', '') + 'M'
   if (n >= 1000) return (n / 1000).toFixed(1).replace('.0', '') + 'k'
   return String(n)
-}
-
-// Bei einem Fehlerstatus liefert der Supabase-Client nur "Edge Function
-// returned a non-2xx status code". Die eigentliche Meldung steckt im
-// Antwort-Körper — den holen wir hier heraus, damit der Grund sichtbar wird.
-async function readFnError(err: any): Promise<string> {
-  try {
-    const body = await err?.context?.json?.()
-    if (body?.error) return String(body.error)
-  } catch { /* kein JSON-Körper */ }
-  try {
-    const txt = await err?.context?.text?.()
-    if (txt) return String(txt).slice(0, 300)
-  } catch { /* nichts lesbar */ }
-  return err?.message ?? 'Unbekannter Fehler'
-}
-
-// Scraper-Meldungen in Klartext uebersetzen — "POST_NOT_FOUND_OR_PRIVATE"
-// hilft niemandem weiter.
-function klartext(msg: string): string {
-  const m = msg.toLowerCase()
-  if (m.includes('not found or private') || m.includes('post_not_found')) {
-    return 'TikTok gibt dieses Video öffentlich nicht heraus — es ist gelöscht, auf privat gestellt, altersbeschränkt oder regional gesperrt. Zum Prüfen: den Link in einem privaten Browserfenster (ausgeloggt) öffnen. Lädt er dort nicht, sieht der Abruf dasselbe.'
-  }
-  if (m.includes('usage') || m.includes('limit') || m.includes('credit') || m.includes('quota')) {
-    return 'Das Apify-Guthaben ist aufgebraucht. Unter Apify → Billing → Usage nachsehen.'
-  }
-  if (m.includes('401') || m.includes('unauthor') || m.includes('token')) {
-    return 'Apify weist den Zugang ab — bitte den APIFY_TOKEN in den Supabase-Secrets prüfen.'
-  }
-  return msg
 }
 
 function normHandle(s: string | null | undefined): string {
@@ -114,10 +71,27 @@ export default function QuickAdd() {
   const [bfClientId, setBfClientId] = useState('')
   const [bfDate, setBfDate] = useState('')
 
+  // Inspiration (fremdes Video als Vorbild merken)
+  const [inspUrl, setInspUrl] = useState('')
+  const [inspClientId, setInspClientId] = useState('')
+  const [inspNotes, setInspNotes] = useState('')
+  // Vorbelegter Kunde, wenn das Fenster von einer Kundenseite aus geoeffnet
+  // wird. Als Ref, weil der Zuruecksetz-Effekt beim Oeffnen sonst schneller
+  // waere als das Setzen -- der Kunde waere dann wieder weg.
+  const pendingClient = useRef<string | null>(null)
+
   useEffect(() => {
     function openEvt(e: Event) {
-      const t = (e as CustomEvent).detail?.type as QType | undefined
+      const detail = (e as CustomEvent).detail ?? {}
+      const t = detail.type as QType | undefined
       if (t) setType(t)
+      const c = detail.clientId as string | undefined
+      if (c) {
+        pendingClient.current = c
+        // Falls das Fenster schon offen ist, laeuft der Zuruecksetz-Effekt
+        // nicht -- dann gilt das hier direkt.
+        setClientId(c); setInspClientId(c); setBfClientId(c)
+      }
       setOpen(true)
     }
     window.addEventListener('open-quickadd', openEvt as EventListener)
@@ -136,7 +110,7 @@ export default function QuickAdd() {
   }, [])
 
   useEffect(() => {
-    if (!open) return
+    if (!open) { pendingClient.current = null; return }
     setError(null)
     // busy/lookupBusy mit zuruecksetzen: das Fenster wird nur aus- und wieder
     // eingeblendet, der Zustand ueberlebt sonst und der Knopf bliebe auf
@@ -144,6 +118,10 @@ export default function QuickAdd() {
     setBusy(false); setLookupBusy(false)
     setTitle(''); setName(''); setClientId(''); setLink(''); setDate(''); setTime(''); setCity(''); setPhone(''); setRule({ kind: 'none' })
     setTtUrl(''); setIgUrl(''); setLookup(null); setLookupWarn(null); setLookupFailed(false); setBfTitle(''); setBfClientId(''); setBfDate('')
+    setInspUrl(''); setInspClientId(''); setInspNotes('')
+    // Von der Kundenseite aus geoeffnet: Kunde nach dem Zuruecksetzen wieder rein
+    const vorbelegt = pendingClient.current
+    if (vorbelegt) { setClientId(vorbelegt); setInspClientId(vorbelegt); setBfClientId(vorbelegt) }
     supabase.from('clients').select('id, name, handle_ig, handle_tiktok').is('deleted_at', null).order('name').then(({ data }) => setClients((data ?? []) as Opt[]))
     supabase.from('leads').select('id, name').is('deleted_at', null).order('name').then(({ data }) => setLeads((data ?? []) as Opt[]))
   }, [open])
@@ -236,6 +214,47 @@ export default function QuickAdd() {
         if (error) throw error
         toast('Lead angelegt ✓')
         navigate('/leads')
+      } else if (type === 'inspiration') {
+        const url = inspUrl.trim()
+        if (!url) { setError('Bitte den Link zum Video einfügen.'); setBusy(false); return }
+        const platform = detectPlatform(url)
+        if (platform === 'other') {
+          setError('Das sieht nicht nach einem TikTok- oder Instagram-Link aus. Bitte den Link aus der App kopieren.')
+          setBusy(false); return
+        }
+        // Zahlen holen -- schlaegt das fehl, wird die Inspiration trotzdem
+        // gespeichert. Der Link ist das Wichtige, die Zahlen sind Beiwerk.
+        let hit: PlatformResult | null = null
+        let abrufFehler: string | null = null
+        try {
+          const res: LookupResult = await lookupVideo(
+            platform === 'tiktok' ? { tiktok_url: url } : { instagram_url: url },
+          )
+          hit = platform === 'tiktok' ? res.tiktok : res.instagram
+          if (!hit) abrufFehler = klartext((res.errors ?? []).join(' · ') || 'Kein Ergebnis für diesen Link.')
+        } catch (e) {
+          abrufFehler = (e as Error).message
+        }
+        const int = (n?: number | null) => (n == null || isNaN(n) ? null : Math.round(n))
+        const caption = (hit?.caption ?? '').trim()
+        const { error } = await insertRows('inspirations', [{
+          client_id: inspClientId || null,
+          url,
+          platform,
+          title: caption ? (caption.length > 90 ? caption.slice(0, 90) + '…' : caption) : null,
+          author: hit?.username ?? null,
+          thumbnail_url: hit?.thumbnail ?? null,
+          notes: inspNotes.trim() || null,
+          views: int(hit?.views), likes: int(hit?.likes), comments: int(hit?.comments),
+          shares: int(hit?.shares), saves: int(hit?.saves),
+          duration_seconds: int(hit?.duration),
+          posted_at: hit?.postedAt ?? null,
+          stats_updated_at: hit ? new Date().toISOString() : null,
+          created_by: user?.id ?? null,
+        }])
+        if (error) throw error
+        toast(abrufFehler ? 'Inspiration gemerkt — ohne Zahlen' : 'Inspiration gemerkt 🔖')
+        navigate(inspClientId ? `/client/${inspClientId}?tab=inspiration` : '/inspirationen')
       } else if (type === 'backfill') {
         if (!lookup) { setError('Bitte zuerst die Daten abrufen.'); setBusy(false); return }
         // lookup kann bewusst leer sein (siehe skipLookup) — dann ohne Zahlen anlegen
@@ -318,7 +337,45 @@ export default function QuickAdd() {
 
         {error && <div className="error-box">{error}</div>}
 
-        {type === 'backfill' ? (
+        {type === 'inspiration' ? (
+          <>
+            <div className="info-box" style={{ fontSize: 13 }}>
+              🔖 Ein fremdes Video, das ihr so ähnlich machen wollt. Link aus TikTok oder
+              Instagram einfügen — Titel und Zahlen holen wir automatisch dazu.
+            </div>
+            <div>
+              <label>Video-Link *</label>
+              <input
+                type="url"
+                value={inspUrl}
+                onChange={(e) => setInspUrl(e.target.value)}
+                autoFocus
+                placeholder="https://www.tiktok.com/@… oder https://www.instagram.com/reel/…"
+                onKeyDown={(e) => e.key === 'Enter' && save()}
+              />
+            </div>
+            <div>
+              <label>Für welchen Kunden?</label>
+              <select value={inspClientId} onChange={(e) => setInspClientId(e.target.value)}>
+                <option value="">— allgemein, ohne Kunde —</option>
+                {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+              <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+                Ohne Kunde landet die Inspiration in der allgemeinen Spalte unter „Inspirationen“.
+              </p>
+            </div>
+            <div>
+              <label>Notiz <span className="muted">(was gefällt euch daran?)</span></label>
+              <textarea rows={2} value={inspNotes} onChange={(e) => setInspNotes(e.target.value)} placeholder="z. B. Schnitt auf den Beat, Text-Overlay in der ersten Sekunde" />
+            </div>
+            <div className="modal-actions">
+              <button type="button" className="btn btn-ghost" onClick={() => setOpen(false)}>Abbrechen</button>
+              <button type="button" className="btn btn-primary" onClick={save} disabled={busy}>
+                {busy ? 'Hole Daten …' : '🔖 Merken'}
+              </button>
+            </div>
+          </>
+        ) : type === 'backfill' ? (
           <>
             {!lookup ? (
               <>

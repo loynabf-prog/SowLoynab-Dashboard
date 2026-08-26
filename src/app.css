@@ -1111,6 +1111,17 @@ a.fin-tile:hover { transform: translateY(-3px); box-shadow: var(--shadow); borde
 }
 .client-tabs .seg-btn.on .col-count { background: var(--brand-glow); color: var(--brand); }
 
+/* Am iPhone passen vier Reiter nicht nebeneinander -- sie liefen bisher aus
+   dem Bild heraus und waren nicht erreichbar. Darum zwei mal zwei. */
+@media (max-width: 640px) {
+  .client-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+  }
+  .client-tabs .seg-btn { justify-content: center; padding: 9px 8px; font-size: 13px; gap: 6px; }
+}
+
 .pool-anim { animation: riseIn 0.4s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
 .pool-hint {
   background: rgba(0, 113, 227, 0.06);
@@ -1161,6 +1172,97 @@ a.fin-tile:hover { transform: translateY(-3px); box-shadow: var(--shadow); borde
 .pool-title { font-weight: 700; font-size: 15px; line-height: 1.35; color: var(--text); }
 .pool-notes { font-size: 13px; color: var(--text-muted); line-height: 1.45; }
 .pool-move { margin-top: auto; align-self: flex-start; }
+
+/* --- Inspirationen (gemerkte Fremd-Videos) ------------------------------ */
+.insp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+}
+/* Bewusst quer statt Pinterest-Kachel: das Vorschaubild bleibt klein, der
+   Text lesbar -- und eine Karte ohne Bild (Vorschau abgelaufen) sieht nicht
+   aus wie ein Fehler. */
+.insp-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  animation: riseIn 0.4s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+.insp-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); border-color: var(--border-strong); }
+.insp-thumb {
+  position: relative;
+  flex: 0 0 92px;
+  align-self: stretch;
+  min-height: 122px;
+  background: var(--bg-sunken);
+  overflow: hidden;
+}
+.insp-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.insp-thumb-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  opacity: 0.35;
+}
+.insp-badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  font-size: 11px;
+  line-height: 1;
+  padding: 4px 6px;
+  border-radius: 999px;
+  /* deckend dunkel: liegt ueber fremden Bildern, deren Helligkeit wir nicht kennen */
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+}
+.insp-body {
+  padding: 11px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+.insp-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.insp-title {
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1.35;
+  color: var(--text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.insp-author { font-size: 12px; color: var(--text-muted); }
+.insp-stats { display: flex; gap: 12px; font-size: 12.5px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.insp-notes {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  line-height: 1.45;
+  border-left: 2px solid var(--border-strong);
+  padding-left: 8px;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.insp-foot { display: flex; align-items: center; gap: 8px; margin-top: auto; padding-top: 4px; }
+.insp-assign {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  padding: 0 8px;
+  font-size: 12.5px;
+}
 
 .ai-idea-list { display: flex; flex-direction: column; gap: 8px; max-height: 52vh; overflow-y: auto; }
 .ai-idea {
@@ -1283,7 +1385,10 @@ button, a, .flag, .nudge-item, .ai-idea, .pool-card, .seg-btn {
 @media (max-width: 640px) {
   input, textarea, select { font-size: 16px; }
   /* Segment-Auswahl im Sprach-Dialog (4 Knöpfe) auf schmalen iPhones kompakt */
-  .voice-typeseg .seg-btn { padding: 8px 6px; font-size: 13px; }
+  /* Fuenf Reiter passen am iPhone nicht in eine Zeile -- lieber umbrechen
+     als den letzten abschneiden. */
+  .voice-typeseg { flex-wrap: wrap; }
+  .voice-typeseg .seg-btn { flex: 1 1 28%; padding: 8px 6px; font-size: 13px; white-space: nowrap; }
 }
 
 /* Unten genug Luft, damit der Mikro-Knopf nichts verdeckt (inkl. Home-Indicator) */

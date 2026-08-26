@@ -10,6 +10,7 @@ import {
   type Video,
   type VideoStatus,
   type VideoIdea,
+  type Inspiration,
 } from '../lib/types'
 import VideoCard from '../components/VideoCard'
 import LogoFrame from '../components/LogoFrame'
@@ -28,9 +29,10 @@ import { insertRows, updateRow } from '../lib/db'
 import { useCategories } from '../context/CategoryContext'
 import LineChart, { type Series } from '../components/LineChart'
 import SwipeRow from '../components/SwipeRow'
+import InspirationCard from '../components/InspirationCard'
 import { useToast } from '../context/ToastContext'
 
-type ClientTab = 'board' | 'pool' | 'analyse'
+type ClientTab = 'board' | 'pool' | 'analyse' | 'inspiration'
 
 export default function ClientPage() {
   const { id } = useParams<{ id: string }>()
@@ -50,6 +52,7 @@ export default function ClientPage() {
   const [info, setInfo] = useState<string | null>(null)
   const [tab, setTab] = useState<ClientTab>('board')
   const [ideas, setIdeas] = useState<VideoIdea[]>([])
+  const [inspirations, setInspirations] = useState<Inspiration[]>([])
   const [nudging, setNudging] = useState<Video | null>(null)
   const [seriesOpen, setSeriesOpen] = useState(false)
   const [growthOpen, setGrowthOpen] = useState(false)
@@ -91,6 +94,20 @@ export default function ClientPage() {
     setIdeas((data ?? []).filter((i: any) => !i.deleted_at && !i.moved_video_id) as VideoIdea[])
   }, [id])
 
+  const loadInspirations = useCallback(async () => {
+    if (!id) return
+    // Inspirationen dieses Kunden; still robust, falls die Tabelle noch
+    // fehlt (SQL-Skript 23 nicht eingespielt).
+    const { data, error } = await supabase
+      .from('inspirations')
+      .select('*')
+      .eq('client_id', id)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+    if (error) return
+    setInspirations((data ?? []) as unknown as Inspiration[])
+  }, [id])
+
   const loadStats = useCallback(async () => {
     if (!id) return
     const { data, error } = await supabase
@@ -105,7 +122,7 @@ export default function ClientPage() {
     if (!id) return
     async function loadAll() {
       setLoading(true)
-      await Promise.all([loadClient(), loadVideos(), loadIdeas(), loadStats()])
+      await Promise.all([loadClient(), loadVideos(), loadIdeas(), loadStats(), loadInspirations()])
       setLoading(false)
     }
     loadAll()
@@ -122,11 +139,16 @@ export default function ClientPage() {
         { event: '*', schema: 'public', table: 'video_ideas', filter: `client_id=eq.${id}` },
         () => loadIdeas(),
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'inspirations', filter: `client_id=eq.${id}` },
+        () => loadInspirations(),
+      )
       .subscribe()
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [id, loadClient, loadVideos, loadIdeas, loadStats])
+  }, [id, loadClient, loadVideos, loadIdeas, loadStats, loadInspirations])
 
   // Deep-Link (?video=<id>) aus einem Anstupser: zur Karte springen + hervorheben
   useEffect(() => {
@@ -148,6 +170,18 @@ export default function ClientPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, videos])
+
+  // Deep-Link (?tab=inspiration) — z. B. nach dem Merken einer Inspiration.
+  // Haengt bewusst an searchParams: der Sprung kann auch auf der schon
+  // geoeffneten Kundenseite passieren, dann wird die Seite nicht neu geladen.
+  useEffect(() => {
+    const t = searchParams.get('tab')
+    if (!t) return
+    if (t === 'inspiration' || t === 'pool' || t === 'analyse' || t === 'board') setTab(t)
+    searchParams.delete('tab')
+    setSearchParams(searchParams, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
 
   // Onboarding (?onboard=1): direkt den Content-Plan-Schritt öffnen
   useEffect(() => {
@@ -192,6 +226,16 @@ export default function ClientPage() {
   }
 
   const { dragId, drop, startDrag } = usePointerBoard(moveVideo)
+
+  async function deleteInspiration(inspId: string) {
+    setInspirations((prev) => prev.filter((i) => i.id !== inspId))
+    await supabase.from('inspirations').update({ deleted_at: new Date().toISOString() }).eq('id', inspId)
+    toast('In den Papierkorb', {
+      label: 'Rückgängig',
+      onClick: async () => { await supabase.from('inspirations').update({ deleted_at: null }).eq('id', inspId); loadInspirations() },
+    })
+  }
+
 
   async function createIdea(fields: {
     title: string
@@ -394,6 +438,10 @@ export default function ClientPage() {
           💡 Ideenspeicher
           <span className="col-count">{ideas.length}</span>
         </button>
+        <button className={`seg-btn ${tab === 'inspiration' ? 'on' : ''}`} onClick={() => setTab('inspiration')}>
+          🔖 Inspiration
+          <span className="col-count">{inspirations.length}</span>
+        </button>
         <button className={`seg-btn ${tab === 'analyse' ? 'on' : ''}`} onClick={() => setTab('analyse')}>
           📊 Analyse
           <span className="col-count">{postedVideos.length}</span>
@@ -488,6 +536,41 @@ export default function ClientPage() {
           onDelete={deletePoolIdea}
           onEditClient={() => setEditClient(true)}
         />
+      )}
+
+      {tab === 'inspiration' && (
+        <div className="pool-anim">
+          <div className="info-box" style={{ marginBottom: 16 }}>
+            🔖 Fremde Videos, die ihr für <strong>{client.name}</strong> so ähnlich machen wollt.
+            Link aus TikTok oder Instagram einfügen — die Zahlen holen wir automatisch dazu.
+          </div>
+
+          <div className="toolbar-row">
+            <div className="spacer" />
+            <button
+              className="btn btn-primary"
+              onClick={() => window.dispatchEvent(new CustomEvent('open-quickadd', { detail: { type: 'inspiration', clientId: client.id } }))}
+            >
+              + Inspiration
+            </button>
+          </div>
+
+          {inspirations.length === 0 ? (
+            <div className="col-empty" style={{ padding: 30 }}>
+              Noch nichts gemerkt. Link kopieren, oben auf „+ Inspiration“. 🔖
+            </div>
+          ) : (
+            <div className="insp-grid">
+              {inspirations.map((i) => (
+                <InspirationCard key={i.id} item={i} onDelete={() => deleteInspiration(i.id)} />
+              ))}
+            </div>
+          )}
+
+          <p className="muted" style={{ fontSize: 12, marginTop: 14 }}>
+            Alle Inspirationen — auch die ohne Kunden — findest du unter <strong>Mehr → Inspirationen</strong>.
+          </p>
+        </div>
       )}
 
       {tab === 'analyse' && (
