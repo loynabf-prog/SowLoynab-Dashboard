@@ -98,8 +98,9 @@ export default function Inspirations() {
 
       {fehlt && (
         <div className="warn-box" style={{ marginBottom: 16 }}>
-          ⚠ Die Tabelle für Inspirationen fehlt noch. Bitte im Supabase SQL-Editor das Skript
-          <strong> 0023_inspirations.sql</strong> einmal ausführen.
+          ⚠ Dafür fehlt noch eine Ergänzung in der Datenbank. Bitte am PC im Supabase
+          SQL-Editor einmal das Skript <strong>ALLES_offen_20-23.sql</strong> ausführen —
+          danach ist der Bereich sofort da.
         </div>
       )}
 

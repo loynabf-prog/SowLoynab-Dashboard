@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { occurrences, type RepeatRule } from '../lib/recurrence'
-import { insertRows } from '../lib/db'
+import { dbKlartext, insertRows } from '../lib/db'
 import { detectPlatform, klartext, lookupVideo, readFnError, type LookupResult, type PlatformResult } from '../lib/apify'
 import RepeatPicker from './RepeatPicker'
 import Modal from './Modal'
@@ -309,7 +309,7 @@ export default function QuickAdd() {
       }
       setOpen(false)
     } catch (e) {
-      setError((e as Error).message)
+      setError(dbKlartext((e as Error).message))
     } finally {
       // Muss auf JEDEM Weg zurueck — auch bei Erfolg und bei den fruehen
       // return-Zweigen. Sonst bleibt der Knopf beim naechsten Oeffnen

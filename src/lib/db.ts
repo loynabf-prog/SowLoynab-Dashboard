@@ -10,8 +10,38 @@ const OPTIONAL_COLS = [
   'views_tiktok', 'likes_tiktok', 'comments_tiktok', 'shares_tiktok', 'saves_tiktok',
 ]
 
+// Fehlt eine ganze TABELLE, ist das kein Spaltenproblem — dann hilft auch
+// kein zweiter Versuch ohne die optionalen Spalten. Ein noch nicht
+// eingespieltes SQL-Skript, sonst nichts.
+export function tableMissing(err: any): string | null {
+  if (!err) return null
+  const raw = `${err.message ?? ''} ${err.details ?? ''}`
+  const m = raw.toLowerCase()
+  if (!m.includes('could not find the table') && !(m.includes('relation') && m.includes('does not exist'))) return null
+  return raw.match(/(?:table|relation)\s+'?"?(?:public\.)?(\w+)/i)?.[1] ?? ''
+}
+
+// Welche Tabelle kommt aus welchem SQL-Skript — damit die App sagen kann,
+// was am PC noch fehlt, statt nur "schema cache".
+const SKRIPT_ZU_TABELLE: Record<string, string> = {
+  inspirations: 'ALLES_offen_20-23.sql',
+}
+
+// Datenbank-Meldungen in Klartext. Alles, was wir nicht kennen, bleibt wie es ist.
+export function dbKlartext(msg: string): string {
+  const err = { message: msg }
+  const tbl = tableMissing(err)
+  if (tbl == null) return msg
+  const skript = SKRIPT_ZU_TABELLE[tbl]
+  return skript
+    ? `Dafür fehlt noch eine Ergänzung in der Datenbank. Bitte am PC im Supabase SQL-Editor einmal das Skript „${skript}" ausführen — danach klappt es.`
+    : 'Dafür fehlt noch eine Ergänzung in der Datenbank (ein SQL-Skript wurde noch nicht ausgeführt).'
+}
+
 function schemaMiss(err: any): boolean {
   if (!err) return false
+  // Fehlende Tabelle: nicht erneut versuchen, das wird nichts.
+  if (tableMissing(err) != null) return false
   if (err.code === 'PGRST204') return true // "Could not find the 'x' column ... in the schema cache"
   const m = `${err.message ?? ''} ${err.details ?? ''}`.toLowerCase()
   return m.includes('schema cache') || (m.includes('column') && m.includes('does not exist'))
