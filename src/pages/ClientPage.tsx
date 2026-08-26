@@ -25,7 +25,7 @@ import { celebrate } from '../lib/confetti'
 import NudgeModal from '../components/NudgeModal'
 import RepeatPicker from '../components/RepeatPicker'
 import { occurrences, recommendedIntervalDays, type RepeatRule } from '../lib/recurrence'
-import { insertRows, updateRow } from '../lib/db'
+import { insertRows, tableMissing, updateRow } from '../lib/db'
 import { useCategories } from '../context/CategoryContext'
 import LineChart, { type Series } from '../components/LineChart'
 import SwipeRow from '../components/SwipeRow'
@@ -53,6 +53,7 @@ export default function ClientPage() {
   const [tab, setTab] = useState<ClientTab>('board')
   const [ideas, setIdeas] = useState<VideoIdea[]>([])
   const [inspirations, setInspirations] = useState<Inspiration[]>([])
+  const [inspFehlt, setInspFehlt] = useState(false)
   const [nudging, setNudging] = useState<Video | null>(null)
   const [seriesOpen, setSeriesOpen] = useState(false)
   const [growthOpen, setGrowthOpen] = useState(false)
@@ -104,7 +105,9 @@ export default function ClientPage() {
       .eq('client_id', id)
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
-    if (error) return
+    // Tabelle noch nicht angelegt -> Hinweis statt leerer Liste
+    if (error) { setInspFehlt(tableMissing(error) != null); return }
+    setInspFehlt(false)
     setInspirations((data ?? []) as unknown as Inspiration[])
   }, [id])
 
@@ -555,7 +558,14 @@ export default function ClientPage() {
             </button>
           </div>
 
-          {inspirations.length === 0 ? (
+          {inspFehlt && (
+            <div className="warn-box" style={{ marginBottom: 16 }}>
+              ⚠ Dafür fehlt noch eine Ergänzung in der Datenbank. Bitte am PC im Supabase
+              SQL-Editor einmal das Skript <strong>ALLES_offen_20-23.sql</strong> ausführen.
+            </div>
+          )}
+
+          {inspirations.length === 0 && !inspFehlt ? (
             <div className="col-empty" style={{ padding: 30 }}>
               Noch nichts gemerkt. Link kopieren, oben auf „+ Inspiration“. 🔖
             </div>
