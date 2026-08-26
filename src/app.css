@@ -1099,8 +1099,56 @@ a.fin-tile:hover { transform: translateY(-3px); box-shadow: var(--shadow); borde
 }
 
 /* ============================ Kunden-Tabs & Ideenspeicher ============================ */
-.client-tabs { display: inline-flex; margin-bottom: 18px; }
-.client-tabs .seg-btn { display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; font-size: 14px; }
+/* Zwei Ebenen: das laufende Geschaeft vorne, der Vorrat zurueckgenommen. */
+.client-tabs { display: flex; align-items: center; gap: 18px; margin-bottom: 18px; flex-wrap: wrap; }
+.tabs-main { display: inline-flex; }
+.client-tabs .seg-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 9px 16px; font-size: 14px; white-space: nowrap; }
+
+/* Ideenspeicher + Inspiration: erreichbar, aber ohne Anspruch auf den Blick.
+   Kein Kasten, gedaempfte Farbe, kleinere Schrift -- erst beim Ansteuern
+   bekommen sie Kontur. */
+.tabs-side { display: inline-flex; align-items: center; gap: 4px; }
+.tabs-side-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  padding-right: 6px;
+  border-left: 1px solid var(--border);
+  padding-left: 14px;
+}
+.side-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-dim);
+  font-weight: 600;
+  font-size: 13px;
+  padding: 7px 11px;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+.side-tab:hover { color: var(--text-muted); background: var(--bg-sunken); }
+.side-tab.on {
+  color: var(--text);
+  background: var(--bg-sunken);
+  border-color: var(--border);
+}
+.side-tab .col-count {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+.side-tab.on .col-count { color: var(--text-muted); }
 .client-tabs .col-count {
   background: var(--bg-sunken);
   border-radius: 999px;
@@ -1111,15 +1159,17 @@ a.fin-tile:hover { transform: translateY(-3px); box-shadow: var(--shadow); borde
 }
 .client-tabs .seg-btn.on .col-count { background: var(--brand-glow); color: var(--brand); }
 
-/* Am iPhone passen vier Reiter nicht nebeneinander -- sie liefen bisher aus
-   dem Bild heraus und waren nicht erreichbar. Darum zwei mal zwei. */
+/* Am iPhone untereinander: oben die zwei Hauptreiter ueber die volle Breite,
+   darunter abgesetzt der Vorrat. Vorher liefen die Reiter aus dem Bild. */
 @media (max-width: 640px) {
-  .client-tabs {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    width: 100%;
-  }
+  .client-tabs { display: block; }
+  .tabs-main { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
   .client-tabs .seg-btn { justify-content: center; padding: 9px 8px; font-size: 13px; gap: 6px; }
+  .tabs-side { margin-top: 10px; gap: 6px; flex-wrap: wrap; }
+  /* "Vorrat" auf eine eigene Zeile, damit die zwei Knoepfe darunter
+     nebeneinander passen statt zu zerfransen. */
+  .tabs-side-label { border-left: none; padding: 0 0 2px; flex-basis: 100%; }
+  .side-tab { padding: 6px 9px; font-size: 12.5px; }
 }
 
 .pool-anim { animation: riseIn 0.4s cubic-bezier(0.22, 0.61, 0.36, 1) both; }

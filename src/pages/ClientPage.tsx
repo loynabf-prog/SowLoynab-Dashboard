@@ -432,23 +432,32 @@ export default function ClientPage() {
 
       {error && <div className="error-box" style={{ marginBottom: 16 }}>{error}</div>}
 
-      <div className="seg client-tabs">
-        <button className={`seg-btn ${tab === 'board' ? 'on' : ''}`} onClick={() => setTab('board')}>
-          🎬 In Umsetzung
-          <span className="col-count">{boardVideos.length}</span>
-        </button>
-        <button className={`seg-btn ${tab === 'pool' ? 'on' : ''}`} onClick={() => setTab('pool')}>
-          💡 Ideenspeicher
-          <span className="col-count">{ideas.length}</span>
-        </button>
-        <button className={`seg-btn ${tab === 'inspiration' ? 'on' : ''}`} onClick={() => setTab('inspiration')}>
-          🔖 Inspiration
-          <span className="col-count">{inspirations.length}</span>
-        </button>
-        <button className={`seg-btn ${tab === 'analyse' ? 'on' : ''}`} onClick={() => setTab('analyse')}>
-          📊 Analyse
-          <span className="col-count">{postedVideos.length}</span>
-        </button>
+      {/* Zwei Ebenen: links das laufende Geschaeft (Umsetzung + Analyse),
+          rechts abgesetzt der Vorrat (Ideen + Inspiration). Der Vorrat bleibt
+          erreichbar, draengt sich aber nicht auf. */}
+      <div className="client-tabs">
+        <div className="seg tabs-main">
+          <button className={`seg-btn ${tab === 'board' ? 'on' : ''}`} onClick={() => setTab('board')}>
+            🎬 In Umsetzung
+            <span className="col-count">{boardVideos.length}</span>
+          </button>
+          <button className={`seg-btn ${tab === 'analyse' ? 'on' : ''}`} onClick={() => setTab('analyse')}>
+            📊 Analyse
+            <span className="col-count">{postedVideos.length}</span>
+          </button>
+        </div>
+
+        <div className="tabs-side">
+          <span className="tabs-side-label">Vorrat</span>
+          <button className={`side-tab ${tab === 'pool' ? 'on' : ''}`} onClick={() => setTab('pool')}>
+            💡 Ideenspeicher
+            <span className="col-count">{ideas.length}</span>
+          </button>
+          <button className={`side-tab ${tab === 'inspiration' ? 'on' : ''}`} onClick={() => setTab('inspiration')}>
+            🔖 Inspiration
+            <span className="col-count">{inspirations.length}</span>
+          </button>
+        </div>
       </div>
 
       {tab === 'board' && (
