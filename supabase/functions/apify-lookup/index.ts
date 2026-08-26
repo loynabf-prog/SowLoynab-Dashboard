@@ -163,6 +163,7 @@ interface PlatformResult {
   username: string | null
   postedAt: string | null
   duration: number | null
+  thumbnail: string | null
   debug?: string[]
 }
 
@@ -203,6 +204,9 @@ async function tiktokLookup(urlStr: string, actor: string, token: string): Promi
     username: pickStr(it, ['authorUniqueId', 'authorName', 'authorMeta.name', 'authorMeta.nickName', 'author.uniqueId', 'author.nickname']),
     postedAt: pickDateISO(it, ['createTimeISO', 'createTime', 'createdAt', 'uploadedAt']),
     duration: pickNum(it, ['videoMeta.duration', 'duration', 'video.duration']),
+    // Vorschaubild fuer die Inspirations-Karten. Diese CDN-Adressen laufen
+    // nach einiger Zeit ab — die App blendet ein totes Bild einfach aus.
+    thumbnail: pickStr(it, ['videoMeta.coverUrl', 'videoMeta.originalCoverUrl', 'covers.default', 'coverUrl', 'cover']),
     // Nur wenn keine Aufrufzahl gefunden wurde: Feldliste zur Diagnose
     debug: views == null ? shape(it).slice(0, 40) : undefined,
   }
@@ -227,6 +231,7 @@ async function instagramLookup(urlStr: string, actor: string, token: string): Pr
     username: pickStr(it, ['ownerUsername', 'username', 'owner.username']),
     postedAt: pickDateISO(it, ['timestamp', 'takenAt', 'takenAtTimestamp', 'taken_at']),
     duration: pickNum(it, ['videoDuration', 'duration', 'video_duration']),
+    thumbnail: pickStr(it, ['displayUrl', 'thumbnailUrl', 'imageUrl', 'display_url']),
     debug: views == null ? shape(it).slice(0, 40) : undefined,
   }
 }

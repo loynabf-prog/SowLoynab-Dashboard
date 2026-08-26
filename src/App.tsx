@@ -13,6 +13,7 @@ import Trash from './pages/Trash'
 import Performance from './pages/Performance'
 import Analytics from './pages/Analytics'
 import Invoices from './pages/Invoices'
+import Inspirations from './pages/Inspirations'
 import Postfach from './pages/Postfach'
 import Settings from './pages/Settings'
 import Approval from './pages/Approval'
@@ -53,6 +54,7 @@ export default function App() {
       <Route path="/analyse" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
       <Route path="/finanzen" element={<ProtectedRoute><Finances /></ProtectedRoute>} />
       <Route path="/rechnungen" element={<ProtectedRoute><Invoices /></ProtectedRoute>} />
+      <Route path="/inspirationen" element={<ProtectedRoute><Inspirations /></ProtectedRoute>} />
       <Route path="/postfach" element={<ProtectedRoute><Postfach /></ProtectedRoute>} />
       <Route path="/team" element={<ProtectedRoute><Team /></ProtectedRoute>} />
       <Route path="/einstellungen" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
