@@ -99,3 +99,27 @@ export function compactNum(n: number | null | undefined): string {
   if (n >= 1000) return (n / 1000).toFixed(1).replace('.0', '').replace('.', ',') + 'k'
   return String(n)
 }
+
+// Aus einem Abruf die Zahlen-Felder fuer ein Video bauen.
+// Alle Zielspalten sind Ganzzahlen, Apify liefert teils Kommazahlen
+// (z. B. Videolaenge 34.7356 s) -- deshalb wird ueberall gerundet.
+export function statsPatch(res: LookupResult): Record<string, number | string | null> {
+  const tt = res.tiktok
+  const ig = res.instagram
+  const int = (n?: number | null) => (n == null || isNaN(n) ? null : Math.round(n))
+  const sum2 = (a?: number | null, b?: number | null) => (a == null && b == null ? null : Math.round((a ?? 0) + (b ?? 0)))
+  return {
+    views: sum2(tt?.views, ig?.views),
+    likes: sum2(tt?.likes, ig?.likes),
+    comments: sum2(tt?.comments, ig?.comments),
+    shares: sum2(tt?.shares, ig?.shares),
+    saves: sum2(tt?.saves, ig?.saves),
+    reach: sum2(tt?.views, ig?.views),
+    views_ig: int(ig?.views), likes_ig: int(ig?.likes), comments_ig: int(ig?.comments),
+    shares_ig: int(ig?.shares), saves_ig: int(ig?.saves),
+    views_tiktok: int(tt?.views), likes_tiktok: int(tt?.likes), comments_tiktok: int(tt?.comments),
+    shares_tiktok: int(tt?.shares), saves_tiktok: int(tt?.saves),
+    duration_seconds: int(tt?.duration ?? ig?.duration),
+    stats_updated_at: new Date().toISOString(),
+  }
+}

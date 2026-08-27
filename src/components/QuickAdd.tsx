@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { occurrences, type RepeatRule } from '../lib/recurrence'
 import { dbKlartext, insertRows } from '../lib/db'
-import { detectPlatform, klartext, lookupVideo, readFnError, type LookupResult, type PlatformResult } from '../lib/apify'
+import { detectPlatform, klartext, lookupVideo, readFnError, statsPatch, type LookupResult, type PlatformResult } from '../lib/apify'
 import RepeatPicker from './RepeatPicker'
 import Modal from './Modal'
 
@@ -260,13 +260,6 @@ export default function QuickAdd() {
         // lookup kann bewusst leer sein (siehe skipLookup) — dann ohne Zahlen anlegen
         if (!bfClientId) { setError('Bitte einen Kunden auswählen.'); setBusy(false); return }
         if (!bfTitle.trim()) { setError('Bitte einen Titel angeben.'); setBusy(false); return }
-        const tt = lookup.tiktok
-        const ig = lookup.instagram
-        // Alle Zahlen-Spalten sind Ganzzahlen. Apify liefert teils Kommazahlen
-        // (z. B. Videolänge 34.7356 s) — ungerundet lehnt die Datenbank das
-        // Speichern ab ("invalid input syntax for type integer").
-        const int = (n?: number | null) => (n == null || isNaN(n) ? null : Math.round(n))
-        const sum2 = (a?: number | null, b?: number | null) => (a == null && b == null ? null : Math.round((a ?? 0) + (b ?? 0)))
         const { error } = await insertRows('videos', [{
           client_id: bfClientId,
           title: bfTitle.trim(),
@@ -274,16 +267,7 @@ export default function QuickAdd() {
           posted_at: bfDate ? new Date(bfDate + 'T12:00:00').toISOString() : new Date().toISOString(),
           tiktok_url: ttUrl.trim() || null,
           instagram_url: igUrl.trim() || null,
-          duration_seconds: int(tt?.duration ?? ig?.duration),
-          views: sum2(tt?.views, ig?.views),
-          likes: sum2(tt?.likes, ig?.likes),
-          comments: sum2(tt?.comments, ig?.comments),
-          shares: sum2(tt?.shares, ig?.shares),
-          saves: sum2(tt?.saves, ig?.saves),
-          reach: sum2(tt?.views, ig?.views),
-          views_ig: int(ig?.views), likes_ig: int(ig?.likes), comments_ig: int(ig?.comments), shares_ig: int(ig?.shares), saves_ig: int(ig?.saves),
-          views_tiktok: int(tt?.views), likes_tiktok: int(tt?.likes), comments_tiktok: int(tt?.comments), shares_tiktok: int(tt?.shares), saves_tiktok: int(tt?.saves),
-          stats_updated_at: new Date().toISOString(),
+          ...statsPatch(lookup),
           created_by: user?.id ?? null,
         }])
         if (error) throw error

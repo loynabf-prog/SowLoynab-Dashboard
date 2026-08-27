@@ -7,7 +7,11 @@ import { useCategories } from '../context/CategoryContext'
 import { useToast } from '../context/ToastContext'
 
 interface StatusRow { job: string; last_ok: string | null; last_error: string | null; last_error_at: string | null; detail: string | null }
-const JOB_LABEL: Record<string, string> = { 'mail-sync': 'Postfach-Abruf', 'refresh-stats': 'Auto-Statistik' }
+const JOB_LABEL: Record<string, string> = {
+  'mail-sync': 'Postfach-Abruf',
+  'refresh-stats': 'Auto-Statistik (Videos)',
+  'refresh-account-stats': 'Auto-Statistik (Accounts)',
+}
 
 function ago(s: string | null): string {
   if (!s) return 'noch nie'
