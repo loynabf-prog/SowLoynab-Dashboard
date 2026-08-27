@@ -800,6 +800,14 @@ function PostLinksModal({
     setBusy('holen'); setErr(null)
     try {
       const res = await lookupVideo(urls())
+      const gesamt = (res.tiktok?.views ?? 0) + (res.instagram?.views ?? 0)
+      if (gesamt === 0 && res.tiktok?.views == null && res.instagram?.views == null) {
+        // Abruf lief, aber keine Plattform hat eine Aufrufzahl geliefert.
+        // Die vorhandenen Zahlen NICHT mit Leere ueberschreiben.
+        await onSave(urls() as Partial<Video>)
+        setErr('Der Abruf lief durch, aber weder TikTok noch Instagram haben eine Aufrufzahl herausgegeben. Bei frisch geposteten Videos dauert das teils ein paar Stunden — heute Nacht wird es automatisch erneut versucht.')
+        return
+      }
       await onSave({ ...urls(), ...statsPatch(res) } as Partial<Video>)
     } catch (e) {
       // Abruf gescheitert -- die Links trotzdem sichern, damit die naechste
@@ -817,12 +825,24 @@ function PostLinksModal({
     setBusy(null)
   }
 
+  const hatLinks = !!(video.tiktok_url || video.instagram_url)
+
   return (
-    <Modal title="🔗 Wo ist es online?" onClose={onClose}>
+    <Modal title={hatLinks ? '📊 Zahlen jetzt holen' : '🔗 Wo ist es online?'} onClose={onClose}>
       <div className="stack">
         <div className="info-box" style={{ fontSize: 13 }}>
-          Adresse des fertigen Postings einfügen — daran holt sich das Dashboard jede Nacht
-          die Aufrufe. <strong>Ohne diese Adresse bleiben die Zahlen leer.</strong>
+          {hatLinks ? (
+            <>
+              Holt die aktuellen Zahlen sofort — ohne auf die nächtliche Abfrage zu warten.
+              Stimmt eine Adresse nicht, kannst du sie hier korrigieren.
+              {video.stats_updated_at && <><br />Zuletzt geprüft: {seit(video.stats_updated_at)}.</>}
+            </>
+          ) : (
+            <>
+              Adresse des fertigen Postings einfügen — daran holt sich das Dashboard jede Nacht
+              die Aufrufe. <strong>Ohne diese Adresse bleiben die Zahlen leer.</strong>
+            </>
+          )}
         </div>
 
         {err && <div className="warn-box">⚠ {err}</div>}
@@ -1768,8 +1788,19 @@ function SeriesModal({
 }
 
 // ============================ Analyse (gepostete Videos) ============================
+// "vor 3 Std" / "vor 2 Tagen" -- damit man sieht, ob die Nacht-Abfrage
+// dieses Video ueberhaupt angefasst hat.
+function seit(iso: string): string {
+  const min = Math.round((Date.now() - new Date(iso).getTime()) / 60000)
+  if (min < 60) return 'gerade eben'
+  const h = Math.round(min / 60)
+  if (h < 24) return `vor ${h} Std`
+  const d = Math.round(h / 24)
+  return d === 1 ? 'gestern' : `vor ${d} Tagen`
+}
+
 function AnalyseSection({ videos, onEdit, onDelete, onLinks }: { videos: Video[]; onEdit: (v: Video) => void; onDelete: (id: string) => void; onLinks: (v: Video) => void }) {
-  const num = (n: number) => n.toLocaleString('de-DE')
+  const num = (n: number | null | undefined) => (n == null ? '–' : n.toLocaleString('de-DE'))
   const posts = videos.length
   if (posts === 0) {
     return (
@@ -1815,7 +1846,7 @@ function AnalyseSection({ videos, onEdit, onDelete, onLinks }: { videos: Video[]
                   <div className="analyse-title">{v.title}</div>
                   <div className="analyse-date">
                     {v.posted_at ? new Date(v.posted_at).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
-                    {!v.tiktok_url && !v.instagram_url && (
+                    {!v.tiktok_url && !v.instagram_url ? (
                       <span
                         className="link-missing"
                         role="button"
@@ -1824,14 +1855,28 @@ function AnalyseSection({ videos, onEdit, onDelete, onLinks }: { videos: Video[]
                       >
                         🔗 Link fehlt
                       </span>
+                    ) : (
+                      // Auch mit Link muss man die Zahlen sofort ziehen koennen --
+                      // sonst bleibt nur Warten auf die naechste Nacht.
+                      <span
+                        className="stats-refresh"
+                        role="button"
+                        title="Zahlen jetzt neu holen"
+                        onClick={(e) => { e.stopPropagation(); onLinks(v) }}
+                      >
+                        ⟳ {v.stats_updated_at ? `geprüft ${seit(v.stats_updated_at)}` : 'nie geprüft'}
+                      </span>
                     )}
                   </div>
                 </div>
+                {/* Fehlende Zahlen als "–", nicht als 0. Eine 0 behauptet
+                    "niemand hat es gesehen" -- das ist etwas voellig anderes
+                    als "wir haben noch keine Zahlen". */}
                 <div className="analyse-stats">
-                  <span title="Reichweite">▶ {num(v.reach ?? v.views ?? 0)}</span>
-                  <span title="Likes">❤ {num(v.likes ?? 0)}</span>
-                  <span title="Kommentare">💬 {num(v.comments ?? 0)}</span>
-                  <span title="Shares">↗ {num(v.shares ?? 0)}</span>
+                  <span title="Reichweite">▶ {num(v.reach ?? v.views)}</span>
+                  <span title="Likes">❤ {num(v.likes)}</span>
+                  <span title="Kommentare">💬 {num(v.comments)}</span>
+                  <span title="Shares">↗ {num(v.shares)}</span>
                 </div>
               </button>
               <button
