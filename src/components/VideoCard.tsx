@@ -11,6 +11,7 @@ interface Props {
   onCaption: () => void
   onLink: () => void
   onNudge: () => void
+  onPostLinks: () => void
 }
 
 function fmtDate(d: string | null, time: string | null): string {
@@ -42,7 +43,7 @@ function compactDate(v: Video): string | null {
 
 type StatView = 'all' | 'ig' | 'tiktok'
 
-export default function VideoCard({ video, onPatch, onEdit, onDelete, onCaption, onLink, onNudge }: Props) {
+export default function VideoCard({ video, onPatch, onEdit, onDelete, onCaption, onLink, onNudge, onPostLinks }: Props) {
   const [title, setTitle] = useState(video.title)
   const [hint, setHint] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
@@ -137,6 +138,14 @@ export default function VideoCard({ video, onPatch, onEdit, onDelete, onCaption,
       ) : (
         <button className="vc-upload" onClick={onLink}>
           ＋ Video-Link einfügen
+        </button>
+      )}
+
+      {/* Gepostet, aber keine Adresse des Postings hinterlegt -> die naechtliche
+          Abfrage laeuft an diesem Video vorbei. Das darf nicht still passieren. */}
+      {video.status === 'posted' && !video.tiktok_url && !video.instagram_url && (
+        <button className="vc-nolink" onClick={onPostLinks}>
+          🔗 Posting-Link fehlt — ohne ihn keine Zahlen
         </button>
       )}
 

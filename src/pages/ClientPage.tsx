@@ -26,6 +26,7 @@ import NudgeModal from '../components/NudgeModal'
 import RepeatPicker from '../components/RepeatPicker'
 import { occurrences, recommendedIntervalDays, type RepeatRule } from '../lib/recurrence'
 import { insertRows, tableMissing, updateRow } from '../lib/db'
+import { lookupVideo, statsPatch } from '../lib/apify'
 import { useCategories } from '../context/CategoryContext'
 import LineChart, { type Series } from '../components/LineChart'
 import SwipeRow from '../components/SwipeRow'
@@ -54,6 +55,9 @@ export default function ClientPage() {
   const [ideas, setIdeas] = useState<VideoIdea[]>([])
   const [inspirations, setInspirations] = useState<Inspiration[]>([])
   const [inspFehlt, setInspFehlt] = useState(false)
+  // Video ist gerade gepostet worden, aber es fehlt der Link zum Posting --
+  // ohne den kann die naechtliche Abfrage nie Zahlen holen.
+  const [askLinks, setAskLinks] = useState<Video | null>(null)
   const [nudging, setNudging] = useState<Video | null>(null)
   const [seriesOpen, setSeriesOpen] = useState(false)
   const [growthOpen, setGrowthOpen] = useState(false)
@@ -210,6 +214,13 @@ export default function ClientPage() {
     if (error) {
       setError(error.message)
       loadVideos()
+      return
+    }
+    // Frisch gepostet und noch kein Posting-Link hinterlegt? Dann jetzt danach
+    // fragen. Ohne Link laeuft die naechtliche Abfrage an diesem Video vorbei
+    // und die Zahlen bleiben fuer immer leer.
+    if (p.status === 'posted' && before && before.status !== 'posted' && !before.tiktok_url && !before.instagram_url) {
+      setAskLinks({ ...before, ...p } as Video)
     }
   }
 
@@ -516,6 +527,7 @@ export default function ClientPage() {
                       onLink={() => setLinking(v)}
                       onCaption={() => setCaptioning(v)}
                       onNudge={() => setNudging(v)}
+                      onPostLinks={() => setAskLinks(v)}
                     />
                   </div>
                 ))}
@@ -593,7 +605,7 @@ export default function ClientPage() {
       )}
 
       {tab === 'analyse' && (
-        <AnalyseSection videos={postedVideos} onEdit={(v) => setEditing(v)} onDelete={deleteVideo} />
+        <AnalyseSection videos={postedVideos} onEdit={(v) => setEditing(v)} onDelete={deleteVideo} onLinks={(v) => setAskLinks(v)} />
       )}
 
       {editing && (
@@ -620,6 +632,14 @@ export default function ClientPage() {
           <h2 className="section-title">Verlauf</h2>
           <ActivityLog clientId={client.id} />
         </div>
+      )}
+
+      {askLinks && (
+        <PostLinksModal
+          video={askLinks}
+          onClose={() => setAskLinks(null)}
+          onSave={async (patch) => { await patchVideo(askLinks.id, patch); setAskLinks(null) }}
+        />
       )}
 
       {creating && (
@@ -751,6 +771,82 @@ function LinkModal({
           </button>
         </div>
       </form>
+    </Modal>
+  )
+}
+
+// Nach dem Posten: die Adresse des VEROEFFENTLICHTEN Beitrags erfassen.
+// Nicht zu verwechseln mit dem Video-Link auf der Karte -- der zeigt auf die
+// Videodatei (iCloud/Drive). Nur mit dieser Adresse hier kann die naechtliche
+// Abfrage die Zahlen holen.
+function PostLinksModal({
+  video,
+  onClose,
+  onSave,
+}: {
+  video: Video
+  onClose: () => void
+  onSave: (patch: Partial<Video>) => Promise<void>
+}) {
+  const [tt, setTt] = useState(video.tiktok_url ?? '')
+  const [ig, setIg] = useState(video.instagram_url ?? '')
+  const [busy, setBusy] = useState<'holen' | 'speichern' | null>(null)
+  const [err, setErr] = useState<string | null>(null)
+
+  const urls = () => ({ tiktok_url: tt.trim() || null, instagram_url: ig.trim() || null })
+
+  async function holen() {
+    if (!tt.trim() && !ig.trim()) { setErr('Bitte mindestens einen Link einfügen.'); return }
+    setBusy('holen'); setErr(null)
+    try {
+      const res = await lookupVideo(urls())
+      await onSave({ ...urls(), ...statsPatch(res) } as Partial<Video>)
+    } catch (e) {
+      // Abruf gescheitert -- die Links trotzdem sichern, damit die naechste
+      // Nacht es erneut versuchen kann.
+      await onSave(urls() as Partial<Video>)
+      setErr(`${(e as Error).message} — die Links sind gespeichert, heute Nacht wird es erneut versucht.`)
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function nurSpeichern() {
+    setBusy('speichern')
+    await onSave(urls() as Partial<Video>)
+    setBusy(null)
+  }
+
+  return (
+    <Modal title="🔗 Wo ist es online?" onClose={onClose}>
+      <div className="stack">
+        <div className="info-box" style={{ fontSize: 13 }}>
+          Adresse des fertigen Postings einfügen — daran holt sich das Dashboard jede Nacht
+          die Aufrufe. <strong>Ohne diese Adresse bleiben die Zahlen leer.</strong>
+        </div>
+
+        {err && <div className="warn-box">⚠ {err}</div>}
+
+        <div>
+          <label>🎵 TikTok-Link</label>
+          <input type="url" value={tt} onChange={(e) => setTt(e.target.value)} autoFocus placeholder="https://www.tiktok.com/@…/video/…" />
+        </div>
+        <div>
+          <label>📸 Instagram-Link</label>
+          <input type="url" value={ig} onChange={(e) => setIg(e.target.value)} placeholder="https://www.instagram.com/reel/…" />
+        </div>
+
+        <div className="modal-actions">
+          <button type="button" className="btn btn-ghost" onClick={onClose} disabled={!!busy}>Später</button>
+          <div className="spacer" />
+          <button type="button" className="btn" onClick={nurSpeichern} disabled={!!busy}>
+            {busy === 'speichern' ? 'Speichere …' : 'Nur merken'}
+          </button>
+          <button type="button" className="btn btn-primary" onClick={holen} disabled={!!busy}>
+            {busy === 'holen' ? 'Hole Zahlen …' : '📊 Zahlen jetzt holen'}
+          </button>
+        </div>
+      </div>
     </Modal>
   )
 }
@@ -1672,7 +1768,7 @@ function SeriesModal({
 }
 
 // ============================ Analyse (gepostete Videos) ============================
-function AnalyseSection({ videos, onEdit, onDelete }: { videos: Video[]; onEdit: (v: Video) => void; onDelete: (id: string) => void }) {
+function AnalyseSection({ videos, onEdit, onDelete, onLinks }: { videos: Video[]; onEdit: (v: Video) => void; onDelete: (id: string) => void; onLinks: (v: Video) => void }) {
   const num = (n: number) => n.toLocaleString('de-DE')
   const posts = videos.length
   if (posts === 0) {
@@ -1688,8 +1784,17 @@ function AnalyseSection({ videos, onEdit, onDelete }: { videos: Video[]; onEdit:
   const totalViewsIg = videos.reduce((s, v) => s + (v.views_ig ?? 0), 0)
   const totalViewsTiktok = videos.reduce((s, v) => s + (v.views_tiktok ?? 0), 0)
   const hasPlatformSplit = videos.some((v) => v.views_ig != null || v.views_tiktok != null)
+  // Ohne Posting-Adresse holt die naechtliche Abfrage nichts -- das muss man sehen.
+  const ohneLink = videos.filter((v) => !v.tiktok_url && !v.instagram_url)
   return (
     <div className="analyse">
+      {ohneLink.length > 0 && (
+        <div className="warn-box" style={{ marginBottom: 14 }}>
+          ⚠ Bei {ohneLink.length === 1 ? 'einem Video' : `${ohneLink.length} Videos`} fehlt die
+          Adresse des Postings — dort holt die nächtliche Abfrage <strong>keine Zahlen</strong>.
+          Unten am „🔗 Link fehlt" antippen und nachtragen.
+        </div>
+      )}
       <div className="fin-tiles" style={{ marginBottom: hasPlatformSplit ? 10 : 18 }}>
         <div className="fin-tile"><span className="fin-label">Posts gesamt</span><span className="fin-value">{num(posts)}</span><span className="fin-sub">gepostete Videos</span></div>
         <div className="fin-tile"><span className="fin-label">Reichweite gesamt</span><span className="fin-value income">{num(totalReach)}</span><span className="fin-sub">Ø {num(Math.round(totalReach / posts))} / Post</span></div>
@@ -1708,7 +1813,19 @@ function AnalyseSection({ videos, onEdit, onDelete }: { videos: Video[]; onEdit:
               <button className="analyse-row" onClick={() => onEdit(v)} title="Zahlen bearbeiten">
                 <div className="analyse-main">
                   <div className="analyse-title">{v.title}</div>
-                  <div className="analyse-date">{v.posted_at ? new Date(v.posted_at).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</div>
+                  <div className="analyse-date">
+                    {v.posted_at ? new Date(v.posted_at).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                    {!v.tiktok_url && !v.instagram_url && (
+                      <span
+                        className="link-missing"
+                        role="button"
+                        title="Adresse des Postings nachtragen — sonst kommen nie Zahlen"
+                        onClick={(e) => { e.stopPropagation(); onLinks(v) }}
+                      >
+                        🔗 Link fehlt
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="analyse-stats">
                   <span title="Reichweite">▶ {num(v.reach ?? v.views ?? 0)}</span>
