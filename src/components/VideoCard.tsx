@@ -11,7 +11,6 @@ interface Props {
   onCaption: () => void
   onLink: () => void
   onNudge: () => void
-  onPostLinks: () => void
 }
 
 function fmtDate(d: string | null, time: string | null): string {
@@ -43,7 +42,7 @@ function compactDate(v: Video): string | null {
 
 type StatView = 'all' | 'ig' | 'tiktok'
 
-export default function VideoCard({ video, onPatch, onEdit, onDelete, onCaption, onLink, onNudge, onPostLinks }: Props) {
+export default function VideoCard({ video, onPatch, onEdit, onDelete, onCaption, onLink, onNudge }: Props) {
   const [title, setTitle] = useState(video.title)
   const [hint, setHint] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
@@ -58,6 +57,20 @@ export default function VideoCard({ video, onPatch, onEdit, onDelete, onCaption,
       ? { views: video.views_tiktok, likes: video.likes_tiktok, comments: video.comments_tiktok }
       : { views: video.views, likes: video.likes, comments: video.comments }
   const sw = useRef<{ x: number; y: number } | null>(null)
+  // Posting-Adressen direkt auf der Karte nachtragen. Sobald eine gespeichert
+  // ist, verschwindet ihr Feld -- es soll nur da sein, solange es fehlt.
+  const [ttDraft, setTtDraft] = useState('')
+  const [igDraft, setIgDraft] = useState('')
+  const fehltLink = video.status === 'posted' && (!video.tiktok_url || !video.instagram_url)
+
+  function saveLink(feld: 'tiktok_url' | 'instagram_url', wert: string, leeren: () => void) {
+    const u = wert.trim()
+    // Leer oder unveraendert: nichts tun. Macht Enter und Verlassen des
+    // Feldes gefahrlos doppelt aufrufbar.
+    if (!u || u === video[feld]) return
+    leeren()
+    onPatch({ [feld]: u } as Partial<Video>)
+  }
 
   function onTouchStart(e: React.TouchEvent) {
     const t = e.target as HTMLElement
@@ -103,6 +116,7 @@ export default function VideoCard({ video, onPatch, onEdit, onDelete, onCaption,
         ) : (
           <button className="vc-title-btn" onClick={() => setOpen(true)} title="Aufklappen">{video.title}</button>
         )}
+        {!open && fehltLink && <span className="vc-linkflag" title="Posting-Adresse fehlt — ohne sie keine Zahlen">🔗</span>}
         {!open && cDate && <span className="vc-compact-date">📅 {cDate}</span>}
         <button className="vc-toggle" onClick={() => setOpen((o) => !o)} aria-label={open ? 'Zuklappen' : 'Aufklappen'}>{open ? '▲' : '▾'}</button>
       </div>
@@ -141,12 +155,43 @@ export default function VideoCard({ video, onPatch, onEdit, onDelete, onCaption,
         </button>
       )}
 
-      {/* Gepostet, aber keine Adresse des Postings hinterlegt -> die naechtliche
-          Abfrage laeuft an diesem Video vorbei. Das darf nicht still passieren. */}
-      {video.status === 'posted' && !video.tiktok_url && !video.instagram_url && (
-        <button className="vc-nolink" onClick={onPostLinks}>
-          🔗 Posting-Link fehlt — ohne ihn keine Zahlen
-        </button>
+      {/* Gepostet, aber Adresse des Postings fehlt -> die naechtliche Abfrage
+          laeuft an diesem Video vorbei. Deshalb direkt hier eintragen, ohne
+          Umweg ueber "Bearbeiten". Ist eine Adresse da, faellt ihr Feld weg. */}
+      {fehltLink && (
+        <div className="vc-links">
+          <span className="vc-links-hint">🔗 Ohne Posting-Adresse kommen keine Zahlen</span>
+          {!video.tiktok_url && (
+            <label className="vc-link-row">
+              <span className="vc-link-ic">🎵</span>
+              <input
+                className="vc-link-input"
+                type="url"
+                inputMode="url"
+                value={ttDraft}
+                placeholder="TikTok-Link einfügen"
+                onChange={(e) => setTtDraft(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                onBlur={() => saveLink('tiktok_url', ttDraft, () => setTtDraft(''))}
+              />
+            </label>
+          )}
+          {!video.instagram_url && (
+            <label className="vc-link-row">
+              <span className="vc-link-ic">📸</span>
+              <input
+                className="vc-link-input"
+                type="url"
+                inputMode="url"
+                value={igDraft}
+                placeholder="Instagram-Link einfügen"
+                onChange={(e) => setIgDraft(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                onBlur={() => saveLink('instagram_url', igDraft, () => setIgDraft(''))}
+              />
+            </label>
+          )}
+        </div>
       )}
 
       {video.status === 'posted' && (video.views || video.reach || video.likes || video.comments) ? (
