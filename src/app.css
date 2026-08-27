@@ -1223,21 +1223,37 @@ a.fin-tile:hover { transform: translateY(-3px); box-shadow: var(--shadow); borde
 .pool-notes { font-size: 13px; color: var(--text-muted); line-height: 1.45; }
 .pool-move { margin-top: auto; align-self: flex-start; }
 
-/* Karte im Board: gepostet, aber ohne Posting-Adresse. */
-.vc-nolink {
-  width: 100%;
+/* Karte im Board: Posting-Adressen direkt eintragen, solange sie fehlen. */
+.vc-links {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   margin: 8px 0 2px;
-  padding: 8px 10px;
+  padding: 9px 10px;
   border: 1px dashed var(--danger);
   border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--danger);
-  font-size: 12.5px;
-  font-weight: 600;
-  cursor: pointer;
-  text-align: left;
 }
-.vc-nolink:hover { background: rgba(255, 59, 48, 0.08); }
+.vc-links-hint { font-size: 11.5px; font-weight: 700; color: var(--danger); line-height: 1.3; }
+.vc-link-row { display: flex; align-items: center; gap: 7px; }
+.vc-link-ic { font-size: 13px; flex: 0 0 auto; }
+/* Bewusst flach: das ist ein Feld auf einer Karte, kein Formular. */
+.vc-link-input {
+  flex: 1;
+  min-width: 0;
+  height: 32px !important;
+  padding: 0 9px !important;
+  font-size: 12.5px !important;
+  border-radius: 8px !important;
+}
+/* Zugeklappte Karte: zeigt, dass hier noch etwas fehlt. */
+.vc-linkflag {
+  flex: 0 0 auto;
+  font-size: 12px;
+  line-height: 1;
+  padding: 3px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--danger);
+}
 
 /* "Zahlen jetzt holen" an der Analyse-Zeile -- ruhig, aber immer erreichbar. */
 .stats-refresh {

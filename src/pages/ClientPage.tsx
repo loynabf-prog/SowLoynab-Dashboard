@@ -26,7 +26,7 @@ import NudgeModal from '../components/NudgeModal'
 import RepeatPicker from '../components/RepeatPicker'
 import { occurrences, recommendedIntervalDays, type RepeatRule } from '../lib/recurrence'
 import { insertRows, tableMissing, updateRow } from '../lib/db'
-import { lookupVideo, statsPatch } from '../lib/apify'
+import { klartext, lookupVideo, statsPatch } from '../lib/apify'
 import { useCategories } from '../context/CategoryContext'
 import LineChart, { type Series } from '../components/LineChart'
 import SwipeRow from '../components/SwipeRow'
@@ -221,6 +221,38 @@ export default function ClientPage() {
     // und die Zahlen bleiben fuer immer leer.
     if (p.status === 'posted' && before && before.status !== 'posted' && !before.tiktok_url && !before.instagram_url) {
       setAskLinks({ ...before, ...p } as Video)
+      return
+    }
+
+    // Gerade eine Posting-Adresse nachgetragen (Karte oder "Bearbeiten")?
+    // Dann die Zahlen sofort holen -- niemand will bis morgen frueh warten.
+    // Der Zweig greift nicht, wenn die Zahlen schon mitgeliefert wurden
+    // (dann kommt der Aufruf aus dem Abruf-Fenster selbst).
+    const neuerLink =
+      (!!p.tiktok_url && p.tiktok_url !== before?.tiktok_url) ||
+      (!!p.instagram_url && p.instagram_url !== before?.instagram_url)
+    if (neuerLink && !('stats_updated_at' in p)) {
+      holeZahlen({ ...(before ?? {}), ...p } as Video)
+    }
+  }
+
+  // Einzelabruf fuer ein Video. Laeuft im Hintergrund; das Ergebnis kommt
+  // als Meldung. Schlaegt er fehl, bleibt die Adresse gespeichert und die
+  // naechtliche Abfrage versucht es erneut.
+  async function holeZahlen(v: Video) {
+    toast('Hole Zahlen …')
+    try {
+      const res = await lookupVideo({ tiktok_url: v.tiktok_url, instagram_url: v.instagram_url })
+      if (res.tiktok?.views == null && res.instagram?.views == null) {
+        toast('Adresse gespeichert — Zahlen kamen noch keine. Heute Nacht erneut.')
+        return
+      }
+      await patchVideo(v.id, statsPatch(res) as Partial<Video>)
+      const gesamt = (res.tiktok?.views ?? 0) + (res.instagram?.views ?? 0)
+      toast(`Zahlen geholt ✓ ${gesamt.toLocaleString('de-DE')} Aufrufe`)
+    } catch (e) {
+      toast('Adresse gespeichert — Abruf klappte nicht. Heute Nacht erneut.')
+      setError(klartext((e as Error).message))
     }
   }
 
@@ -527,7 +559,6 @@ export default function ClientPage() {
                       onLink={() => setLinking(v)}
                       onCaption={() => setCaptioning(v)}
                       onNudge={() => setNudging(v)}
-                      onPostLinks={() => setAskLinks(v)}
                     />
                   </div>
                 ))}
