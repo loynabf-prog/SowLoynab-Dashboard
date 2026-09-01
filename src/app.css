@@ -1257,7 +1257,9 @@ a.fin-tile:hover { transform: translateY(-3px); box-shadow: var(--shadow); borde
 
 /* "Zahlen jetzt holen" an der Analyse-Zeile -- ruhig, aber immer erreichbar. */
 .stats-refresh {
+  flex: 0 0 auto;
   display: inline-flex;
+  font-family: inherit;
   align-items: center;
   margin-left: 8px;
   padding: 1px 8px;
@@ -1274,7 +1276,9 @@ a.fin-tile:hover { transform: translateY(-3px); box-shadow: var(--shadow); borde
 
 /* Fehlende Posting-Adresse: ohne die holt die Nacht-Abfrage nie Zahlen. */
 .link-missing {
+  flex: 0 0 auto;
   display: inline-flex;
+  font-family: inherit;
   align-items: center;
   margin-left: 8px;
   padding: 1px 8px;
@@ -2507,6 +2511,7 @@ html { scroll-behavior: smooth; }
 .today-strip span { display: inline-flex; gap: 6px; align-items: baseline; }
 .today-strip strong { color: var(--text); font-weight: 700; font-variant-numeric: tabular-nums; font-size: 15px; }
 .today-strip .hot strong, .today-strip .hot { color: var(--danger); }
+.today-strip .good strong, .today-strip .good { color: var(--posted); }
 
 /* Feierabend-Blick auf morgen (Startseite, Knopf oben rechts) */
 .peek-btn {

@@ -7,6 +7,9 @@ import { useAuth } from '../context/AuthContext'
 import { useIdentity } from '../context/IdentityContext'
 import { useTeam } from '../context/TeamContext'
 import SwipeRow from '../components/SwipeRow'
+import PostLinksModal from '../components/PostLinksModal'
+import { seit } from '../lib/format'
+import type { Video } from '../lib/types'
 import TaskItem, { type TaskRow } from '../components/TaskItem'
 import TaskModal from '../components/TaskModal'
 
@@ -26,6 +29,7 @@ interface PostLite {
   clients?: { name: string } | null
 }
 interface Option { id: string; name: string }
+type PostedVideo = Video & { clients?: { name: string } | null }
 
 // Ein Eintrag im Tagesplan — Aufgabe mit Uhrzeit oder Video mit Post-Zeit.
 interface PlanEntry {
@@ -62,6 +66,10 @@ export default function Overview() {
   const [editing, setEditing] = useState<TaskRow | null>(null)
   // Feierabend-Blick: zwischen heute und morgen umschalten
   const [day, setDay] = useState<'today' | 'tomorrow'>('today')
+  // Was heute rausging -- am selben Tag will man da noch dran: Adresse
+  // nachtragen, Zahlen holen, zum Kunden springen.
+  const [heuteRaus, setHeuteRaus] = useState<PostedVideo[]>([])
+  const [links, setLinks] = useState<PostedVideo | null>(null)
 
   // Nur die fälligen Aufgaben nachladen (nach Speichern/Löschen)
   const reloadTasks = useCallback(async () => {
@@ -74,6 +82,23 @@ export default function Overview() {
       .lte('due_date', tomorrowIso())
       .order('due_date', { ascending: true })
     setTasks((data ?? []) as unknown as TaskRow[])
+  }, [])
+
+  // Heute veroeffentlichte Videos. Tagesgrenzen bewusst lokal gerechnet --
+  // posted_at liegt in UTC, ein Posting um 01:00 wuerde sonst auf gestern
+  // fallen.
+  const reloadHeuteRaus = useCallback(async () => {
+    const start = new Date(); start.setHours(0, 0, 0, 0)
+    const ende = new Date(start); ende.setDate(ende.getDate() + 1)
+    const { data } = await supabase
+      .from('videos')
+      .select('*, clients(name)')
+      .eq('status', 'posted')
+      .is('deleted_at', null)
+      .gte('posted_at', start.toISOString())
+      .lt('posted_at', ende.toISOString())
+      .order('posted_at', { ascending: false })
+    setHeuteRaus((data ?? []) as unknown as PostedVideo[])
   }, [])
 
   useEffect(() => {
@@ -106,10 +131,11 @@ export default function Overview() {
       setLoading(false)
     }
     load()
+    reloadHeuteRaus()
     // Kunden/Leads für den Aufgaben-Editor
     supabase.from('clients').select('id, name').is('deleted_at', null).order('name').then(({ data }) => setClientOpts((data ?? []) as Option[]))
     supabase.from('leads').select('id, name').is('deleted_at', null).order('name').then(({ data }) => setLeadOpts((data ?? []) as Option[]))
-  }, [])
+  }, [reloadHeuteRaus])
 
   async function completeTask(id: string) {
     setTasks((prev) => prev.filter((t) => t.id !== id))
@@ -131,6 +157,8 @@ export default function Overview() {
     celebrate()
     await supabase.from('videos').update({ status: 'posted', posted_at: new Date().toISOString() }).eq('id', p.id)
     toast('Gepostet — stark! 🎉')
+    // taucht sofort unten unter "Heute rausgegangen" auf
+    reloadHeuteRaus()
   }
 
   // Mit dem echten Namen der aktiven Identität grüßen (Fassie / Lion), nicht dem Mail-Namen
@@ -200,6 +228,7 @@ export default function Overview() {
         <span><strong>{tagTasks.length}</strong> {tagTasks.length === 1 ? 'Aufgabe' : 'Aufgaben'} {morgen ? 'morgen' : 'offen'}</span>
         <span><strong>{tagPosts.length}</strong> {tagPosts.length === 1 ? 'Upload' : 'Uploads'} {morgen ? 'morgen' : 'heute'}</span>
         {plan.length > 0 && <span><strong>{plan.length}</strong> {plan.length === 1 ? 'Termin' : 'Termine'}</span>}
+        {!morgen && heuteRaus.length > 0 && <span className="good"><strong>{heuteRaus.length}</strong> raus</span>}
         {dringend > 0 && <span className="hot"><strong>{dringend}</strong> dringend</span>}
         {overdue.length > 0 && <span className="hot"><strong>{overdue.length}</strong> überfällig</span>}
       </div>
@@ -265,6 +294,48 @@ export default function Overview() {
           )}
         </div>
       </div>
+
+      {/* Was heute schon rausging. Nur im Heute-Blick -- morgen ist noch
+          nichts gepostet, da waere der Abschnitt sinnlos. */}
+      {!morgen && heuteRaus.length > 0 && (
+        <div className="section-block">
+          <h2 className="section-title">Heute rausgegangen 🚀</h2>
+          <div className="task-list">
+            {heuteRaus.map((v) => {
+              const ohneLink = !v.tiktok_url && !v.instagram_url
+              return (
+                <div key={v.id} className="task-item">
+                  <span className="activity-icon" style={{ cursor: 'pointer' }} onClick={() => navigate(`/client/${v.client_id}`)}>✅</span>
+                  <div className="task-body" style={{ cursor: 'pointer' }} onClick={() => navigate(`/client/${v.client_id}`)}>
+                    <div className="task-title">{v.title}</div>
+                    <div className="task-meta">
+                      {v.clients?.name && <span className="chip">{v.clients.name}</span>}
+                      {v.views != null
+                        ? <span className="task-due">▶ {v.views.toLocaleString('de-DE')} Aufrufe</span>
+                        : <span className="task-due">noch keine Zahlen</span>}
+                    </div>
+                  </div>
+                  <button
+                    className={ohneLink ? 'link-missing' : 'stats-refresh'}
+                    onClick={() => setLinks(v)}
+                    title={ohneLink ? 'Adresse des Postings nachtragen' : 'Zahlen jetzt holen'}
+                  >
+                    {ohneLink ? '🔗 Link fehlt' : `⟳ ${v.stats_updated_at ? seit(v.stats_updated_at) : 'nie geprüft'}`}
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {links && (
+        <PostLinksModal
+          video={links}
+          onClose={() => setLinks(null)}
+          onSaved={() => { reloadHeuteRaus(); toast('Gespeichert ✓') }}
+        />
+      )}
 
       {editing && (
         <TaskModal

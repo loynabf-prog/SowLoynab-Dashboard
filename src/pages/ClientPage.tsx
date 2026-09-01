@@ -27,10 +27,12 @@ import RepeatPicker from '../components/RepeatPicker'
 import { occurrences, recommendedIntervalDays, type RepeatRule } from '../lib/recurrence'
 import { insertRows, tableMissing, updateRow } from '../lib/db'
 import { klartext, lookupVideo, statsPatch } from '../lib/apify'
+import { seit } from '../lib/format'
 import { useCategories } from '../context/CategoryContext'
 import LineChart, { type Series } from '../components/LineChart'
 import SwipeRow from '../components/SwipeRow'
 import InspirationCard from '../components/InspirationCard'
+import PostLinksModal from '../components/PostLinksModal'
 import { useToast } from '../context/ToastContext'
 
 type ClientTab = 'board' | 'pool' | 'analyse' | 'inspiration'
@@ -669,7 +671,7 @@ export default function ClientPage() {
         <PostLinksModal
           video={askLinks}
           onClose={() => setAskLinks(null)}
-          onSave={async (patch) => { await patchVideo(askLinks.id, patch); setAskLinks(null) }}
+          onSaved={() => { loadVideos(); toast('Gespeichert ✓') }}
         />
       )}
 
@@ -802,102 +804,6 @@ function LinkModal({
           </button>
         </div>
       </form>
-    </Modal>
-  )
-}
-
-// Nach dem Posten: die Adresse des VEROEFFENTLICHTEN Beitrags erfassen.
-// Nicht zu verwechseln mit dem Video-Link auf der Karte -- der zeigt auf die
-// Videodatei (iCloud/Drive). Nur mit dieser Adresse hier kann die naechtliche
-// Abfrage die Zahlen holen.
-function PostLinksModal({
-  video,
-  onClose,
-  onSave,
-}: {
-  video: Video
-  onClose: () => void
-  onSave: (patch: Partial<Video>) => Promise<void>
-}) {
-  const [tt, setTt] = useState(video.tiktok_url ?? '')
-  const [ig, setIg] = useState(video.instagram_url ?? '')
-  const [busy, setBusy] = useState<'holen' | 'speichern' | null>(null)
-  const [err, setErr] = useState<string | null>(null)
-
-  const urls = () => ({ tiktok_url: tt.trim() || null, instagram_url: ig.trim() || null })
-
-  async function holen() {
-    if (!tt.trim() && !ig.trim()) { setErr('Bitte mindestens einen Link einfügen.'); return }
-    setBusy('holen'); setErr(null)
-    try {
-      const res = await lookupVideo(urls())
-      const gesamt = (res.tiktok?.views ?? 0) + (res.instagram?.views ?? 0)
-      if (gesamt === 0 && res.tiktok?.views == null && res.instagram?.views == null) {
-        // Abruf lief, aber keine Plattform hat eine Aufrufzahl geliefert.
-        // Die vorhandenen Zahlen NICHT mit Leere ueberschreiben.
-        await onSave(urls() as Partial<Video>)
-        setErr('Der Abruf lief durch, aber weder TikTok noch Instagram haben eine Aufrufzahl herausgegeben. Bei frisch geposteten Videos dauert das teils ein paar Stunden — heute Nacht wird es automatisch erneut versucht.')
-        return
-      }
-      await onSave({ ...urls(), ...statsPatch(res) } as Partial<Video>)
-    } catch (e) {
-      // Abruf gescheitert -- die Links trotzdem sichern, damit die naechste
-      // Nacht es erneut versuchen kann.
-      await onSave(urls() as Partial<Video>)
-      setErr(`${(e as Error).message} — die Links sind gespeichert, heute Nacht wird es erneut versucht.`)
-    } finally {
-      setBusy(null)
-    }
-  }
-
-  async function nurSpeichern() {
-    setBusy('speichern')
-    await onSave(urls() as Partial<Video>)
-    setBusy(null)
-  }
-
-  const hatLinks = !!(video.tiktok_url || video.instagram_url)
-
-  return (
-    <Modal title={hatLinks ? '📊 Zahlen jetzt holen' : '🔗 Wo ist es online?'} onClose={onClose}>
-      <div className="stack">
-        <div className="info-box" style={{ fontSize: 13 }}>
-          {hatLinks ? (
-            <>
-              Holt die aktuellen Zahlen sofort — ohne auf die nächtliche Abfrage zu warten.
-              Stimmt eine Adresse nicht, kannst du sie hier korrigieren.
-              {video.stats_updated_at && <><br />Zuletzt geprüft: {seit(video.stats_updated_at)}.</>}
-            </>
-          ) : (
-            <>
-              Adresse des fertigen Postings einfügen — daran holt sich das Dashboard jede Nacht
-              die Aufrufe. <strong>Ohne diese Adresse bleiben die Zahlen leer.</strong>
-            </>
-          )}
-        </div>
-
-        {err && <div className="warn-box">⚠ {err}</div>}
-
-        <div>
-          <label>🎵 TikTok-Link</label>
-          <input type="url" value={tt} onChange={(e) => setTt(e.target.value)} autoFocus placeholder="https://www.tiktok.com/@…/video/…" />
-        </div>
-        <div>
-          <label>📸 Instagram-Link</label>
-          <input type="url" value={ig} onChange={(e) => setIg(e.target.value)} placeholder="https://www.instagram.com/reel/…" />
-        </div>
-
-        <div className="modal-actions">
-          <button type="button" className="btn btn-ghost" onClick={onClose} disabled={!!busy}>Später</button>
-          <div className="spacer" />
-          <button type="button" className="btn" onClick={nurSpeichern} disabled={!!busy}>
-            {busy === 'speichern' ? 'Speichere …' : 'Nur merken'}
-          </button>
-          <button type="button" className="btn btn-primary" onClick={holen} disabled={!!busy}>
-            {busy === 'holen' ? 'Hole Zahlen …' : '📊 Zahlen jetzt holen'}
-          </button>
-        </div>
-      </div>
     </Modal>
   )
 }
@@ -1819,17 +1725,6 @@ function SeriesModal({
 }
 
 // ============================ Analyse (gepostete Videos) ============================
-// "vor 3 Std" / "vor 2 Tagen" -- damit man sieht, ob die Nacht-Abfrage
-// dieses Video ueberhaupt angefasst hat.
-function seit(iso: string): string {
-  const min = Math.round((Date.now() - new Date(iso).getTime()) / 60000)
-  if (min < 60) return 'gerade eben'
-  const h = Math.round(min / 60)
-  if (h < 24) return `vor ${h} Std`
-  const d = Math.round(h / 24)
-  return d === 1 ? 'gestern' : `vor ${d} Tagen`
-}
-
 function AnalyseSection({ videos, onEdit, onDelete, onLinks }: { videos: Video[]; onEdit: (v: Video) => void; onDelete: (id: string) => void; onLinks: (v: Video) => void }) {
   const num = (n: number | null | undefined) => (n == null ? '–' : n.toLocaleString('de-DE'))
   const posts = videos.length

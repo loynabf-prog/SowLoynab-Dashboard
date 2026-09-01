@@ -28,3 +28,15 @@ export function dateRelative(d: string | null): { text: string; overdue: boolean
   if (diff === 1) return { text: 'Morgen', overdue: false, soon: true }
   return { text: base, overdue: false, soon: diff <= 3 }
 }
+
+// "gerade eben" / "vor 3 Std" / "gestern" -- fuer Zeitstempel aus der
+// Automatik (zuletzt geprueft, zuletzt gelaufen).
+export function seit(iso: string | null): string {
+  if (!iso) return 'nie'
+  const min = Math.round((Date.now() - new Date(iso).getTime()) / 60000)
+  if (min < 60) return 'gerade eben'
+  const h = Math.round(min / 60)
+  if (h < 24) return `vor ${h} Std`
+  const d = Math.round(h / 24)
+  return d === 1 ? 'gestern' : `vor ${d} Tagen`
+}
