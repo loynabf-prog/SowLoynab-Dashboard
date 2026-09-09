@@ -30,7 +30,10 @@ gebaut, ein erneuter Lauf schadet also nicht.
 ## 2. Secrets (Supabase → Edge Functions → Secrets)
 
 - [ ] `ANTHROPIC_API_KEY` — für Caption/Ideen/Sprachbefehl (Claude)
-- [ ] `OPENAI_API_KEY` — für Sprache-zu-Text (Whisper)
+- ~~`OPENAI_API_KEY`~~ — **nicht mehr nötig.** Der Sprachbefehl nimmt kein Audio
+      mehr auf; diktiert wird mit der Mikrofontaste der Handytastatur, an die
+      Funktion geht nur noch Text. Den Key kannst du in den Supabase-Secrets
+      **löschen** und bei OpenAI **widerrufen**.
 - [ ] `VAPID_PUBLIC_KEY` + `VAPID_PRIVATE_KEY` — für Push-Benachrichtigungen
 - [ ] `APIFY_TOKEN` — für die Auto-Statistik
 - [ ] `ZOHO_CLIENT_ID`, `ZOHO_CLIENT_SECRET`, `ZOHO_REFRESH_TOKEN`,
