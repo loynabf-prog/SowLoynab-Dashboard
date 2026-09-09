@@ -28,6 +28,7 @@ import { occurrences, recommendedIntervalDays, type RepeatRule } from '../lib/re
 import { insertRows, tableMissing, updateRow } from '../lib/db'
 import { klartext, lookupVideo, statsPatch } from '../lib/apify'
 import { seit } from '../lib/format'
+import { getPackages, mengeText, type Package } from '../lib/packages'
 import { useCategories } from '../context/CategoryContext'
 import LineChart, { type Series } from '../components/LineChart'
 import SwipeRow from '../components/SwipeRow'
@@ -1222,6 +1223,7 @@ function EditClientModal({
   const [notes, setNotes] = useState(client.notes ?? '')
   const [aiBrief, setAiBrief] = useState(client.ai_brief ?? '')
   const [pkg, setPkg] = useState(client.package ?? '')
+  const [pakete, setPakete] = useState<Package[]>([])
   const [fee, setFee] = useState(client.monthly_fee != null ? String(client.monthly_fee) : '')
   const [active, setActive] = useState(client.active ?? true)
   const [contact, setContact] = useState(client.contact_person ?? '')
@@ -1237,6 +1239,19 @@ function EditClientModal({
   const [cropFile, setCropFile] = useState<File | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => { getPackages().then(setPakete) }, [])
+
+  // Paket uebernehmen: fuellt Name, Honorar und Ziel-Videomenge. Danach ist
+  // alles ganz normal ueberschreibbar -- das Paket ist eine Vorlage, kein
+  // fester Rahmen. Als Menge nehmen wir die Untergrenze: das ist das, was
+  // wir dem Kunden zugesagt haben.
+  function paketUebernehmen(p: Package) {
+    setPkg(p.name)
+    if (p.price_monthly != null) setFee(String(p.price_monthly))
+    const menge = p.videos_min ?? p.videos_max
+    if (menge != null) setQuota(String(menge))
+  }
 
   function onPickLogo(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -1312,6 +1327,29 @@ function EditClientModal({
             <input id="ectt" value={tiktok} onChange={(e) => setTiktok(e.target.value)} placeholder="restaurant_xy" />
           </div>
         </div>
+        {pakete.length > 0 && (
+          <div>
+            <label>Standard-Paket übernehmen <span className="muted">(füllt Honorar und Videomenge)</span></label>
+            <div className="pkg-pick">
+              {pakete.map((p) => (
+                <button
+                  type="button"
+                  key={p.id}
+                  className={`pkg-chip ${pkg === p.name ? 'on' : ''}`}
+                  onClick={() => paketUebernehmen(p)}
+                  title={p.notes ?? undefined}
+                >
+                  <span className="pkg-chip-name">{p.name}</span>
+                  <span className="pkg-chip-sub">
+                    {p.price_monthly != null ? `${p.price_monthly.toLocaleString('de-DE')} €` : ''}
+                    {p.price_monthly != null && mengeText(p) ? ' · ' : ''}
+                    {mengeText(p)}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="row" style={{ gap: 12 }}>
           <div style={{ flex: 1 }}>
             <label htmlFor="ecpkg">Paket</label>

@@ -140,7 +140,10 @@ function MoreMenu({ onClose, onSignOut }: { onClose: () => void; onSignOut: () =
   return createPortal(
     <div className="more-backdrop" onClick={onClose}>
       <div className="more-panel" onClick={(e) => e.stopPropagation()}>
-        <div className="more-grip" />
+        <div className="more-bar">
+          <div className="more-grip" onClick={onClose} />
+          <button className="more-close" onClick={onClose} aria-label="Menü schließen">✕</button>
+        </div>
         {MORE_GROUPS.map((g) => (
           <div className="more-group" key={g.title}>
             <div className="more-title">{g.title}</div>
