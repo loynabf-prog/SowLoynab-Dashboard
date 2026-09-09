@@ -33,33 +33,16 @@ export interface VoiceContext {
   members: { id: string; name: string }[]
 }
 
-// Waehlt einen von Whisper/MediaRecorder unterstuetzten Aufnahme-Typ.
-// iOS-Safari liefert audio/mp4, Chrome/Firefox audio/webm.
-export function pickMimeType(): string {
-  const cands = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/mpeg', 'audio/ogg']
-  const MR: any = typeof MediaRecorder !== 'undefined' ? MediaRecorder : null
-  if (MR?.isTypeSupported) {
-    for (const c of cands) if (MR.isTypeSupported(c)) return c
-  }
-  return ''
-}
-
-function extFor(mime: string): string {
-  if (mime.includes('mp4')) return 'mp4'
-  if (mime.includes('mpeg')) return 'mp3'
-  if (mime.includes('ogg')) return 'ogg'
-  return 'webm'
-}
-
-// Schickt die Aufnahme an die Edge Function "voice-command" und liefert
-// Transkript + erkannten Intent zurueck.
-export async function sendVoice(blob: Blob, mime: string, ctx: VoiceContext): Promise<VoiceResult> {
-  const form = new FormData()
-  const ext = extFor(mime || blob.type)
-  form.append('audio', blob, `aufnahme.${ext}`)
-  form.append('context', JSON.stringify(ctx))
-
-  const { data, error } = await supabase.functions.invoke('voice-command', { body: form })
+// Schickt den (diktierten oder getippten) Befehl an die Edge Function
+// "voice-command" und liefert den Text + erkannten Intent zurueck.
+//
+// Bewusst Text und kein Audio: diktiert wird mit der Mikrofontaste der
+// Handytastatur. Damit bleibt die Sprachaufnahme auf dem Geraet bzw. beim
+// Betriebssystem -- unser System bekommt sie nie zu sehen.
+export async function sendCommand(text: string, ctx: VoiceContext): Promise<VoiceResult> {
+  const { data, error } = await supabase.functions.invoke('voice-command', {
+    body: { text, context: ctx },
+  })
 
   if (error) {
     const c = (error as any)?.context

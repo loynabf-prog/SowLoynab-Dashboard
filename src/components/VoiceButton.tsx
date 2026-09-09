@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
-import { pickMimeType, sendVoice, type VoiceIntent, type VoiceIntentType } from '../lib/voice'
+import { sendCommand, type VoiceIntent, type VoiceIntentType } from '../lib/voice'
 import { generateIdeas } from '../lib/ideas'
 import type { Client } from '../lib/types'
 import { occurrences, type RepeatRule } from '../lib/recurrence'
@@ -13,7 +13,7 @@ import Modal from './Modal'
 
 interface Opt { id: string; name: string }
 
-type Phase = 'idle' | 'recording' | 'working'
+type Phase = 'idle' | 'input' | 'working'
 
 const TYPE_LABEL: Record<VoiceIntentType, string> = {
   task: 'Aufgabe',
@@ -32,10 +32,7 @@ export default function VoiceButton() {
   const [clients, setClients] = useState<Opt[]>([])
   const [leads, setLeads] = useState<Opt[]>([])
 
-  const recorderRef = useRef<MediaRecorder | null>(null)
-  const chunksRef = useRef<Blob[]>([])
-  const streamRef = useRef<MediaStream | null>(null)
-  const mimeRef = useRef<string>('')
+  const [text, setText] = useState('')
 
   // Kunden/Leads fuer Kontext + Zuordnung laden.
   async function loadContext() {
@@ -55,74 +52,33 @@ export default function VoiceButton() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  async function start() {
+  function open() {
     setError(null)
-    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
-      setError('Dein Browser unterstützt keine Sprachaufnahme. Nutze Safari/Chrome aktuell.')
-      return
-    }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      streamRef.current = stream
-      const mime = pickMimeType()
-      mimeRef.current = mime
-      const rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined)
-      chunksRef.current = []
-      rec.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data) }
-      rec.onstop = () => finish()
-      rec.start()
-      recorderRef.current = rec
-      setPhase('recording')
-    } catch (e) {
-      setError('Kein Zugriff aufs Mikrofon. Bitte in den Einstellungen erlauben.')
-    }
+    setText('')
+    setPhase('input')
+    loadContext()
   }
 
-  function stopTracks() {
-    streamRef.current?.getTracks().forEach((t) => t.stop())
-    streamRef.current = null
-  }
-
-  function stop() {
-    const rec = recorderRef.current
-    if (rec && rec.state !== 'inactive') rec.stop()
-  }
-
-  function cancel() {
-    const rec = recorderRef.current
-    if (rec) rec.onstop = null
-    if (rec && rec.state !== 'inactive') rec.stop()
-    stopTracks()
-    chunksRef.current = []
-    setPhase('idle')
-  }
-
-  async function finish() {
-    stopTracks()
+  // Diktiert wird mit der Mikrofontaste der Handytastatur -- die Umwandlung
+  // in Text macht das Betriebssystem. Unser System bekommt nur den fertigen
+  // Text zu sehen, nie die Sprachaufnahme.
+  async function submit() {
+    const befehl = text.trim()
+    if (!befehl) { setError('Bitte einen Befehl eintippen oder diktieren.'); return }
     setPhase('working')
+    setError(null)
     try {
-      const mime = mimeRef.current
-      const blob = new Blob(chunksRef.current, { type: mime || 'audio/webm' })
-      if (blob.size < 800) {
-        setError('Zu kurz – nichts aufgenommen. Halte den Knopf und sprich einen Satz.')
-        setPhase('idle')
-        return
-      }
       const ctx = await loadContext()
-      const res = await sendVoice(blob, mime, {
+      const res = await sendCommand(befehl, {
         today: new Date().toISOString().slice(0, 10),
         clients: ctx.clients,
         leads: ctx.leads,
         members: [],
       })
       setPhase('idle')
-      if (!res.transcript) {
-        setError('Nichts verstanden. Bitte nochmal – etwas näher am Mikro.')
-        return
-      }
       setReview(res)
     } catch (e) {
-      setPhase('idle')
+      setPhase('input')
       setError((e as Error).message)
     }
   }
@@ -130,30 +86,47 @@ export default function VoiceButton() {
   return (
     <>
       <button
-        className={`voice-fab ${phase === 'recording' ? 'rec' : ''} ${phase === 'working' ? 'busy' : ''}`}
-        onClick={() => (phase === 'recording' ? stop() : phase === 'idle' ? start() : undefined)}
-        aria-label={phase === 'recording' ? 'Aufnahme beenden' : 'Sprachbefehl'}
-        title="Sprachbefehl: Aufgabe, Lead oder Videoidee einsprechen"
+        className={`voice-fab ${phase === 'working' ? 'busy' : ''}`}
+        onClick={() => phase === 'idle' && open()}
+        aria-label="Schnellbefehl"
+        title="Befehl diktieren oder tippen: Aufgabe, Lead oder Videoidee"
       >
-        {phase === 'working' ? <span className="voice-spin" /> : phase === 'recording' ? '■' : '🎤'}
+        {phase === 'working' ? <span className="voice-spin" /> : '🎤'}
       </button>
 
-      {phase === 'recording' && (
-        <div className="voice-hint">
-          <span className="voice-live"><i /> Ich höre zu … sprich frei</span>
-          <div className="voice-hint-actions">
-            <button className="btn btn-sm btn-ghost" onClick={cancel}>Abbrechen</button>
-            <button className="btn btn-sm btn-primary" onClick={stop}>Fertig</button>
-          </div>
-        </div>
-      )}
-      {phase === 'working' && <div className="voice-hint"><span className="voice-live">Verarbeite …</span></div>}
+      {(phase === 'input' || phase === 'working') && (
+        <Modal title="🎤 Befehl diktieren" onClose={() => phase === 'input' && setPhase('idle')}>
+          <div className="stack">
+            <div className="info-box" style={{ fontSize: 13 }}>
+              Tipp auf der Tastatur die <strong>Mikrofontaste</strong> 🎤 und sprich frei —
+              z. B. „Aufgabe: Sahin Freitag um 14 Uhr anrufen" oder „Videoidee für Schleckofatz
+              nächsten Montag". Die Sprachaufnahme bleibt dabei auf deinem Gerät.
+            </div>
 
-      {error && (
-        <div className="voice-hint err" onClick={() => setError(null)}>
-          <span>{error}</span>
-          <button className="btn btn-sm btn-ghost">OK</button>
-        </div>
+            {error && <div className="error-box">{error}</div>}
+
+            <div>
+              <label>Dein Befehl</label>
+              <textarea
+                rows={3}
+                value={text}
+                autoFocus
+                onChange={(e) => setText(e.target.value)}
+                placeholder="Aufgabe: Freitag 14 Uhr Sahin anrufen"
+                disabled={phase === 'working'}
+              />
+            </div>
+
+            <div className="modal-actions">
+              <button type="button" className="btn btn-ghost" onClick={() => setPhase('idle')} disabled={phase === 'working'}>
+                Abbrechen
+              </button>
+              <button type="button" className="btn btn-primary" onClick={submit} disabled={phase === 'working'}>
+                {phase === 'working' ? 'Verstehe …' : 'Los'}
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
 
       {review && (

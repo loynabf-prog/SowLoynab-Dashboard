@@ -1,20 +1,18 @@
 // Supabase Edge Function: voice-command
 // -------------------------------------------------------------------------
-// Nimmt eine Sprachaufnahme (Audio) + Kontext (Kunden/Leads/Team) entgegen und
-// gibt zurueck:
-//   1. transcript  – der erkannte Text (via OpenAI Whisper, "wie ChatGPT")
-//   2. intent      – strukturierter Vorschlag (Aufgabe / Lead / Videoidee),
-//                    von Claude aus dem Text herausgelesen
+// Nimmt einen kurzen Befehl als TEXT entgegen und gibt einen strukturierten
+// Vorschlag zurueck (Aufgabe / Lead / Videoidee / KI-Ideen).
 //
-// Beide API-Keys bleiben SERVER-seitig (Supabase Secrets) und landen NIE im
-// Frontend:
-//   OPENAI_API_KEY     -> fuer Whisper (Transkription)
-//   ANTHROPIC_API_KEY  -> fuer Claude (Intent-Erkennung, schon vorhanden)
+// Wichtig: Diese Funktion nimmt KEIN Audio mehr entgegen. Frueher ging die
+// Sprachaufnahme zur Transkription an OpenAI in die USA -- bei Befehlen, in
+// denen staendig Kundennamen fallen, war das die groesste Datenschutz-
+// Baustelle im ganzen System. Diktiert wird jetzt mit der Mikrofontaste der
+// iPhone-Tastatur: Apple wandelt Sprache in Text um (auf neueren Geraeten
+// weitgehend auf dem Geraet selbst), und unser System sieht nur den Text.
+// OPENAI_API_KEY wird hier nicht mehr gebraucht.
 //
-// Deploy: Supabase-Dashboard -> Edge Functions -> "voice-command" anlegen,
-// diesen Code einfuegen, deployen. Danach unter Edge Functions -> Secrets:
-//   OPENAI_API_KEY = dein OpenAI-Key (sk-...)
-// (ANTHROPIC_API_KEY ist von der Caption-Funktion bereits gesetzt.)
+// Secret (Supabase -> Edge Functions -> Secrets):
+//   ANTHROPIC_API_KEY  -> fuer Claude (Intent-Erkennung)
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -33,62 +31,14 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
   try {
-    const openaiKey = Deno.env.get('OPENAI_API_KEY')
     const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY')
-    if (!openaiKey) return json({ error: 'OPENAI_API_KEY ist nicht gesetzt (Supabase Secret fehlt).' }, 500)
     if (!anthropicKey) return json({ error: 'ANTHROPIC_API_KEY ist nicht gesetzt (Supabase Secret fehlt).' }, 500)
 
-    const form = await req.formData()
-    const audio = form.get('audio')
-    if (!(audio instanceof File)) return json({ error: 'Keine Audiodatei empfangen.' }, 400)
+    const body = await req.json().catch(() => ({}))
+    const transcript = String(body?.text ?? '').trim()
+    if (!transcript) return json({ error: 'Kein Text empfangen.' }, 400)
 
-    let ctx: Ctx = {}
-    const ctxRaw = form.get('context')
-    if (typeof ctxRaw === 'string') {
-      try { ctx = JSON.parse(ctxRaw) } catch { /* ignore */ }
-    }
-
-    // ---- 1) Transkription (OpenAI, ChatGPT-Qualität) -----------------------
-    // Eigennamen als "prompt" mitgeben -> Modell schreibt Kundennamen etc. korrekt.
-    const vocab = [
-      ...(ctx.clients ?? []).map((c) => c.name),
-      ...(ctx.leads ?? []).map((l) => l.name),
-      'Sow & Loynab', 'Reel', 'TikTok', 'Instagram', 'Videoidee', 'Caption', 'Lead', 'Follow-up',
-    ].filter(Boolean).join(', ')
-
-    const wForm = new FormData()
-    wForm.append('file', audio, audio.name || 'aufnahme.webm')
-    wForm.append('model', 'gpt-4o-transcribe') // neuer & genauer als whisper-1
-    wForm.append('language', 'de')
-    wForm.append('response_format', 'json')
-    if (vocab) wForm.append('prompt', `Kontext (Eigennamen korrekt schreiben): ${vocab}.`)
-
-    let wResp = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${openaiKey}` },
-      body: wForm,
-    })
-    // Fallback auf whisper-1, falls das neue Modell (noch) nicht verfügbar ist
-    if (wResp.status === 400 || wResp.status === 404) {
-      const fb = new FormData()
-      fb.append('file', audio, audio.name || 'aufnahme.webm')
-      fb.append('model', 'whisper-1')
-      fb.append('language', 'de')
-      fb.append('response_format', 'json')
-      if (vocab) fb.append('prompt', `Kontext (Eigennamen korrekt schreiben): ${vocab}.`)
-      wResp = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${openaiKey}` },
-        body: fb,
-      })
-    }
-    if (!wResp.ok) {
-      const detail = await wResp.text()
-      return json({ error: `Transkriptions-Fehler (${wResp.status}): ${detail.slice(0, 300)}` }, 502)
-    }
-    const wData = await wResp.json()
-    const transcript = (wData?.text ?? '').trim()
-    if (!transcript) return json({ error: 'Nichts verstanden. Bitte nochmal sprechen.' }, 200)
+    const ctx: Ctx = (body?.context ?? {}) as Ctx
 
     // ---- 2) Intent-Erkennung via Claude ------------------------------------
     const today = ctx.today || new Date().toISOString().slice(0, 10)
