@@ -34,6 +34,7 @@ import LineChart, { type Series } from '../components/LineChart'
 import SwipeRow from '../components/SwipeRow'
 import InspirationCard from '../components/InspirationCard'
 import PostLinksModal from '../components/PostLinksModal'
+import ContractCard from '../components/ContractCard'
 import { useToast } from '../context/ToastContext'
 
 type ClientTab = 'board' | 'pool' | 'analyse' | 'inspiration'
@@ -662,10 +663,13 @@ export default function ClientPage() {
       )}
 
       {tab === 'board' && (
-        <div className="section-block">
-          <h2 className="section-title">Verlauf</h2>
-          <ActivityLog clientId={client.id} />
-        </div>
+        <>
+          <ContractCard client={client} />
+          <div className="section-block">
+            <h2 className="section-title">Verlauf</h2>
+            <ActivityLog clientId={client.id} />
+          </div>
+        </>
       )}
 
       {askLinks && (

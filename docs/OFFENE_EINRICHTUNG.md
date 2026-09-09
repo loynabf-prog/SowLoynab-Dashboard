@@ -24,6 +24,12 @@ gebaut, ein erneuter Lauf schadet also nicht.
 - [ ] `supabase/migrations/0019_client_contract.sql` — Vertragsende pro Kunde (Content-Plan)
 - [ ] `supabase/migrations/0020_video_platform_stats.sql` — Zahlen getrennt nach Instagram/TikTok (Vergleich + Nachtragen)
 - [ ] `supabase/migrations/0021_account_stats.sql` — Following/Posts-Anzahl pro Kunde (Account-Statistik)
+- [ ] `supabase/migrations/0022_task_time.sql` — Uhrzeit für Aufgaben
+- [ ] `supabase/migrations/0023_inspirations.sql` — Inspirationen (gemerkte Fremd-Videos)
+- [ ] `supabase/migrations/0024_packages.sql` — Standard-Pakete (Basis / Wachstum / Marktführer)
+- [ ] `supabase/migrations/0025_contracts.sql` — Rahmenverträge mit elektronischer Unterschrift
+
+*(0020–0023 stecken auch gesammelt in `ALLES_offen_20-23.sql` — dann reicht ein Durchlauf.)*
 
 *(0001–0009 bzw. `ALLES_offen_5-9.sql` sollten schon gelaufen sein — sonst zuerst die.)*
 
