@@ -5,6 +5,8 @@ import { testMailConnection } from '../lib/mail'
 import { supabase } from '../lib/supabase'
 import { useCategories } from '../context/CategoryContext'
 import { useToast } from '../context/ToastContext'
+import { getPackages, packageLabel, type Package } from '../lib/packages'
+import { dbKlartext, updateRow } from '../lib/db'
 
 interface StatusRow { job: string; last_ok: string | null; last_error: string | null; last_error_at: string | null; detail: string | null }
 const JOB_LABEL: Record<string, string> = {
@@ -120,6 +122,8 @@ export default function Settings() {
         <button className="btn" onClick={testZoho} disabled={testing}>{testing ? 'Prüfe …' : '🔌 Zoho-Verbindung testen'}</button>
       </div>
 
+      <PackagesCard />
+
       <CategoriesCard />
 
       <div className="settings-card" style={{ marginTop: 18 }}>
@@ -147,6 +151,133 @@ export default function Settings() {
         )}
       </div>
     </>
+  )
+}
+
+function PackagesCard() {
+  const { toast } = useToast()
+  const [rows, setRows] = useState<Package[]>([])
+  const [busy, setBusy] = useState(false)
+  const [fehlt, setFehlt] = useState(false)
+
+  useEffect(() => {
+    getPackages().then((p) => { setRows(p); setFehlt(p.length === 0) })
+  }, [])
+
+  const upd = (id: string, patch: Partial<Package>) =>
+    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)))
+
+  const num = (v: string) => (v.trim() === '' ? null : Number(v.replace(',', '.')))
+
+  async function save(p: Package) {
+    setBusy(true)
+    const { error } = await updateRow('packages', {
+      name: p.name.trim() || 'Paket',
+      price_monthly: p.price_monthly,
+      videos_min: p.videos_min,
+      videos_max: p.videos_max,
+      notes: p.notes?.trim() || null,
+    }, 'id', p.id)
+    setBusy(false)
+    toast(error ? `Fehler: ${error.message}` : 'Paket gespeichert ✓')
+  }
+
+  async function add() {
+    const { data, error } = await supabase
+      .from('packages')
+      .insert({ name: 'Neues Paket', sort_order: rows.length + 1 })
+      .select()
+      .single()
+    if (error) { toast(dbKlartext(error.message)); return }
+    setRows((prev) => [...prev, data as Package])
+    setFehlt(false)
+  }
+
+  async function remove(id: string) {
+    if (!confirm('Paket entfernen? Bereits zugeordnete Kunden behalten ihre Zahlen.')) return
+    setRows((prev) => prev.filter((r) => r.id !== id))
+    await supabase.from('packages').update({ deleted_at: new Date().toISOString() }).eq('id', id)
+    toast('Paket entfernt')
+  }
+
+  return (
+    <div className="settings-card" style={{ marginTop: 18 }}>
+      <div className="section-divider" style={{ borderTop: 'none', paddingTop: 0 }}>Pakete</div>
+      <p className="muted" style={{ fontSize: 13, margin: '4px 0 12px' }}>
+        Eure Standard-Angebote. Beim Kunden wählst du eins aus, dann stehen Preis und Videomenge
+        sofort drin — anpassen kannst du sie dort trotzdem jederzeit.
+      </p>
+
+      {fehlt && (
+        <div className="warn-box" style={{ marginBottom: 12 }}>
+          ⚠ Noch keine Pakete. Fehlt die Tabelle, bitte am PC im Supabase SQL-Editor einmal
+          <strong> 0024_packages.sql</strong> ausführen — dann stehen die drei Grundpakete da.
+        </div>
+      )}
+
+      <div className="stack" style={{ gap: 14 }}>
+        {rows.map((p) => (
+          <div key={p.id} className="pkg-edit">
+            <div className="pkg-head">
+              <input
+                className="pkg-name"
+                value={p.name}
+                onChange={(e) => upd(p.id, { name: e.target.value })}
+                placeholder="Name (z. B. Wachstum)"
+              />
+              <button type="button" className="pos-del" onClick={() => remove(p.id)} title="Paket entfernen">✕</button>
+            </div>
+            <div className="pkg-row">
+              <div>
+                <label>Preis / Monat</label>
+                <input
+                  inputMode="decimal"
+                  value={p.price_monthly ?? ''}
+                  onChange={(e) => upd(p.id, { price_monthly: num(e.target.value) })}
+                  placeholder="1000"
+                />
+              </div>
+              <div>
+                <label>Videos von</label>
+                <input
+                  inputMode="numeric"
+                  value={p.videos_min ?? ''}
+                  onChange={(e) => upd(p.id, { videos_min: num(e.target.value) })}
+                  placeholder="4"
+                />
+              </div>
+              <div>
+                <label>bis</label>
+                <input
+                  inputMode="numeric"
+                  value={p.videos_max ?? ''}
+                  onChange={(e) => upd(p.id, { videos_max: num(e.target.value) })}
+                  placeholder="6"
+                />
+              </div>
+            </div>
+            <div>
+              <label>Was ist drin? <span className="muted">(erscheint im Angebot)</span></label>
+              <textarea
+                rows={2}
+                value={p.notes ?? ''}
+                onChange={(e) => upd(p.id, { notes: e.target.value })}
+                placeholder="Konzept, Dreh, Schnitt, Posting auf Instagram und TikTok"
+              />
+            </div>
+            <div className="pkg-foot">
+              <span className="muted" style={{ fontSize: 12 }}>{packageLabel(p)}</span>
+              <div className="spacer" />
+              <button type="button" className="btn btn-sm btn-primary" onClick={() => save(p)} disabled={busy}>
+                Speichern
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <button className="btn btn-sm" style={{ marginTop: 14 }} onClick={add}>+ Paket</button>
+    </div>
   )
 }
 

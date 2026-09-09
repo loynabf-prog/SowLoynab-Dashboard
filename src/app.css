@@ -1223,6 +1223,45 @@ a.fin-tile:hover { transform: translateY(-3px); box-shadow: var(--shadow); borde
 .pool-notes { font-size: 13px; color: var(--text-muted); line-height: 1.45; }
 .pool-move { margin-top: auto; align-self: flex-start; }
 
+/* Paket-Auswahl beim Kunden */
+.pkg-pick { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
+.pkg-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.pkg-chip:hover { border-color: var(--border-strong); }
+.pkg-chip.on { border-color: var(--brand); background: var(--brand-glow); }
+.pkg-chip-name { font-weight: 700; font-size: 14px; color: var(--text); }
+.pkg-chip-sub { font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.pkg-chip.on .pkg-chip-name { color: var(--brand); }
+
+/* Pakete (Einstellungen) */
+.pkg-edit {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--bg-card);
+}
+.pkg-head { display: flex; align-items: center; gap: 8px; }
+.pkg-name { flex: 1; min-width: 0; font-weight: 700 !important; }
+.pkg-row { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 10px; }
+.pkg-foot { display: flex; align-items: center; gap: 10px; }
+@media (max-width: 480px) {
+  .pkg-row { grid-template-columns: 1fr 1fr; }
+  .pkg-row > :first-child { grid-column: 1 / -1; }
+}
+
 /* Karte im Board: Posting-Adressen direkt eintragen, solange sie fehlen. */
 .vc-links {
   display: flex;
@@ -2196,8 +2235,61 @@ html { scroll-behavior: smooth; }
   border: 1px solid rgba(120, 120, 128,0.18); border-radius: var(--radius);
   box-shadow: var(--shadow-lg); padding: 10px;
   animation: modalPop 0.2s cubic-bezier(0.22,0.61,0.36,1) both;
+  /* Das Menue waechst mit jedem neuen Eintrag. Ohne Deckel schiebt es sich
+     ueber den Bildschirmrand hinaus -- dann ist weder der Inhalt scrollbar
+     noch der Hintergrund zum Schliessen erreichbar. */
+  max-height: calc(100vh - 128px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+/* Schliessen-Knopf: der Hintergrund kann verdeckt sein, ein Ausweg muss
+   immer sichtbar bleiben. */
+.more-close {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  margin: -10px -10px 0;
+  padding: 8px 12px;
+  background: var(--bg-elev);
+  border: none;
+  width: calc(100% + 20px);
+  color: var(--text-dim);
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+.more-close:hover { color: var(--text); }
+/* Kopfleiste des Menues: bleibt beim Scrollen stehen, damit der Ausweg
+   immer erreichbar ist -- das Menue ist inzwischen laenger als ein
+   iPhone-Bildschirm. */
+.more-bar {
+  position: sticky;
+  top: -10px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin: -10px -10px 2px;
+  padding: 8px 10px;
+  background: var(--bg-elev);
 }
 .more-grip { display: none; }
+.more-close {
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 16px;
+  line-height: 1;
+  padding: 4px 6px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.more-close:hover { color: var(--text); background: var(--bg-sunken); }
 .more-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); padding: 8px 10px 3px; }
 .more-items { display: flex; flex-direction: column; }
 .more-item {
@@ -2242,8 +2334,23 @@ html { scroll-behavior: smooth; }
 
   /* „Mehr" wird zum Bottom-Sheet */
   .more-backdrop { justify-content: center; align-items: flex-end; padding: 0; }
-  .more-panel { width: 100%; border-radius: 24px 24px 0 0; padding: 8px 16px calc(22px + env(safe-area-inset-bottom)); animation: sheetUp 0.3s cubic-bezier(0.22,0.61,0.36,1) both; }
-  .more-grip { display: block; width: 42px; height: 4px; border-radius: 999px; background: var(--border-strong); margin: 8px auto 12px; }
+  .more-panel {
+    width: 100%; border-radius: 24px 24px 0 0;
+    padding: 8px 16px calc(22px + env(safe-area-inset-bottom));
+    animation: sheetUp 0.3s cubic-bezier(0.22,0.61,0.36,1) both;
+    /* Als Sheet von unten: hoechstens vier Fuenftel des Bildschirms, damit
+       oben immer ein Streifen Hintergrund zum Wegtippen bleibt. */
+    max-height: 80vh;
+  }
+  .more-bar { margin: -8px -16px 4px; padding: 10px 16px 6px; top: -8px; }
+  /* Griff mittig, Schliessen rechts daneben -- beide bleiben oben stehen. */
+  .more-grip {
+    display: block; width: 42px; height: 4px; border-radius: 999px;
+    background: var(--border-strong);
+    margin: 6px auto 0;
+    position: absolute; left: 50%; transform: translateX(-50%); top: 12px;
+  }
+  .more-close { font-size: 18px; padding: 4px 8px; }
   .more-item { font-size: 16px; padding: 13px 12px; }
 
   .hide-mobile { display: none !important; }
