@@ -34,6 +34,7 @@ export default function Dashboard() {
   const { user } = useAuth()
   const [clients, setClients] = useState<ClientWithCount[]>([])
   const [upcoming, setUpcoming] = useState<UpcomingItem[]>([])
+  const [plannedMonth, setPlannedMonth] = useState<Record<string, number>>({})
   const [postedMonth, setPostedMonth] = useState<Record<string, number>>({})
   const [videoCount, setVideoCount] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
@@ -87,16 +88,24 @@ export default function Dashboard() {
     const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
     const { data } = await supabase
       .from('videos')
-      .select('client_id, posted_at')
+      .select('client_id, posted_at, scheduled_date')
       .is('deleted_at', null)
+    const key = monthStart.slice(0, 7)
     const total: Record<string, number> = {}
     const month: Record<string, number> = {}
+    // Wie viele Videos sind diesem Monat ueberhaupt zugeordnet? Daraus ergibt
+    // sich die Luecke zur zugesagten Menge -- also das, wofuer es noch nicht
+    // mal eine Idee gibt.
+    const geplant: Record<string, number> = {}
     for (const v of (data ?? []) as any[]) {
       total[v.client_id] = (total[v.client_id] ?? 0) + 1
       if (v.posted_at && v.posted_at >= monthStart) month[v.client_id] = (month[v.client_id] ?? 0) + 1
+      const drin = (v.scheduled_date ?? '').slice(0, 7) === key || (v.posted_at ?? '').slice(0, 7) === key
+      if (drin) geplant[v.client_id] = (geplant[v.client_id] ?? 0) + 1
     }
     setVideoCount(total)
     setPostedMonth(month)
+    setPlannedMonth(geplant)
   }
 
   useEffect(() => {
@@ -153,6 +162,12 @@ export default function Dashboard() {
                 {c.monthly_quota
                   ? <span className={`quota-chip ${(postedMonth[c.id] ?? 0) >= c.monthly_quota ? 'done' : ''}`}>🎬 {postedMonth[c.id] ?? 0}/{c.monthly_quota} · Monat</span>
                   : <>{videoCount[c.id] ?? 0} {(videoCount[c.id] ?? 0) === 1 ? 'Video' : 'Videos'}</>}
+                {(() => {
+                  // Zugesagt, aber noch nicht angelegt -> hier fehlt eine Idee
+                  const luecke = (c.monthly_quota ?? 0) - (plannedMonth[c.id] ?? 0)
+                  if (luecke <= 0) return null
+                  return <span className="gap-chip" title="So viele Videos sind diesen Monat noch nicht angelegt">💡 {luecke} ohne Idee</span>
+                })()}
                 {(() => {
                   const dl = contractDaysLeft(c.contract_end)
                   if (dl === null || dl > 30) return null
