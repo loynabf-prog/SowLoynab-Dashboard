@@ -63,6 +63,8 @@ export default function ClientPage() {
   // Video ist gerade gepostet worden, aber es fehlt der Link zum Posting --
   // ohne den kann die naechtliche Abfrage nie Zahlen holen.
   const [askLinks, setAskLinks] = useState<Video | null>(null)
+  // Seltenes zugeklappt halten -- der Alltag ist das Board, nicht der Verlauf.
+  const [mehrOffen, setMehrOffen] = useState(false)
   const [nudging, setNudging] = useState<Video | null>(null)
   const [seriesOpen, setSeriesOpen] = useState(false)
   const [growthOpen, setGrowthOpen] = useState(false)
@@ -475,8 +477,6 @@ export default function ClientPage() {
         onPlanen={() => setSeriesOpen(true)}
       />
 
-      <GrowthSection stats={stats} onAdd={() => setGrowthOpen(true)} />
-
       {client.notes && (
         <div className="info-box" style={{ marginBottom: 20 }}>
           📝 {client.notes}
@@ -668,14 +668,26 @@ export default function ClientPage() {
         />
       )}
 
+      {/* Vertrag, Wachstum und Verlauf braucht man einmal im Monat, nicht
+          taeglich. Zugeklappt sind sie da, wenn man sie sucht -- und im Weg,
+          wenn nicht. */}
       {tab === 'board' && (
-        <>
-          <ContractCard client={client} />
-          <div className="section-block">
-            <h2 className="section-title">Verlauf</h2>
-            <ActivityLog clientId={client.id} />
-          </div>
-        </>
+        <div className="section-block">
+          <button className="mehr-klappe" onClick={() => setMehrOffen((o) => !o)}>
+            {mehrOffen ? '▴' : '▾'} Mehr zum Kunden
+            <span className="muted">Vertrag · Wachstum · Verlauf</span>
+          </button>
+          {mehrOffen && (
+            <div className="mehr-inhalt">
+              <ContractCard client={client} />
+              <GrowthSection stats={stats} onAdd={() => setGrowthOpen(true)} />
+              <div className="section-block">
+                <h2 className="section-title">Verlauf</h2>
+                <ActivityLog clientId={client.id} />
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
       {askLinks && (

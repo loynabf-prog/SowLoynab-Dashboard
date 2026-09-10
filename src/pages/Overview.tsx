@@ -8,9 +8,10 @@ import { useIdentity } from '../context/IdentityContext'
 import { useTeam } from '../context/TeamContext'
 import SwipeRow from '../components/SwipeRow'
 import PostLinksModal from '../components/PostLinksModal'
+import LinkQueue from '../components/LinkQueue'
 import { seit } from '../lib/format'
 import type { Video } from '../lib/types'
-import TaskItem, { type TaskRow } from '../components/TaskItem'
+import { type TaskRow } from '../components/TaskItem'
 import TaskModal from '../components/TaskModal'
 
 function greeting(): string {
@@ -34,11 +35,14 @@ type PostedVideo = Video & { clients?: { name: string } | null }
 // Ein Eintrag im Tagesplan — Aufgabe mit Uhrzeit oder Video mit Post-Zeit.
 interface PlanEntry {
   key: string
-  time: string
+  time: string | null
   title: string
   sub: string | null
   kind: 'task' | 'post'
-  onOpen: () => void
+  dringend: boolean
+  spaet: boolean
+  task: TaskRow | null
+  post: PostLite | null
 }
 
 const hhmm = (t: string) => t.slice(0, 5)
@@ -177,29 +181,40 @@ export default function Overview() {
   const dringend = tagTasks.filter((t) => (t.priority ?? 0) === 3).length
   const overdue = morgen ? [] : tagTasks.filter((t) => (t.due_date ?? '') < todayIso)
 
-  // Tagesplan: alles mit fester Uhrzeit am gewaehlten Tag, chronologisch
-  const plan: PlanEntry[] = [
-    ...tagTasks
-      .filter((t) => t.due_time)
-      .map((t) => ({
-        key: `t-${t.id}`,
-        time: hhmm(t.due_time as string),
-        title: t.title,
-        sub: t.clients?.name ?? t.leads?.name ?? null,
-        kind: 'task' as const,
-        onOpen: () => setEditing(t),
-      })),
-    ...tagPosts
-      .filter((p) => p.scheduled_time)
-      .map((p) => ({
-        key: `p-${p.id}`,
-        time: hhmm(p.scheduled_time as string),
-        title: p.title,
-        sub: p.clients?.name ?? null,
-        kind: 'post' as const,
-        onOpen: () => navigate(`/client/${p.client_id}`),
-      })),
-  ].sort((a, b) => a.time.localeCompare(b.time))
+  // EINE Liste statt drei Bloecke. Alles, was heute ansteht — Aufgaben und
+  // Uploads gemischt —, sortiert wie der Tag ablaeuft: erst was eine Uhrzeit
+  // hat, danach der Rest. Der Kopf soll nicht entscheiden muessen, in welchem
+  // Kasten er nachsehen muss.
+  const jetzt: PlanEntry[] = [
+    ...tagTasks.map((t) => ({
+      key: `t-${t.id}`,
+      time: t.due_time ? hhmm(t.due_time) : null,
+      title: t.title,
+      sub: t.clients?.name ?? t.leads?.name ?? null,
+      kind: 'task' as const,
+      dringend: (t.priority ?? 0) === 3,
+      spaet: !morgen && (t.due_date ?? '') < todayIso,
+      task: t,
+      post: null,
+    })),
+    ...tagPosts.map((p) => ({
+      key: `p-${p.id}`,
+      time: p.scheduled_time ? hhmm(p.scheduled_time) : null,
+      title: p.title,
+      sub: p.clients?.name ?? null,
+      kind: 'post' as const,
+      dringend: false,
+      spaet: false,
+      task: null,
+      post: p,
+    })),
+  ].sort((a, b) => {
+    // Mit Uhrzeit zuerst, chronologisch; ohne Uhrzeit hinten dran
+    if (a.time && b.time) return a.time.localeCompare(b.time)
+    if (a.time) return -1
+    if (b.time) return 1
+    return 0
+  })
 
   return (
     <>
@@ -227,73 +242,64 @@ export default function Overview() {
       <div className="today-strip">
         <span><strong>{tagTasks.length}</strong> {tagTasks.length === 1 ? 'Aufgabe' : 'Aufgaben'} {morgen ? 'morgen' : 'offen'}</span>
         <span><strong>{tagPosts.length}</strong> {tagPosts.length === 1 ? 'Upload' : 'Uploads'} {morgen ? 'morgen' : 'heute'}</span>
-        {plan.length > 0 && <span><strong>{plan.length}</strong> {plan.length === 1 ? 'Termin' : 'Termine'}</span>}
         {!morgen && heuteRaus.length > 0 && <span className="good"><strong>{heuteRaus.length}</strong> raus</span>}
         {dringend > 0 && <span className="hot"><strong>{dringend}</strong> dringend</span>}
         {overdue.length > 0 && <span className="hot"><strong>{overdue.length}</strong> überfällig</span>}
       </div>
 
-      {/* Tagesplan — nur wenn heute wirklich etwas zu einer Uhrzeit ansteht */}
-      {plan.length > 0 && (
-        <div className="section-block">
-          <h2 className="section-title">{morgen ? 'Morgen nach Uhrzeit' : 'Heute nach Uhrzeit'}</h2>
-          <div className="dayplan">
-            {plan.map((e) => (
-              <button className="dayplan-row" key={e.key} onClick={e.onOpen}>
-                <span className="dayplan-time">{e.time}</span>
-                <span className={`dayplan-dot ${e.kind}`} />
-                <span className="dayplan-main">
-                  <span className="dayplan-title">{e.title}</span>
-                  {e.sub && <span className="dayplan-sub">{e.sub}</span>}
-                </span>
-                <span className="dayplan-kind">{e.kind === 'post' ? '🎬' : '✓'}</span>
-              </button>
+      {/* Eine einzige Liste: was heute dran ist. Erst mit Uhrzeit, dann der
+          Rest. Aufgaben und Uploads gemischt — so wie der Tag auch laeuft. */}
+      <div className="section-block">
+        <h2 className="section-title">{morgen ? 'Morgen dran' : 'Jetzt dran'}</h2>
+        {jetzt.length === 0 ? (
+          <div className="col-empty" style={{ padding: 26 }}>
+            {morgen ? 'Morgen ist noch nichts geplant. 🌙' : 'Alles erledigt. Genieß den Tag. 🎉'}
+          </div>
+        ) : (
+          <div className="jetzt-liste">
+            {jetzt.map((e) => (
+              e.task ? (
+                <SwipeRow key={e.key} onDelete={() => removeTask(e.task!.id)}>
+                  <div className={`jetzt-row ${e.spaet ? 'spaet' : ''}`}>
+                    <button
+                      className="jetzt-check"
+                      onClick={() => completeTask(e.task!.id)}
+                      title="Erledigt"
+                      aria-label="Als erledigt abhaken"
+                    />
+                    <button className="jetzt-main" onClick={() => setEditing(e.task)}>
+                      <span className="jetzt-title">{e.title}</span>
+                      <span className="jetzt-meta">
+                        {e.time && <span className="jetzt-zeit">{e.time}</span>}
+                        {e.spaet && <span className="jetzt-spaet">überfällig</span>}
+                        {e.dringend && <span className="jetzt-hot">dringend</span>}
+                        {e.sub && <span className="chip">{e.sub}</span>}
+                      </span>
+                    </button>
+                  </div>
+                </SwipeRow>
+              ) : (
+                <div className="jetzt-row" key={e.key}>
+                  <span className="jetzt-ic">🎬</span>
+                  <button className="jetzt-main" onClick={() => navigate(`/client/${e.post!.client_id}`)}>
+                    <span className="jetzt-title">{e.title}</span>
+                    <span className="jetzt-meta">
+                      {e.time && <span className="jetzt-zeit">{e.time}</span>}
+                      <span className="jetzt-art">posten</span>
+                      {e.sub && <span className="chip">{e.sub}</span>}
+                    </span>
+                  </button>
+                  <button className="btn btn-sm" onClick={() => markPosted(e.post!)} title="Als gepostet markieren">
+                    ✓ Gepostet
+                  </button>
+                </div>
+              )
             ))}
           </div>
-        </div>
-      )}
-
-      <div className="overview-cols">
-        <div className="section-block">
-          <h2 className="section-title">{morgen ? 'Aufgaben morgen' : 'Aufgaben heute'}</h2>
-          {tagTasks.length === 0 ? (
-            <div className="col-empty">{morgen ? 'Morgen ist nichts fällig. 🌙' : 'Nichts fällig. 🎉'}</div>
-          ) : (
-            <div className="task-list">
-              {tagTasks.map((t) => (
-                <SwipeRow key={t.id} onDelete={() => removeTask(t.id)}>
-                  <TaskItem t={t} onToggle={() => completeTask(t.id)} onEdit={() => setEditing(t)} onDelete={() => removeTask(t.id)} />
-                </SwipeRow>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="section-block">
-          <h2 className="section-title">{morgen ? 'Video-Uploads morgen' : 'Video-Uploads heute'}</h2>
-          {tagPosts.length === 0 ? (
-            <div className="col-empty">{morgen ? 'Morgen kein Upload geplant.' : 'Heute kein Upload geplant.'}</div>
-          ) : (
-            <div className="task-list">
-              {tagPosts.map((p) => (
-                <div key={p.id} className="task-item">
-                  <span className="activity-icon" style={{ cursor: 'pointer' }} onClick={() => navigate(`/client/${p.client_id}`)}>🎬</span>
-                  <div className="task-body" style={{ cursor: 'pointer' }} onClick={() => navigate(`/client/${p.client_id}`)}>
-                    <div className="task-title">{p.title}</div>
-                    <div className="task-meta">
-                      {p.scheduled_time
-                        ? <span className="task-time">⏰ {hhmm(p.scheduled_time)} Uhr</span>
-                        : <span className="task-due">📅 {morgen ? 'morgen' : 'heute'}</span>}
-                      {p.clients?.name && <span className="chip">{p.clients.name}</span>}
-                    </div>
-                  </div>
-                  <button className="btn btn-sm" onClick={() => markPosted(p)} title="Als gepostet markieren">✓ Gepostet</button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        )}
       </div>
+
+      {!morgen && <LinkQueue />}
 
       {/* Was heute schon rausging. Nur im Heute-Blick -- morgen ist noch
           nichts gepostet, da waere der Abschnitt sinnlos. */}
