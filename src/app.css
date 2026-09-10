@@ -1223,6 +1223,101 @@ a.fin-tile:hover { transform: translateY(-3px); box-shadow: var(--shadow); borde
 .pool-notes { font-size: 13px; color: var(--text-muted); line-height: 1.45; }
 .pool-move { margin-top: auto; align-self: flex-start; }
 
+/* --- Startseite: eine Liste "Jetzt dran" -------------------------------- */
+.jetzt-liste { display: flex; flex-direction: column; gap: 8px; }
+.jetzt-row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+}
+.jetzt-row.spaet { border-color: var(--danger); }
+/* Abhaken ist die haeufigste Bewegung -- ein grosses, ruhiges Ziel links,
+   damit der Daumen nicht zielen muss. */
+.jetzt-check {
+  flex: 0 0 auto;
+  width: 24px; height: 24px;
+  border: 2px solid var(--border-strong);
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.jetzt-check:hover { border-color: var(--posted); background: var(--posted); }
+.jetzt-ic { flex: 0 0 auto; width: 24px; text-align: center; font-size: 16px; }
+.jetzt-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+.jetzt-title { font-size: 14.5px; font-weight: 600; color: var(--text); line-height: 1.35; }
+.jetzt-meta { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; font-size: 12px; color: var(--text-dim); }
+.jetzt-zeit { font-weight: 700; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.jetzt-spaet, .jetzt-hot { font-weight: 700; color: var(--danger); }
+.jetzt-art { color: var(--text-dim); }
+
+/* --- Startseite: Links nachtragen --------------------------------------- */
+.lq-list { display: flex; flex-direction: column; gap: 8px; }
+.lq-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 13px;
+  /* Bewusst ruhig: das ist eine Routine-Aufgabe, kein Fehler. Die
+     Ueberschrift sagt schon, worum es geht. */
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--gold, #b8860b);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+}
+.lq-main { display: flex; align-items: center; gap: 8px; flex: 1 1 190px; min-width: 0; }
+.lq-title {
+  border: none; background: transparent; padding: 0;
+  font-family: inherit; font-size: 14px; font-weight: 600; color: var(--text);
+  text-align: left; cursor: pointer;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.lq-input { display: flex; align-items: center; gap: 8px; flex: 1 1 200px; min-width: 0; }
+.lq-input input {
+  flex: 1; min-width: 0;
+  height: 36px !important;
+  font-size: 13px !important;
+}
+.lq-busy { color: var(--text-dim); font-size: 16px; }
+
+/* Klappe fuer das Seltene auf der Kundenseite */
+.mehr-klappe {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.mehr-klappe:hover { background: var(--bg-sunken); color: var(--text); }
+.mehr-klappe .muted { font-weight: 400; font-size: 12px; }
+.mehr-inhalt { margin-top: 12px; animation: riseIn 0.3s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+
 /* --- Monatsleiste: wo steht dieser Kunde gerade? ------------------------ */
 .monatsleiste {
   display: flex;
