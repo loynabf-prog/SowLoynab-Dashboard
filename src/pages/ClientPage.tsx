@@ -31,6 +31,7 @@ import { seit } from '../lib/format'
 import { getPackages, mengeText, type Package } from '../lib/packages'
 import { monatsplan, monatsKey, type Monatsplan } from '../lib/monatsplan'
 import { verteilePlan, type PlanZeile } from '../lib/autoplan'
+import { MARKEN, markeVon, type Marke } from '../lib/marken'
 import { useCategories } from '../context/CategoryContext'
 import LineChart, { type Series } from '../components/LineChart'
 import SwipeRow from '../components/SwipeRow'
@@ -1280,6 +1281,7 @@ function EditClientModal({
   const [tiktok, setTiktok] = useState(client.handle_tiktok ?? '')
   const [notes, setNotes] = useState(client.notes ?? '')
   const [aiBrief, setAiBrief] = useState(client.ai_brief ?? '')
+  const [marke, setMarke] = useState<Marke>(markeVon(client.brand))
   const [pkg, setPkg] = useState(client.package ?? '')
   const [pakete, setPakete] = useState<Package[]>([])
   const [fee, setFee] = useState(client.monthly_fee != null ? String(client.monthly_fee) : '')
@@ -1332,6 +1334,7 @@ function EditClientModal({
         handle_ig: ig.trim() || null,
         handle_tiktok: tiktok.trim() || null,
         notes: notes.trim() || null,
+        brand: marke,
         package: pkg.trim() || null,
         monthly_fee: fee ? Number(fee.replace(',', '.')) : null,
         active,
@@ -1385,6 +1388,26 @@ function EditClientModal({
             <input id="ectt" value={tiktok} onChange={(e) => setTiktok(e.target.value)} placeholder="restaurant_xy" />
           </div>
         </div>
+        <div>
+          <label>Marke</label>
+          <div className="marken-wahl">
+            {MARKEN.map((m) => (
+              <button
+                type="button"
+                key={m.key}
+                className={`marken-btn ${marke === m.key ? 'on' : ''}`}
+                onClick={() => setMarke(m.key)}
+              >
+                <span className="marken-icon">{m.icon}</span>
+                <span className="marken-text">
+                  <span className="marken-name">{m.kurz}</span>
+                  <span className="marken-hinweis">{m.hinweis}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
         {pakete.length > 0 && (
           <div>
             <label>Standard-Paket übernehmen <span className="muted">(füllt Honorar und Videomenge)</span></label>
