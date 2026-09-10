@@ -29,7 +29,8 @@ import { insertRows, tableMissing, updateRow } from '../lib/db'
 import { klartext, lookupVideo, statsPatch } from '../lib/apify'
 import { seit } from '../lib/format'
 import { getPackages, mengeText, type Package } from '../lib/packages'
-import { monatsplan, type Monatsplan } from '../lib/monatsplan'
+import { monatsplan, monatsKey, type Monatsplan } from '../lib/monatsplan'
+import { verteilePlan, type PlanZeile } from '../lib/autoplan'
 import { useCategories } from '../context/CategoryContext'
 import LineChart, { type Series } from '../components/LineChart'
 import SwipeRow from '../components/SwipeRow'
@@ -65,6 +66,7 @@ export default function ClientPage() {
   const [askLinks, setAskLinks] = useState<Video | null>(null)
   // Seltenes zugeklappt halten -- der Alltag ist das Board, nicht der Verlauf.
   const [mehrOffen, setMehrOffen] = useState(false)
+  const [lueckeOffen, setLueckeOffen] = useState(false)
   const [nudging, setNudging] = useState<Video | null>(null)
   const [seriesOpen, setSeriesOpen] = useState(false)
   const [growthOpen, setGrowthOpen] = useState(false)
@@ -399,6 +401,24 @@ export default function ClientPage() {
     })
   }
 
+  // Die fehlenden Videos des Monats in einem Rutsch anlegen -- gleichmaessig
+  // verteilt, mit fortlaufenden Platzhalter-Namen. Die Idee traegt der Mensch
+  // spaeter nach; wichtig ist erst mal, dass die Menge stimmt und die Karten
+  // im Board stehen.
+  async function lueckeFuellen(rows: PlanZeile[]) {
+    if (!id || rows.length === 0) return
+    const { error } = await insertRows('videos',
+      rows.map((r) => ({
+        client_id: id, title: r.title, status: 'todo' as VideoStatus,
+        scheduled_date: r.scheduled_date, created_by: user?.id ?? null,
+      })),
+    )
+    if (error) { setError(error.message); return }
+    setLueckeOffen(false)
+    loadVideos()
+    toast(`${rows.length} Videos angelegt — Namen kannst du jederzeit ändern ✓`)
+  }
+
   async function createSeries(rows: { title: string; scheduled_date: string; scheduled_time: string | null }[]) {
     if (!id || rows.length === 0) return
     const series_id = crypto.randomUUID()
@@ -474,7 +494,7 @@ export default function ClientPage() {
         plan={monatsplan(videos, client.monthly_quota)}
         reachThisMonth={reachThisMonth}
         stats={stats}
-        onPlanen={() => setSeriesOpen(true)}
+        onPlanen={() => setLueckeOffen(true)}
       />
 
       {client.notes && (
@@ -707,6 +727,22 @@ export default function ClientPage() {
           defaultBody={`„${nudging.title}" ist fertig – kannst du posten? 🎬`}
           link={`/client/${client.id}?video=${nudging.id}`}
           onClose={() => setNudging(null)}
+        />
+      )}
+
+      {lueckeOffen && (
+        <LueckeModal
+          plan={monatsplan(videos, client.monthly_quota)}
+          vorschlag={verteilePlan({
+            anzahl: monatsplan(videos, client.monthly_quota).ohneIdee,
+            monatsKey: monatsKey(),
+            abTag: new Date().toISOString().slice(0, 10),
+            belegteTage: videos.map((v) => v.scheduled_date ?? '').filter(Boolean),
+            vorhandeneTitel: videos.map((v) => v.title),
+          })}
+          onClose={() => setLueckeOffen(false)}
+          onCreate={lueckeFuellen}
+          onSelbst={() => { setLueckeOffen(false); setSeriesOpen(true) }}
         />
       )}
 
@@ -1710,6 +1746,63 @@ function AiIdeasModal({
 // ============================ Content-Serie ============================
 function iso(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function LueckeModal({
+  plan, vorschlag, onClose, onCreate, onSelbst,
+}: {
+  plan: Monatsplan
+  vorschlag: PlanZeile[]
+  onClose: () => void
+  onCreate: (rows: PlanZeile[]) => void
+  onSelbst: () => void
+}) {
+  const [busy, setBusy] = useState(false)
+  const tag = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: 'short' })
+
+  return (
+    <Modal title="💡 Fehlende Videos anlegen" onClose={onClose}>
+      <div className="stack">
+        <div className="info-box" style={{ fontSize: 13 }}>
+          Laut Vertrag sind es <strong>{plan.soll} Videos</strong> diesen Monat, angelegt sind{' '}
+          <strong>{plan.angelegt}</strong>. Ich lege die fehlenden{' '}
+          <strong>{plan.ohneIdee}</strong> gleichmäßig verteilt an — mit
+          durchnummerierten Namen als Platzhalter. Die echte Idee trägst du beim
+          Bearbeiten nach.
+        </div>
+
+        {vorschlag.length === 0 ? (
+          <div className="warn-box">
+            Im Rest des Monats ist kein freier Tag mehr. Leg die Videos von Hand an oder
+            verteile sie auf den nächsten Monat.
+          </div>
+        ) : (
+          <div className="luecke-liste">
+            {vorschlag.map((z) => (
+              <div className="luecke-zeile" key={z.title}>
+                <span className="luecke-datum">{tag(z.scheduled_date)}</span>
+                <span className="luecke-titel">{z.title}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="modal-actions">
+          <button type="button" className="btn btn-ghost" onClick={onClose}>Abbrechen</button>
+          <button type="button" className="btn" onClick={onSelbst}>Selbst planen …</button>
+          <div className="spacer" />
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={busy || vorschlag.length === 0}
+            onClick={() => { setBusy(true); onCreate(vorschlag) }}
+          >
+            {busy ? 'Lege an …' : `${vorschlag.length} anlegen`}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  )
 }
 
 function SeriesModal({
