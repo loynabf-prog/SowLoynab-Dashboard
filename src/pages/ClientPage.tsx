@@ -29,6 +29,7 @@ import { insertRows, tableMissing, updateRow } from '../lib/db'
 import { klartext, lookupVideo, statsPatch } from '../lib/apify'
 import { seit } from '../lib/format'
 import { getPackages, mengeText, type Package } from '../lib/packages'
+import { monatsplan, type Monatsplan } from '../lib/monatsplan'
 import { useCategories } from '../context/CategoryContext'
 import LineChart, { type Series } from '../components/LineChart'
 import SwipeRow from '../components/SwipeRow'
@@ -410,7 +411,6 @@ export default function ClientPage() {
 
   const monthKey = new Date().toISOString().slice(0, 7)
   const postedMonthVideos = videos.filter((v) => (v.posted_at ?? '').slice(0, 7) === monthKey)
-  const postedThisMonth = postedMonthVideos.length
   const reachThisMonth = postedMonthVideos.reduce((s, v) => s + (v.reach ?? v.views ?? 0), 0)
 
   // „Gepostet" ist eine 24-h-Leiste: heute gepostete bleiben bis Mitternacht, danach fallen sie vom Board.
@@ -467,7 +467,13 @@ export default function ClientPage() {
         </button>
       </div>
 
-      <ClientCockpit client={client} postedThisMonth={postedThisMonth} reachThisMonth={reachThisMonth} stats={stats} />
+      <ClientCockpit
+        client={client}
+        plan={monatsplan(videos, client.monthly_quota)}
+        reachThisMonth={reachThisMonth}
+        stats={stats}
+        onPlanen={() => setSeriesOpen(true)}
+      />
 
       <GrowthSection stats={stats} onAdd={() => setGrowthOpen(true)} />
 
@@ -1899,7 +1905,13 @@ function fmtK(n: number): string {
   return String(n)
 }
 
-function ClientCockpit({ client, postedThisMonth, reachThisMonth, stats }: { client: Client; postedThisMonth: number; reachThisMonth: number; stats: any[] }) {
+function ClientCockpit({ client, plan, reachThisMonth, stats, onPlanen }: {
+  client: Client
+  plan: Monatsplan
+  reachThisMonth: number
+  stats: any[]
+  onPlanen: () => void
+}) {
   const quota = client.monthly_quota ?? 0
   const digits = (client.phone ?? '').replace(/[^\d+]/g, '').replace(/^\+/, '')
   const ig = client.handle_ig?.replace(/^@/, '')
@@ -1920,12 +1932,32 @@ function ClientCockpit({ client, postedThisMonth, reachThisMonth, stats }: { cli
   if (quota <= 0 && contacts.length === 0 && reachThisMonth === 0 && totalFollowers === 0) return null
 
   return (
+    <>
+    {/* Der Monat auf einen Blick: was steht, was wartet, was fehlt noch
+        komplett. Die letzte Zahl ist die wichtigste -- sie sagt, wofuer es
+        noch nicht mal eine Idee gibt. */}
+    {quota > 0 && (
+      <div className={`monatsleiste ${plan.fertig ? 'fertig' : ''}`}>
+        <span className="ml-teil"><strong>{plan.gepostet}</strong> von {plan.soll} gepostet</span>
+        {plan.offen > 0 && <span className="ml-teil"><strong>{plan.offen}</strong> {plan.offen === 1 ? 'wartet' : 'warten'}</span>}
+        {plan.ohneIdee > 0 ? (
+          <button className="ml-luecke" onClick={onPlanen}>
+            <strong>{plan.ohneIdee}</strong> ohne Idee — jetzt planen →
+          </button>
+        ) : plan.fertig ? (
+          <span className="ml-teil ok">Monat erfüllt 🎉</span>
+        ) : (
+          <span className="ml-teil ok">Monat vollständig geplant ✓</span>
+        )}
+      </div>
+    )}
+
     <div className="client-cockpit">
       {quota > 0 && (
         <div className="cockpit-quota">
-          <ProgressRing value={postedThisMonth} max={quota} />
+          <ProgressRing value={plan.gepostet} max={quota} />
           <div>
-            <div className="cockpit-quota-title">{postedThisMonth} / {quota} Posts</div>
+            <div className="cockpit-quota-title">{plan.gepostet} / {quota} Posts</div>
             <div className="cockpit-quota-sub">diesen Monat</div>
           </div>
         </div>
@@ -1948,6 +1980,7 @@ function ClientCockpit({ client, postedThisMonth, reachThisMonth, stats }: { cli
         </div>
       )}
     </div>
+    </>
   )
 }
 

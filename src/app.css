@@ -1223,6 +1223,64 @@ a.fin-tile:hover { transform: translateY(-3px); box-shadow: var(--shadow); borde
 .pool-notes { font-size: 13px; color: var(--text-muted); line-height: 1.45; }
 .pool-move { margin-top: auto; align-self: flex-start; }
 
+/* --- Monatsleiste: wo steht dieser Kunde gerade? ------------------------ */
+.monatsleiste {
+  display: flex;
+  align-items: center;
+  gap: 8px 16px;
+  flex-wrap: wrap;
+  margin: -6px 0 16px;
+  padding: 11px 14px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--brand);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  font-size: 13.5px;
+  color: var(--text-muted);
+}
+.monatsleiste.fertig { border-left-color: var(--posted); }
+.ml-teil { display: inline-flex; align-items: baseline; gap: 5px; }
+.ml-teil strong { color: var(--text); font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ml-teil.ok { color: var(--posted); font-weight: 600; }
+/* Die Luecke ist ein Knopf, kein Hinweis -- man soll sie sofort schliessen
+   koennen, nicht erst suchen, wo das geht. */
+.ml-luecke {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  margin-left: auto;
+  padding: 5px 11px;
+  border: 1px solid var(--danger);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--danger);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.ml-luecke strong { font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.ml-luecke:hover { background: var(--danger); color: #fff; }
+@media (max-width: 480px) {
+  .ml-luecke { margin-left: 0; width: 100%; justify-content: center; }
+}
+
+/* Luecken-Hinweis auf der Kundenliste */
+.gap-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  font-size: 11.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 /* --- Vertrag: Karte beim Kunden ---------------------------------------- */
 .contract-row {
   display: flex;
