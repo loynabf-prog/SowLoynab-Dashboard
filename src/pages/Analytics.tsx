@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { MARKEN, markeVon, type Marke } from '../lib/marken'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import LogoFrame from '../components/LogoFrame'
@@ -12,7 +13,7 @@ interface PostRow {
   comments: number | null
   views_ig: number | null
   views_tiktok: number | null
-  clients?: { name: string; logo_url: string | null } | null
+  clients?: { name: string; logo_url: string | null; brand?: string | null } | null
 }
 
 interface StatRow {
@@ -20,6 +21,7 @@ interface StatRow {
   captured_on: string
   followers_ig: number | null
   followers_tiktok: number | null
+  clients?: { brand?: string | null } | null
 }
 
 const num = (n: number) => n.toLocaleString('de-DE')
@@ -30,13 +32,16 @@ export default function Analytics() {
   const [statRows, setStatRows] = useState<StatRow[]>([])
   const [loading, setLoading] = useState(true)
   const [range, setRange] = useState<'all' | 'month'>('all')
+  // Getrennte Zahlen je Marke -- Gastronomie und Personenmarken sind
+  // unterschiedliche Geschaefte und lassen sich schwer vergleichen.
+  const [marke, setMarke] = useState<Marke | 'alle'>('alle')
 
   useEffect(() => {
     supabase
       .from('videos')
       // "*" statt fester Spaltenliste -- damit die Abfrage nicht hart fehlschlägt,
       // solange Migration 0020 (views_ig/views_tiktok) noch nicht eingespielt ist
-      .select('*, clients(name, logo_url, deleted_at)')
+      .select('*, clients(name, logo_url, brand, deleted_at)')
       .eq('status', 'posted')
       .is('deleted_at', null)
       .then(({ data }) => {
@@ -47,7 +52,7 @@ export default function Analytics() {
       })
     supabase
       .from('client_stats')
-      .select('client_id, captured_on, followers_ig, followers_tiktok, clients(deleted_at)')
+      .select('client_id, captured_on, followers_ig, followers_tiktok, clients(brand, deleted_at)')
       .order('captured_on', { ascending: true })
       .then(({ data }) => {
         const rows = (data ?? []).filter((r: any) => !r.clients?.deleted_at)
@@ -58,16 +63,23 @@ export default function Analytics() {
   // Neuester Follower-Stand je Kunde (statRows ist aufsteigend sortiert -> letzter Eintrag gewinnt)
   const followerTotals = useMemo(() => {
     const latestByClient = new Map<string, { ig: number; tt: number }>()
-    for (const r of statRows) latestByClient.set(r.client_id, { ig: r.followers_ig ?? 0, tt: r.followers_tiktok ?? 0 })
+    for (const r of statRows) {
+      if (marke !== 'alle' && markeVon(r.clients?.brand) !== marke) continue
+      latestByClient.set(r.client_id, { ig: r.followers_ig ?? 0, tt: r.followers_tiktok ?? 0 })
+    }
     let ig = 0, tt = 0
     for (const v of latestByClient.values()) { ig += v.ig; tt += v.tt }
     return { ig, tt, total: ig + tt }
-  }, [statRows])
+  }, [statRows, marke])
 
   const monthPrefix = new Date().toISOString().slice(0, 7)
   const filtered = useMemo(
-    () => (range === 'month' ? rows.filter((r) => (r.posted_at ?? '').startsWith(monthPrefix)) : rows),
-    [rows, range, monthPrefix],
+    () => rows.filter((r) => {
+      if (range === 'month' && !(r.posted_at ?? '').startsWith(monthPrefix)) return false
+      if (marke !== 'alle' && markeVon(r.clients?.brand) !== marke) return false
+      return true
+    }),
+    [rows, range, marke, monthPrefix],
   )
 
   const totals = useMemo(() => {
@@ -102,6 +114,21 @@ export default function Analytics() {
           <button className={`seg-btn ${range === 'all' ? 'on' : ''}`} onClick={() => setRange('all')}>Gesamt</button>
           <button className={`seg-btn ${range === 'month' ? 'on' : ''}`} onClick={() => setRange('month')}>Dieser Monat</button>
         </div>
+        {(() => {
+          // Nur zeigen, wenn es wirklich beide Marken gibt
+          const vorhanden = new Set(rows.map((r) => markeVon(r.clients?.brand)))
+          if (vorhanden.size < 2) return null
+          return (
+            <div className="seg marken-filter" style={{ marginBottom: 0 }}>
+              <button className={`seg-btn ${marke === 'alle' ? 'on' : ''}`} onClick={() => setMarke('alle')}>Alle</button>
+              {MARKEN.map((m) => (
+                <button key={m.key} className={`seg-btn ${marke === m.key ? 'on' : ''}`} onClick={() => setMarke(m.key)}>
+                  {m.icon} {m.kurz}
+                </button>
+              ))}
+            </div>
+          )
+        })()}
       </div>
 
       <div className="fin-tiles" style={{ marginBottom: 22 }}>

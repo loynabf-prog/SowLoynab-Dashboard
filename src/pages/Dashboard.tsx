@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { uploadLogo } from '../lib/storage'
 import type { Client, Video, VideoStatus } from '../lib/types'
 import { kundenlage, RANG_HINWEIS, RANG_TITEL, type Kundenlage, type Rang } from '../lib/kundenrang'
+import { MARKEN, markeVon, type Marke } from '../lib/marken'
 import Modal from '../components/Modal'
 import LogoFrame from '../components/LogoFrame'
 import LogoCropper from '../components/LogoCropper'
@@ -41,6 +42,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showAdd, setShowAdd] = useState(false)
+  // Welche Marke gerade gezeigt wird -- 'alle' zeigt beide.
+  const [marke, setMarke] = useState<Marke | 'alle'>('alle')
 
   async function load() {
     setError(null)
@@ -128,6 +131,7 @@ export default function Dashboard() {
   // Jeden Kunden einstufen und innerhalb der Gruppe die dringendsten oben
   const heute = new Date().toISOString().slice(0, 10)
   const eingestuft: { c: Client; lage: Kundenlage }[] = clients
+    .filter((c) => marke === 'alle' || markeVon(c.brand) === marke)
     .map((c) => ({ c, lage: kundenlage(c, videosByClient[c.id] ?? [], heute) }))
     .sort((a, b) => {
       const last = (x: Kundenlage) => x.zuTun + x.ohneIdee + x.ohneLink
@@ -157,6 +161,24 @@ export default function Dashboard() {
           </button>
         </div>
       )}
+
+      {/* Zwei Marken, zwei Welten: fuer Personenmarken entsteht anderer
+          Content als fuer Gastronomie. Nur zeigen, wenn es beide gibt --
+          sonst waere es ein Schalter ohne Wirkung. */}
+      {(() => {
+        const vorhanden = new Set(clients.map((c) => markeVon(c.brand)))
+        if (vorhanden.size < 2) return null
+        return (
+          <div className="seg marken-filter">
+            <button className={`seg-btn ${marke === 'alle' ? 'on' : ''}`} onClick={() => setMarke('alle')}>Alle</button>
+            {MARKEN.map((m) => (
+              <button key={m.key} className={`seg-btn ${marke === m.key ? 'on' : ''}`} onClick={() => setMarke(m.key)}>
+                {m.icon} {m.kurz}
+              </button>
+            ))}
+          </div>
+        )
+      })()}
 
       {/* Nach Dringlichkeit gruppiert statt alphabetisch: oben, wo Arbeit
           liegt; unten, was abgeschlossen ist. Ziel ist, die obere Gruppe
@@ -275,6 +297,7 @@ function AddClientModal({
   const [quota, setQuota] = useState('')
   const [contractEnd, setContractEnd] = useState('')
   const [notes, setNotes] = useState('')
+  const [neueMarke, setNeueMarke] = useState<Marke>('media')
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
   const [cropFile, setCropFile] = useState<File | null>(null)
@@ -301,15 +324,16 @@ function AddClientModal({
         logo_url,
         handle_ig: ig.trim() || null,
         handle_tiktok: tiktok.trim() || null,
+        brand: neueMarke,
         monthly_quota: quota ? Number(quota) : null,
         contract_end: contractEnd || null,
         notes: notes.trim() || null,
         created_by: userId,
       }
-      // schema-sicher: falls contract_end-Spalte noch fehlt, ohne sie erneut versuchen
+      // schema-sicher: fehlen contract_end oder brand noch, ohne sie erneut versuchen
       let res = await supabase.from('clients').insert(payload).select('id').single()
-      if (res.error && (res.error.code === 'PGRST204' || /contract_end|schema cache/i.test(res.error.message))) {
-        const { contract_end, ...rest } = payload
+      if (res.error && (res.error.code === 'PGRST204' || /contract_end|brand|schema cache/i.test(res.error.message))) {
+        const { contract_end, brand, ...rest } = payload
         res = await supabase.from('clients').insert(rest).select('id').single()
       }
       if (res.error) throw res.error
@@ -355,6 +379,26 @@ function AddClientModal({
             <input id="ctt" value={tiktok} onChange={(e) => setTiktok(e.target.value)} placeholder="restaurant_xy" />
           </div>
         </div>
+        <div>
+          <label>Marke</label>
+          <div className="marken-wahl">
+            {MARKEN.map((m) => (
+              <button
+                type="button"
+                key={m.key}
+                className={`marken-btn ${neueMarke === m.key ? 'on' : ''}`}
+                onClick={() => setNeueMarke(m.key)}
+              >
+                <span className="marken-icon">{m.icon}</span>
+                <span className="marken-text">
+                  <span className="marken-name">{m.kurz}</span>
+                  <span className="marken-hinweis">{m.hinweis}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="row" style={{ gap: 12 }}>
           <div style={{ flex: 1 }}>
             <label htmlFor="cquota">Videos pro Monat</label>

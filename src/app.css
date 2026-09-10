@@ -1297,6 +1297,45 @@ a.fin-tile:hover { transform: translateY(-3px); box-shadow: var(--shadow); borde
 }
 .lq-busy { color: var(--text-dim); font-size: 16px; }
 
+/* Marken-Auswahl beim Kunden */
+.marken-wahl { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.marken-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.marken-btn:hover { border-color: var(--border-strong); }
+.marken-btn.on { border-color: var(--brand); background: var(--brand-glow); }
+.marken-icon { font-size: 18px; flex: 0 0 auto; }
+.marken-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.marken-name { font-size: 13.5px; font-weight: 700; color: var(--text); }
+.marken-btn.on .marken-name { color: var(--brand); }
+.marken-hinweis { font-size: 11.5px; color: var(--text-muted); }
+@media (max-width: 460px) { .marken-wahl { grid-template-columns: 1fr; } }
+
+/* Marken-Umschalter oben auf Kundenliste und Analyse */
+.marken-filter { display: inline-flex; margin-bottom: 18px; max-width: 100%; }
+.marken-filter .seg-btn { white-space: nowrap; padding: 8px 14px; font-size: 13.5px; }
+/* Am iPhone reicht die Breite fuer drei ausgeschriebene Namen nicht --
+   dann volle Breite, gleiche Spalten, kleinere Schrift. */
+@media (max-width: 560px) {
+  .marken-filter { display: grid; grid-template-columns: auto 1fr 1fr; width: 100%; }
+  .marken-filter .seg-btn {
+    padding: 8px 6px;
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
 /* Vorschau im Luecken-Fenster */
 .luecke-liste {
   max-height: 34vh;

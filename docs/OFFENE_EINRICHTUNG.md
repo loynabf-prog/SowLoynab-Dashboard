@@ -28,6 +28,7 @@ gebaut, ein erneuter Lauf schadet also nicht.
 - [ ] `supabase/migrations/0023_inspirations.sql` — Inspirationen (gemerkte Fremd-Videos)
 - [ ] `supabase/migrations/0024_packages.sql` — Standard-Pakete (Basis / Wachstum / Marktführer)
 - [ ] `supabase/migrations/0025_contracts.sql` — Rahmenverträge mit elektronischer Unterschrift
+- [ ] `supabase/migrations/0026_client_brand.sql` — zwei Marken (Sow & Loynab Media / Creator Scout)
 
 *(0020–0023 stecken auch gesammelt in `ALLES_offen_20-23.sql` — dann reicht ein Durchlauf.)*
 
