@@ -1297,6 +1297,51 @@ a.fin-tile:hover { transform: translateY(-3px); box-shadow: var(--shadow); borde
 }
 .lq-busy { color: var(--text-dim); font-size: 16px; }
 
+/* Vorschau im Luecken-Fenster */
+.luecke-liste {
+  max-height: 34vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+}
+.luecke-zeile { display: flex; align-items: baseline; gap: 12px; font-size: 13px; padding: 3px 2px; }
+.luecke-datum { flex: 0 0 58px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.luecke-titel { color: var(--text); font-weight: 600; }
+
+/* Karte mit Platzhalter-Namen: hier fehlt noch die echte Idee */
+.vc-ideeflag {
+  flex: 0 0 auto;
+  font-size: 12px;
+  line-height: 1;
+  padding: 3px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+}
+
+/* --- Kundenliste nach Dringlichkeit ------------------------------------- */
+.rang-block { margin-bottom: 26px; }
+.rang-hinweis { font-size: 12.5px; color: var(--text-dim); margin: -4px 0 12px; }
+/* Nur die obere Gruppe bekommt Kontur -- unten soll es ruhig werden. */
+.logo-tile.rang-akut { border-left: 3px solid var(--danger); }
+.logo-tile.rang-ruhend { opacity: 0.62; }
+.logo-tile.rang-ruhend:hover { opacity: 1; }
+.ruhe-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--bg-sunken);
+  color: var(--text-dim);
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 /* Klappe fuer das Seltene auf der Kundenseite */
 .mehr-klappe {
   display: flex;

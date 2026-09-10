@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import type { Video, VideoStatus } from '../lib/types'
 import { STATUS_ORDER, STATUS_LABELS } from '../lib/types'
 import StatusPill from './StatusPill'
+import { istPlatzhalter } from '../lib/autoplan'
 
 interface Props {
   video: Video
@@ -115,6 +116,9 @@ export default function VideoCard({ video, onPatch, onEdit, onDelete, onCaption,
           />
         ) : (
           <button className="vc-title-btn" onClick={() => setOpen(true)} title="Aufklappen">{video.title}</button>
+        )}
+        {!open && istPlatzhalter(video.title) && (
+          <span className="vc-ideeflag" title="Platzhalter — hier fehlt noch die echte Idee">💡</span>
         )}
         {!open && fehltLink && <span className="vc-linkflag" title="Posting-Adresse fehlt — ohne sie keine Zahlen">🔗</span>}
         {!open && cDate && <span className="vc-compact-date">📅 {cDate}</span>}

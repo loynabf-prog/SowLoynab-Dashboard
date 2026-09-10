@@ -3,7 +3,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { uploadLogo } from '../lib/storage'
-import type { Client, VideoStatus } from '../lib/types'
+import type { Client, Video, VideoStatus } from '../lib/types'
+import { kundenlage, RANG_HINWEIS, RANG_TITEL, type Kundenlage, type Rang } from '../lib/kundenrang'
 import Modal from '../components/Modal'
 import LogoFrame from '../components/LogoFrame'
 import LogoCropper from '../components/LogoCropper'
@@ -34,7 +35,7 @@ export default function Dashboard() {
   const { user } = useAuth()
   const [clients, setClients] = useState<ClientWithCount[]>([])
   const [upcoming, setUpcoming] = useState<UpcomingItem[]>([])
-  const [plannedMonth, setPlannedMonth] = useState<Record<string, number>>({})
+  const [videosByClient, setVideosByClient] = useState<Record<string, Video[]>>({})
   const [postedMonth, setPostedMonth] = useState<Record<string, number>>({})
   const [videoCount, setVideoCount] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
@@ -86,26 +87,23 @@ export default function Dashboard() {
   async function loadCounts() {
     const now = new Date()
     const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+    // Die Felder, aus denen sich Zaehlung UND Einstufung ergeben — eine
+    // Abfrage fuer beides.
     const { data } = await supabase
       .from('videos')
-      .select('client_id, posted_at, scheduled_date')
+      .select('id, client_id, status, posted_at, scheduled_date, tiktok_url, instagram_url')
       .is('deleted_at', null)
-    const key = monthStart.slice(0, 7)
     const total: Record<string, number> = {}
     const month: Record<string, number> = {}
-    // Wie viele Videos sind diesem Monat ueberhaupt zugeordnet? Daraus ergibt
-    // sich die Luecke zur zugesagten Menge -- also das, wofuer es noch nicht
-    // mal eine Idee gibt.
-    const geplant: Record<string, number> = {}
+    const proKunde: Record<string, Video[]> = {}
     for (const v of (data ?? []) as any[]) {
       total[v.client_id] = (total[v.client_id] ?? 0) + 1
       if (v.posted_at && v.posted_at >= monthStart) month[v.client_id] = (month[v.client_id] ?? 0) + 1
-      const drin = (v.scheduled_date ?? '').slice(0, 7) === key || (v.posted_at ?? '').slice(0, 7) === key
-      if (drin) geplant[v.client_id] = (geplant[v.client_id] ?? 0) + 1
+      ;(proKunde[v.client_id] ??= []).push(v as Video)
     }
     setVideoCount(total)
     setPostedMonth(month)
-    setPlannedMonth(geplant)
+    setVideosByClient(proKunde)
   }
 
   useEffect(() => {
@@ -126,6 +124,15 @@ export default function Dashboard() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Jeden Kunden einstufen und innerhalb der Gruppe die dringendsten oben
+  const heute = new Date().toISOString().slice(0, 10)
+  const eingestuft: { c: Client; lage: Kundenlage }[] = clients
+    .map((c) => ({ c, lage: kundenlage(c, videosByClient[c.id] ?? [], heute) }))
+    .sort((a, b) => {
+      const last = (x: Kundenlage) => x.zuTun + x.ohneIdee + x.ohneLink
+      return last(b.lage) - last(a.lage) || a.c.name.localeCompare(b.c.name)
+    })
 
   return (
     <>
@@ -151,9 +158,22 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div className="logo-grid">
-        {clients.map((c) => (
-          <Link key={c.id} to={`/client/${c.id}`} className="logo-tile">
+      {/* Nach Dringlichkeit gruppiert statt alphabetisch: oben, wo Arbeit
+          liegt; unten, was abgeschlossen ist. Ziel ist, die obere Gruppe
+          leerzuarbeiten. */}
+      {(['akut', 'laeuft', 'ruhend'] as Rang[]).map((rang) => {
+        const gruppe = eingestuft.filter((x) => x.lage.rang === rang)
+        if (gruppe.length === 0) return null
+        return (
+          <div className="rang-block" key={rang}>
+            <h2 className="section-title">
+              {RANG_TITEL[rang]}
+              <span className="col-count">{gruppe.length}</span>
+            </h2>
+            <p className="rang-hinweis">{RANG_HINWEIS[rang]}</p>
+            <div className="logo-grid">
+              {gruppe.map(({ c, lage }) => (
+          <Link key={c.id} to={`/client/${c.id}`} className={`logo-tile rang-${lage.rang}`}>
             {c.health && <span className={`health-dot ${c.health}`} title={`Status: ${c.health}`} />}
             <LogoFrame name={c.name} logoUrl={c.logo_url} />
             <div className="tile-body">
@@ -162,12 +182,9 @@ export default function Dashboard() {
                 {c.monthly_quota
                   ? <span className={`quota-chip ${(postedMonth[c.id] ?? 0) >= c.monthly_quota ? 'done' : ''}`}>🎬 {postedMonth[c.id] ?? 0}/{c.monthly_quota} · Monat</span>
                   : <>{videoCount[c.id] ?? 0} {(videoCount[c.id] ?? 0) === 1 ? 'Video' : 'Videos'}</>}
-                {(() => {
-                  // Zugesagt, aber noch nicht angelegt -> hier fehlt eine Idee
-                  const luecke = (c.monthly_quota ?? 0) - (plannedMonth[c.id] ?? 0)
-                  if (luecke <= 0) return null
-                  return <span className="gap-chip" title="So viele Videos sind diesen Monat noch nicht angelegt">💡 {luecke} ohne Idee</span>
-                })()}
+                {lage.rang === 'akut'
+                  ? <span className="gap-chip">{lage.grund}</span>
+                  : <span className="ruhe-chip">{lage.grund}</span>}
                 {(() => {
                   const dl = contractDaysLeft(c.contract_end)
                   if (dl === null || dl > 30) return null
@@ -177,7 +194,13 @@ export default function Dashboard() {
               </div>
             </div>
           </Link>
-        ))}
+              ))}
+            </div>
+          </div>
+        )
+      })}
+
+      <div className="logo-grid">
         {(clients.length > 0 || (!loading && !error)) && (
           <button className="add-tile" onClick={() => setShowAdd(true)}>
             <span style={{ fontSize: 22 }}>+</span>
