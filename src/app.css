@@ -1297,6 +1297,32 @@ a.fin-tile:hover { transform: translateY(-3px); box-shadow: var(--shadow); borde
 }
 .lq-busy { color: var(--text-dim); font-size: 16px; }
 
+/* Kunden zusammenfuehren */
+.merge-hinweis {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 11px 13px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+.merge-hinweis span { flex: 1; min-width: 180px; }
+.merge-liste {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 4px 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  font-size: 13px;
+}
+.merge-zeile { display: flex; align-items: baseline; gap: 7px; color: var(--text-muted); }
+.merge-anzahl { font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+
 /* Marken-Auswahl beim Kunden */
 .marken-wahl { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .marken-btn {

@@ -32,6 +32,7 @@ import { getPackages, mengeText, type Package } from '../lib/packages'
 import { monatsplan, monatsKey, type Monatsplan } from '../lib/monatsplan'
 import { verteilePlan, type PlanZeile } from '../lib/autoplan'
 import { MARKEN, markeVon, type Marke } from '../lib/marken'
+import { fuehreZusammen, TABELLEN_NAMEN, zaehleUmzug, type MergeZaehlung } from '../lib/mergeClients'
 import { useCategories } from '../context/CategoryContext'
 import LineChart, { type Series } from '../components/LineChart'
 import SwipeRow from '../components/SwipeRow'
@@ -868,6 +869,109 @@ function LinkModal({
   )
 }
 
+// Zwei Kunden zu einer Akte machen. Zeigt vorher genau, was umzieht --
+// blind bestaetigen soll hier niemand.
+// Nach dem Zusammenfuehren wird hart zum Zielkunden navigiert: der aktuelle
+// Kunde liegt danach im Papierkorb, ein Weiterleben auf dieser Seite waere
+// nur eine veraltete Ansicht.
+function MergeModal({
+  client, onClose,
+}: {
+  client: Client
+  onClose: () => void
+}) {
+  const { toast } = useToast()
+  const [andere, setAndere] = useState<Client[]>([])
+  const [zielId, setZielId] = useState('')
+  const [umzug, setUmzug] = useState<MergeZaehlung[] | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [fehler, setFehler] = useState<string | null>(null)
+
+  useEffect(() => {
+    supabase.from('clients').select('*').is('deleted_at', null).neq('id', client.id).order('name')
+      .then(({ data }) => setAndere((data ?? []) as Client[]))
+    zaehleUmzug(client.id).then(setUmzug)
+  }, [client.id])
+
+  const ziel = andere.find((c) => c.id === zielId) ?? null
+
+  async function los() {
+    if (!ziel) return
+    setBusy(true); setFehler(null)
+    const { error } = await fuehreZusammen(client.id, ziel.id)
+    if (error) { setFehler(error); setBusy(false); return }
+    toast(`Zusammengeführt — alles liegt jetzt bei ${ziel.name} ✓`)
+    window.location.href = `${import.meta.env.BASE_URL}client/${ziel.id}`
+  }
+
+  const gesamt = (umzug ?? []).reduce((n, x) => n + x.anzahl, 0)
+
+  return (
+    <Modal title="🔗 Kunden zusammenführen" onClose={onClose}>
+      <div className="stack">
+        <div className="info-box" style={{ fontSize: 13 }}>
+          Alles von <strong>{client.name}</strong> zieht zum gewählten Kunden um.
+          Danach wandert <strong>{client.name}</strong> in den Papierkorb — die Daten
+          sind nicht weg, sie liegen dann nur unter dem anderen Namen.
+        </div>
+
+        {fehler && <div className="error-box">{fehler}</div>}
+
+        <div>
+          <label>Alles verschieben nach</label>
+          <select value={zielId} onChange={(e) => setZielId(e.target.value)}>
+            <option value="">— Kunde wählen —</option>
+            {andere.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+
+        {umzug === null ? (
+          <p className="muted" style={{ fontSize: 13 }}>Zähle …</p>
+        ) : gesamt === 0 ? (
+          <p className="muted" style={{ fontSize: 13 }}>Bei diesem Kunden hängt nichts dran.</p>
+        ) : (
+          <div>
+            <label>Das zieht um</label>
+            <div className="merge-liste">
+              {umzug.map((x) => (
+                <div className="merge-zeile" key={x.tabelle}>
+                  <span className="merge-anzahl">{x.anzahl}</span>
+                  <span>{TABELLEN_NAMEN[x.tabelle] ?? x.tabelle}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="warn-box" style={{ fontSize: 12.5 }}>
+          ⚠ Zwei Dinge vorher wissen: Follower-Zahlen werden je Tag <strong>addiert</strong> —
+          zwei Accounts haben zusammen so viele. Und automatisch verfolgt werden danach nur
+          noch <strong>ein</strong> Instagram- und <strong>ein</strong> TikTok-Handle, nämlich
+          die des Zielkunden. Die Zahlen der einzelnen Videos bleiben davon unberührt, die
+          hängen am Video-Link.
+        </div>
+
+        <div className="modal-actions">
+          <button type="button" className="btn btn-ghost" onClick={onClose} disabled={busy}>Abbrechen</button>
+          <div className="spacer" />
+          <button
+            type="button"
+            className="btn btn-danger"
+            disabled={busy || !ziel}
+            onClick={() => {
+              if (!ziel) return
+              if (!confirm(`Wirklich alles von "${client.name}" zu "${ziel.name}" verschieben? Das lässt sich nicht automatisch rückgängig machen.`)) return
+              los()
+            }}
+          >
+            {busy ? 'Führe zusammen …' : ziel ? `Zu ${ziel.name} verschieben` : 'Kunde wählen'}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
 function CaptionModal({
   video,
   client,
@@ -1282,6 +1386,7 @@ function EditClientModal({
   const [notes, setNotes] = useState(client.notes ?? '')
   const [aiBrief, setAiBrief] = useState(client.ai_brief ?? '')
   const [marke, setMarke] = useState<Marke>(markeVon(client.brand))
+  const [mergeOffen, setMergeOffen] = useState(false)
   const [pkg, setPkg] = useState(client.package ?? '')
   const [pakete, setPakete] = useState<Package[]>([])
   const [fee, setFee] = useState(client.monthly_fee != null ? String(client.monthly_fee) : '')
@@ -1505,6 +1610,13 @@ function EditClientModal({
             placeholder="Was verkauft der Betrieb? Aktuelle Angebote/Aktionen? Zielgruppe? Tonalität? Besonderheiten? — Je mehr hier steht, desto besser werden die automatischen Ideen."
           />
         </div>
+        <div className="merge-hinweis">
+          <span>Zwei Accounts für denselben Kunden? Dann gehören sie in eine Akte.</span>
+          <button type="button" className="btn btn-sm" onClick={() => setMergeOffen(true)}>
+            Mit anderem Kunden zusammenführen …
+          </button>
+        </div>
+
         <div className="modal-actions">
           <button type="button" className="btn btn-ghost" onClick={onClose}>
             Abbrechen
@@ -1514,6 +1626,9 @@ function EditClientModal({
           </button>
         </div>
       </form>
+      {mergeOffen && (
+        <MergeModal client={client} onClose={() => setMergeOffen(false)} />
+      )}
       {cropFile && (
         <LogoCropper
           file={cropFile}
