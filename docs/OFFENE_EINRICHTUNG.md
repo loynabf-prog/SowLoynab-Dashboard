@@ -31,7 +31,8 @@ gebaut, ein erneuter Lauf schadet also nicht.
 - [ ] `supabase/migrations/0026_client_brand.sql` — zwei Marken (Sow & Loynab Media / Creator Scout)
 - [ ] `supabase/migrations/0027_client_type.sql` — Kundenart (zahlend / Ehrenamt-Referenz / passiv)
 
-*(0020–0023 stecken auch gesammelt in `ALLES_offen_20-23.sql` — dann reicht ein Durchlauf.)*
+*(0020–0023 stecken gesammelt in `ALLES_offen_20-23.sql`, 0024–0027 in
+`ALLES_offen_24-27.sql` — dann reichen zwei Durchläufe statt acht.)*
 
 *(0001–0009 bzw. `ALLES_offen_5-9.sql` sollten schon gelaufen sein — sonst zuerst die.)*
 
