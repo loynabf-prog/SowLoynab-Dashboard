@@ -33,8 +33,9 @@ import { monatsplan, monatsKey, type Monatsplan } from '../lib/monatsplan'
 import { verteilePlan, type PlanZeile } from '../lib/autoplan'
 import { MARKEN, markeVon, type Marke } from '../lib/marken'
 import { ARTEN, artVon, istAktiv, type Kundenart } from '../lib/kundenart'
-import { fuehreZusammen, TABELLEN_NAMEN, zaehleUmzug, type MergeZaehlung } from '../lib/mergeClients'
+import { fuehreZusammen, liegtWasImPapierkorb, TABELLEN_NAMEN, zaehleUmzug, type MergeZaehlung } from '../lib/mergeClients'
 import AccountsEditor from '../components/AccountsEditor'
+import NachholenModal from '../components/NachholenModal'
 import {
   ladeAccounts, speichereAccounts, zuEntwuerfen, profilUrl, accountName,
   nurGesamt, nurAccounts, plattformInfo,
@@ -81,6 +82,11 @@ export default function ClientPage() {
   const [growthOpen, setGrowthOpen] = useState(false)
   const [stats, setStats] = useState<any[]>([])
   const [accounts, setAccounts] = useState<ClientAccount[]>([])
+  // Liegt im Papierkorb noch ein Kunde mit Videos? Dann ist beim
+  // Zusammenlegen etwas liegen geblieben -- das soll man sehen, ohne danach
+  // suchen zu muessen.
+  const [reste, setReste] = useState<{ kunden: string[]; videos: number } | null>(null)
+  const [nachholen, setNachholen] = useState(false)
   const [flashId, setFlashId] = useState<string | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
 
@@ -134,6 +140,10 @@ export default function ClientPage() {
     setInspirations((data ?? []) as unknown as Inspiration[])
   }, [id])
 
+  const loadReste = useCallback(async () => {
+    try { setReste(await liegtWasImPapierkorb()) } catch { setReste(null) }
+  }, [])
+
   const loadAccounts = useCallback(async () => {
     if (!id) return
     try { setAccounts((await ladeAccounts(id)).accounts) } catch { setAccounts([]) }
@@ -153,7 +163,7 @@ export default function ClientPage() {
     if (!id) return
     async function loadAll() {
       setLoading(true)
-      await Promise.all([loadClient(), loadVideos(), loadIdeas(), loadStats(), loadInspirations(), loadAccounts()])
+      await Promise.all([loadClient(), loadVideos(), loadIdeas(), loadStats(), loadInspirations(), loadAccounts(), loadReste()])
       setLoading(false)
     }
     loadAll()
@@ -179,7 +189,7 @@ export default function ClientPage() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [id, loadClient, loadVideos, loadIdeas, loadStats, loadInspirations, loadAccounts])
+  }, [id, loadClient, loadVideos, loadIdeas, loadStats, loadInspirations, loadAccounts, loadReste])
 
   // Deep-Link (?video=<id>) aus einem Anstupser: zur Karte springen + hervorheben
   useEffect(() => {
@@ -513,6 +523,32 @@ export default function ClientPage() {
         accounts={accounts}
         onPlanen={() => setLueckeOffen(true)}
       />
+
+      {reste && reste.kunden.length > 0 && (
+        <div className="reste-box">
+          <div>
+            <strong>Im Papierkorb liegen noch Daten.</strong>{' '}
+            {reste.kunden.join(', ')} {reste.kunden.length === 1 ? 'hat' : 'haben'} noch{' '}
+            {reste.videos} {reste.videos === 1 ? 'Video' : 'Videos'} am alten Kunden hängen.
+            Beim Zusammenlegen ist das liegen geblieben — nichts davon ist verloren.
+          </div>
+          <button className="btn btn-sm btn-primary" onClick={() => setNachholen(true)}>
+            Zu {client.name} holen …
+          </button>
+        </div>
+      )}
+
+      {nachholen && (
+        <NachholenModal
+          zielId={client.id}
+          zielName={client.name}
+          onClose={() => setNachholen(false)}
+          onFertig={async () => {
+            await Promise.all([loadVideos(), loadIdeas(), loadStats(), loadAccounts(), loadInspirations(), loadReste()])
+            toast('Daten übernommen ✓')
+          }}
+        />
+      )}
 
       {client.notes && (
         <div className="info-box" style={{ marginBottom: 20 }}>
@@ -1406,6 +1442,7 @@ function EditClientModal({
   const [aiBrief, setAiBrief] = useState(client.ai_brief ?? '')
   const [marke, setMarke] = useState<Marke>(markeVon(client.brand))
   const [mergeOffen, setMergeOffen] = useState(false)
+  const [nachholOffen, setNachholOffen] = useState(false)
   const [pkg, setPkg] = useState(client.package ?? '')
   const [pakete, setPakete] = useState<Package[]>([])
   const [fee, setFee] = useState(client.monthly_fee != null ? String(client.monthly_fee) : '')
@@ -1670,6 +1707,13 @@ function EditClientModal({
           <button type="button" className="btn btn-sm" onClick={() => setMergeOffen(true)}>
             Mit anderem Kunden zusammenführen …
           </button>
+          <span style={{ marginTop: 4 }}>
+            Beim Zusammenlegen etwas liegen geblieben? Gelöschte Kunden behalten ihre
+            Daten — hier holst du sie nach.
+          </span>
+          <button type="button" className="btn btn-sm" onClick={() => setNachholOffen(true)}>
+            Daten aus dem Papierkorb nachholen …
+          </button>
         </div>
 
         <div className="modal-actions">
@@ -1683,6 +1727,14 @@ function EditClientModal({
       </form>
       {mergeOffen && (
         <MergeModal client={client} onClose={() => setMergeOffen(false)} />
+      )}
+      {nachholOffen && (
+        <NachholenModal
+          zielId={client.id}
+          zielName={client.name}
+          onClose={() => setNachholOffen(false)}
+          onFertig={onSaved}
+        />
       )}
       {cropFile && (
         <LogoCropper
