@@ -3213,3 +3213,65 @@ html { scroll-behavior: smooth; }
 .ga-stats { flex: 0 0 auto; text-align: right; font-variant-numeric: tabular-nums; }
 .ga-reach { display: block; font-weight: 700; font-size: 15px; color: var(--text); }
 .ga-posts { display: block; font-size: 11.5px; color: var(--text-dim); margin-top: 1px; }
+
+/* --- Social-Accounts eines Kunden --------------------------------------- */
+/* Eine Zeile je Account. Der Klarname erscheint erst, wenn es ueberhaupt
+   mehrere Accounts gibt -- sonst waere das Feld nur Ballast. */
+.acc-editor { display: block; }
+.acc-liste { display: flex; flex-direction: column; gap: 8px; }
+.acc-zeile {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 8px; border-radius: 12px;
+  background: var(--bg-sunken); border: 1px solid transparent;
+}
+.acc-zeile.doppelt { border-color: var(--danger); }
+.acc-icon { font-size: 17px; flex: 0 0 auto; line-height: 1; }
+.acc-felder { display: flex; gap: 6px; flex: 1 1 auto; min-width: 0; }
+.acc-felder input { margin: 0; min-width: 0; }
+.acc-handle { flex: 2 1 0; }
+.acc-label { flex: 1.4 1 0; }
+.acc-haupt {
+  flex: 0 0 auto; font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--brand); background: var(--brand-glow);
+  padding: 3px 6px; border-radius: 6px;
+}
+.acc-haupt.leer { visibility: hidden; }
+.acc-weg {
+  flex: 0 0 auto; width: 28px; height: 28px; padding: 0;
+  border: none; background: none; cursor: pointer;
+  color: var(--text-dim); font-size: 14px; border-radius: 8px;
+}
+.acc-weg:hover { color: var(--danger); background: var(--bg-card); }
+.acc-dazu { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 9px; }
+.acc-warn { color: var(--danger); font-size: 12.5px; margin: 7px 0 0; }
+
+/* Aufschluesselung unter der Wachstumskurve: welcher Account steht wo? */
+.acc-split {
+  margin-top: 14px; border-top: 1px solid var(--border);
+  padding-top: 11px;
+}
+.acc-split-head {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.05em; color: var(--text-dim); margin-bottom: 7px;
+}
+.acc-split-zeile {
+  display: flex; align-items: center; gap: 9px;
+  padding: 9px 10px; border-radius: 12px;
+  text-decoration: none; color: inherit;
+}
+.acc-split-zeile:hover { background: var(--bg-card-hover); }
+.acc-split-icon { font-size: 16px; line-height: 1; }
+.acc-split-name { flex: 1 1 auto; min-width: 0; font-weight: 600; font-size: 14px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acc-split-wert {
+  flex: 0 0 auto; text-align: right; font-weight: 700; font-size: 15px;
+  display: flex; flex-direction: column; line-height: 1.25;
+}
+.acc-split-sub { font-size: 11px; font-weight: 500; color: var(--text-dim); }
+
+/* Auf dem Handy ist fuer zwei Felder nebeneinander kein Platz. */
+@media (max-width: 560px) {
+  .acc-felder { flex-direction: column; }
+  .acc-dazu .btn { flex: 1 1 auto; }
+}

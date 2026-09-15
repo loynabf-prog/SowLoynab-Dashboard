@@ -7,6 +7,7 @@ import type { Client, Video, VideoStatus } from '../lib/types'
 import { kundenlage, type Kundenlage } from '../lib/kundenrang'
 import { MARKEN, markeVon, type Marke } from '../lib/marken'
 import { ARTEN, artVon, istAktiv, type Kundenart } from '../lib/kundenart'
+import { normHandle } from '../lib/accounts'
 import Modal from '../components/Modal'
 import LogoFrame from '../components/LogoFrame'
 import LogoCropper from '../components/LogoCropper'
@@ -350,9 +351,20 @@ function AddClientModal({
         res = await supabase.from('clients').insert(rest).select('id').single()
       }
       if (res.error) throw res.error
+      const neueId = (res.data as any)?.id as string | undefined
+      // Die Handles zusaetzlich als Social-Accounts anlegen. Ohne das wuerde
+      // der Nachtlauf den neuen Kunden ueberspringen -- er geht die Accounts
+      // durch, nicht mehr die beiden Spalten am Kunden.
+      if (neueId) {
+        const accs = [
+          ig.trim() && { client_id: neueId, platform: 'instagram', handle: normHandle(ig), sort: 0 },
+          tiktok.trim() && { client_id: neueId, platform: 'tiktok', handle: normHandle(tiktok), sort: 0 },
+        ].filter(Boolean)
+        if (accs.length) await supabase.from('client_accounts').insert(accs as any[])
+      }
       onSaved()
       // Direkt weiter zum Content-Plan-Schritt beim neuen Kunden
-      const newId = (res.data as any)?.id
+      const newId = neueId
       if (newId) navigate(`/client/${newId}?onboard=1`)
     } catch (err: any) {
       setError(err.message ?? 'Fehler beim Speichern')

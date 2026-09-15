@@ -6,13 +6,17 @@ import { supabase } from './supabase'
 // Gedacht fuer den Fall "ein Kunde, zwei Accounts": wenn wir insgesamt 16
 // Videos zusagen und mal 10/6, mal 16/0 darauf verteilen, ist eine gemeinsame
 // Akte ehrlicher als zwei halbe.
+//
+// Die Social-Accounts ziehen mit um (client_accounts). Nach dem Zusammenlegen
+// haengen also beide Instagram- und beide TikTok-Accounts am selben Kunden
+// und werden beide weiter automatisch abgefragt.
 
 // Alles, was per client_id an einem Kunden haengt. Fehlt eine Tabelle noch
 // (Skript nicht eingespielt), wird sie stillschweigend uebersprungen.
 const TABELLEN = [
   'videos', 'video_ideas', 'inspirations', 'tasks', 'activities',
   'transactions', 'attachments', 'contacts', 'invoices', 'client_assets',
-  'content_pillars', 'time_entries', 'contracts',
+  'content_pillars', 'time_entries', 'contracts', 'client_accounts',
 ] as const
 
 export interface MergeZaehlung {
@@ -49,6 +53,7 @@ export const TABELLEN_NAMEN: Record<string, string> = {
   content_pillars: 'Content-Säulen',
   time_entries: 'Zeiteinträge',
   contracts: 'Verträge',
+  client_accounts: 'Social-Accounts',
 }
 
 /**
@@ -64,10 +69,17 @@ export async function fuehreZusammen(quelleId: string, zielId: string): Promise<
 
   for (const t of TABELLEN) {
     const { error } = await supabase.from(t).update({ client_id: zielId }).eq('client_id', quelleId)
+    if (!error) continue
     // Fehlende Tabelle ist kein Grund abzubrechen — sie hat dann auch nichts drin.
-    if (error && !/does not exist|schema cache/i.test(error.message)) {
-      return { error: `${TABELLEN_NAMEN[t] ?? t}: ${error.message}` }
+    if (/does not exist|schema cache/i.test(error.message)) continue
+    // Haben beide Kunden denselben Account hinterlegt, wehrt sich der
+    // Eindeutigkeits-Index. Dann ist der Account beim Ziel ohnehin schon da
+    // und die Zeile der Quelle kann weg — kein Grund, den Umzug abzubrechen.
+    if (t === 'client_accounts' && /duplicate key|unique/i.test(error.message)) {
+      await raeumeDoppelteAccounts(quelleId, zielId)
+      continue
     }
+    return { error: `${TABELLEN_NAMEN[t] ?? t}: ${error.message}` }
   }
 
   // Leads, die zu diesem Kunden geworden sind, zeigen künftig aufs Ziel
@@ -91,14 +103,19 @@ async function vereineStats(quelleId: string, zielId: string): Promise<string | 
 
   const { data: ziel } = await supabase
     .from('client_stats').select('*').eq('client_id', zielId)
+  // Schluessel ist Tag PLUS Account: seit 0028 liegen in client_stats
+  // nebeneinander die Gesamtzeile eines Tages (account_id leer) und je eine
+  // Zeile pro Account. Nur der Tag als Schluessel wuerde eine Account-Zeile
+  // in die Gesamtzeile addieren und den Tag damit doppelt zaehlen.
+  const schluessel = (r: any) => `${r.captured_on}|${r.account_id ?? ''}`
   const zielNachTag = new Map<string, any>()
-  for (const r of ziel ?? []) zielNachTag.set(r.captured_on, r)
+  for (const r of ziel ?? []) zielNachTag.set(schluessel(r), r)
 
   const summe = (a: number | null, b: number | null) =>
     a == null && b == null ? null : (a ?? 0) + (b ?? 0)
 
   for (const q of quelle as any[]) {
-    const z = zielNachTag.get(q.captured_on)
+    const z = zielNachTag.get(schluessel(q))
     if (z) {
       // Gleicher Tag: addieren und die Quellzeile danach entfernen
       const { error } = await supabase.from('client_stats').update({
@@ -115,4 +132,22 @@ async function vereineStats(quelleId: string, zielId: string): Promise<string | 
     }
   }
   return null
+}
+
+/**
+ * Accounts der Quelle einzeln umhaengen und die verwerfen, die es beim Ziel
+ * schon gibt. Wird nur gebraucht, wenn beide Kunden denselben Account
+ * hinterlegt hatten.
+ */
+async function raeumeDoppelteAccounts(quelleId: string, zielId: string) {
+  const { data: quelle } = await supabase
+    .from('client_accounts').select('id, platform, handle').eq('client_id', quelleId)
+  const { data: ziel } = await supabase
+    .from('client_accounts').select('platform, handle').eq('client_id', zielId)
+  const da = new Set((ziel ?? []).map((z: any) => `${z.platform}|${String(z.handle).toLowerCase()}`))
+  for (const q of (quelle ?? []) as any[]) {
+    const k = `${q.platform}|${String(q.handle).toLowerCase()}`
+    if (da.has(k)) await supabase.from('client_accounts').delete().eq('id', q.id)
+    else await supabase.from('client_accounts').update({ client_id: zielId }).eq('id', q.id)
+  }
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { normHandle } from '../lib/accounts'
 import { useAuth } from '../context/AuthContext'
 import { euro, dateRelative } from '../lib/format'
 import { LEAD_STAGE_LABELS, LEAD_STAGE_ORDER, type Lead, type LeadStage } from '../lib/types'
@@ -117,7 +118,12 @@ export default function Leads() {
       setError(error.message)
       return
     }
-    await patchLead(lead.id, { converted_client_id: (data as any).id, stage: 'won' })
+    const neueId = (data as any).id as string
+    // Handle auch als Social-Account anlegen -- sonst holt der Nachtlauf fuer
+    // den frischen Kunden keine Zahlen (er geht die Accounts durch).
+    const h = normHandle(lead.handle_ig)
+    if (h) await supabase.from('client_accounts').insert({ client_id: neueId, platform: 'instagram', handle: h, sort: 0 })
+    await patchLead(lead.id, { converted_client_id: neueId, stage: 'won' })
   }
 
   const totalOpen = leads

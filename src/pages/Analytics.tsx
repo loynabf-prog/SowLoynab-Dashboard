@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { MARKEN, markeVon, type Marke } from '../lib/marken'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { nurGesamt } from '../lib/accounts'
 import LogoFrame from '../components/LogoFrame'
 
 interface PostRow {
@@ -52,10 +53,12 @@ export default function Analytics() {
       })
     supabase
       .from('client_stats')
-      .select('client_id, captured_on, followers_ig, followers_tiktok, clients(brand, deleted_at)')
+      .select('*, clients(brand, deleted_at)')
       .order('captured_on', { ascending: true })
       .then(({ data }) => {
-        const rows = (data ?? []).filter((r: any) => !r.clients?.deleted_at)
+        // nurGesamt wirft die Zeilen einzelner Accounts raus -- sonst wuerde
+        // ein Kunde mit zwei Accounts pro Tag mehrfach gezaehlt.
+        const rows = nurGesamt((data ?? []) as any[]).filter((r: any) => !r.clients?.deleted_at)
         setStatRows(rows as StatRow[])
       })
   }, [])

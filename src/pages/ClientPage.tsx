@@ -34,6 +34,12 @@ import { verteilePlan, type PlanZeile } from '../lib/autoplan'
 import { MARKEN, markeVon, type Marke } from '../lib/marken'
 import { ARTEN, artVon, istAktiv, type Kundenart } from '../lib/kundenart'
 import { fuehreZusammen, TABELLEN_NAMEN, zaehleUmzug, type MergeZaehlung } from '../lib/mergeClients'
+import AccountsEditor from '../components/AccountsEditor'
+import {
+  ladeAccounts, speichereAccounts, zuEntwuerfen, profilUrl, accountName,
+  nurGesamt, nurAccounts, plattformInfo,
+  type AccountEntwurf, type ClientAccount,
+} from '../lib/accounts'
 import { useCategories } from '../context/CategoryContext'
 import LineChart, { type Series } from '../components/LineChart'
 import SwipeRow from '../components/SwipeRow'
@@ -74,6 +80,7 @@ export default function ClientPage() {
   const [seriesOpen, setSeriesOpen] = useState(false)
   const [growthOpen, setGrowthOpen] = useState(false)
   const [stats, setStats] = useState<any[]>([])
+  const [accounts, setAccounts] = useState<ClientAccount[]>([])
   const [flashId, setFlashId] = useState<string | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
 
@@ -127,6 +134,11 @@ export default function ClientPage() {
     setInspirations((data ?? []) as unknown as Inspiration[])
   }, [id])
 
+  const loadAccounts = useCallback(async () => {
+    if (!id) return
+    try { setAccounts((await ladeAccounts(id)).accounts) } catch { setAccounts([]) }
+  }, [id])
+
   const loadStats = useCallback(async () => {
     if (!id) return
     const { data, error } = await supabase
@@ -141,7 +153,7 @@ export default function ClientPage() {
     if (!id) return
     async function loadAll() {
       setLoading(true)
-      await Promise.all([loadClient(), loadVideos(), loadIdeas(), loadStats(), loadInspirations()])
+      await Promise.all([loadClient(), loadVideos(), loadIdeas(), loadStats(), loadInspirations(), loadAccounts()])
       setLoading(false)
     }
     loadAll()
@@ -167,7 +179,7 @@ export default function ClientPage() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [id, loadClient, loadVideos, loadIdeas, loadStats, loadInspirations])
+  }, [id, loadClient, loadVideos, loadIdeas, loadStats, loadInspirations, loadAccounts])
 
   // Deep-Link (?video=<id>) aus einem Anstupser: zur Karte springen + hervorheben
   useEffect(() => {
@@ -472,12 +484,13 @@ export default function ClientPage() {
         <div>
           <h1>{client.name}</h1>
           <span className="sub">
-            {[
-              client.handle_ig && `IG @${client.handle_ig.replace(/^@/, '')}`,
-              client.handle_tiktok && `TikTok @${client.handle_tiktok.replace(/^@/, '')}`,
-            ]
-              .filter(Boolean)
-              .join('  ·  ') || 'keine Handles hinterlegt'}
+            {(accounts.length
+              ? accounts.map((a) => `${plattformInfo(a.platform).icon} @${a.handle}`)
+              : [
+                  client.handle_ig && `IG @${client.handle_ig.replace(/^@/, '')}`,
+                  client.handle_tiktok && `TikTok @${client.handle_tiktok.replace(/^@/, '')}`,
+                ].filter(Boolean)
+            ).join('  ·  ') || 'keine Handles hinterlegt'}
           </span>
         </div>
         <div className="spacer" />
@@ -497,6 +510,7 @@ export default function ClientPage() {
         plan={monatsplan(videos, client.monthly_quota)}
         reachThisMonth={reachThisMonth}
         stats={stats}
+        accounts={accounts}
         onPlanen={() => setLueckeOffen(true)}
       />
 
@@ -703,7 +717,7 @@ export default function ClientPage() {
           {mehrOffen && (
             <div className="mehr-inhalt">
               <ContractCard client={client} />
-              <GrowthSection stats={stats} onAdd={() => setGrowthOpen(true)} />
+              <GrowthSection stats={stats} accounts={accounts} onAdd={() => setGrowthOpen(true)} />
               <div className="section-block">
                 <h2 className="section-title">Verlauf</h2>
                 <ActivityLog clientId={client.id} />
@@ -796,7 +810,7 @@ export default function ClientPage() {
           onClose={() => setEditClient(false)}
           onSaved={async () => {
             setEditClient(false)
-            await loadClient()
+            await Promise.all([loadClient(), loadAccounts(), loadStats()])
           }}
         />
       )}
@@ -945,11 +959,10 @@ function MergeModal({
         )}
 
         <div className="warn-box" style={{ fontSize: 12.5 }}>
-          ⚠ Zwei Dinge vorher wissen: Follower-Zahlen werden je Tag <strong>addiert</strong> —
-          zwei Accounts haben zusammen so viele. Und automatisch verfolgt werden danach nur
-          noch <strong>ein</strong> Instagram- und <strong>ein</strong> TikTok-Handle, nämlich
-          die des Zielkunden. Die Zahlen der einzelnen Videos bleiben davon unberührt, die
-          hängen am Video-Link.
+          ⚠ Follower-Zahlen werden je Tag <strong>addiert</strong> — zwei Accounts haben
+          zusammen so viele. Die Social-Accounts ziehen mit um, es werden danach also
+          <strong> alle</strong> weiter automatisch abgefragt. Die Zahlen der einzelnen
+          Videos bleiben unberührt, die hängen am Video-Link.
         </div>
 
         <div className="modal-actions">
@@ -1382,8 +1395,13 @@ function EditClientModal({
   onSaved: () => void
 }) {
   const [name, setName] = useState(client.name)
+  // Solange Migration 0028 fehlt, bleiben die beiden alten Einzelfelder
+  // stehen; danach uebernimmt der Accounts-Editor (beliebig viele Handles).
   const [ig, setIg] = useState(client.handle_ig ?? '')
   const [tiktok, setTiktok] = useState(client.handle_tiktok ?? '')
+  const [accountsDa, setAccountsDa] = useState(false)
+  const [accVorher, setAccVorher] = useState<ClientAccount[]>([])
+  const [accEntwuerfe, setAccEntwuerfe] = useState<AccountEntwurf[]>([])
   const [notes, setNotes] = useState(client.notes ?? '')
   const [aiBrief, setAiBrief] = useState(client.ai_brief ?? '')
   const [marke, setMarke] = useState<Marke>(markeVon(client.brand))
@@ -1407,6 +1425,14 @@ function EditClientModal({
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => { getPackages().then(setPakete) }, [])
+
+  useEffect(() => {
+    ladeAccounts(client.id).then(({ da, accounts }) => {
+      setAccountsDa(da)
+      setAccVorher(accounts)
+      setAccEntwuerfe(zuEntwuerfen(accounts))
+    }).catch(() => setAccountsDa(false))
+  }, [client.id])
 
   // Paket uebernehmen: fuellt Name, Honorar und Ziel-Videomenge. Danach ist
   // alles ganz normal ueberschreibbar -- das Paket ist eine Vorlage, kein
@@ -1437,8 +1463,10 @@ function EditClientModal({
       const { error } = await updateRow('clients', {
         name: name.trim(),
         logo_url,
-        handle_ig: ig.trim() || null,
-        handle_tiktok: tiktok.trim() || null,
+        // Mit Accounts-Tabelle haelt ein Trigger die beiden Spalten auf dem
+        // jeweiligen Hauptaccount -- dann hier nicht hineinschreiben, sonst
+        // ueberschreiben wir uns gegenseitig.
+        ...(accountsDa ? {} : { handle_ig: ig.trim() || null, handle_tiktok: tiktok.trim() || null }),
         notes: notes.trim() || null,
         brand: marke,
         client_type: art,
@@ -1458,6 +1486,7 @@ function EditClientModal({
         ...(aiBrief.trim() || client.ai_brief ? { ai_brief: aiBrief.trim() || null } : {}),
       }, 'id', client.id)
       if (error) throw error
+      if (accountsDa) await speichereAccounts(client.id, accVorher, accEntwuerfe)
       onSaved()
     } catch (err: any) {
       setError(err.message ?? 'Fehler beim Speichern')
@@ -1487,16 +1516,20 @@ function EditClientModal({
           <label htmlFor="ecname">Name *</label>
           <input id="ecname" value={name} onChange={(e) => setName(e.target.value)} required />
         </div>
-        <div className="row" style={{ gap: 12 }}>
-          <div style={{ flex: 1 }}>
-            <label htmlFor="ecig">Instagram-Handle</label>
-            <input id="ecig" value={ig} onChange={(e) => setIg(e.target.value)} placeholder="restaurant_xy" />
+        {accountsDa ? (
+          <AccountsEditor entwuerfe={accEntwuerfe} onChange={setAccEntwuerfe} />
+        ) : (
+          <div className="row" style={{ gap: 12 }}>
+            <div style={{ flex: 1 }}>
+              <label htmlFor="ecig">Instagram-Handle</label>
+              <input id="ecig" value={ig} onChange={(e) => setIg(e.target.value)} placeholder="restaurant_xy" />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label htmlFor="ectt">TikTok-Handle</label>
+              <input id="ectt" value={tiktok} onChange={(e) => setTiktok(e.target.value)} placeholder="restaurant_xy" />
+            </div>
           </div>
-          <div style={{ flex: 1 }}>
-            <label htmlFor="ectt">TikTok-Handle</label>
-            <input id="ectt" value={tiktok} onChange={(e) => setTiktok(e.target.value)} placeholder="restaurant_xy" />
-          </div>
-        </div>
+        )}
         <div>
           <label>Kundenart <span className="muted">(bestimmt die Reihenfolge in der Kundenliste)</span></label>
           <div className="art-wahl">
@@ -2170,28 +2203,44 @@ function fmtK(n: number): string {
   return String(n)
 }
 
-function ClientCockpit({ client, plan, reachThisMonth, stats, onPlanen }: {
+function ClientCockpit({ client, plan, reachThisMonth, stats, accounts, onPlanen }: {
   client: Client
   plan: Monatsplan
   reachThisMonth: number
   stats: any[]
+  accounts: ClientAccount[]
   onPlanen: () => void
 }) {
   const quota = client.monthly_quota ?? 0
   const digits = (client.phone ?? '').replace(/[^\d+]/g, '').replace(/^\+/, '')
   const ig = client.handle_ig?.replace(/^@/, '')
   const tt = client.handle_tiktok?.replace(/^@/, '')
+  // Jeder hinterlegte Account bekommt seinen eigenen Knopf. Bei mehreren
+  // Accounts derselben Plattform steht der Klarname dran, sonst weiss man
+  // nicht, welcher der beiden gemeint ist.
+  const mehrfach = (p: string) => accounts.filter((a) => a.platform === p).length > 1
+  const accLinks = accounts.map((a) => ({
+    href: profilUrl(a.platform, a.handle),
+    icon: plattformInfo(a.platform).icon,
+    label: mehrfach(a.platform) ? accountName(a) : plattformInfo(a.platform).name,
+  }))
   const contacts = [
     client.phone && { href: `tel:${client.phone}`, icon: '📞', label: 'Anrufen' },
     digits && { href: `https://wa.me/${digits}`, icon: '💬', label: 'WhatsApp' },
     client.email && { href: `mailto:${client.email}`, icon: '✉️', label: 'Mail' },
-    ig && { href: `https://instagram.com/${ig}`, icon: '📸', label: 'Instagram' },
-    tt && { href: `https://www.tiktok.com/@${tt}`, icon: '🎵', label: 'TikTok' },
+    // Ohne Accounts-Tabelle (Migration 0028 fehlt) die alten Einzelfelder.
+    ...(accounts.length ? accLinks : [
+      ig && { href: `https://instagram.com/${ig}`, icon: '📸', label: 'Instagram' },
+      tt && { href: `https://www.tiktok.com/@${tt}`, icon: '🎵', label: 'TikTok' },
+    ]),
     client.website && { href: client.website, icon: '🌐', label: 'Website' },
   ].filter(Boolean) as { href: string; icon: string; label: string }[]
 
-  // Neuester Follower-Stand (stats ist aufsteigend nach Datum sortiert)
-  const latestStat = stats.length ? stats[stats.length - 1] : null
+  // Neuester Follower-Stand. Bei mehreren Accounts stehen in stats auch
+  // Zeilen einzelner Accounts -- fuer die Gesamtzahl zaehlt nur die
+  // Gesamtzeile, sonst wuerde der Tag doppelt gerechnet.
+  const gesamtZeilen = nurGesamt(stats)
+  const latestStat = gesamtZeilen.length ? gesamtZeilen[gesamtZeilen.length - 1] : null
   const totalFollowers = latestStat ? (latestStat.followers_ig ?? 0) + (latestStat.followers_tiktok ?? 0) : 0
 
   if (quota <= 0 && contacts.length === 0 && reachThisMonth === 0 && totalFollowers === 0) return null
@@ -2250,13 +2299,27 @@ function ClientCockpit({ client, plan, reachThisMonth, stats, onPlanen }: {
 }
 
 // ============================ Wachstum (Follower-Verlauf) ============================
-function GrowthSection({ stats, onAdd }: { stats: any[]; onAdd: () => void }) {
-  const ig = stats.filter((s) => s.followers_ig != null).map((s) => ({ x: s.captured_on, y: Number(s.followers_ig) }))
-  const tt = stats.filter((s) => s.followers_tiktok != null).map((s) => ({ x: s.captured_on, y: Number(s.followers_tiktok) }))
+function GrowthSection({ stats, accounts, onAdd }: { stats: any[]; accounts: ClientAccount[]; onAdd: () => void }) {
+  // Die Kurve zeigt den Kunden als Ganzes -- also nur die Gesamtzeilen.
+  // Die Zeilen einzelner Accounts stecken darunter in der Aufschluesselung.
+  const gesamt = nurGesamt(stats)
+  const ig = gesamt.filter((s) => s.followers_ig != null).map((s) => ({ x: s.captured_on, y: Number(s.followers_ig) }))
+  const tt = gesamt.filter((s) => s.followers_tiktok != null).map((s) => ({ x: s.captured_on, y: Number(s.followers_tiktok) }))
   const series: Series[] = []
   if (ig.length) series.push({ key: 'ig', label: 'Instagram', color: '#e0521a', points: ig })
   if (tt.length) series.push({ key: 'tt', label: 'TikTok', color: '#2563eb', points: tt })
   const enough = ig.length >= 2 || tt.length >= 2
+
+  // Nur zeigen, wenn es wirklich mehrere Accounts gibt -- bei einem
+  // Instagram und einem TikTok waere die Aufschluesselung nur Verdopplung.
+  const mehrere = accounts.filter((a) => a.platform === 'instagram').length > 1
+    || accounts.filter((a) => a.platform === 'tiktok').length > 1
+  const jeAccount = nurAccounts(stats)
+  const letzte = new Map<string, { wert: number; tag: string }>()
+  for (const z of jeAccount) {
+    const wert = (z.followers_ig ?? 0) + (z.followers_tiktok ?? 0)
+    if (wert > 0) letzte.set(z.account_id, { wert, tag: z.captured_on })
+  }
 
   return (
     <div className="growth-block">
@@ -2269,6 +2332,25 @@ function GrowthSection({ stats, onAdd }: { stats: any[]; onAdd: () => void }) {
       ) : (
         <div className="col-empty" style={{ padding: 18 }}>
           Noch zu wenig Daten. Trag die aktuellen Follower ein — ab dem 2. Eintrag siehst du die Kurve. 📈
+        </div>
+      )}
+
+      {mehrere && (
+        <div className="acc-split">
+          <div className="acc-split-head">Davon je Account</div>
+          {accounts.map((a) => {
+            const l = letzte.get(a.id)
+            return (
+              <a className="acc-split-zeile" key={a.id} href={profilUrl(a.platform, a.handle)} target="_blank" rel="noreferrer">
+                <span className="acc-split-icon">{plattformInfo(a.platform).icon}</span>
+                <span className="acc-split-name">{accountName(a)}</span>
+                <span className="acc-split-wert">
+                  {l ? l.wert.toLocaleString('de-DE') : '—'}
+                  <span className="acc-split-sub">{l ? 'Follower' : 'noch keine Zahlen'}</span>
+                </span>
+              </a>
+            )
+          })}
         </div>
       )}
     </div>
@@ -2288,13 +2370,32 @@ function GrowthModal({ clientId, onClose, onSaved }: { clientId: string; onClose
     if (!ig.trim() && !tt.trim() && !reach.trim()) { setError('Bitte mindestens eine Zahl eintragen.'); return }
     setBusy(true)
     setError(null)
-    const { error } = await supabase.from('client_stats').insert({
-      client_id: clientId,
-      captured_on: date,
-      followers_ig: num(ig),
-      followers_tiktok: num(tt),
-      reach: num(reach),
-    })
+
+    // Nur schreiben, was auch ausgefuellt wurde. Sonst wuerde ein von Hand
+    // nachgetragener Reichweiten-Wert die ueber Nacht geholten Follower-
+    // Zahlen desselben Tages mit null ueberbuegeln.
+    const patch: Record<string, number | null> = {}
+    if (ig.trim()) patch.followers_ig = num(ig)
+    if (tt.trim()) patch.followers_tiktok = num(tt)
+    if (reach.trim()) patch.reach = num(reach)
+
+    // Fuer denselben Tag gibt es genau eine Gesamtzeile. Existiert sie
+    // schon (weil der Nachtlauf war), ergaenzen wir sie, statt eine zweite
+    // anzulegen -- die laesst die Datenbank seit 0028 ohnehin nicht zu.
+    // Fehlt die Spalte account_id noch (Migration 0028 nicht gelaufen),
+    // scheitert der Filter -- dann legen wir wie frueher einfach an.
+    const { data: vorhanden, error: sucheFehler } = await supabase
+      .from('client_stats')
+      .select('id')
+      .eq('client_id', clientId)
+      .eq('captured_on', date)
+      .is('account_id', null)
+      .maybeSingle()
+
+    const { error } = vorhanden && !sucheFehler
+      ? await supabase.from('client_stats').update(patch).eq('id', (vorhanden as any).id)
+      : await supabase.from('client_stats').insert({ client_id: clientId, captured_on: date, ...patch })
+
     setBusy(false)
     if (error) setError(error.message)
     else onSaved()
