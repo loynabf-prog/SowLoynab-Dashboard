@@ -1323,6 +1323,36 @@ a.fin-tile:hover { transform: translateY(-3px); box-shadow: var(--shadow); borde
 .merge-zeile { display: flex; align-items: baseline; gap: 7px; color: var(--text-muted); }
 .merge-anzahl { font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
 
+/* Kundenart waehlen -- drei Knoepfe nebeneinander */
+.art-wahl { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.art-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 11px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.art-btn:hover { border-color: var(--border-strong); }
+.art-icon { font-size: 15px; }
+.art-name { font-size: 13px; font-weight: 700; color: var(--text-muted); }
+.art-btn.on { border-color: var(--brand); background: var(--brand-glow); }
+.art-btn.on .art-name { color: var(--brand); }
+/* Passiv wird bewusst nicht blau hervorgehoben -- es ist keine Auszeichnung. */
+.art-btn.passiv.on { border-color: var(--border-strong); background: var(--bg-sunken); }
+.art-btn.passiv.on .art-name { color: var(--text); }
+
+/* Die Bloecke der Kundenliste: zahlend vorn, Passives zurueckgenommen */
+.rang-block.art-referenz .section-title { color: var(--text-muted); }
+.rang-block.art-passiv .section-title { color: var(--text-dim); }
+.rang-block.art-passiv .logo-tile { opacity: 0.6; }
+.rang-block.art-passiv .logo-tile:hover { opacity: 1; }
+
 /* Marken-Auswahl beim Kunden */
 .marken-wahl { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .marken-btn {

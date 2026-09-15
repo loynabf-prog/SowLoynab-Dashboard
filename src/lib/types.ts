@@ -7,7 +7,8 @@ export interface Client {
   handle_ig: string | null
   handle_tiktok: string | null
   notes: string | null
-  brand: string | null      // 'media' (Sow & Loynab) | 'creator' (Creator Scout)
+  brand: string | null        // 'media' (Sow & Loynab) | 'creator' (Creator Scout)
+  client_type: string | null  // 'zahlend' | 'referenz' | 'passiv'
   package: string | null
   monthly_fee: number | null
   active: boolean
