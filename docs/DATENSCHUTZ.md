@@ -13,7 +13,11 @@ Ihr gebt Daten an Dienstleister weiter → mit jedem braucht ihr einen AV-Vertra
 - [ ] **Supabase** — DPA abschließen (im Supabase-Dashboard unter *Organization → Legal/DPA* verfügbar).
 - [ ] **Zoho** — DPA (Zoho stellt eins bereit; im Zoho-Admin bzw. auf der Zoho-Website).
 - [ ] **Apify** (falls Auto-Statistik genutzt wird) — DPA prüfen.
-- [ ] **Anthropic / OpenAI** (falls KI-Texte/Sprache genutzt werden) — DPA/Terms prüfen; keine echten Kundennamen unnötig in Prompts.
+- [ ] **Anthropic** (KI-Texte, Ideen, Sprachbefehl) — DPA/Terms prüfen; keine echten
+      Kundennamen unnötig in Prompts.
+- [x] ~~**OpenAI**~~ — **nicht mehr im Einsatz.** Die Sprachaufnahme ging früher zur
+      Transkription in die USA; diktiert wird jetzt mit der Handytastatur, an die
+      Funktion geht nur noch Text. Kein Auftragsverarbeiter mehr, kein DPA nötig.
 
 ## 2. Serverstandort EU
 
