@@ -32,6 +32,7 @@ import { getPackages, mengeText, type Package } from '../lib/packages'
 import { monatsplan, monatsKey, type Monatsplan } from '../lib/monatsplan'
 import { verteilePlan, type PlanZeile } from '../lib/autoplan'
 import { MARKEN, markeVon, type Marke } from '../lib/marken'
+import { ARTEN, artVon, istAktiv, type Kundenart } from '../lib/kundenart'
 import { fuehreZusammen, TABELLEN_NAMEN, zaehleUmzug, type MergeZaehlung } from '../lib/mergeClients'
 import { useCategories } from '../context/CategoryContext'
 import LineChart, { type Series } from '../components/LineChart'
@@ -1390,7 +1391,7 @@ function EditClientModal({
   const [pkg, setPkg] = useState(client.package ?? '')
   const [pakete, setPakete] = useState<Package[]>([])
   const [fee, setFee] = useState(client.monthly_fee != null ? String(client.monthly_fee) : '')
-  const [active, setActive] = useState(client.active ?? true)
+  const [art, setArt] = useState<Kundenart>(artVon(client.client_type))
   const [contact, setContact] = useState(client.contact_person ?? '')
   const [phone, setPhone] = useState(client.phone ?? '')
   const [email, setEmail] = useState(client.email ?? '')
@@ -1440,9 +1441,12 @@ function EditClientModal({
         handle_tiktok: tiktok.trim() || null,
         notes: notes.trim() || null,
         brand: marke,
+        client_type: art,
+        // "Aktiv" ist keine eigene Entscheidung mehr -- es folgt der Art.
+        // Ein passiver Kunde zaehlt nicht zu den laufenden Einnahmen.
+        active: istAktiv(art),
         package: pkg.trim() || null,
         monthly_fee: fee ? Number(fee.replace(',', '.')) : null,
-        active,
         contact_person: contact.trim() || null,
         phone: phone.trim() || null,
         email: email.trim() || null,
@@ -1493,6 +1497,27 @@ function EditClientModal({
             <input id="ectt" value={tiktok} onChange={(e) => setTiktok(e.target.value)} placeholder="restaurant_xy" />
           </div>
         </div>
+        <div>
+          <label>Kundenart <span className="muted">(bestimmt die Reihenfolge in der Kundenliste)</span></label>
+          <div className="art-wahl">
+            {ARTEN.map((a) => (
+              <button
+                type="button"
+                key={a.key}
+                className={`art-btn ${a.key} ${art === a.key ? 'on' : ''}`}
+                onClick={() => setArt(a.key)}
+              >
+                <span className="art-icon">{a.icon}</span>
+                <span className="art-name">{a.kurz}</span>
+              </button>
+            ))}
+          </div>
+          <p className="muted" style={{ fontSize: 12, marginTop: 5 }}>
+            {ARTEN.find((a) => a.key === art)?.hinweis}
+            {art === 'passiv' && ' — zählt nicht zu den monatlichen Einnahmen.'}
+          </p>
+        </div>
+
         <div>
           <label>Marke</label>
           <div className="marken-wahl">
@@ -1592,10 +1617,7 @@ function EditClientModal({
           <input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://…" />
         </div>
 
-        <label className="check-row">
-          <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} style={{ width: 'auto' }} />
-          Aktiver Kunde (zählt zu den monatlichen Einnahmen)
-        </label>
+
         <div>
           <label htmlFor="ecnotes">Notizen</label>
           <textarea id="ecnotes" value={notes} onChange={(e) => setNotes(e.target.value)} />

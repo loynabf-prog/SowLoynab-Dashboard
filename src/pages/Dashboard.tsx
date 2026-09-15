@@ -4,8 +4,9 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { uploadLogo } from '../lib/storage'
 import type { Client, Video, VideoStatus } from '../lib/types'
-import { kundenlage, RANG_HINWEIS, RANG_TITEL, type Kundenlage, type Rang } from '../lib/kundenrang'
+import { kundenlage, type Kundenlage } from '../lib/kundenrang'
 import { MARKEN, markeVon, type Marke } from '../lib/marken'
+import { ARTEN, artVon, istAktiv, type Kundenart } from '../lib/kundenart'
 import Modal from '../components/Modal'
 import LogoFrame from '../components/LogoFrame'
 import LogoCropper from '../components/LogoCropper'
@@ -134,8 +135,11 @@ export default function Dashboard() {
     .filter((c) => marke === 'alle' || markeVon(c.brand) === marke)
     .map((c) => ({ c, lage: kundenlage(c, videosByClient[c.id] ?? [], heute) }))
     .sort((a, b) => {
+      const dringend = (x: Kundenlage) => (x.rang === 'akut' ? 0 : x.rang === 'laeuft' ? 1 : 2)
       const last = (x: Kundenlage) => x.zuTun + x.ohneIdee + x.ohneLink
-      return last(b.lage) - last(a.lage) || a.c.name.localeCompare(b.c.name)
+      return dringend(a.lage) - dringend(b.lage)
+        || last(b.lage) - last(a.lage)
+        || a.c.name.localeCompare(b.c.name)
     })
 
   return (
@@ -180,42 +184,47 @@ export default function Dashboard() {
         )
       })()}
 
-      {/* Nach Dringlichkeit gruppiert statt alphabetisch: oben, wo Arbeit
-          liegt; unten, was abgeschlossen ist. Ziel ist, die obere Gruppe
-          leerzuarbeiten. */}
-      {(['akut', 'laeuft', 'ruhend'] as Rang[]).map((rang) => {
-        const gruppe = eingestuft.filter((x) => x.lage.rang === rang)
+      {/* Die Art ordnet, die Dringlichkeit sortiert. Zahlende Kunden zuerst,
+          Ehrenamt darunter, Passives ganz unten und abgeblendet — sonst
+          verwaessert das eine das andere. */}
+      {ARTEN.map((art) => {
+        const gruppe = eingestuft.filter((x) => artVon(x.c.client_type) === art.key)
         if (gruppe.length === 0) return null
+        const akut = gruppe.filter((x) => x.lage.rang === 'akut').length
         return (
-          <div className="rang-block" key={rang}>
+          <div className={`rang-block art-${art.key}`} key={art.key}>
             <h2 className="section-title">
-              {RANG_TITEL[rang]}
+              {art.icon} {art.titel}
               <span className="col-count">{gruppe.length}</span>
             </h2>
-            <p className="rang-hinweis">{RANG_HINWEIS[rang]}</p>
+            <p className="rang-hinweis">
+              {akut > 0
+                ? `${akut} ${akut === 1 ? 'Kunde braucht' : 'Kunden brauchen'} diese Woche etwas von uns.`
+                : art.hinweis}
+            </p>
             <div className="logo-grid">
               {gruppe.map(({ c, lage }) => (
-          <Link key={c.id} to={`/client/${c.id}`} className={`logo-tile rang-${lage.rang}`}>
-            {c.health && <span className={`health-dot ${c.health}`} title={`Status: ${c.health}`} />}
-            <LogoFrame name={c.name} logoUrl={c.logo_url} />
-            <div className="tile-body">
-              <div className="tile-name">{c.name}</div>
-              <div className="tile-meta">
-                {c.monthly_quota
-                  ? <span className={`quota-chip ${(postedMonth[c.id] ?? 0) >= c.monthly_quota ? 'done' : ''}`}>🎬 {postedMonth[c.id] ?? 0}/{c.monthly_quota} · Monat</span>
-                  : <>{videoCount[c.id] ?? 0} {(videoCount[c.id] ?? 0) === 1 ? 'Video' : 'Videos'}</>}
-                {lage.rang === 'akut'
-                  ? <span className="gap-chip">{lage.grund}</span>
-                  : <span className="ruhe-chip">{lage.grund}</span>}
-                {(() => {
-                  const dl = contractDaysLeft(c.contract_end)
-                  if (dl === null || dl > 30) return null
-                  if (dl < 0) return <span className="contract-chip expired">⚠ Vertrag abgelaufen</span>
-                  return <span className="contract-chip soon">⏳ Vertrag endet {dl === 0 ? 'heute' : dl === 1 ? 'morgen' : `in ${dl} Tg`}</span>
-                })()}
-              </div>
-            </div>
-          </Link>
+                <Link key={c.id} to={`/client/${c.id}`} className={`logo-tile rang-${lage.rang}`}>
+                  {c.health && <span className={`health-dot ${c.health}`} title={`Status: ${c.health}`} />}
+                  <LogoFrame name={c.name} logoUrl={c.logo_url} />
+                  <div className="tile-body">
+                    <div className="tile-name">{c.name}</div>
+                    <div className="tile-meta">
+                      {c.monthly_quota
+                        ? <span className={`quota-chip ${(postedMonth[c.id] ?? 0) >= c.monthly_quota ? 'done' : ''}`}>🎬 {postedMonth[c.id] ?? 0}/{c.monthly_quota} · Monat</span>
+                        : <>{videoCount[c.id] ?? 0} {(videoCount[c.id] ?? 0) === 1 ? 'Video' : 'Videos'}</>}
+                      {lage.rang === 'akut'
+                        ? <span className="gap-chip">{lage.grund}</span>
+                        : <span className="ruhe-chip">{lage.grund}</span>}
+                      {(() => {
+                        const dl = contractDaysLeft(c.contract_end)
+                        if (dl === null || dl > 30) return null
+                        if (dl < 0) return <span className="contract-chip expired">⚠ Vertrag abgelaufen</span>
+                        return <span className="contract-chip soon">⏳ Vertrag endet {dl === 0 ? 'heute' : dl === 1 ? 'morgen' : `in ${dl} Tg`}</span>
+                      })()}
+                    </div>
+                  </div>
+                </Link>
               ))}
             </div>
           </div>
@@ -224,6 +233,7 @@ export default function Dashboard() {
 
       <div className="logo-grid">
         {(clients.length > 0 || (!loading && !error)) && (
+
           <button className="add-tile" onClick={() => setShowAdd(true)}>
             <span style={{ fontSize: 22 }}>+</span>
             Kunde hinzufuegen
@@ -298,6 +308,7 @@ function AddClientModal({
   const [contractEnd, setContractEnd] = useState('')
   const [notes, setNotes] = useState('')
   const [neueMarke, setNeueMarke] = useState<Marke>('media')
+  const [neueArt, setNeueArt] = useState<Kundenart>('zahlend')
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
   const [cropFile, setCropFile] = useState<File | null>(null)
@@ -325,6 +336,8 @@ function AddClientModal({
         handle_ig: ig.trim() || null,
         handle_tiktok: tiktok.trim() || null,
         brand: neueMarke,
+        client_type: neueArt,
+        active: istAktiv(neueArt),
         monthly_quota: quota ? Number(quota) : null,
         contract_end: contractEnd || null,
         notes: notes.trim() || null,
@@ -332,8 +345,8 @@ function AddClientModal({
       }
       // schema-sicher: fehlen contract_end oder brand noch, ohne sie erneut versuchen
       let res = await supabase.from('clients').insert(payload).select('id').single()
-      if (res.error && (res.error.code === 'PGRST204' || /contract_end|brand|schema cache/i.test(res.error.message))) {
-        const { contract_end, brand, ...rest } = payload
+      if (res.error && (res.error.code === 'PGRST204' || /contract_end|brand|client_type|schema cache/i.test(res.error.message))) {
+        const { contract_end, brand, client_type, ...rest } = payload
         res = await supabase.from('clients').insert(rest).select('id').single()
       }
       if (res.error) throw res.error
@@ -379,6 +392,23 @@ function AddClientModal({
             <input id="ctt" value={tiktok} onChange={(e) => setTiktok(e.target.value)} placeholder="restaurant_xy" />
           </div>
         </div>
+        <div>
+          <label>Kundenart</label>
+          <div className="art-wahl">
+            {ARTEN.map((a) => (
+              <button
+                type="button"
+                key={a.key}
+                className={`art-btn ${a.key} ${neueArt === a.key ? 'on' : ''}`}
+                onClick={() => setNeueArt(a.key)}
+              >
+                <span className="art-icon">{a.icon}</span>
+                <span className="art-name">{a.kurz}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div>
           <label>Marke</label>
           <div className="marken-wahl">
