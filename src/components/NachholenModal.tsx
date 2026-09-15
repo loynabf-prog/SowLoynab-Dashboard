@@ -19,6 +19,7 @@ import {
   bestandJeKunde, fuehreZusammen, videosGesamt, zaehleUmzug, TABELLEN_NAMEN,
   type KundenBestand, type MergeZaehlung,
 } from '../lib/mergeClients'
+import { holeAllesZurueck, papierkorbStand, TABELLE_NAME, type PapierkorbStand } from '../lib/papierkorb'
 
 /**
  * Ohne zielId ist es reine Uebersicht: welcher Kunde hat wie viele Videos,
@@ -40,6 +41,10 @@ export default function NachholenModal({
   const [summe, setSumme] = useState<{ aktiv: number; imPapierkorb: number } | null>(null)
   const [offen, setOffen] = useState<string | null>(null)
   const [detail, setDetail] = useState<MergeZaehlung[] | null>(null)
+  // Was liegt bei dem aufgeklappten Kunden im Papierkorb? Videos koennen
+  // beim richtigen Kunden haengen und trotzdem unsichtbar sein, weil sie
+  // selbst als geloescht markiert sind.
+  const [muell, setMuell] = useState<PapierkorbStand[] | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -55,10 +60,29 @@ export default function NachholenModal({
   useEffect(() => { laden() }, [zielId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function aufklappen(k: KundenBestand) {
-    if (offen === k.id) { setOffen(null); setDetail(null); return }
+    if (offen === k.id) { setOffen(null); setDetail(null); setMuell(null); return }
     setOffen(k.id)
     setDetail(null)
+    setMuell(null)
     setDetail(await zaehleUmzug(k.id))
+    setMuell(await papierkorbStand(k.id))
+  }
+
+  /** Alles, was bei diesem Kunden im Papierkorb liegt, wieder sichtbar machen. */
+  async function ausPapierkorb(k: KundenBestand, stand: PapierkorbStand[]) {
+    const was = stand.map((x) => `${x.anzahl} ${TABELLE_NAME[x.tabelle]}`).join(', ')
+    if (!confirm(`${was} bei "${k.name}" aus dem Papierkorb holen?`)) return
+    setBusy(k.id)
+    setError(null)
+    const { anzahl, error: e } = await holeAllesZurueck(k.id)
+    setBusy(null)
+    if (e) { setError(e); return }
+    setMuell(await papierkorbStand(k.id))
+    await laden()
+    onFertig?.()
+    alert(anzahl === 0
+      ? 'Es war nichts zum Zurückholen da.'
+      : `${anzahl} Einträge sind wieder da.`)
   }
 
   async function hol(k: KundenBestand) {
@@ -125,12 +149,34 @@ export default function NachholenModal({
 
               {offen === k.id && (
                 <div className="nachhol-detail">
+                  {/* Zuerst der Papierkorb: liegt hier etwas drin, ist das
+                      fast immer die Antwort -- die Sachen sind schon beim
+                      richtigen Kunden, nur unsichtbar. */}
+                  {muell != null && muell.length > 0 && (
+                    <div className="muell-hinweis">
+                      <div>
+                        <strong>Im Papierkorb dieses Kunden liegen:</strong>{' '}
+                        {muell.map((x) => `${x.anzahl} ${TABELLE_NAME[x.tabelle]}`).join(', ')}.
+                        Sie hängen schon hier — sie sind nur ausgeblendet.
+                      </div>
+                      <button
+                        className="btn btn-sm btn-primary"
+                        disabled={busy != null}
+                        onClick={() => ausPapierkorb(k, muell)}
+                      >
+                        {busy === k.id ? 'Hole …' : 'Alle wieder sichtbar machen'}
+                      </button>
+                    </div>
+                  )}
+
                   {detail === null ? (
                     <p className="muted" style={{ fontSize: 12.5, margin: 0 }}>Zähle …</p>
                   ) : detail.length === 0 ? (
-                    <p className="muted" style={{ fontSize: 12.5, margin: 0 }}>
-                      Hier hängt nichts dran.
-                    </p>
+                    muell != null && muell.length > 0 ? null : (
+                      <p className="muted" style={{ fontSize: 12.5, margin: 0 }}>
+                        Hier hängt nichts dran.
+                      </p>
+                    )
                   ) : (
                     <>
                       <div className="merge-liste">

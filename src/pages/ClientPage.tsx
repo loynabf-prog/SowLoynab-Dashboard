@@ -36,6 +36,7 @@ import { ARTEN, artVon, istAktiv, type Kundenart } from '../lib/kundenart'
 import { fuehreZusammen, liegtWasImPapierkorb, TABELLEN_NAMEN, zaehleUmzug, type MergeZaehlung } from '../lib/mergeClients'
 import AccountsEditor from '../components/AccountsEditor'
 import NachholenModal from '../components/NachholenModal'
+import { holeAllesZurueck, papierkorbStand, TABELLE_NAME, type PapierkorbStand } from '../lib/papierkorb'
 import {
   ladeAccounts, speichereAccounts, zuEntwuerfen, profilUrl, accountName,
   nurGesamt, nurAccounts, plattformInfo,
@@ -87,6 +88,10 @@ export default function ClientPage() {
   // suchen zu muessen.
   const [reste, setReste] = useState<{ kunden: string[]; videos: number } | null>(null)
   const [nachholen, setNachholen] = useState(false)
+  // Was liegt bei DIESEM Kunden im Papierkorb? Videos koennen hier haengen
+  // und trotzdem unsichtbar sein -- das ist von aussen nicht zu erraten.
+  const [eigenerMuell, setEigenerMuell] = useState<PapierkorbStand[]>([])
+  const [muellBusy, setMuellBusy] = useState(false)
   const [flashId, setFlashId] = useState<string | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
 
@@ -140,6 +145,11 @@ export default function ClientPage() {
     setInspirations((data ?? []) as unknown as Inspiration[])
   }, [id])
 
+  const loadMuell = useCallback(async () => {
+    if (!id) return
+    try { setEigenerMuell(await papierkorbStand(id)) } catch { setEigenerMuell([]) }
+  }, [id])
+
   const loadReste = useCallback(async () => {
     try { setReste(await liegtWasImPapierkorb()) } catch { setReste(null) }
   }, [])
@@ -163,7 +173,7 @@ export default function ClientPage() {
     if (!id) return
     async function loadAll() {
       setLoading(true)
-      await Promise.all([loadClient(), loadVideos(), loadIdeas(), loadStats(), loadInspirations(), loadAccounts(), loadReste()])
+      await Promise.all([loadClient(), loadVideos(), loadIdeas(), loadStats(), loadInspirations(), loadAccounts(), loadReste(), loadMuell()])
       setLoading(false)
     }
     loadAll()
@@ -189,7 +199,7 @@ export default function ClientPage() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [id, loadClient, loadVideos, loadIdeas, loadStats, loadInspirations, loadAccounts, loadReste])
+  }, [id, loadClient, loadVideos, loadIdeas, loadStats, loadInspirations, loadAccounts, loadReste, loadMuell])
 
   // Deep-Link (?video=<id>) aus einem Anstupser: zur Karte springen + hervorheben
   useEffect(() => {
@@ -527,9 +537,38 @@ export default function ClientPage() {
       {/* Zwei Anlaesse, derselbe Weg: entweder liegt im Papierkorb noch ein
           Kunde mit Videos, oder dieser Kunde hat ueberhaupt keine -- dann
           sucht man gerade, wo sie hin sind. */}
+      {/* Der haeufigste Fall zuerst: die Sachen haengen an diesem Kunden,
+          sind aber als geloescht markiert und deshalb unsichtbar. Ein Knopf,
+          keine Suche. */}
+      {eigenerMuell.length > 0 && (
+        <div className="reste-box">
+          <div>
+            <strong>Im Papierkorb dieses Kunden liegen:</strong>{' '}
+            {eigenerMuell.map((x) => `${x.anzahl} ${TABELLE_NAME[x.tabelle]}`).join(', ')}.
+            Sie hängen schon hier — sie sind nur ausgeblendet.
+          </div>
+          <button
+            className="btn btn-sm btn-primary"
+            disabled={muellBusy}
+            onClick={async () => {
+              const was = eigenerMuell.map((x) => `${x.anzahl} ${TABELLE_NAME[x.tabelle]}`).join(', ')
+              if (!confirm(`${was} wieder sichtbar machen?`)) return
+              setMuellBusy(true)
+              const { anzahl, error: e } = await holeAllesZurueck(client.id)
+              setMuellBusy(false)
+              if (e) { setError(e); return }
+              await Promise.all([loadVideos(), loadIdeas(), loadInspirations(), loadMuell()])
+              toast(anzahl === 0 ? 'Es war nichts da.' : `${anzahl} Einträge sind wieder da ✓`)
+            }}
+          >
+            {muellBusy ? 'Hole …' : 'Alle wieder sichtbar machen'}
+          </button>
+        </div>
+      )}
+
       {(() => {
         const imMuell = reste != null && reste.kunden.length > 0
-        const leer = !loading && videos.length === 0
+        const leer = !loading && videos.length === 0 && eigenerMuell.length === 0
         if (!imMuell && !leer) return null
         return (
           <div className="reste-box">

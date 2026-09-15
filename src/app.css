@@ -3324,3 +3324,23 @@ html { scroll-behavior: smooth; }
 @media (max-width: 560px) {
   .reste-box .btn, .nachhol-detail .btn { width: 100%; }
 }
+
+/* Papierkorb: Sammel-Wiederherstellung neben der Ueberschrift. */
+.trash-head {
+  display: flex; align-items: center; gap: 10px;
+  flex-wrap: wrap; margin-bottom: 10px;
+}
+
+/* Hinweis im Such-Fenster: hier liegt etwas im Papierkorb. */
+.muell-hinweis {
+  display: flex; align-items: center; gap: 11px; flex-wrap: wrap;
+  padding: 11px 12px; margin-bottom: 11px;
+  border-radius: 12px; font-size: 13px; line-height: 1.45;
+  background: rgba(255, 149, 0, 0.1);
+  border: 1px solid rgba(255, 149, 0, 0.32);
+}
+.muell-hinweis > div { flex: 1 1 220px; min-width: 0; }
+
+@media (max-width: 560px) {
+  .trash-head .btn, .muell-hinweis .btn { width: 100%; }
+}

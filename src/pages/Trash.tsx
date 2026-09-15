@@ -54,6 +54,21 @@ export default function Trash() {
     toast('Wiederhergestellt ✓')
   }
 
+  // Bei zwei Dutzend Videos ist Einzeln-Antippen keine Bedienung, sondern
+  // eine Strafe. Der Knopf steht bewusst neben der Ueberschrift und nennt
+  // die Zahl -- damit klar ist, was gleich passiert.
+  async function restoreAll(kind: Kind) {
+    const n = data[kind].length
+    if (n === 0) return
+    const titel = KINDS.find((k) => k.key === kind)?.title ?? kind
+    if (!confirm(`Alle ${n} ${titel} wiederherstellen?`)) return
+    const ids = data[kind].map((i) => i.id)
+    setData((prev) => ({ ...prev, [kind]: [] }))
+    const { error } = await supabase.from(kind).update({ deleted_at: null }).in('id', ids)
+    if (error) { toast('Fehler: ' + error.message); load(); return }
+    toast(`${n} wiederhergestellt ✓`)
+  }
+
   async function purge(kind: Kind, id: string) {
     if (!confirm('Endgültig löschen? Das kann NICHT rückgängig gemacht werden.')) return
     setData((prev) => ({ ...prev, [kind]: prev[kind].filter((i) => i.id !== id) }))
@@ -77,7 +92,15 @@ export default function Trash() {
       {KINDS.map((k) =>
         data[k.key].length === 0 ? null : (
           <div className="section-block" key={k.key}>
-            <h2 className="section-title">{k.icon} {k.title}</h2>
+            <div className="trash-head">
+              <h2 className="section-title" style={{ margin: 0 }}>{k.icon} {k.title}</h2>
+              <div className="spacer" />
+              {data[k.key].length > 1 && (
+                <button className="btn btn-sm btn-primary" onClick={() => restoreAll(k.key)}>
+                  Alle {data[k.key].length} wiederherstellen
+                </button>
+              )}
+            </div>
             {k.key === 'clients' && (
               <p className="muted" style={{ fontSize: 12.5, margin: '-4px 0 8px' }}>
                 Videos, Zahlen und Rechnungen hängen weiter am Kunden — beim
