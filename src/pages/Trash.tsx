@@ -2,13 +2,17 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../context/ToastContext'
 
-type Kind = 'videos' | 'video_ideas' | 'inspirations' | 'leads' | 'tasks'
+type Kind = 'clients' | 'videos' | 'video_ideas' | 'inspirations' | 'leads' | 'tasks'
 interface Item {
   id: string
   label: string
   deleted_at: string
 }
-const KINDS: { key: Kind; title: string; icon: string; labelField: string }[] = [
+// "endgueltig" fehlt bei Kunden mit Absicht: daran haengen Videos,
+// Rechnungen und Zahlen, die beim echten Loeschen stumm mitgehen wuerden.
+// Wiederherstellen ja, unwiderruflich vernichten nicht per Knopfdruck.
+const KINDS: { key: Kind; title: string; icon: string; labelField: string; endgueltig?: boolean }[] = [
+  { key: 'clients', title: 'Kunden', icon: '👤', labelField: 'name', endgueltig: false },
   { key: 'videos', title: 'Videos', icon: '🎬', labelField: 'title' },
   { key: 'video_ideas', title: 'Ideen', icon: '💡', labelField: 'title' },
   { key: 'inspirations', title: 'Inspirationen', icon: '🔖', labelField: 'title' },
@@ -18,11 +22,11 @@ const KINDS: { key: Kind; title: string; icon: string; labelField: string }[] = 
 
 export default function Trash() {
   const { toast } = useToast()
-  const [data, setData] = useState<Record<Kind, Item[]>>({ videos: [], video_ideas: [], inspirations: [], leads: [], tasks: [] })
+  const [data, setData] = useState<Record<Kind, Item[]>>({ clients: [], videos: [], video_ideas: [], inspirations: [], leads: [], tasks: [] })
   const [loading, setLoading] = useState(true)
 
   async function load() {
-    const out: Record<Kind, Item[]> = { videos: [], video_ideas: [], inspirations: [], leads: [], tasks: [] }
+    const out: Record<Kind, Item[]> = { clients: [], videos: [], video_ideas: [], inspirations: [], leads: [], tasks: [] }
     for (const k of KINDS) {
       const { data: rows } = await supabase
         .from(k.key)
@@ -74,6 +78,12 @@ export default function Trash() {
         data[k.key].length === 0 ? null : (
           <div className="section-block" key={k.key}>
             <h2 className="section-title">{k.icon} {k.title}</h2>
+            {k.key === 'clients' && (
+              <p className="muted" style={{ fontSize: 12.5, margin: '-4px 0 8px' }}>
+                Videos, Zahlen und Rechnungen hängen weiter am Kunden — beim
+                Wiederherstellen sind sie alle wieder da.
+              </p>
+            )}
             <div className="task-list">
               {data[k.key].map((it) => (
                 <div className="task-item" key={it.id}>
@@ -86,9 +96,11 @@ export default function Trash() {
                   <button className="btn btn-sm" onClick={() => restore(k.key, it.id)}>
                     Wiederherstellen
                   </button>
-                  <button className="btn btn-sm btn-danger" onClick={() => purge(k.key, it.id)}>
-                    Endgültig
-                  </button>
+                  {k.endgueltig !== false && (
+                    <button className="btn btn-sm btn-danger" onClick={() => purge(k.key, it.id)}>
+                      Endgültig
+                    </button>
+                  )}
                 </div>
               ))}
             </div>

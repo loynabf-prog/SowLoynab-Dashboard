@@ -3275,3 +3275,29 @@ html { scroll-behavior: smooth; }
   .acc-felder { flex-direction: column; }
   .acc-dazu .btn { flex: 1 1 auto; }
 }
+
+/* --- Liegengebliebene Daten im Papierkorb -------------------------------- */
+/* Faellt bewusst auf: hier fehlt dem Kunden etwas, das es noch gibt. */
+.reste-box {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 13px 15px; margin-bottom: 18px;
+  border-radius: var(--radius);
+  background: rgba(255, 149, 0, 0.1);
+  border: 1px solid rgba(255, 149, 0, 0.32);
+  font-size: 13.5px; line-height: 1.45;
+}
+.reste-box > div { flex: 1 1 260px; min-width: 0; }
+.reste-box .btn { flex: 0 0 auto; }
+
+/* Ein Kunde im Papierkorb, mit allem, was noch an ihm haengt. */
+.nachhol-block {
+  padding: 12px 13px; border-radius: 14px;
+  background: var(--bg-sunken); border: 1px solid var(--border);
+}
+.nachhol-kopf { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.nachhol-name { font-weight: 700; font-size: 14.5px; }
+.nachhol-datum { font-size: 12px; color: var(--text-dim); margin-top: 1px; }
+
+@media (max-width: 560px) {
+  .reste-box .btn, .nachhol-kopf .btn { width: 100%; }
+}

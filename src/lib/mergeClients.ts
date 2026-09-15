@@ -28,7 +28,10 @@ export interface MergeZaehlung {
 // blind bestaetigt.
 export async function zaehleUmzug(quelleId: string): Promise<MergeZaehlung[]> {
   const out: MergeZaehlung[] = []
-  for (const t of TABELLEN) {
+  // client_stats steht nicht in TABELLEN, weil es nicht einfach umgehaengt,
+  // sondern tageweise addiert wird. Zaehlen wollen wir es trotzdem -- sonst
+  // sieht es so aus, als haetten wir die Follower-Historie vergessen.
+  for (const t of [...TABELLEN, 'client_stats'] as const) {
     const { count, error } = await supabase
       .from(t)
       .select('id', { count: 'exact', head: true })
@@ -54,6 +57,7 @@ export const TABELLEN_NAMEN: Record<string, string> = {
   time_entries: 'Zeiteinträge',
   contracts: 'Verträge',
   client_accounts: 'Social-Accounts',
+  client_stats: 'Follower-Zahlen (Tage)',
 }
 
 /**
@@ -149,5 +153,35 @@ async function raeumeDoppelteAccounts(quelleId: string, zielId: string) {
     const k = `${q.platform}|${String(q.handle).toLowerCase()}`
     if (da.has(k)) await supabase.from('client_accounts').delete().eq('id', q.id)
     else await supabase.from('client_accounts').update({ client_id: zielId }).eq('id', q.id)
+  }
+}
+
+/**
+ * Schneller Blick: liegt im Papierkorb noch ein Kunde mit Videos?
+ *
+ * Bewusst nur zwei Abfragen und nur ueber die Videos -- das reicht, um den
+ * Hinweis auf der Kundenseite ein- oder auszublenden. Die genaue
+ * Aufschluesselung macht erst das Nachhol-Fenster, wenn es geoeffnet wird.
+ */
+export async function liegtWasImPapierkorb(): Promise<{ kunden: string[]; videos: number }> {
+  const { data: tot, error } = await supabase
+    .from('clients')
+    .select('id, name')
+    .not('deleted_at', 'is', null)
+    .limit(50)
+  if (error || !tot || tot.length === 0) return { kunden: [], videos: 0 }
+
+  const ids = (tot as any[]).map((c) => c.id)
+  const { data: vids } = await supabase
+    .from('videos')
+    .select('client_id')
+    .in('client_id', ids)
+    .limit(1000)
+  if (!vids || vids.length === 0) return { kunden: [], videos: 0 }
+
+  const mitInhalt = new Set((vids as any[]).map((v) => v.client_id))
+  return {
+    kunden: (tot as any[]).filter((c) => mitInhalt.has(c.id)).map((c) => c.name),
+    videos: vids.length,
   }
 }
