@@ -17,9 +17,14 @@ Ihr gebt Daten an Dienstleister weiter → mit jedem braucht ihr einen AV-Vertra
 
 ## 2. Serverstandort EU
 
-- [ ] **Supabase-Projekt-Region prüfen** — sollte **EU** sein (z. B. Frankfurt).
-      Supabase → Project Settings → General → Region. (Region lässt sich nachträglich
-      nicht ändern — falls US, mit Support/Neu-Anlage klären.)
+- [x] **Supabase-Projekt-Region: `eu-west-1` (Irland, AWS Dublin)** — geprüft am
+      15.09.2026. Irland ist EU-Mitgliedsstaat, die DSGVO gilt unmittelbar; es
+      liegt **kein Drittlandtransfer** vor. Frankfurt wäre rechtlich nicht besser,
+      nur ein paar Millisekunden näher — kein Grund für einen Umzug.
+      (Region lässt sich nachträglich ohnehin nicht ändern.)
+      **Für das Verarbeitungsverzeichnis (Art. 30 DSGVO):** Speicherort Irland,
+      Auftragsverarbeiter Supabase Inc. (USA) — deshalb ist das DPA aus Punkt 1
+      Pflicht, nicht optional.
 - [ ] **Zoho** auf der **EU**-Instanz betreiben (`.eu`) — passt zu den Standard-Einstellungen
       der App (`ZOHO_MAIL_BASE = https://mail.zoho.eu`).
 
