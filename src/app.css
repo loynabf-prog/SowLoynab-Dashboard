@@ -3289,15 +3289,38 @@ html { scroll-behavior: smooth; }
 .reste-box > div { flex: 1 1 260px; min-width: 0; }
 .reste-box .btn { flex: 0 0 auto; }
 
-/* Ein Kunde im Papierkorb, mit allem, was noch an ihm haengt. */
+/* Wo liegen die Videos? Ein Block je Kunde, aufklappbar. */
+.bestand-ich {
+  padding: 10px 13px; border-radius: 12px;
+  background: var(--bg-sunken); font-size: 13.5px;
+}
 .nachhol-block {
-  padding: 12px 13px; border-radius: 14px;
+  border-radius: 14px; overflow: hidden;
   background: var(--bg-sunken); border: 1px solid var(--border);
 }
-.nachhol-kopf { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.nachhol-name { font-weight: 700; font-size: 14.5px; }
-.nachhol-datum { font-size: 12px; color: var(--text-dim); margin-top: 1px; }
+/* Kunden mit Inhalt heben sich ab -- danach sucht man hier. */
+.nachhol-block.hat-was { border-color: var(--border-strong); }
+.nachhol-kopf {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 11px 13px; margin: 0; border: none; background: none;
+  font: inherit; color: inherit; text-align: left; cursor: pointer;
+}
+.nachhol-kopf:hover { background: var(--bg-card-hover); }
+.nachhol-name { font-weight: 700; font-size: 14.5px; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.nachhol-tag {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.04em; color: var(--text-dim);
+  background: var(--bg-card); border: 1px solid var(--border-strong);
+  padding: 2px 6px; border-radius: 6px;
+}
+.nachhol-datum { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+.nachhol-block.hat-was .nachhol-datum { color: var(--text-muted); font-weight: 600; }
+.nachhol-pfeil { flex: 0 0 auto; color: var(--text-dim); font-size: 13px; }
+.nachhol-detail {
+  padding: 0 13px 13px; border-top: 1px solid var(--border);
+  padding-top: 11px;
+}
 
 @media (max-width: 560px) {
-  .reste-box .btn, .nachhol-kopf .btn { width: 100%; }
+  .reste-box .btn, .nachhol-detail .btn { width: 100%; }
 }

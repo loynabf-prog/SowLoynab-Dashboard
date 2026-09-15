@@ -524,19 +524,38 @@ export default function ClientPage() {
         onPlanen={() => setLueckeOffen(true)}
       />
 
-      {reste && reste.kunden.length > 0 && (
-        <div className="reste-box">
-          <div>
-            <strong>Im Papierkorb liegen noch Daten.</strong>{' '}
-            {reste.kunden.join(', ')} {reste.kunden.length === 1 ? 'hat' : 'haben'} noch{' '}
-            {reste.videos} {reste.videos === 1 ? 'Video' : 'Videos'} am alten Kunden hängen.
-            Beim Zusammenlegen ist das liegen geblieben — nichts davon ist verloren.
+      {/* Zwei Anlaesse, derselbe Weg: entweder liegt im Papierkorb noch ein
+          Kunde mit Videos, oder dieser Kunde hat ueberhaupt keine -- dann
+          sucht man gerade, wo sie hin sind. */}
+      {(() => {
+        const imMuell = reste != null && reste.kunden.length > 0
+        const leer = !loading && videos.length === 0
+        if (!imMuell && !leer) return null
+        return (
+          <div className="reste-box">
+            <div>
+              {imMuell ? (
+                <>
+                  <strong>Im Papierkorb liegen noch Daten.</strong>{' '}
+                  {reste!.kunden.join(', ')} {reste!.kunden.length === 1 ? 'hat' : 'haben'} noch{' '}
+                  {reste!.videos} {reste!.videos === 1 ? 'Video' : 'Videos'} am alten Kunden
+                  hängen. Beim Zusammenlegen ist das liegen geblieben — nichts davon ist
+                  verloren.
+                </>
+              ) : (
+                <>
+                  <strong>Hier hängt noch kein Video.</strong> Wenn hier welche sein
+                  müssten: nach einem Zusammenlegen sitzen sie manchmal bei einem anderen
+                  Kunden. Die Übersicht zeigt, bei wem.
+                </>
+              )}
+            </div>
+            <button className="btn btn-sm btn-primary" onClick={() => setNachholen(true)}>
+              {imMuell ? `Zu ${client.name} holen …` : 'Videos suchen …'}
+            </button>
           </div>
-          <button className="btn btn-sm btn-primary" onClick={() => setNachholen(true)}>
-            Zu {client.name} holen …
-          </button>
-        </div>
-      )}
+        )
+      })()}
 
       {nachholen && (
         <NachholenModal

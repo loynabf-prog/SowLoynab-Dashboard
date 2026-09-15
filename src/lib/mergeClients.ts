@@ -185,3 +185,47 @@ export async function liegtWasImPapierkorb(): Promise<{ kunden: string[]; videos
     videos: vids.length,
   }
 }
+
+export interface KundenBestand {
+  id: string
+  name: string
+  geloescht: boolean
+  videos: number
+}
+
+/**
+ * Wie viele Videos haengen an welchem Kunden -- geloeschte eingeschlossen.
+ *
+ * Gedacht fuer die Frage "wo sind meine Videos eigentlich hin?". Nach einem
+ * Zusammenlegen in die falsche Richtung liegen sie bei einem anderen Kunden,
+ * und ohne diese Uebersicht sucht man sie einzeln durch.
+ *
+ * Zwei Abfragen statt einer pro Kunde: Kundenliste holen, Video-Zuordnungen
+ * holen, in JavaScript zaehlen.
+ */
+export async function bestandJeKunde(): Promise<KundenBestand[]> {
+  const { data: kunden, error } = await supabase
+    .from('clients')
+    .select('id, name, deleted_at')
+    .order('name')
+    .limit(500)
+  if (error || !kunden) return []
+
+  const { data: vids } = await supabase
+    .from('videos')
+    .select('client_id, deleted_at')
+    .limit(5000)
+
+  const zaehler = new Map<string, number>()
+  for (const v of (vids ?? []) as any[]) {
+    if (v.deleted_at) continue
+    zaehler.set(v.client_id, (zaehler.get(v.client_id) ?? 0) + 1)
+  }
+
+  return (kunden as any[]).map((c) => ({
+    id: c.id,
+    name: c.name,
+    geloescht: c.deleted_at != null,
+    videos: zaehler.get(c.id) ?? 0,
+  }))
+}
