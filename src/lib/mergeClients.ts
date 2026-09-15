@@ -191,6 +191,8 @@ export interface KundenBestand {
   name: string
   geloescht: boolean
   videos: number
+  /** Videos, die selbst im Papierkorb liegen. */
+  imPapierkorb: number
 }
 
 /**
@@ -216,16 +218,30 @@ export async function bestandJeKunde(): Promise<KundenBestand[]> {
     .select('client_id, deleted_at')
     .limit(5000)
 
-  const zaehler = new Map<string, number>()
+  // Getrennt zaehlen: ein Video im Papierkorb ist genauso wenig "weg" wie
+  // eines beim falschen Kunden -- aber der Weg zurueck ist ein anderer.
+  const aktiv = new Map<string, number>()
+  const muell = new Map<string, number>()
   for (const v of (vids ?? []) as any[]) {
-    if (v.deleted_at) continue
-    zaehler.set(v.client_id, (zaehler.get(v.client_id) ?? 0) + 1)
+    const m = v.deleted_at ? muell : aktiv
+    m.set(v.client_id, (m.get(v.client_id) ?? 0) + 1)
   }
 
   return (kunden as any[]).map((c) => ({
     id: c.id,
     name: c.name,
     geloescht: c.deleted_at != null,
-    videos: zaehler.get(c.id) ?? 0,
+    videos: aktiv.get(c.id) ?? 0,
+    imPapierkorb: muell.get(c.id) ?? 0,
   }))
+}
+
+/** Gesamtzahl aller Videos -- die Kontrollfrage "ist ueberhaupt etwas weg?". */
+export async function videosGesamt(): Promise<{ aktiv: number; imPapierkorb: number }> {
+  const { data } = await supabase.from('videos').select('deleted_at').limit(5000)
+  const rows = (data ?? []) as any[]
+  return {
+    aktiv: rows.filter((r) => !r.deleted_at).length,
+    imPapierkorb: rows.filter((r) => r.deleted_at).length,
+  }
 }

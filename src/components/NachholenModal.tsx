@@ -13,24 +13,31 @@
 // eingeschlossen. Wo die Zahl steht, stecken die Daten.
 
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import Modal from './Modal'
 import {
-  bestandJeKunde, fuehreZusammen, zaehleUmzug, TABELLEN_NAMEN,
+  bestandJeKunde, fuehreZusammen, videosGesamt, zaehleUmzug, TABELLEN_NAMEN,
   type KundenBestand, type MergeZaehlung,
 } from '../lib/mergeClients'
 
+/**
+ * Ohne zielId ist es reine Uebersicht: welcher Kunde hat wie viele Videos,
+ * mit Sprung zum Kunden. Mit zielId kommt bei jedem Kunden der Knopf dazu,
+ * alles zu diesem Ziel zu holen.
+ */
 export default function NachholenModal({
   zielId,
   zielName,
   onClose,
   onFertig,
 }: {
-  zielId: string
-  zielName: string
+  zielId?: string
+  zielName?: string
   onClose: () => void
-  onFertig: () => void
+  onFertig?: () => void
 }) {
   const [liste, setListe] = useState<KundenBestand[] | null>(null)
+  const [summe, setSumme] = useState<{ aktiv: number; imPapierkorb: number } | null>(null)
   const [offen, setOffen] = useState<string | null>(null)
   const [detail, setDetail] = useState<MergeZaehlung[] | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
@@ -40,8 +47,9 @@ export default function NachholenModal({
     setError(null)
     const alle = await bestandJeKunde()
     // Die mit dem meisten Inhalt zuerst -- danach sucht man hier.
-    alle.sort((a, b) => b.videos - a.videos)
+    alle.sort((a, b) => (b.videos + b.imPapierkorb) - (a.videos + a.imPapierkorb))
     setListe(alle)
+    setSumme(await videosGesamt())
   }
 
   useEffect(() => { laden() }, [zielId]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -54,6 +62,7 @@ export default function NachholenModal({
   }
 
   async function hol(k: KundenBestand) {
+    if (!zielId || !zielName) return
     const warnung = k.geloescht
       ? `Alles von "${k.name}" zu "${zielName}" holen?`
       : `Alles von "${k.name}" zu "${zielName}" holen?\n\n"${k.name}" wandert danach in den Papierkorb.`
@@ -65,10 +74,10 @@ export default function NachholenModal({
     if (e) { setError(e); return }
     setOffen(null); setDetail(null)
     await laden()
-    onFertig()
+    onFertig?.()
   }
 
-  const ich = liste?.find((k) => k.id === zielId)
+  const ich = zielId ? liste?.find((k) => k.id === zielId) : undefined
   const andere = (liste ?? []).filter((k) => k.id !== zielId)
 
   return (
@@ -79,13 +88,14 @@ export default function NachholenModal({
         <p className="info-box" style={{ fontSize: 13 }}>
           Hier steht, bei welchem Kunden die Videos tatsächlich hängen — auch bei
           gelöschten. Wo die Zahl steht, stecken die Daten. Auf einen Kunden tippen
-          zeigt, was genau an ihm hängt.
+          zeigt, was genau an ihm hängt.{!zielId && ' Von dort kommst du direkt zum Kunden.'}
         </p>
 
-        {ich && (
-          <div className="bestand-ich">
-            <strong>{zielName}</strong> hat aktuell{' '}
-            <strong>{ich.videos}</strong> {ich.videos === 1 ? 'Video' : 'Videos'}.
+        {summe && (
+          <div className="bestand-summe">
+            In der Datenbank liegen insgesamt <strong>{summe.aktiv + summe.imPapierkorb}</strong>{' '}
+            Videos{summe.imPapierkorb > 0 && <> — davon {summe.imPapierkorb} im Papierkorb</>}.
+            {ich && <> <strong>{zielName}</strong> hat davon <strong>{ich.videos}</strong>.</>}
           </div>
         )}
 
@@ -95,7 +105,7 @@ export default function NachholenModal({
           <p className="muted" style={{ fontSize: 13 }}>Es gibt keinen anderen Kunden.</p>
         ) : (
           andere.map((k) => (
-            <div className={`nachhol-block ${k.videos > 0 ? 'hat-was' : ''}`} key={k.id}>
+            <div className={`nachhol-block ${k.videos + k.imPapierkorb > 0 ? 'hat-was' : ''}`} key={k.id}>
               <button type="button" className="nachhol-kopf" onClick={() => aufklappen(k)}>
                 <div>
                   <div className="nachhol-name">
@@ -106,6 +116,7 @@ export default function NachholenModal({
                     {k.videos > 0
                       ? `${k.videos} ${k.videos === 1 ? 'Video' : 'Videos'} hängen hier`
                       : 'keine Videos'}
+                    {k.imPapierkorb > 0 && ` · ${k.imPapierkorb} im Papierkorb`}
                   </div>
                 </div>
                 <div className="spacer" />
@@ -130,19 +141,37 @@ export default function NachholenModal({
                           </div>
                         ))}
                       </div>
-                      <button
-                        className="btn btn-sm btn-primary"
-                        style={{ marginTop: 10 }}
-                        disabled={busy != null}
-                        onClick={() => hol(k)}
-                      >
-                        {busy === k.id ? 'Hole …' : `Alles zu ${zielName} holen`}
-                      </button>
-                      {!k.geloescht && (
-                        <p className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-                          „{k.name}" wandert danach in den Papierkorb und lässt sich von
-                          dort wiederherstellen.
+                      {zielId ? (
+                        <>
+                          <button
+                            className="btn btn-sm btn-primary"
+                            style={{ marginTop: 10 }}
+                            disabled={busy != null}
+                            onClick={() => hol(k)}
+                          >
+                            {busy === k.id ? 'Hole …' : `Alles zu ${zielName} holen`}
+                          </button>
+                          {!k.geloescht && (
+                            <p className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+                              „{k.name}" wandert danach in den Papierkorb und lässt sich von
+                              dort wiederherstellen.
+                            </p>
+                          )}
+                        </>
+                      ) : k.geloescht ? (
+                        <p className="muted" style={{ fontSize: 12, marginTop: 10 }}>
+                          Dieser Kunde liegt im Papierkorb. Geh zu dem Kunden, bei dem die
+                          Videos landen sollen, und hol sie dort.
                         </p>
+                      ) : (
+                        <Link
+                          className="btn btn-sm btn-primary"
+                          style={{ marginTop: 10 }}
+                          to={`/client/${k.id}`}
+                          onClick={onClose}
+                        >
+                          Zu {k.name} →
+                        </Link>
                       )}
                     </>
                   )}
@@ -151,6 +180,11 @@ export default function NachholenModal({
             </div>
           ))
         )}
+
+        {/* Damit erkennbar ist, ob das Handy noch eine alte Fassung zeigt. */}
+        <p className="muted" style={{ fontSize: 11, textAlign: 'center', margin: 0 }}>
+          App-Stand: {new Date(__BUILD__).toLocaleString('de-DE')}
+        </p>
 
         <div className="modal-actions">
           <div className="spacer" />
