@@ -1,17 +1,30 @@
 // Supabase Edge Function: refresh-account-stats
 // -------------------------------------------------------------------------
-// Liest für jeden Kunden mit hinterlegtem Instagram-/TikTok-Handle einmal
-// täglich die Account-Zahlen aus (Follower, Following, Anzahl Posts) und
-// schreibt einen Tages-Punkt in client_stats. Die "Wachstum"-Kurve bei
-// jedem Kunden füllt sich damit von selbst — "＋ Zahlen erfassen" bleibt
-// weiterhin für die manuelle Eingabe (z. B. Reichweite) nutzbar.
+// Liest für jeden hinterlegten Social-Account einmal täglich die Zahlen aus
+// (Follower, Following, Anzahl Posts) und schreibt einen Tages-Punkt in
+// client_stats. Die "Wachstum"-Kurve bei jedem Kunden füllt sich damit von
+// selbst — "＋ Zahlen erfassen" bleibt weiterhin für die manuelle Eingabe
+// (z. B. Reichweite) nutzbar.
+//
+// Seit Migration 0028 kann ein Kunde MEHRERE Accounts je Plattform haben
+// (zwei Betriebe unter einem Kunden). Deshalb entstehen pro Kunde und Tag
+// zwei Sorten Zeilen:
+//
+//   * je eine Zeile pro Account (account_id gesetzt) — für die Frage
+//     "welcher Account wächst eigentlich?"
+//   * eine Gesamtzeile (account_id leer) mit der Summe aller Accounts —
+//     das ist die Zeile, die Kundenseite und Auswertung lesen.
+//
+// Fehlt die Tabelle client_accounts noch, fällt die Funktion automatisch auf
+// die alten Spalten clients.handle_ig / handle_tiktok zurück und schreibt wie
+// früher nur die Gesamtzeile.
 //
 // Anders als bei den Videos (refresh-stats, gestaffelt 7 Tage/wöchentlich/
 // monatlich) läuft das hier NICHT gestaffelt: es gibt nur eine Handvoll
 // Accounts, täglich ist hier kostenmäßig zu vernachlässigen.
 //
-// Ein vorhandener Eintrag für heute wird nur ergänzt (Follower/Following/
-// Posts), eine von Hand eingetragene Reichweite für heute bleibt erhalten.
+// Ein vorhandener Eintrag für heute wird nur ergänzt, eine von Hand
+// eingetragene Reichweite für heute bleibt erhalten.
 //
 // Secrets (Supabase -> Edge Functions -> Secrets), teils dieselben wie bei
 // refresh-stats:
@@ -78,6 +91,29 @@ async function instagramAccount(handle: string, actor: string, token: string): P
   }
 }
 
+// Ein abzufragender Account. account_id ist leer, solange die Tabelle
+// client_accounts fehlt -- dann gibt es nur die Gesamtzeile.
+interface Ziel { client_id: string; account_id: string | null; platform: 'instagram' | 'tiktok'; handle: string }
+
+/** Zahlen einer Plattform auf die Spalten von client_stats verteilen. */
+function spalten(platform: 'instagram' | 'tiktok', s: AccountStats) {
+  return platform === 'instagram'
+    ? { followers_ig: s.followers, following_ig: s.following, posts_ig: s.posts, followers_tiktok: null, following_tiktok: null, posts_tiktok: null }
+    : { followers_tiktok: s.followers, following_tiktok: s.following, posts_tiktok: s.posts, followers_ig: null, following_ig: null, posts_ig: null }
+}
+
+const FELDER = ['followers_ig', 'followers_tiktok', 'following_ig', 'following_tiktok', 'posts_ig', 'posts_tiktok'] as const
+
+/** Mehrere Account-Ergebnisse zu einer Gesamtzeile addieren. */
+function summe(teile: Record<string, number | null>[]): Record<string, number | null> {
+  const out: Record<string, number | null> = {}
+  for (const f of FELDER) {
+    const werte = teile.map((t) => t[f]).filter((v): v is number => typeof v === 'number')
+    out[f] = werte.length ? werte.reduce((a, b) => a + b, 0) : null
+  }
+  return out
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
   try {
@@ -88,53 +124,83 @@ Deno.serve(async (req) => {
 
     const supa = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
 
-    const { data: clients, error } = await supa
+    // Nur Accounts lebender Kunden. Der Umweg ueber die Kundenliste ist
+    // noetig, weil client_accounts selbst kein deleted_at kennt.
+    const { data: clients, error: cErr } = await supa
       .from('clients')
       .select('id, handle_ig, handle_tiktok')
       .is('deleted_at', null)
-      .or('handle_ig.not.is.null,handle_tiktok.not.is.null')
       .limit(500)
-    if (error) return json({ error: error.message }, 500)
+    if (cErr) return json({ error: cErr.message }, 500)
+    const lebende = new Set((clients ?? []).map((c: any) => c.id))
+
+    // Bevorzugt die neue Tabelle. Fehlt sie (Migration 0028 noch nicht
+    // gelaufen), nehmen wir die alten Spalten -- dann verhaelt sich die
+    // Funktion exakt wie vorher.
+    let ziele: Ziel[] = []
+    const { data: accounts, error: aErr } = await supa
+      .from('client_accounts')
+      .select('id, client_id, platform, handle')
+      .limit(2000)
+    if (!aErr && accounts) {
+      ziele = (accounts as any[])
+        .filter((a) => lebende.has(a.client_id) && a.handle)
+        .map((a) => ({ client_id: a.client_id, account_id: a.id, platform: a.platform, handle: String(a.handle) }))
+    } else {
+      for (const c of (clients ?? []) as any[]) {
+        if (c.handle_ig) ziele.push({ client_id: c.id, account_id: null, platform: 'instagram', handle: c.handle_ig })
+        if (c.handle_tiktok) ziele.push({ client_id: c.id, account_id: null, platform: 'tiktok', handle: c.handle_tiktok })
+      }
+    }
 
     const today = new Date().toISOString().slice(0, 10)
-    let updated = 0
     const errors: string[] = []
+    // Je Kunde sammeln, was die einzelnen Accounts geliefert haben.
+    const proKunde = new Map<string, Record<string, number | null>[]>()
+    let geholt = 0
 
-    for (const c of (clients ?? []) as any[]) {
-      let tt: AccountStats | null = null
-      let ig: AccountStats | null = null
-      try { if (c.handle_tiktok) tt = await tiktokAccount(c.handle_tiktok.replace(/^@/, ''), ttActor, token) } catch (e) { errors.push(`tt ${c.id}: ${(e as Error).message}`) }
-      try { if (c.handle_ig) ig = await instagramAccount(c.handle_ig.replace(/^@/, ''), igActor, token) } catch (e) { errors.push(`ig ${c.id}: ${(e as Error).message}`) }
-      if (!tt && !ig) continue
-
-      const patch = {
-        followers_ig: ig?.followers ?? null,
-        followers_tiktok: tt?.followers ?? null,
-        following_ig: ig?.following ?? null,
-        following_tiktok: tt?.following ?? null,
-        posts_ig: ig?.posts ?? null,
-        posts_tiktok: tt?.posts ?? null,
+    for (const z of ziele) {
+      const h = z.handle.replace(/^@/, '').trim()
+      if (!h) continue
+      let s: AccountStats | null = null
+      try {
+        s = z.platform === 'tiktok'
+          ? await tiktokAccount(h, ttActor, token)
+          : await instagramAccount(h, igActor, token)
+      } catch (e) {
+        errors.push(`${z.platform} ${h}: ${(e as Error).message}`)
+        continue
       }
+      if (!s) continue
+      geholt++
 
-      // Eintrag fuer heute ergaenzen statt ersetzen -- eine von Hand
-      // eingetragene Reichweite (client_stats.reach) bleibt so erhalten.
-      const { data: existing } = await supa
-        .from('client_stats')
-        .select('id')
-        .eq('client_id', c.id)
-        .eq('captured_on', today)
-        .maybeSingle()
-      if (existing) {
-        await supa.from('client_stats').update(patch).eq('id', existing.id)
-      } else {
-        await supa.from('client_stats').insert({ client_id: c.id, captured_on: today, ...patch })
-      }
+      const patch = spalten(z.platform, s)
+      const liste = proKunde.get(z.client_id) ?? []
+      liste.push(patch)
+      proKunde.set(z.client_id, liste)
+
+      // Zeile fuer genau diesen Account -- nur wenn wir die neue Tabelle
+      // haben. Sonst gibt es nur die Gesamtzeile wie bisher.
+      if (z.account_id) await schreibe(supa, z.client_id, today, z.account_id, patch)
+    }
+
+    // Gesamtzeile je Kunde: alle Accounts addiert. Zwei Instagram-Accounts
+    // mit 900 und 1.100 Followern ergeben hier 2.000 -- so, wie man den
+    // Kunden im Gespraech auch beziffert.
+    let updated = 0
+    for (const [clientId, teile] of proKunde) {
+      await schreibe(supa, clientId, today, null, summe(teile))
       updated++
     }
 
     const nowIso = new Date().toISOString()
-    try { await supa.from('system_status').upsert({ job: 'refresh-account-stats', last_ok: nowIso, last_error: null, detail: `${updated} von ${clients?.length ?? 0}`, updated_at: nowIso }, { onConflict: 'job' }) } catch { /* ignore */ }
-    return json({ updated, checked: clients?.length ?? 0, errors: errors.slice(0, 8) })
+    try {
+      await supa.from('system_status').upsert({
+        job: 'refresh-account-stats', last_ok: nowIso, last_error: null,
+        detail: `${updated} Kunden, ${geholt} von ${ziele.length} Accounts`, updated_at: nowIso,
+      }, { onConflict: 'job' })
+    } catch { /* ignore */ }
+    return json({ updated, accounts: ziele.length, geholt, errors: errors.slice(0, 8) })
   } catch (err) {
     try {
       const supa = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
@@ -144,6 +210,23 @@ Deno.serve(async (req) => {
     return json({ error: `Fehler: ${(err as Error).message}` }, 500)
   }
 })
+
+/**
+ * Tageszeile ergaenzen statt ersetzen -- eine von Hand eingetragene
+ * Reichweite (client_stats.reach) bleibt so erhalten.
+ */
+async function schreibe(supa: any, clientId: string, tag: string, accountId: string | null, patch: Record<string, number | null>) {
+  let q = supa.from('client_stats').select('id').eq('client_id', clientId).eq('captured_on', tag)
+  q = accountId ? q.eq('account_id', accountId) : q.is('account_id', null)
+  const { data: existing } = await q.maybeSingle()
+  if (existing) {
+    await supa.from('client_stats').update(patch).eq('id', existing.id)
+  } else {
+    const row: Record<string, unknown> = { client_id: clientId, captured_on: tag, ...patch }
+    if (accountId) row.account_id = accountId
+    await supa.from('client_stats').insert(row)
+  }
+}
 
 function json(obj: unknown, status = 200): Response {
   return new Response(JSON.stringify(obj), { status, headers: { ...CORS, 'content-type': 'application/json' } })

@@ -30,6 +30,9 @@ gebaut, ein erneuter Lauf schadet also nicht.
 - [ ] `supabase/migrations/0025_contracts.sql` — Rahmenverträge mit elektronischer Unterschrift
 - [ ] `supabase/migrations/0026_client_brand.sql` — zwei Marken (Sow & Loynab Media / Creator Scout)
 - [ ] `supabase/migrations/0027_client_type.sql` — Kundenart (zahlend / Ehrenamt-Referenz / passiv)
+- [ ] `supabase/migrations/0028_client_accounts.sql` — **mehrere Social-Accounts pro Kunde**
+      (zwei Instagram + zwei TikTok unter einem Namen). Übernimmt die vorhandenen
+      Handles automatisch, es geht nichts verloren.
 
 *(0020–0023 stecken gesammelt in `ALLES_offen_20-23.sql`, 0024–0027 in
 `ALLES_offen_24-27.sql` — dann reichen zwei Durchläufe statt acht.)*
@@ -64,7 +67,7 @@ gebaut, ein erneuter Lauf schadet also nicht.
 | `mail-send` | **AN** | Rechnung/Mail verschicken |
 | `daily-reminders` | **AUS** | täglicher Reminder-Cron |
 | `refresh-stats` | **AUS** | Video-Statistik-Cron (7 Tage täglich, dann wöchentlich/monatlich) |
-| `refresh-account-stats` | **AUS** | Account-Statistik-Cron (Follower/Following/Posts, täglich) |
+| `refresh-account-stats` | **AUS** | Account-Statistik-Cron (Follower/Following/Posts, täglich) — **nach 0028 neu deployen** |
 | `apify-lookup` | AN | Altes Video nachtragen (Sofort-Abruf) |
 | `apify-places-search` | AN | Leads aus Google Maps suchen |
 | `mail-sync` | **AUS** | Postfach-Abruf-Cron |
@@ -88,8 +91,11 @@ Jeweils Projekt-Ref + Anon-Key eintragen und im SQL Editor ausführen:
       einfügen, „Daten abrufen", Kunde/Titel/Datum prüfen, anlegen. Braucht
       0020 + `apify-lookup` deployed + `APIFY_TOKEN`-Secret (oben, Punkt 2).
 - [ ] Account-Statistik: bei den Kunden die Handles (Instagram/TikTok) hinterlegen
-      → Follower/Following/Posts werden dann täglich automatisch nachgezogen
-      und erscheinen bei jedem Kunden unter „📊 Wachstum". Braucht 0021 +
+      → **Kunde bearbeiten → Social-Accounts**. Ein Kunde darf beliebig viele
+      Accounts je Plattform haben (z. B. zwei Betriebe unter einem Namen); die
+      Follower werden für den Kunden addiert, unter „📊 Wachstum" siehst du
+      zusätzlich jeden Account einzeln. Follower/Following/Posts werden täglich
+      automatisch nachgezogen. Braucht 0021 + 0028 +
       `refresh-account-stats` deployed + Cron eingerichtet.
 - [ ] Leads aus Google Maps: **Leads → 🗺️ Google Maps** — Kategorie (z. B.
       Restaurant/Imbiss/Eisdiele) + Ort eingeben, suchen, auswählen,

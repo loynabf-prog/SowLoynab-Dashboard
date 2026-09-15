@@ -8,6 +8,7 @@ import { dbKlartext, insertRows } from '../lib/db'
 import { detectPlatform, klartext, lookupVideo, readFnError, statsPatch, type LookupResult, type PlatformResult } from '../lib/apify'
 import RepeatPicker from './RepeatPicker'
 import Modal from './Modal'
+import { ladeAlleAccounts, type ClientAccount } from '../lib/accounts'
 
 type QType = 'task' | 'lead' | 'video' | 'backfill' | 'inspiration'
 interface Opt { id: string; name: string; handle_ig?: string | null; handle_tiktok?: string | null }
@@ -30,9 +31,19 @@ function fmtN(n: number | null | undefined): string {
 function normHandle(s: string | null | undefined): string {
   return (s ?? '').toLowerCase().replace(/^@/, '').trim()
 }
-function matchClientByHandle(handle: string | null, opts: Opt[]): string {
+/**
+ * Zu einem Handle den Kunden finden.
+ *
+ * Zuerst ueber die Accounts-Tabelle -- ein Kunde kann mehrere Accounts je
+ * Plattform haben, und ein Video vom Zweit-Account soll genauso zugeordnet
+ * werden wie eines vom Hauptaccount. Fehlt die Tabelle (Migration 0028),
+ * bleiben die beiden alten Spalten der Rueckfall.
+ */
+function matchClientByHandle(handle: string | null, opts: Opt[], accounts: ClientAccount[]): string {
   const h = normHandle(handle)
   if (!h) return ''
+  const treffer = accounts.find((a) => normHandle(a.handle) === h)
+  if (treffer) return treffer.client_id
   const hit = opts.find((o) => normHandle(o.handle_ig) === h || normHandle(o.handle_tiktok) === h)
   return hit?.id ?? ''
 }
@@ -46,6 +57,7 @@ export default function QuickAdd() {
   const [type, setType] = useState<QType>('task')
   const [clients, setClients] = useState<Opt[]>([])
   const [leads, setLeads] = useState<Opt[]>([])
+  const [accounts, setAccounts] = useState<ClientAccount[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -124,6 +136,7 @@ export default function QuickAdd() {
     if (vorbelegt) { setClientId(vorbelegt); setInspClientId(vorbelegt); setBfClientId(vorbelegt) }
     supabase.from('clients').select('id, name, handle_ig, handle_tiktok').is('deleted_at', null).order('name').then(({ data }) => setClients((data ?? []) as Opt[]))
     supabase.from('leads').select('id, name').is('deleted_at', null).order('name').then(({ data }) => setLeads((data ?? []) as Opt[]))
+    ladeAlleAccounts().then(setAccounts)
   }, [open])
 
   async function runLookup() {
@@ -158,7 +171,7 @@ export default function QuickAdd() {
           : null,
       )
       const handle = res.instagram?.username || res.tiktok?.username || null
-      setBfClientId(matchClientByHandle(handle, clients))
+      setBfClientId(matchClientByHandle(handle, clients, accounts))
       const caption = res.instagram?.caption || res.tiktok?.caption || ''
       setBfTitle(caption ? (caption.length > 70 ? caption.slice(0, 70) + '…' : caption) : '')
       const postedAt = res.instagram?.postedAt || res.tiktok?.postedAt || null
