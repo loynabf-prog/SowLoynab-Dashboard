@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
@@ -10,5 +11,14 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+  },
+  // Die Tests pruefen reine Rechenlogik, reden also nie mit Supabase. Der
+  // Zugang wird trotzdem beim Import geprueft -- deshalb hier Platzhalter,
+  // damit "npm test" ohne eingerichtete .env.local laeuft.
+  test: {
+    env: {
+      VITE_SUPABASE_URL: 'http://localhost:54321',
+      VITE_SUPABASE_ANON_KEY: 'test-anon-key',
+    },
   },
 })

@@ -8,6 +8,7 @@ const OPTIONAL_COLS = [
   'due_time',
   'views_ig', 'likes_ig', 'comments_ig', 'shares_ig', 'saves_ig',
   'views_tiktok', 'likes_tiktok', 'comments_tiktok', 'shares_tiktok', 'saves_tiktok',
+  'channel_id',
 ]
 
 // Fehlt eine ganze TABELLE, ist das kein Spaltenproblem — dann hilft auch

@@ -33,6 +33,10 @@ gebaut, ein erneuter Lauf schadet also nicht.
 - [ ] `supabase/migrations/0028_client_accounts.sql` — **mehrere Social-Accounts pro Kunde**
       (zwei Instagram + zwei TikTok unter einem Namen). Übernimmt die vorhandenen
       Handles automatisch, es geht nichts verloren.
+- [ ] `supabase/migrations/0029_client_channels.sql` — **Kanäle innerhalb eines Kunden**
+      (zwei Betriebe unter einem Dach, je mit eigener Farbe). Macht aus vorhandenen
+      Account-Namen direkt die Kanäle und ordnet Videos zu, wo der Posting-Link
+      es eindeutig sagt.
 
 *(0020–0023 stecken gesammelt in `ALLES_offen_20-23.sql`, 0024–0027 in
 `ALLES_offen_24-27.sql` — dann reichen zwei Durchläufe statt acht.)*

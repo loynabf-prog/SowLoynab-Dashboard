@@ -3,9 +3,15 @@ import type { Video, VideoStatus } from '../lib/types'
 import { STATUS_ORDER, STATUS_LABELS } from '../lib/types'
 import StatusPill from './StatusPill'
 import { istPlatzhalter } from '../lib/autoplan'
+import type { Channel } from '../lib/channels'
 
 interface Props {
   video: Video
+  /**
+   * Die Kanäle des Kunden -- leer, solange er nur einen Auftritt hat.
+   * Nur bei zweien faerbt sich die Karte und bekommt eine Kanal-Wahl.
+   */
+  kanaele?: Channel[]
   onPatch: (patch: Partial<Video>) => void
   onEdit: () => void
   onDelete: () => void
@@ -43,7 +49,7 @@ function compactDate(v: Video): string | null {
 
 type StatView = 'all' | 'ig' | 'tiktok'
 
-export default function VideoCard({ video, onPatch, onEdit, onDelete, onCaption, onLink, onNudge }: Props) {
+export default function VideoCard({ video, kanaele = [], onPatch, onEdit, onDelete, onCaption, onLink, onNudge }: Props) {
   const [title, setTitle] = useState(video.title)
   const [hint, setHint] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
@@ -63,6 +69,9 @@ export default function VideoCard({ video, onPatch, onEdit, onDelete, onCaption,
   const [ttDraft, setTtDraft] = useState('')
   const [igDraft, setIgDraft] = useState('')
   const fehltLink = video.status === 'posted' && (!video.tiktok_url || !video.instagram_url)
+  // Erst ab zwei Kanälen ist die Farbe eine Information.
+  const trennt = kanaele.length > 1
+  const kanal = trennt ? kanaele.find((k) => k.id === video.channel_id) ?? null : null
 
   function saveLink(feld: 'tiktok_url' | 'instagram_url', wert: string, leeren: () => void) {
     const u = wert.trim()
@@ -99,7 +108,12 @@ export default function VideoCard({ video, onPatch, onEdit, onDelete, onCaption,
   }
 
   return (
-    <div className={`video-card ${open ? 'open' : 'compact'} ${due ? 'due' : ''}`} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+    <div
+      className={`video-card ${open ? 'open' : 'compact'} ${due ? 'due' : ''} ${trennt ? 'kanal-gefaerbt' : ''}`}
+      style={trennt ? ({ '--kanal': kanal?.color ?? 'var(--border-strong)' } as React.CSSProperties) : undefined}
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+    >
       {hint && <div className="swipe-hint">{hint}</div>}
 
       {/* Kompakter Kopf — immer sichtbar */}
@@ -121,12 +135,30 @@ export default function VideoCard({ video, onPatch, onEdit, onDelete, onCaption,
           <span className="vc-ideeflag" title="Platzhalter — hier fehlt noch die echte Idee">💡</span>
         )}
         {!open && fehltLink && <span className="vc-linkflag" title="Posting-Adresse fehlt — ohne sie keine Zahlen">🔗</span>}
+        {!open && trennt && kanal && (
+          <span className="vc-kanal" style={{ color: kanal.color }} title={`Kanal: ${kanal.name}`}>
+            {kanal.name}
+          </span>
+        )}
         {!open && cDate && <span className="vc-compact-date">📅 {cDate}</span>}
         <button className="vc-toggle" onClick={() => setOpen((o) => !o)} aria-label={open ? 'Zuklappen' : 'Aufklappen'}>{open ? '▲' : '▾'}</button>
       </div>
 
       {!open ? null : (
       <div className="vc-expand">
+      {trennt && (
+        <div className="vc-line">
+          <label className="vc-label">Kanal</label>
+          <select
+            value={video.channel_id ?? ''}
+            onChange={(e) => onPatch({ channel_id: e.target.value || null })}
+            aria-label="Kanal des Videos"
+          >
+            <option value="">— noch offen —</option>
+            {kanaele.map((k) => <option key={k.id} value={k.id}>{k.name}</option>)}
+          </select>
+        </div>
+      )}
       <div className="vc-line">
         <StatusPill status={video.status} onChange={(next: VideoStatus) => onPatch({ status: next })} />
         {video.approval_status === 'approved' && <span className="approval-badge ok">✅ Freigegeben</span>}

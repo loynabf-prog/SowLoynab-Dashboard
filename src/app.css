@@ -3285,3 +3285,75 @@ html { scroll-behavior: smooth; }
 @media (max-width: 560px) {
   .trash-head .btn { width: 100%; }
 }
+
+/* --- Kanäle innerhalb eines Kunden --------------------------------------- */
+/* Ein Kunde kann zwei Betriebe haben. Ein farbiger Streifen links an der
+   Karte sagt auf einen Blick, zu welchem sie gehoert -- schmal genug, um
+   nicht zu stoeren, breit genug, um ihn aus dem Augenwinkel zu sehen.
+   Ohne Zuordnung bleibt der Streifen grau: sichtbar offen, nicht falsch. */
+.kanal-gefaerbt { position: relative; }
+.kanal-gefaerbt::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+  width: 4px; border-radius: var(--radius) 0 0 var(--radius);
+  background: var(--kanal, var(--border-strong));
+  pointer-events: none;
+}
+.video-card.kanal-gefaerbt, .pool-card.kanal-gefaerbt { padding-left: 15px; }
+.analyse-row-wrap.kanal-gefaerbt { padding-left: 4px; }
+
+/* Kanalname an der zugeklappten Videokarte und in der Analyse-Zeile. */
+.vc-kanal, .analyse-kanal {
+  font-size: 11px; font-weight: 700; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; max-width: 9em;
+}
+.vc-kanal { flex: 0 1 auto; }
+.analyse-kanal { margin-left: 7px; }
+
+.pool-kanal { width: 100%; margin: 8px 0 0; }
+
+/* --- Filterleiste -------------------------------------------------------- */
+/* Umbrechen statt seitwaerts scrollen: ein Filter, den man nicht sieht,
+   ist kein Filter. Bei drei, vier Kanälen passt es sonst nie aufs Handy. */
+.kanal-filter { margin-bottom: 14px; flex-wrap: wrap; }
+.kanal-filter .seg-btn {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  flex: 1 1 auto; min-width: 0; white-space: nowrap;
+}
+.kanal-filter .seg-btn > :not(.kf-punkt):not(.col-count) {
+  overflow: hidden; text-overflow: ellipsis;
+}
+/* Die Zahl gehoert an den Namen, nicht an den rechten Rand -- sonst
+   schwimmt sie bei breiten Knoepfen weit weg vom Kanal, zu dem sie zaehlt. */
+.kanal-filter .col-count { margin-left: 0; }
+.kf-punkt {
+  width: 8px; height: 8px; border-radius: 50%;
+  flex: 0 0 auto; display: inline-block;
+}
+
+/* --- Kanäle bearbeiten --------------------------------------------------- */
+.kanal-liste { display: flex; flex-direction: column; gap: 8px; }
+.kanal-zeile {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 8px; border-radius: 12px;
+  background: var(--bg-sunken); border: 1px solid transparent;
+}
+.kanal-zeile.doppelt { border-color: var(--danger); }
+.kanal-name { flex: 1 1 140px; min-width: 0; margin: 0; }
+.kanal-farben { display: flex; gap: 5px; flex: 0 0 auto; }
+.kanal-farbe {
+  width: 22px; height: 22px; border-radius: 50%; padding: 0;
+  border: 2px solid transparent; cursor: pointer;
+}
+/* Die gewaehlte Farbe bekommt einen Ring in der Grundfarbe der Flaeche --
+   so bleibt sie auf hellem wie dunklem Grund erkennbar. */
+.kanal-farbe.on {
+  border-color: var(--bg-card);
+  box-shadow: 0 0 0 2px var(--text);
+}
+
+@media (max-width: 560px) {
+  .kanal-name { flex: 1 1 100%; }
+  .kanal-farben { flex: 1 1 auto; }
+  /* Zwei je Zeile -- lesbar, ohne dass etwas abgeschnitten wird. */
+  .kanal-filter .seg-btn { flex: 1 1 calc(50% - 6px); }
+}
