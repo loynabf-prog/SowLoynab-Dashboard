@@ -3276,71 +3276,84 @@ html { scroll-behavior: smooth; }
   .acc-dazu .btn { flex: 1 1 auto; }
 }
 
-/* --- Liegengebliebene Daten im Papierkorb -------------------------------- */
-/* Faellt bewusst auf: hier fehlt dem Kunden etwas, das es noch gibt. */
-.reste-box {
-  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-  padding: 13px 15px; margin-bottom: 18px;
-  border-radius: var(--radius);
-  background: rgba(255, 149, 0, 0.1);
-  border: 1px solid rgba(255, 149, 0, 0.32);
-  font-size: 13.5px; line-height: 1.45;
-}
-.reste-box > div { flex: 1 1 260px; min-width: 0; }
-.reste-box .btn { flex: 0 0 auto; }
-
-/* Wo liegen die Videos? Ein Block je Kunde, aufklappbar. */
-.bestand-ich {
-  padding: 10px 13px; border-radius: 12px;
-  background: var(--bg-sunken); font-size: 13.5px;
-}
-.nachhol-block {
-  border-radius: 14px; overflow: hidden;
-  background: var(--bg-sunken); border: 1px solid var(--border);
-}
-/* Kunden mit Inhalt heben sich ab -- danach sucht man hier. */
-.nachhol-block.hat-was { border-color: var(--border-strong); }
-.nachhol-kopf {
-  display: flex; align-items: center; gap: 10px; width: 100%;
-  padding: 11px 13px; margin: 0; border: none; background: none;
-  font: inherit; color: inherit; text-align: left; cursor: pointer;
-}
-.nachhol-kopf:hover { background: var(--bg-card-hover); }
-.nachhol-name { font-weight: 700; font-size: 14.5px; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
-.nachhol-tag {
-  font-size: 10px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.04em; color: var(--text-dim);
-  background: var(--bg-card); border: 1px solid var(--border-strong);
-  padding: 2px 6px; border-radius: 6px;
-}
-.nachhol-datum { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
-.nachhol-block.hat-was .nachhol-datum { color: var(--text-muted); font-weight: 600; }
-.nachhol-pfeil { flex: 0 0 auto; color: var(--text-dim); font-size: 13px; }
-.nachhol-detail {
-  padding: 0 13px 13px; border-top: 1px solid var(--border);
-  padding-top: 11px;
-}
-
-@media (max-width: 560px) {
-  .reste-box .btn, .nachhol-detail .btn { width: 100%; }
-}
-
 /* Papierkorb: Sammel-Wiederherstellung neben der Ueberschrift. */
 .trash-head {
   display: flex; align-items: center; gap: 10px;
   flex-wrap: wrap; margin-bottom: 10px;
 }
 
-/* Hinweis im Such-Fenster: hier liegt etwas im Papierkorb. */
-.muell-hinweis {
-  display: flex; align-items: center; gap: 11px; flex-wrap: wrap;
-  padding: 11px 12px; margin-bottom: 11px;
-  border-radius: 12px; font-size: 13px; line-height: 1.45;
-  background: rgba(255, 149, 0, 0.1);
-  border: 1px solid rgba(255, 149, 0, 0.32);
+@media (max-width: 560px) {
+  .trash-head .btn { width: 100%; }
 }
-.muell-hinweis > div { flex: 1 1 220px; min-width: 0; }
+
+/* --- Kanäle innerhalb eines Kunden --------------------------------------- */
+/* Ein Kunde kann zwei Betriebe haben. Ein farbiger Streifen links an der
+   Karte sagt auf einen Blick, zu welchem sie gehoert -- schmal genug, um
+   nicht zu stoeren, breit genug, um ihn aus dem Augenwinkel zu sehen.
+   Ohne Zuordnung bleibt der Streifen grau: sichtbar offen, nicht falsch. */
+.kanal-gefaerbt { position: relative; }
+.kanal-gefaerbt::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+  width: 4px; border-radius: var(--radius) 0 0 var(--radius);
+  background: var(--kanal, var(--border-strong));
+  pointer-events: none;
+}
+.video-card.kanal-gefaerbt, .pool-card.kanal-gefaerbt { padding-left: 15px; }
+.analyse-row-wrap.kanal-gefaerbt { padding-left: 4px; }
+
+/* Kanalname an der zugeklappten Videokarte und in der Analyse-Zeile. */
+.vc-kanal, .analyse-kanal {
+  font-size: 11px; font-weight: 700; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; max-width: 9em;
+}
+.vc-kanal { flex: 0 1 auto; }
+.analyse-kanal { margin-left: 7px; }
+
+.pool-kanal { width: 100%; margin: 8px 0 0; }
+
+/* --- Filterleiste -------------------------------------------------------- */
+/* Umbrechen statt seitwaerts scrollen: ein Filter, den man nicht sieht,
+   ist kein Filter. Bei drei, vier Kanälen passt es sonst nie aufs Handy. */
+.kanal-filter { margin-bottom: 14px; flex-wrap: wrap; }
+.kanal-filter .seg-btn {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  flex: 1 1 auto; min-width: 0; white-space: nowrap;
+}
+.kanal-filter .seg-btn > :not(.kf-punkt):not(.col-count) {
+  overflow: hidden; text-overflow: ellipsis;
+}
+/* Die Zahl gehoert an den Namen, nicht an den rechten Rand -- sonst
+   schwimmt sie bei breiten Knoepfen weit weg vom Kanal, zu dem sie zaehlt. */
+.kanal-filter .col-count { margin-left: 0; }
+.kf-punkt {
+  width: 8px; height: 8px; border-radius: 50%;
+  flex: 0 0 auto; display: inline-block;
+}
+
+/* --- Kanäle bearbeiten --------------------------------------------------- */
+.kanal-liste { display: flex; flex-direction: column; gap: 8px; }
+.kanal-zeile {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 8px; border-radius: 12px;
+  background: var(--bg-sunken); border: 1px solid transparent;
+}
+.kanal-zeile.doppelt { border-color: var(--danger); }
+.kanal-name { flex: 1 1 140px; min-width: 0; margin: 0; }
+.kanal-farben { display: flex; gap: 5px; flex: 0 0 auto; }
+.kanal-farbe {
+  width: 22px; height: 22px; border-radius: 50%; padding: 0;
+  border: 2px solid transparent; cursor: pointer;
+}
+/* Die gewaehlte Farbe bekommt einen Ring in der Grundfarbe der Flaeche --
+   so bleibt sie auf hellem wie dunklem Grund erkennbar. */
+.kanal-farbe.on {
+  border-color: var(--bg-card);
+  box-shadow: 0 0 0 2px var(--text);
+}
 
 @media (max-width: 560px) {
-  .trash-head .btn, .muell-hinweis .btn { width: 100%; }
+  .kanal-name { flex: 1 1 100%; }
+  .kanal-farben { flex: 1 1 auto; }
+  /* Zwei je Zeile -- lesbar, ohne dass etwas abgeschnitten wird. */
+  .kanal-filter .seg-btn { flex: 1 1 calc(50% - 6px); }
 }

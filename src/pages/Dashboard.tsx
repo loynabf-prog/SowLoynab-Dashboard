@@ -8,7 +8,6 @@ import { kundenlage, type Kundenlage } from '../lib/kundenrang'
 import { MARKEN, markeVon, type Marke } from '../lib/marken'
 import { ARTEN, artVon, istAktiv, type Kundenart } from '../lib/kundenart'
 import { normHandle } from '../lib/accounts'
-import NachholenModal from '../components/NachholenModal'
 import Modal from '../components/Modal'
 import LogoFrame from '../components/LogoFrame'
 import LogoCropper from '../components/LogoCropper'
@@ -45,7 +44,6 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showAdd, setShowAdd] = useState(false)
-  const [suche, setSuche] = useState(false)
   // Welche Marke gerade gezeigt wird -- 'alle' zeigt beide.
   const [marke, setMarke] = useState<Marke | 'alle'>('alle')
 
@@ -150,14 +148,7 @@ export default function Dashboard() {
       <div className="dashboard-intro">
         <h1>Unsere Kunden</h1>
         <p>{loading ? 'Lade …' : 'Kunde antippen, um Videos zu verwalten.'}</p>
-        {/* Immer erreichbar, nicht erst wenn etwas fehlt: wer seine Videos
-            sucht, soll nicht auch noch den Knopf suchen muessen. */}
-        <button className="btn btn-sm btn-ghost" onClick={() => setSuche(true)}>
-          🔎 Wo liegen meine Videos?
-        </button>
       </div>
-
-      {suche && <NachholenModal onClose={() => setSuche(false)} />}
 
       {error && (
         <div className="error-box" style={{ maxWidth: 940, margin: '0 auto 20px' }}>

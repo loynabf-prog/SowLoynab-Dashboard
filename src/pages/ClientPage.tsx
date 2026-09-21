@@ -26,6 +26,18 @@ import NudgeModal from '../components/NudgeModal'
 import RepeatPicker from '../components/RepeatPicker'
 import { occurrences, recommendedIntervalDays, type RepeatRule } from '../lib/recurrence'
 import { insertRows, tableMissing, updateRow } from '../lib/db'
+
+/**
+ * channel_id nur mitschicken, wenn wirklich ein Kanal gesetzt ist.
+ *
+ * Solange Migration 0029 fehlt, gibt es die Spalte nicht -- ein leeres Feld
+ * wuerde den Insert dann ohne Not scheitern lassen.
+ */
+function ohneLeereKanal<T extends { channel_id?: string | null }>(row: T): T {
+  if (row.channel_id) return row
+  const { channel_id, ...rest } = row
+  return rest as T
+}
 import { klartext, lookupVideo, statsPatch } from '../lib/apify'
 import { seit } from '../lib/format'
 import { getPackages, mengeText, type Package } from '../lib/packages'
@@ -33,10 +45,13 @@ import { monatsplan, monatsKey, type Monatsplan } from '../lib/monatsplan'
 import { verteilePlan, type PlanZeile } from '../lib/autoplan'
 import { MARKEN, markeVon, type Marke } from '../lib/marken'
 import { ARTEN, artVon, istAktiv, type Kundenart } from '../lib/kundenart'
-import { fuehreZusammen, liegtWasImPapierkorb, TABELLEN_NAMEN, zaehleUmzug, type MergeZaehlung } from '../lib/mergeClients'
+import { fuehreZusammen, TABELLEN_NAMEN, zaehleUmzug, type MergeZaehlung } from '../lib/mergeClients'
 import AccountsEditor from '../components/AccountsEditor'
-import NachholenModal from '../components/NachholenModal'
-import { holeAllesZurueck, papierkorbStand, TABELLE_NAME, type PapierkorbStand } from '../lib/papierkorb'
+import ChannelEditor from '../components/ChannelEditor'
+import {
+  ladeKanaele, speichereKanaele, zuKanalEntwuerfen, trenntKanaele, kanalVon,
+  nachKanal, zaehleJeKanal, type Channel, type ChannelEntwurf,
+} from '../lib/channels'
 import {
   ladeAccounts, speichereAccounts, zuEntwuerfen, profilUrl, accountName,
   nurGesamt, nurAccounts, plattformInfo,
@@ -83,15 +98,9 @@ export default function ClientPage() {
   const [growthOpen, setGrowthOpen] = useState(false)
   const [stats, setStats] = useState<any[]>([])
   const [accounts, setAccounts] = useState<ClientAccount[]>([])
-  // Liegt im Papierkorb noch ein Kunde mit Videos? Dann ist beim
-  // Zusammenlegen etwas liegen geblieben -- das soll man sehen, ohne danach
-  // suchen zu muessen.
-  const [reste, setReste] = useState<{ kunden: string[]; videos: number } | null>(null)
-  const [nachholen, setNachholen] = useState(false)
-  // Was liegt bei DIESEM Kunden im Papierkorb? Videos koennen hier haengen
-  // und trotzdem unsichtbar sein -- das ist von aussen nicht zu erraten.
-  const [eigenerMuell, setEigenerMuell] = useState<PapierkorbStand[]>([])
-  const [muellBusy, setMuellBusy] = useState(false)
+  const [kanaele, setKanaele] = useState<Channel[]>([])
+  // null = alles zeigen, 'offen' = nur ohne Zuordnung, sonst eine Kanal-Id
+  const [kanalFilter, setKanalFilter] = useState<string | null>(null)
   const [flashId, setFlashId] = useState<string | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
 
@@ -145,18 +154,31 @@ export default function ClientPage() {
     setInspirations((data ?? []) as unknown as Inspiration[])
   }, [id])
 
-  const loadMuell = useCallback(async () => {
-    if (!id) return
-    try { setEigenerMuell(await papierkorbStand(id)) } catch { setEigenerMuell([]) }
-  }, [id])
-
-  const loadReste = useCallback(async () => {
-    try { setReste(await liegtWasImPapierkorb()) } catch { setReste(null) }
-  }, [])
-
   const loadAccounts = useCallback(async () => {
     if (!id) return
     try { setAccounts((await ladeAccounts(id)).accounts) } catch { setAccounts([]) }
+  }, [id])
+
+  /**
+   * Kanal fuer etwas neu Angelegtes. Steht der Filter gerade auf einem
+   * bestimmten Kanal, gehoert das Neue offensichtlich dorthin -- sonst
+   * muesste man es nach jedem Anlegen von Hand nachziehen.
+   */
+  /** Kanal einer Idee setzen oder wieder loesen. */
+  async function setIdeeKanal(ideaId: string, kanalId: string | null) {
+    setIdeas((prev) => prev.map((i) => (i.id === ideaId ? { ...i, channel_id: kanalId } : i)))
+    const { error } = await supabase.from('video_ideas').update({ channel_id: kanalId }).eq('id', ideaId)
+    if (error) { setError(error.message); loadIdeas() }
+  }
+
+  function neuerKanal(): string | null {
+    if (kanaele.length < 2) return null
+    return kanalFilter && kanalFilter !== 'offen' ? kanalFilter : null
+  }
+
+  const loadKanaele = useCallback(async () => {
+    if (!id) return
+    try { setKanaele((await ladeKanaele(id)).kanaele) } catch { setKanaele([]) }
   }, [id])
 
   const loadStats = useCallback(async () => {
@@ -173,7 +195,7 @@ export default function ClientPage() {
     if (!id) return
     async function loadAll() {
       setLoading(true)
-      await Promise.all([loadClient(), loadVideos(), loadIdeas(), loadStats(), loadInspirations(), loadAccounts(), loadReste(), loadMuell()])
+      await Promise.all([loadClient(), loadVideos(), loadIdeas(), loadStats(), loadInspirations(), loadAccounts(), loadKanaele()])
       setLoading(false)
     }
     loadAll()
@@ -199,7 +221,7 @@ export default function ClientPage() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [id, loadClient, loadVideos, loadIdeas, loadStats, loadInspirations, loadAccounts, loadReste, loadMuell])
+  }, [id, loadClient, loadVideos, loadIdeas, loadStats, loadInspirations, loadAccounts, loadKanaele])
 
   // Deep-Link (?video=<id>) aus einem Anstupser: zur Karte springen + hervorheben
   useEffect(() => {
@@ -377,7 +399,7 @@ export default function ClientPage() {
   async function addPoolIdeas(rows: { title: string; notes: string | null; source: 'manual' | 'ai' }[]) {
     if (!id || rows.length === 0) return
     const { error } = await supabase.from('video_ideas').insert(
-      rows.map((r) => ({ client_id: id, title: r.title, notes: r.notes, source: r.source, created_by: user?.id ?? null })),
+      rows.map((r) => ohneLeereKanal({ client_id: id, title: r.title, notes: r.notes, source: r.source, channel_id: neuerKanal(), created_by: user?.id ?? null })),
     )
     if (error) setError(error.message)
     else loadIdeas()
@@ -408,13 +430,16 @@ export default function ClientPage() {
     setIdeas((prev) => prev.filter((i) => i.id !== idea.id))
     const { data, error } = await supabase
       .from('videos')
-      .insert({
+      .insert(ohneLeereKanal({
         client_id: id,
         title: idea.title,
         status: 'todo' as VideoStatus,
         notes: idea.notes,
+        // Der Kanal der Idee wandert mit -- sonst muesste man ihn nach
+        // jedem Uebernehmen neu setzen.
+        channel_id: idea.channel_id ?? null,
         created_by: user?.id ?? null,
-      })
+      }))
       .select('id')
       .single()
     if (error) {
@@ -443,9 +468,10 @@ export default function ClientPage() {
   async function lueckeFuellen(rows: PlanZeile[]) {
     if (!id || rows.length === 0) return
     const { error } = await insertRows('videos',
-      rows.map((r) => ({
+      rows.map((r) => ohneLeereKanal({
         client_id: id, title: r.title, status: 'todo' as VideoStatus,
-        scheduled_date: r.scheduled_date, created_by: user?.id ?? null,
+        scheduled_date: r.scheduled_date, channel_id: neuerKanal(),
+        created_by: user?.id ?? null,
       })),
     )
     if (error) { setError(error.message); return }
@@ -458,7 +484,7 @@ export default function ClientPage() {
     if (!id || rows.length === 0) return
     const series_id = crypto.randomUUID()
     const { error } = await insertRows('videos',
-      rows.map((r) => ({ client_id: id, title: r.title, status: 'todo' as VideoStatus, scheduled_date: r.scheduled_date, scheduled_time: r.scheduled_time, series_id, created_by: user?.id ?? null })),
+      rows.map((r) => ohneLeereKanal({ client_id: id, title: r.title, status: 'todo' as VideoStatus, scheduled_date: r.scheduled_date, scheduled_time: r.scheduled_time, series_id, channel_id: neuerKanal(), created_by: user?.id ?? null })),
     )
     if (error) { setError(error.message); return }
     setSeriesOpen(false)
@@ -476,9 +502,16 @@ export default function ClientPage() {
     const d = new Date(ts), n = new Date()
     return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate()
   }
-  const boardVideos = videos.filter((v) => v.status !== 'posted' || isToday(v.posted_at))
+  // Trennt dieser Kunde ueberhaupt? Bei einem einzigen Auftritt gibt es
+  // weder Farben noch Filter -- nichts zu unterscheiden.
+  const trennt = trenntKanaele(kanaele)
+  const aktiverFilter = trennt ? kanalFilter : null
+  const sichtbar = nachKanal(videos, aktiverFilter)
+
+  const boardVideos = sichtbar.filter((v) => v.status !== 'posted' || isToday(v.posted_at))
   // Analyse: alle geposteten Videos dieses Kunden — dauerhaft, neueste zuerst
-  const postedVideos = videos.filter((v) => v.status === 'posted').sort((a, b) => (b.posted_at ?? '').localeCompare(a.posted_at ?? ''))
+  const postedVideos = sichtbar.filter((v) => v.status === 'posted').sort((a, b) => (b.posted_at ?? '').localeCompare(a.posted_at ?? ''))
+  const sichtbareIdeen = nachKanal(ideas, aktiverFilter)
 
   if (loading) return <Spinner />
 
@@ -534,80 +567,6 @@ export default function ClientPage() {
         onPlanen={() => setLueckeOffen(true)}
       />
 
-      {/* Zwei Anlaesse, derselbe Weg: entweder liegt im Papierkorb noch ein
-          Kunde mit Videos, oder dieser Kunde hat ueberhaupt keine -- dann
-          sucht man gerade, wo sie hin sind. */}
-      {/* Der haeufigste Fall zuerst: die Sachen haengen an diesem Kunden,
-          sind aber als geloescht markiert und deshalb unsichtbar. Ein Knopf,
-          keine Suche. */}
-      {eigenerMuell.length > 0 && (
-        <div className="reste-box">
-          <div>
-            <strong>Im Papierkorb dieses Kunden liegen:</strong>{' '}
-            {eigenerMuell.map((x) => `${x.anzahl} ${TABELLE_NAME[x.tabelle]}`).join(', ')}.
-            Sie hängen schon hier — sie sind nur ausgeblendet.
-          </div>
-          <button
-            className="btn btn-sm btn-primary"
-            disabled={muellBusy}
-            onClick={async () => {
-              const was = eigenerMuell.map((x) => `${x.anzahl} ${TABELLE_NAME[x.tabelle]}`).join(', ')
-              if (!confirm(`${was} wieder sichtbar machen?`)) return
-              setMuellBusy(true)
-              const { anzahl, error: e } = await holeAllesZurueck(client.id)
-              setMuellBusy(false)
-              if (e) { setError(e); return }
-              await Promise.all([loadVideos(), loadIdeas(), loadInspirations(), loadMuell()])
-              toast(anzahl === 0 ? 'Es war nichts da.' : `${anzahl} Einträge sind wieder da ✓`)
-            }}
-          >
-            {muellBusy ? 'Hole …' : 'Alle wieder sichtbar machen'}
-          </button>
-        </div>
-      )}
-
-      {(() => {
-        const imMuell = reste != null && reste.kunden.length > 0
-        const leer = !loading && videos.length === 0 && eigenerMuell.length === 0
-        if (!imMuell && !leer) return null
-        return (
-          <div className="reste-box">
-            <div>
-              {imMuell ? (
-                <>
-                  <strong>Im Papierkorb liegen noch Daten.</strong>{' '}
-                  {reste!.kunden.join(', ')} {reste!.kunden.length === 1 ? 'hat' : 'haben'} noch{' '}
-                  {reste!.videos} {reste!.videos === 1 ? 'Video' : 'Videos'} am alten Kunden
-                  hängen. Beim Zusammenlegen ist das liegen geblieben — nichts davon ist
-                  verloren.
-                </>
-              ) : (
-                <>
-                  <strong>Hier hängt noch kein Video.</strong> Wenn hier welche sein
-                  müssten: nach einem Zusammenlegen sitzen sie manchmal bei einem anderen
-                  Kunden. Die Übersicht zeigt, bei wem.
-                </>
-              )}
-            </div>
-            <button className="btn btn-sm btn-primary" onClick={() => setNachholen(true)}>
-              {imMuell ? `Zu ${client.name} holen …` : 'Videos suchen …'}
-            </button>
-          </div>
-        )
-      })()}
-
-      {nachholen && (
-        <NachholenModal
-          zielId={client.id}
-          zielName={client.name}
-          onClose={() => setNachholen(false)}
-          onFertig={async () => {
-            await Promise.all([loadVideos(), loadIdeas(), loadStats(), loadAccounts(), loadInspirations(), loadReste()])
-            toast('Daten übernommen ✓')
-          }}
-        />
-      )}
-
       {client.notes && (
         <div className="info-box" style={{ marginBottom: 20 }}>
           📝 {client.notes}
@@ -635,7 +594,7 @@ export default function ClientPage() {
           <span className="tabs-side-label">Vorrat</span>
           <button className={`side-tab ${tab === 'pool' ? 'on' : ''}`} onClick={() => setTab('pool')}>
             💡 Ideenspeicher
-            <span className="col-count">{ideas.length}</span>
+            <span className="col-count">{sichtbareIdeen.length}</span>
           </button>
           <button className={`side-tab ${tab === 'inspiration' ? 'on' : ''}`} onClick={() => setTab('inspiration')}>
             🔖 Inspiration
@@ -643,6 +602,43 @@ export default function ClientPage() {
           </button>
         </div>
       </div>
+
+      {/* Kanal-Filter. Erscheint nur, wenn der Kunde wirklich zwei Betriebe
+          hat -- sonst waere es ein Schalter ohne Wirkung. Gilt fuer Board,
+          Analyse und Ideenspeicher zugleich, damit man nicht an drei
+          Stellen dasselbe einstellt. */}
+      {trennt && (
+        <div className="seg kanal-filter">
+          <button
+            className={`seg-btn ${kanalFilter == null ? 'on' : ''}`}
+            onClick={() => setKanalFilter(null)}
+          >
+            Alle
+            <span className="col-count">{videos.length}</span>
+          </button>
+          {kanaele.map((k) => (
+            <button
+              key={k.id}
+              className={`seg-btn ${kanalFilter === k.id ? 'on' : ''}`}
+              style={{ '--kanal': k.color } as React.CSSProperties}
+              onClick={() => setKanalFilter(k.id)}
+            >
+              <span className="kf-punkt" style={{ background: k.color }} aria-hidden="true" />
+              {k.name}
+              <span className="col-count">{zaehleJeKanal(videos).jeKanal.get(k.id) ?? 0}</span>
+            </button>
+          ))}
+          {zaehleJeKanal(videos).offen > 0 && (
+            <button
+              className={`seg-btn ${kanalFilter === 'offen' ? 'on' : ''}`}
+              onClick={() => setKanalFilter('offen')}
+            >
+              Noch offen
+              <span className="col-count">{zaehleJeKanal(videos).offen}</span>
+            </button>
+          )}
+        </div>
+      )}
 
       {tab === 'board' && (
       <div className="board">
@@ -694,6 +690,7 @@ export default function ClientPage() {
                     </div>
                     <VideoCard
                       video={v}
+                      kanaele={kanaele}
                       onPatch={(patch) => patchVideo(v.id, patch)}
                       onEdit={() => setEditing(v)}
                       onDelete={() => deleteVideo(v.id)}
@@ -726,11 +723,13 @@ export default function ClientPage() {
       {tab === 'pool' && (
         <IdeaPool
           client={client}
-          ideas={ideas}
+          ideas={sichtbareIdeen}
           onAdd={addPoolIdeas}
           onMove={moveIdeaToBoard}
           onDelete={deletePoolIdea}
           onEditClient={() => setEditClient(true)}
+          kanaele={kanaele}
+          onKanal={setIdeeKanal}
         />
       )}
 
@@ -777,7 +776,7 @@ export default function ClientPage() {
       )}
 
       {tab === 'analyse' && (
-        <AnalyseSection videos={postedVideos} onEdit={(v) => setEditing(v)} onDelete={deleteVideo} onLinks={(v) => setAskLinks(v)} />
+        <AnalyseSection videos={postedVideos} kanaele={kanaele} onEdit={(v) => setEditing(v)} onDelete={deleteVideo} onLinks={(v) => setAskLinks(v)} />
       )}
 
       {editing && (
@@ -1496,11 +1495,13 @@ function EditClientModal({
   const [accountsDa, setAccountsDa] = useState(false)
   const [accVorher, setAccVorher] = useState<ClientAccount[]>([])
   const [accEntwuerfe, setAccEntwuerfe] = useState<AccountEntwurf[]>([])
+  const [kanaeleDa, setKanaeleDa] = useState(false)
+  const [kanVorher, setKanVorher] = useState<Channel[]>([])
+  const [kanEntwuerfe, setKanEntwuerfe] = useState<ChannelEntwurf[]>([])
   const [notes, setNotes] = useState(client.notes ?? '')
   const [aiBrief, setAiBrief] = useState(client.ai_brief ?? '')
   const [marke, setMarke] = useState<Marke>(markeVon(client.brand))
   const [mergeOffen, setMergeOffen] = useState(false)
-  const [nachholOffen, setNachholOffen] = useState(false)
   const [pkg, setPkg] = useState(client.package ?? '')
   const [pakete, setPakete] = useState<Package[]>([])
   const [fee, setFee] = useState(client.monthly_fee != null ? String(client.monthly_fee) : '')
@@ -1527,6 +1528,11 @@ function EditClientModal({
       setAccVorher(accounts)
       setAccEntwuerfe(zuEntwuerfen(accounts))
     }).catch(() => setAccountsDa(false))
+    ladeKanaele(client.id).then(({ da, kanaele }) => {
+      setKanaeleDa(da)
+      setKanVorher(kanaele)
+      setKanEntwuerfe(zuKanalEntwuerfen(kanaele))
+    }).catch(() => setKanaeleDa(false))
   }, [client.id])
 
   // Paket uebernehmen: fuellt Name, Honorar und Ziel-Videomenge. Danach ist
@@ -1581,7 +1587,9 @@ function EditClientModal({
         ...(aiBrief.trim() || client.ai_brief ? { ai_brief: aiBrief.trim() || null } : {}),
       }, 'id', client.id)
       if (error) throw error
-      if (accountsDa) await speichereAccounts(client.id, accVorher, accEntwuerfe)
+      // Erst die Kanäle -- die Accounts brauchen deren frische Ids.
+      const kanaele = kanaeleDa ? await speichereKanaele(client.id, kanVorher, kanEntwuerfe) : []
+      if (accountsDa) await speichereAccounts(client.id, accVorher, accEntwuerfe, kanaele)
       onSaved()
     } catch (err: any) {
       setError(err.message ?? 'Fehler beim Speichern')
@@ -1611,8 +1619,10 @@ function EditClientModal({
           <label htmlFor="ecname">Name *</label>
           <input id="ecname" value={name} onChange={(e) => setName(e.target.value)} required />
         </div>
+        {kanaeleDa && <ChannelEditor entwuerfe={kanEntwuerfe} onChange={setKanEntwuerfe} />}
+
         {accountsDa ? (
-          <AccountsEditor entwuerfe={accEntwuerfe} onChange={setAccEntwuerfe} />
+          <AccountsEditor entwuerfe={accEntwuerfe} onChange={setAccEntwuerfe} kanaele={kanEntwuerfe} />
         ) : (
           <div className="row" style={{ gap: 12 }}>
             <div style={{ flex: 1 }}>
@@ -1765,13 +1775,6 @@ function EditClientModal({
           <button type="button" className="btn btn-sm" onClick={() => setMergeOffen(true)}>
             Mit anderem Kunden zusammenführen …
           </button>
-          <span style={{ marginTop: 4 }}>
-            Beim Zusammenlegen etwas liegen geblieben? Gelöschte Kunden behalten ihre
-            Daten — hier holst du sie nach.
-          </span>
-          <button type="button" className="btn btn-sm" onClick={() => setNachholOffen(true)}>
-            Daten aus dem Papierkorb nachholen …
-          </button>
         </div>
 
         <div className="modal-actions">
@@ -1785,14 +1788,6 @@ function EditClientModal({
       </form>
       {mergeOffen && (
         <MergeModal client={client} onClose={() => setMergeOffen(false)} />
-      )}
-      {nachholOffen && (
-        <NachholenModal
-          zielId={client.id}
-          zielName={client.name}
-          onClose={() => setNachholOffen(false)}
-          onFertig={onSaved}
-        />
       )}
       {cropFile && (
         <LogoCropper
@@ -1817,6 +1812,8 @@ function IdeaPool({
   onMove,
   onDelete,
   onEditClient,
+  kanaele,
+  onKanal,
 }: {
   client: Client
   ideas: VideoIdea[]
@@ -1824,7 +1821,10 @@ function IdeaPool({
   onMove: (idea: VideoIdea) => void
   onDelete: (id: string) => void
   onEditClient: () => void
+  kanaele: Channel[]
+  onKanal: (ideaId: string, kanalId: string | null) => void
 }) {
+  const trennt = trenntKanaele(kanaele)
   const [q, setQ] = useState('')
   const [adding, setAdding] = useState(false)
   const [aiOpen, setAiOpen] = useState(false)
@@ -1871,13 +1871,28 @@ function IdeaPool({
       ) : (
         <div className="pool-grid">
           {filtered.map((idea) => (
-            <div className="pool-card" key={idea.id}>
+            <div
+              className={`pool-card ${trennt ? 'kanal-gefaerbt' : ''}`}
+              style={trennt ? ({ '--kanal': kanalVon(kanaele, idea.channel_id)?.color ?? 'var(--border-strong)' } as React.CSSProperties) : undefined}
+              key={idea.id}
+            >
               <div className="pool-card-head">
                 <span className={`pool-badge ${idea.source}`}>{idea.source === 'ai' ? '🤖 KI' : '✍️ manuell'}</span>
                 <button className="pool-x" onClick={() => onDelete(idea.id)} title="löschen">✕</button>
               </div>
               <div className="pool-title">{idea.title}</div>
               {idea.notes && <div className="pool-notes">{idea.notes}</div>}
+              {trennt && (
+                <select
+                  className="pool-kanal"
+                  value={idea.channel_id ?? ''}
+                  onChange={(e) => onKanal(idea.id, e.target.value || null)}
+                  aria-label="Kanal der Idee"
+                >
+                  <option value="">— noch offen —</option>
+                  {kanaele.map((k) => <option key={k.id} value={k.id}>{k.name}</option>)}
+                </select>
+              )}
               <button className="btn btn-sm btn-primary pool-move" onClick={() => onMove(idea)}>
                 → Ins Board holen
               </button>
@@ -2181,7 +2196,9 @@ function SeriesModal({
 }
 
 // ============================ Analyse (gepostete Videos) ============================
-function AnalyseSection({ videos, onEdit, onDelete, onLinks }: { videos: Video[]; onEdit: (v: Video) => void; onDelete: (id: string) => void; onLinks: (v: Video) => void }) {
+function AnalyseSection({ videos, kanaele, onEdit, onDelete, onLinks }: { videos: Video[]; kanaele: Channel[]; onEdit: (v: Video) => void; onDelete: (id: string) => void; onLinks: (v: Video) => void }) {
+  // Farbstreifen nur, wenn der Kunde wirklich zwei Betriebe hat.
+  const trennt = trenntKanaele(kanaele)
   const num = (n: number | null | undefined) => (n == null ? '–' : n.toLocaleString('de-DE'))
   const posts = videos.length
   if (posts === 0) {
@@ -2222,10 +2239,20 @@ function AnalyseSection({ videos, onEdit, onDelete, onLinks }: { videos: Video[]
       <div className="analyse-list">
         {videos.map((v) => (
           <SwipeRow key={v.id} onDelete={() => onDelete(v.id)}>
-            <div className="analyse-row-wrap">
+            <div
+              className={`analyse-row-wrap ${trennt ? 'kanal-gefaerbt' : ''}`}
+              style={trennt ? ({ '--kanal': kanalVon(kanaele, v.channel_id)?.color ?? 'var(--border-strong)' } as React.CSSProperties) : undefined}
+            >
               <button className="analyse-row" onClick={() => onEdit(v)} title="Zahlen bearbeiten">
                 <div className="analyse-main">
-                  <div className="analyse-title">{v.title}</div>
+                  <div className="analyse-title">
+                    {v.title}
+                    {trennt && kanalVon(kanaele, v.channel_id) && (
+                      <span className="analyse-kanal" style={{ color: kanalVon(kanaele, v.channel_id)!.color }}>
+                        {kanalVon(kanaele, v.channel_id)!.name}
+                      </span>
+                    )}
+                  </div>
                   <div className="analyse-date">
                     {v.posted_at ? new Date(v.posted_at).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
                     {!v.tiktok_url && !v.instagram_url ? (

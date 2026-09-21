@@ -21,6 +21,8 @@ export interface ClientAccount {
   handle: string
   label: string | null
   sort: number
+  /** Zu welchem Kanal gehoert der Account? Nur gesetzt, wenn getrennt wird. */
+  channel_id?: string | null
 }
 
 /** Ein Account, der noch nicht gespeichert ist (im Bearbeiten-Formular). */
@@ -28,6 +30,12 @@ export interface AccountEntwurf {
   id: string | null
   platform: Plattform
   handle: string
+  /**
+   * Name des Kanals, zu dem der Account gehoert -- bewusst der NAME und
+   * nicht die Id: beim Speichern koennen Kanäle gerade erst entstanden
+   * sein und haben dann noch gar keine Id. Namen sind je Kunde eindeutig,
+   * die Zuordnung danach ist also sicher.
+   */
   label: string
 }
 
@@ -77,7 +85,7 @@ export function accountName(a: { label?: string | null; handle: string }): strin
 export async function ladeAccounts(clientId: string): Promise<{ da: boolean; accounts: ClientAccount[] }> {
   const { data, error } = await supabase
     .from('client_accounts')
-    .select('id, client_id, platform, handle, label, sort')
+    .select('*')
     .eq('client_id', clientId)
     .order('platform')
     .order('sort')
@@ -97,7 +105,7 @@ export function zuEntwuerfen(accounts: ClientAccount[]): AccountEntwurf[] {
 export async function ladeAlleAccounts(): Promise<ClientAccount[]> {
   const { data, error } = await supabase
     .from('client_accounts')
-    .select('id, client_id, platform, handle, label, sort')
+    .select('*')
   if (error) return []
   return (data ?? []) as unknown as ClientAccount[]
 }
@@ -126,20 +134,39 @@ export function planeAbgleich(vorher: ClientAccount[], entwuerfe: AccountEntwurf
   const behalten = new Set(eindeutig.map((e) => e.id).filter(Boolean) as string[])
   const loeschen = vorher.filter((v) => !behalten.has(v.id)).map((v) => v.id)
 
-  const anlegen: { client_id: string; platform: Plattform; handle: string; label: string | null; sort: number }[] = []
-  const aendern: { id: string; platform: Plattform; handle: string; label: string | null; sort: number }[] = []
+  type Felder = { platform: Plattform; handle: string; label: string | null; sort: number }
+  const anlegen: (Felder & { client_id: string })[] = []
+  const aendern: (Felder & { id: string })[] = []
 
   eindeutig.forEach((e, i) => {
-    if (e.id) aendern.push({ id: e.id, platform: e.platform, handle: e.handle, label: e.label || null, sort: i })
-    else anlegen.push({ client_id: '', platform: e.platform, handle: e.handle, label: e.label || null, sort: i })
+    const f: Felder = { platform: e.platform, handle: e.handle, label: e.label || null, sort: i }
+    if (e.id) aendern.push({ id: e.id, ...f })
+    else anlegen.push({ client_id: '', ...f })
   })
 
   return { anlegen, aendern, loeschen }
 }
 
-/** Den geplanten Abgleich tatsaechlich ausfuehren. */
-export async function speichereAccounts(clientId: string, vorher: ClientAccount[], entwuerfe: AccountEntwurf[]) {
+/**
+ * Den geplanten Abgleich tatsaechlich ausfuehren.
+ *
+ * `kanaele` ist die FRISCH gespeicherte Kanalliste. Ueber den Namen bekommt
+ * jeder Account seine Kanal-Id -- deshalb muessen die Kanäle vorher
+ * gespeichert sein.
+ */
+export async function speichereAccounts(
+  clientId: string,
+  vorher: ClientAccount[],
+  entwuerfe: AccountEntwurf[],
+  kanaele: { id: string; name: string }[] = [],
+) {
   const { anlegen, aendern, loeschen } = planeAbgleich(vorher, entwuerfe)
+
+  const kanalId = (label: string | null) => {
+    const n = (label ?? '').trim().toLowerCase()
+    if (!n) return null
+    return kanaele.find((k) => k.name.trim().toLowerCase() === n)?.id ?? null
+  }
 
   if (loeschen.length) {
     const { error } = await supabase.from('client_accounts').delete().in('id', loeschen)
@@ -147,14 +174,31 @@ export async function speichereAccounts(clientId: string, vorher: ClientAccount[
   }
   for (const a of aendern) {
     const { id, ...rest } = a
-    const { error } = await supabase.from('client_accounts').update(rest).eq('id', id)
-    if (error && tableMissing(error) == null) throw error
+    const { error } = await supabase
+      .from('client_accounts')
+      .update({ ...rest, channel_id: kanalId(rest.label) })
+      .eq('id', id)
+    // Fehlt die Spalte channel_id noch (Migration 0029), ohne sie erneut.
+    if (error && schemaFehlt(error)) {
+      const { error: e2 } = await supabase.from('client_accounts').update(rest).eq('id', id)
+      if (e2 && tableMissing(e2) == null) throw e2
+    } else if (error && tableMissing(error) == null) throw error
   }
   if (anlegen.length) {
-    const rows = anlegen.map((a) => ({ ...a, client_id: clientId }))
+    const rows = anlegen.map((a) => ({ ...a, client_id: clientId, channel_id: kanalId(a.label) }))
     const { error } = await supabase.from('client_accounts').insert(rows)
-    if (error && tableMissing(error) == null) throw error
+    if (error && schemaFehlt(error)) {
+      const ohne = rows.map(({ channel_id, ...r }) => r)
+      const { error: e2 } = await supabase.from('client_accounts').insert(ohne)
+      if (e2 && tableMissing(e2) == null) throw e2
+    } else if (error && tableMissing(error) == null) throw error
   }
+}
+
+/** Spalte gibt es noch nicht -- Skript nicht eingespielt. */
+function schemaFehlt(err: any): boolean {
+  if (tableMissing(err) != null) return false
+  return err?.code === 'PGRST204' || /channel_id|schema cache/i.test(err?.message ?? '')
 }
 
 /**

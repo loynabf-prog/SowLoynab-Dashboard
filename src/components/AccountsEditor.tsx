@@ -9,13 +9,17 @@
 // KI-Briefing).
 
 import { PLATTFORMEN, accountName, normHandle, type AccountEntwurf, type Plattform } from '../lib/accounts'
+import type { ChannelEntwurf } from '../lib/channels'
 
 export default function AccountsEditor({
   entwuerfe,
   onChange,
+  kanaele,
 }: {
   entwuerfe: AccountEntwurf[]
   onChange: (next: AccountEntwurf[]) => void
+  /** Die Kanäle des Kunden. Leer = keine Trennung, dann gibt es kein Feld. */
+  kanaele: ChannelEntwurf[]
 }) {
   function setze(i: number, patch: Partial<AccountEntwurf>) {
     onChange(entwuerfe.map((e, j) => (j === i ? { ...e, ...patch } : e)))
@@ -42,6 +46,11 @@ export default function AccountsEditor({
 
   const mehrfach = entwuerfe.filter((e) => e.platform === 'instagram').length > 1
     || entwuerfe.filter((e) => e.platform === 'tiktok').length > 1
+
+  // Gibt es Kanäle, wird der Account einem zugeordnet statt frei beschriftet.
+  // Der Kanalname IST die Beschriftung -- zwei Felder fuer dieselbe Sache
+  // waeren nur eine Quelle fuer Widersprueche.
+  const kanalWahl = kanaele.filter((k) => k.name.trim() !== '')
 
   return (
     <div className="acc-editor">
@@ -71,7 +80,19 @@ export default function AccountsEditor({
                   placeholder={info.name + '-Handle'}
                   aria-label={info.name + '-Handle'}
                 />
-                {mehrfach && (
+                {kanalWahl.length > 0 ? (
+                  <select
+                    className="acc-label"
+                    value={kanalWahl.some((k) => k.name === e.label) ? e.label : ''}
+                    onChange={(ev) => setze(i, { label: ev.target.value })}
+                    aria-label="Kanal des Accounts"
+                  >
+                    <option value="">— kein Kanal —</option>
+                    {kanalWahl.map((k) => (
+                      <option key={k.name} value={k.name}>{k.name}</option>
+                    ))}
+                  </select>
+                ) : mehrfach ? (
                   <input
                     className="acc-label"
                     value={e.label}
@@ -79,11 +100,11 @@ export default function AccountsEditor({
                     placeholder="Name (z. B. Filiale)"
                     aria-label="Name des Accounts"
                   />
-                )}
+                ) : null}
               </div>
               {/* Immer gerendert, nur unsichtbar -- sonst waeren die Felder
                   der Zeilen ohne Kennzeichen breiter und nichts fluchtet. */}
-              {mehrfach && (
+              {(mehrfach || kanalWahl.length > 0) && (
                 <span className={`acc-haupt ${haupt ? '' : 'leer'}`} aria-hidden={!haupt} title={haupt ? 'Steht überall dort, wo nur einer Platz hat' : undefined}>
                   Haupt
                 </span>

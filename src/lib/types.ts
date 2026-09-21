@@ -30,6 +30,8 @@ export interface Client {
 export interface VideoIdea {
   id: string
   client_id: string
+  /** Kanal des Kunden -- siehe Video.channel_id. */
+  channel_id?: string | null
   title: string
   notes: string | null
   source: 'manual' | 'ai'
@@ -158,6 +160,12 @@ export interface TeamMember {
 export interface Video {
   id: string
   client_id: string
+  /**
+   * Zu welchem Kanal des Kunden gehoert das Video? Nur gesetzt, wenn der
+   * Kunde ueberhaupt getrennt wird (zwei Betriebe unter einem Dach).
+   * Optional, damit die App auch ohne Migration 0029 laeuft.
+   */
+  channel_id?: string | null
   title: string
   status: VideoStatus
   scheduled_date: string | null
