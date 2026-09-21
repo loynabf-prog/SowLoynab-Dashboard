@@ -3276,71 +3276,12 @@ html { scroll-behavior: smooth; }
   .acc-dazu .btn { flex: 1 1 auto; }
 }
 
-/* --- Liegengebliebene Daten im Papierkorb -------------------------------- */
-/* Faellt bewusst auf: hier fehlt dem Kunden etwas, das es noch gibt. */
-.reste-box {
-  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-  padding: 13px 15px; margin-bottom: 18px;
-  border-radius: var(--radius);
-  background: rgba(255, 149, 0, 0.1);
-  border: 1px solid rgba(255, 149, 0, 0.32);
-  font-size: 13.5px; line-height: 1.45;
-}
-.reste-box > div { flex: 1 1 260px; min-width: 0; }
-.reste-box .btn { flex: 0 0 auto; }
-
-/* Wo liegen die Videos? Ein Block je Kunde, aufklappbar. */
-.bestand-ich {
-  padding: 10px 13px; border-radius: 12px;
-  background: var(--bg-sunken); font-size: 13.5px;
-}
-.nachhol-block {
-  border-radius: 14px; overflow: hidden;
-  background: var(--bg-sunken); border: 1px solid var(--border);
-}
-/* Kunden mit Inhalt heben sich ab -- danach sucht man hier. */
-.nachhol-block.hat-was { border-color: var(--border-strong); }
-.nachhol-kopf {
-  display: flex; align-items: center; gap: 10px; width: 100%;
-  padding: 11px 13px; margin: 0; border: none; background: none;
-  font: inherit; color: inherit; text-align: left; cursor: pointer;
-}
-.nachhol-kopf:hover { background: var(--bg-card-hover); }
-.nachhol-name { font-weight: 700; font-size: 14.5px; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
-.nachhol-tag {
-  font-size: 10px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.04em; color: var(--text-dim);
-  background: var(--bg-card); border: 1px solid var(--border-strong);
-  padding: 2px 6px; border-radius: 6px;
-}
-.nachhol-datum { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
-.nachhol-block.hat-was .nachhol-datum { color: var(--text-muted); font-weight: 600; }
-.nachhol-pfeil { flex: 0 0 auto; color: var(--text-dim); font-size: 13px; }
-.nachhol-detail {
-  padding: 0 13px 13px; border-top: 1px solid var(--border);
-  padding-top: 11px;
-}
-
-@media (max-width: 560px) {
-  .reste-box .btn, .nachhol-detail .btn { width: 100%; }
-}
-
 /* Papierkorb: Sammel-Wiederherstellung neben der Ueberschrift. */
 .trash-head {
   display: flex; align-items: center; gap: 10px;
   flex-wrap: wrap; margin-bottom: 10px;
 }
 
-/* Hinweis im Such-Fenster: hier liegt etwas im Papierkorb. */
-.muell-hinweis {
-  display: flex; align-items: center; gap: 11px; flex-wrap: wrap;
-  padding: 11px 12px; margin-bottom: 11px;
-  border-radius: 12px; font-size: 13px; line-height: 1.45;
-  background: rgba(255, 149, 0, 0.1);
-  border: 1px solid rgba(255, 149, 0, 0.32);
-}
-.muell-hinweis > div { flex: 1 1 220px; min-width: 0; }
-
 @media (max-width: 560px) {
-  .trash-head .btn, .muell-hinweis .btn { width: 100%; }
+  .trash-head .btn { width: 100%; }
 }

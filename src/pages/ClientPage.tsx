@@ -33,10 +33,8 @@ import { monatsplan, monatsKey, type Monatsplan } from '../lib/monatsplan'
 import { verteilePlan, type PlanZeile } from '../lib/autoplan'
 import { MARKEN, markeVon, type Marke } from '../lib/marken'
 import { ARTEN, artVon, istAktiv, type Kundenart } from '../lib/kundenart'
-import { fuehreZusammen, liegtWasImPapierkorb, TABELLEN_NAMEN, zaehleUmzug, type MergeZaehlung } from '../lib/mergeClients'
+import { fuehreZusammen, TABELLEN_NAMEN, zaehleUmzug, type MergeZaehlung } from '../lib/mergeClients'
 import AccountsEditor from '../components/AccountsEditor'
-import NachholenModal from '../components/NachholenModal'
-import { holeAllesZurueck, papierkorbStand, TABELLE_NAME, type PapierkorbStand } from '../lib/papierkorb'
 import {
   ladeAccounts, speichereAccounts, zuEntwuerfen, profilUrl, accountName,
   nurGesamt, nurAccounts, plattformInfo,
@@ -83,15 +81,6 @@ export default function ClientPage() {
   const [growthOpen, setGrowthOpen] = useState(false)
   const [stats, setStats] = useState<any[]>([])
   const [accounts, setAccounts] = useState<ClientAccount[]>([])
-  // Liegt im Papierkorb noch ein Kunde mit Videos? Dann ist beim
-  // Zusammenlegen etwas liegen geblieben -- das soll man sehen, ohne danach
-  // suchen zu muessen.
-  const [reste, setReste] = useState<{ kunden: string[]; videos: number } | null>(null)
-  const [nachholen, setNachholen] = useState(false)
-  // Was liegt bei DIESEM Kunden im Papierkorb? Videos koennen hier haengen
-  // und trotzdem unsichtbar sein -- das ist von aussen nicht zu erraten.
-  const [eigenerMuell, setEigenerMuell] = useState<PapierkorbStand[]>([])
-  const [muellBusy, setMuellBusy] = useState(false)
   const [flashId, setFlashId] = useState<string | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
 
@@ -145,15 +134,6 @@ export default function ClientPage() {
     setInspirations((data ?? []) as unknown as Inspiration[])
   }, [id])
 
-  const loadMuell = useCallback(async () => {
-    if (!id) return
-    try { setEigenerMuell(await papierkorbStand(id)) } catch { setEigenerMuell([]) }
-  }, [id])
-
-  const loadReste = useCallback(async () => {
-    try { setReste(await liegtWasImPapierkorb()) } catch { setReste(null) }
-  }, [])
-
   const loadAccounts = useCallback(async () => {
     if (!id) return
     try { setAccounts((await ladeAccounts(id)).accounts) } catch { setAccounts([]) }
@@ -173,7 +153,7 @@ export default function ClientPage() {
     if (!id) return
     async function loadAll() {
       setLoading(true)
-      await Promise.all([loadClient(), loadVideos(), loadIdeas(), loadStats(), loadInspirations(), loadAccounts(), loadReste(), loadMuell()])
+      await Promise.all([loadClient(), loadVideos(), loadIdeas(), loadStats(), loadInspirations(), loadAccounts()])
       setLoading(false)
     }
     loadAll()
@@ -199,7 +179,7 @@ export default function ClientPage() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [id, loadClient, loadVideos, loadIdeas, loadStats, loadInspirations, loadAccounts, loadReste, loadMuell])
+  }, [id, loadClient, loadVideos, loadIdeas, loadStats, loadInspirations, loadAccounts])
 
   // Deep-Link (?video=<id>) aus einem Anstupser: zur Karte springen + hervorheben
   useEffect(() => {
@@ -533,80 +513,6 @@ export default function ClientPage() {
         accounts={accounts}
         onPlanen={() => setLueckeOffen(true)}
       />
-
-      {/* Zwei Anlaesse, derselbe Weg: entweder liegt im Papierkorb noch ein
-          Kunde mit Videos, oder dieser Kunde hat ueberhaupt keine -- dann
-          sucht man gerade, wo sie hin sind. */}
-      {/* Der haeufigste Fall zuerst: die Sachen haengen an diesem Kunden,
-          sind aber als geloescht markiert und deshalb unsichtbar. Ein Knopf,
-          keine Suche. */}
-      {eigenerMuell.length > 0 && (
-        <div className="reste-box">
-          <div>
-            <strong>Im Papierkorb dieses Kunden liegen:</strong>{' '}
-            {eigenerMuell.map((x) => `${x.anzahl} ${TABELLE_NAME[x.tabelle]}`).join(', ')}.
-            Sie hängen schon hier — sie sind nur ausgeblendet.
-          </div>
-          <button
-            className="btn btn-sm btn-primary"
-            disabled={muellBusy}
-            onClick={async () => {
-              const was = eigenerMuell.map((x) => `${x.anzahl} ${TABELLE_NAME[x.tabelle]}`).join(', ')
-              if (!confirm(`${was} wieder sichtbar machen?`)) return
-              setMuellBusy(true)
-              const { anzahl, error: e } = await holeAllesZurueck(client.id)
-              setMuellBusy(false)
-              if (e) { setError(e); return }
-              await Promise.all([loadVideos(), loadIdeas(), loadInspirations(), loadMuell()])
-              toast(anzahl === 0 ? 'Es war nichts da.' : `${anzahl} Einträge sind wieder da ✓`)
-            }}
-          >
-            {muellBusy ? 'Hole …' : 'Alle wieder sichtbar machen'}
-          </button>
-        </div>
-      )}
-
-      {(() => {
-        const imMuell = reste != null && reste.kunden.length > 0
-        const leer = !loading && videos.length === 0 && eigenerMuell.length === 0
-        if (!imMuell && !leer) return null
-        return (
-          <div className="reste-box">
-            <div>
-              {imMuell ? (
-                <>
-                  <strong>Im Papierkorb liegen noch Daten.</strong>{' '}
-                  {reste!.kunden.join(', ')} {reste!.kunden.length === 1 ? 'hat' : 'haben'} noch{' '}
-                  {reste!.videos} {reste!.videos === 1 ? 'Video' : 'Videos'} am alten Kunden
-                  hängen. Beim Zusammenlegen ist das liegen geblieben — nichts davon ist
-                  verloren.
-                </>
-              ) : (
-                <>
-                  <strong>Hier hängt noch kein Video.</strong> Wenn hier welche sein
-                  müssten: nach einem Zusammenlegen sitzen sie manchmal bei einem anderen
-                  Kunden. Die Übersicht zeigt, bei wem.
-                </>
-              )}
-            </div>
-            <button className="btn btn-sm btn-primary" onClick={() => setNachholen(true)}>
-              {imMuell ? `Zu ${client.name} holen …` : 'Videos suchen …'}
-            </button>
-          </div>
-        )
-      })()}
-
-      {nachholen && (
-        <NachholenModal
-          zielId={client.id}
-          zielName={client.name}
-          onClose={() => setNachholen(false)}
-          onFertig={async () => {
-            await Promise.all([loadVideos(), loadIdeas(), loadStats(), loadAccounts(), loadInspirations(), loadReste()])
-            toast('Daten übernommen ✓')
-          }}
-        />
-      )}
 
       {client.notes && (
         <div className="info-box" style={{ marginBottom: 20 }}>
@@ -1500,7 +1406,6 @@ function EditClientModal({
   const [aiBrief, setAiBrief] = useState(client.ai_brief ?? '')
   const [marke, setMarke] = useState<Marke>(markeVon(client.brand))
   const [mergeOffen, setMergeOffen] = useState(false)
-  const [nachholOffen, setNachholOffen] = useState(false)
   const [pkg, setPkg] = useState(client.package ?? '')
   const [pakete, setPakete] = useState<Package[]>([])
   const [fee, setFee] = useState(client.monthly_fee != null ? String(client.monthly_fee) : '')
@@ -1765,13 +1670,6 @@ function EditClientModal({
           <button type="button" className="btn btn-sm" onClick={() => setMergeOffen(true)}>
             Mit anderem Kunden zusammenführen …
           </button>
-          <span style={{ marginTop: 4 }}>
-            Beim Zusammenlegen etwas liegen geblieben? Gelöschte Kunden behalten ihre
-            Daten — hier holst du sie nach.
-          </span>
-          <button type="button" className="btn btn-sm" onClick={() => setNachholOffen(true)}>
-            Daten aus dem Papierkorb nachholen …
-          </button>
         </div>
 
         <div className="modal-actions">
@@ -1785,14 +1683,6 @@ function EditClientModal({
       </form>
       {mergeOffen && (
         <MergeModal client={client} onClose={() => setMergeOffen(false)} />
-      )}
-      {nachholOffen && (
-        <NachholenModal
-          zielId={client.id}
-          zielName={client.name}
-          onClose={() => setNachholOffen(false)}
-          onFertig={onSaved}
-        />
       )}
       {cropFile && (
         <LogoCropper
