@@ -18,7 +18,6 @@ import LogoCropper from '../components/LogoCropper'
 import Modal from '../components/Modal'
 import ActivityLog from '../components/ActivityLog'
 import Spinner from '../components/Spinner'
-import { generateCaption } from '../lib/caption'
 import { generateIdeas } from '../lib/ideas'
 import { usePointerBoard } from '../lib/usePointerBoard'
 import { celebrate } from '../lib/confetti'
@@ -79,7 +78,6 @@ export default function ClientPage() {
   const [linking, setLinking] = useState<Video | null>(null)
   // Pro Spalte werden nur die naechsten 3 gezeigt; aufgeklappt alle.
   const [openCols, setOpenCols] = useState<Record<string, boolean>>({})
-  const [captioning, setCaptioning] = useState<Video | null>(null)
   const [editClient, setEditClient] = useState(false)
   const [creating, setCreating] = useState(false)
   const [info, setInfo] = useState<string | null>(null)
@@ -561,8 +559,6 @@ export default function ClientPage() {
       <ClientCockpit
         client={client}
         plan={monatsplan(videos, client.monthly_quota)}
-        reachThisMonth={reachThisMonth}
-        stats={stats}
         accounts={accounts}
         onPlanen={() => setLueckeOffen(true)}
       />
@@ -695,7 +691,6 @@ export default function ClientPage() {
                       onEdit={() => setEditing(v)}
                       onDelete={() => deleteVideo(v.id)}
                       onLink={() => setLinking(v)}
-                      onCaption={() => setCaptioning(v)}
                       onNudge={() => setNudging(v)}
                     />
                   </div>
@@ -775,8 +770,22 @@ export default function ClientPage() {
         </div>
       )}
 
+      {/* Analyse traegt alles, was mit Leistung zu tun hat: die Zahlen der
+          einzelnen Videos, die Reichweite des Monats und die Follower-Kurve.
+          Auf der Arbeitsseite haben sie nichts verloren -- wie gross der
+          Kunde ist, aendert nichts an dem, was diesen Monat zu tun ist. */}
       {tab === 'analyse' && (
-        <AnalyseSection videos={postedVideos} kanaele={kanaele} onEdit={(v) => setEditing(v)} onDelete={deleteVideo} onLinks={(v) => setAskLinks(v)} />
+        <>
+          <AnalyseSection
+            videos={postedVideos}
+            kanaele={kanaele}
+            reachThisMonth={reachThisMonth}
+            onEdit={(v) => setEditing(v)}
+            onDelete={deleteVideo}
+            onLinks={(v) => setAskLinks(v)}
+          />
+          <GrowthSection stats={stats} accounts={accounts} onAdd={() => setGrowthOpen(true)} />
+        </>
       )}
 
       {editing && (
@@ -805,12 +814,11 @@ export default function ClientPage() {
         <div className="section-block">
           <button className="mehr-klappe" onClick={() => setMehrOffen((o) => !o)}>
             {mehrOffen ? '▴' : '▾'} Mehr zum Kunden
-            <span className="muted">Vertrag · Wachstum · Verlauf</span>
+            <span className="muted">Vertrag · Verlauf</span>
           </button>
           {mehrOffen && (
             <div className="mehr-inhalt">
               <ContractCard client={client} />
-              <GrowthSection stats={stats} accounts={accounts} onAdd={() => setGrowthOpen(true)} />
               <div className="section-block">
                 <h2 className="section-title">Verlauf</h2>
                 <ActivityLog clientId={client.id} />
@@ -885,17 +893,6 @@ export default function ClientPage() {
         />
       )}
 
-      {captioning && (
-        <CaptionModal
-          video={captioning}
-          client={client}
-          onClose={() => setCaptioning(null)}
-          onApply={async (caption) => {
-            await patchVideo(captioning.id, { caption })
-            setCaptioning(null)
-          }}
-        />
-      )}
 
       {editClient && (
         <EditClientModal
@@ -1079,106 +1076,6 @@ function MergeModal({
   )
 }
 
-function CaptionModal({
-  video,
-  client,
-  onClose,
-  onApply,
-}: {
-  video: Video
-  client: Client
-  onClose: () => void
-  onApply: (caption: string) => void
-}) {
-  const [description, setDescription] = useState('')
-  const [extra, setExtra] = useState('')
-  const [result, setResult] = useState(video.caption ?? '')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
-
-  async function generate() {
-    if (!description.trim()) return
-    setBusy(true)
-    setError(null)
-    try {
-      const caption = await generateCaption(video, client, description.trim(), extra.trim())
-      setResult(caption)
-    } catch (err: any) {
-      setError(err.message ?? 'Fehler bei der Caption-Erstellung')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(result)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1800)
-    } catch {
-      /* ignore */
-    }
-  }
-
-  return (
-    <Modal title="✨ Auto-Caption" onClose={onClose}>
-      <form
-        className="stack"
-        onSubmit={(e) => {
-          e.preventDefault()
-          generate()
-        }}
-      >
-        {error && <div className="error-box">{error}</div>}
-        <div>
-          <label>Beschreib das Video in einem Satz *</label>
-          <input
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="z. B. Frische Pasta wird vor Gästen an der Theke gemacht"
-            autoFocus
-          />
-        </div>
-        <div>
-          <label>Zusatzwunsch (optional)</label>
-          <input
-            value={extra}
-            onChange={(e) => setExtra(e.target.value)}
-            placeholder="z. B. lustiger Ton, oder Aktion erwähnen"
-          />
-        </div>
-        <button type="submit" className="btn btn-primary" disabled={busy || !description.trim()}>
-          {busy ? 'Claude schreibt …' : result ? 'Neu generieren' : '✨ Caption generieren'}
-        </button>
-
-        {result && (
-          <div>
-            <label>Ergebnis (frei editierbar)</label>
-            <textarea value={result} onChange={(e) => setResult(e.target.value)} style={{ minHeight: 150 }} />
-          </div>
-        )}
-
-        <div className="modal-actions">
-          <button type="button" className="btn btn-ghost" onClick={onClose}>
-            Abbrechen
-          </button>
-          {result && (
-            <>
-              <button type="button" className="btn" onClick={copy}>
-                {copied ? '✓ Kopiert' : 'Kopieren'}
-              </button>
-              <button type="button" className="btn btn-primary" onClick={() => onApply(result.trim())}>
-                In Caption übernehmen
-              </button>
-            </>
-          )}
-        </div>
-      </form>
-    </Modal>
-  )
-}
-
 interface IdeaFields {
   title: string
   scheduled_date: string | null
@@ -1289,7 +1186,6 @@ function EditVideoModal({
   const [date, setDate] = useState(video.scheduled_date ?? '')
   const [time, setTime] = useState(video.scheduled_time ? video.scheduled_time.slice(0, 5) : '')
   const [caption, setCaption] = useState(video.caption ?? '')
-  const [notes, setNotes] = useState(video.notes ?? '')
   const [views, setViews] = useState(video.views != null ? String(video.views) : '')
   const [likes, setLikes] = useState(video.likes != null ? String(video.likes) : '')
   const [comments, setComments] = useState(video.comments != null ? String(video.comments) : '')
@@ -1307,7 +1203,6 @@ function EditVideoModal({
   const [ttUrl, setTtUrl] = useState(video.tiktok_url ?? '')
   const [igUrl, setIgUrl] = useState(video.instagram_url ?? '')
   const [category, setCategory] = useState<string | null>(video.category ?? null)
-  const [copied, setCopied] = useState(false)
   const { categories } = useCategories()
   const num = (s: string) => (s.trim() === '' ? null : Number(s.replace(/[^\d]/g, '')))
 
@@ -1322,7 +1217,6 @@ function EditVideoModal({
             scheduled_date: date || null,
             scheduled_time: time || null,
             caption: caption.trim() || null,
-            notes: notes.trim() || null,
             views: num(views),
             likes: num(likes),
             comments: num(comments),
@@ -1376,24 +1270,6 @@ function EditVideoModal({
             style={{ minHeight: 100 }}
           />
         </div>
-        <div>
-          <label htmlFor="vnotes">Notizen (z. B. „Personen markieren")</label>
-          <textarea id="vnotes" value={notes} onChange={(e) => setNotes(e.target.value)} />
-        </div>
-
-        {video.share_token && (
-          <button
-            type="button"
-            className="btn"
-            onClick={() => {
-              navigator.clipboard?.writeText(`${window.location.origin}/freigabe/${video.share_token}`)
-              setCopied(true)
-              setTimeout(() => setCopied(false), 1800)
-            }}
-          >
-            {copied ? '✓ Link kopiert' : '🔗 Freigabe-Link für den Kunden kopieren'}
-          </button>
-        )}
 
         <div className="section-divider">🔗 Live-Links (Auto-Statistik)</div>
         <div className="info-box" style={{ fontSize: 13 }}>
@@ -2196,7 +2072,7 @@ function SeriesModal({
 }
 
 // ============================ Analyse (gepostete Videos) ============================
-function AnalyseSection({ videos, kanaele, onEdit, onDelete, onLinks }: { videos: Video[]; kanaele: Channel[]; onEdit: (v: Video) => void; onDelete: (id: string) => void; onLinks: (v: Video) => void }) {
+function AnalyseSection({ videos, kanaele, reachThisMonth, onEdit, onDelete, onLinks }: { videos: Video[]; kanaele: Channel[]; reachThisMonth: number; onEdit: (v: Video) => void; onDelete: (id: string) => void; onLinks: (v: Video) => void }) {
   // Farbstreifen nur, wenn der Kunde wirklich zwei Betriebe hat.
   const trennt = trenntKanaele(kanaele)
   const num = (n: number | null | undefined) => (n == null ? '–' : n.toLocaleString('de-DE'))
@@ -2229,6 +2105,9 @@ function AnalyseSection({ videos, kanaele, onEdit, onDelete, onLinks }: { videos
         <div className="fin-tile"><span className="fin-label">Posts gesamt</span><span className="fin-value">{num(posts)}</span><span className="fin-sub">gepostete Videos</span></div>
         <div className="fin-tile"><span className="fin-label">Reichweite gesamt</span><span className="fin-value income">{num(totalReach)}</span><span className="fin-sub">Ø {num(Math.round(totalReach / posts))} / Post</span></div>
         <div className="fin-tile"><span className="fin-label">Interaktionen</span><span className="fin-value">{num(totalLikes)}</span><span className="fin-sub">Likes · {num(totalComments)} Kommentare</span></div>
+        {reachThisMonth > 0 && (
+          <div className="fin-tile"><span className="fin-label">Diesen Monat</span><span className="fin-value">{num(reachThisMonth)}</span><span className="fin-sub">Reichweite</span></div>
+        )}
       </div>
       {hasPlatformSplit && (
         <div className="fin-tiles" style={{ marginBottom: 18 }}>
@@ -2334,17 +2213,10 @@ function ContactBtn({ href, icon, label }: { href: string; icon: string; label: 
   )
 }
 
-function fmtK(n: number): string {
-  if (n >= 1000000) return (n / 1000000).toFixed(1).replace('.0', '') + 'M'
-  if (n >= 1000) return (n / 1000).toFixed(1).replace('.0', '') + 'k'
-  return String(n)
-}
 
-function ClientCockpit({ client, plan, reachThisMonth, stats, accounts, onPlanen }: {
+function ClientCockpit({ client, plan, accounts, onPlanen }: {
   client: Client
   plan: Monatsplan
-  reachThisMonth: number
-  stats: any[]
   accounts: ClientAccount[]
   onPlanen: () => void
 }) {
@@ -2373,14 +2245,10 @@ function ClientCockpit({ client, plan, reachThisMonth, stats, accounts, onPlanen
     client.website && { href: client.website, icon: '🌐', label: 'Website' },
   ].filter(Boolean) as { href: string; icon: string; label: string }[]
 
-  // Neuester Follower-Stand. Bei mehreren Accounts stehen in stats auch
-  // Zeilen einzelner Accounts -- fuer die Gesamtzahl zaehlt nur die
-  // Gesamtzeile, sonst wuerde der Tag doppelt gerechnet.
-  const gesamtZeilen = nurGesamt(stats)
-  const latestStat = gesamtZeilen.length ? gesamtZeilen[gesamtZeilen.length - 1] : null
-  const totalFollowers = latestStat ? (latestStat.followers_ig ?? 0) + (latestStat.followers_tiktok ?? 0) : 0
-
-  if (quota <= 0 && contacts.length === 0 && reachThisMonth === 0 && totalFollowers === 0) return null
+  // Follower und Reichweite stehen bewusst NICHT hier, sondern unter
+  // Analyse. Auf dieser Seite geht es um die Arbeit dieses Monats -- und
+  // die haengt nicht davon ab, wie gross der Kunde ist.
+  if (quota <= 0 && contacts.length === 0) return null
 
   return (
     <>
@@ -2411,18 +2279,6 @@ function ClientCockpit({ client, plan, reachThisMonth, stats, accounts, onPlanen
             <div className="cockpit-quota-title">{plan.gepostet} / {quota} Posts</div>
             <div className="cockpit-quota-sub">diesen Monat</div>
           </div>
-        </div>
-      )}
-      {totalFollowers > 0 && (
-        <div className="cockpit-stat" title={`📸 ${fmtK(latestStat.followers_ig ?? 0)} · 🎵 ${fmtK(latestStat.followers_tiktok ?? 0)}`}>
-          <div className="cockpit-quota-title">👥 {fmtK(totalFollowers)}</div>
-          <div className="cockpit-quota-sub">Follower gesamt</div>
-        </div>
-      )}
-      {reachThisMonth > 0 && (
-        <div className="cockpit-stat">
-          <div className="cockpit-quota-title">📡 {fmtK(reachThisMonth)}</div>
-          <div className="cockpit-quota-sub">Reichweite / Monat</div>
         </div>
       )}
       {contacts.length > 0 && (

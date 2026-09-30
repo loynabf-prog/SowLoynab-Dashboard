@@ -15,7 +15,6 @@ interface Props {
   onPatch: (patch: Partial<Video>) => void
   onEdit: () => void
   onDelete: () => void
-  onCaption: () => void
   onLink: () => void
   onNudge: () => void
 }
@@ -49,7 +48,7 @@ function compactDate(v: Video): string | null {
 
 type StatView = 'all' | 'ig' | 'tiktok'
 
-export default function VideoCard({ video, kanaele = [], onPatch, onEdit, onDelete, onCaption, onLink, onNudge }: Props) {
+export default function VideoCard({ video, kanaele = [], onPatch, onEdit, onDelete, onLink, onNudge }: Props) {
   const [title, setTitle] = useState(video.title)
   const [hint, setHint] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
@@ -161,8 +160,6 @@ export default function VideoCard({ video, kanaele = [], onPatch, onEdit, onDele
       )}
       <div className="vc-line">
         <StatusPill status={video.status} onChange={(next: VideoStatus) => onPatch({ status: next })} />
-        {video.approval_status === 'approved' && <span className="approval-badge ok">✅ Freigegeben</span>}
-        {video.approval_status === 'changes' && <span className="approval-badge chg">📝 Änderung</span>}
       </div>
 
       <div className="vc-line">
@@ -270,9 +267,6 @@ export default function VideoCard({ video, kanaele = [], onPatch, onEdit, onDele
       <div className="vc-actions">
         <button className="btn btn-sm" onClick={onEdit}>
           Bearbeiten
-        </button>
-        <button className="btn btn-sm" onClick={onCaption} title="Auto-Caption per Claude">
-          ✨ Caption
         </button>
         <button className="btn btn-sm" onClick={onNudge} title="Person anstupsen">
           👉 Anstupsen

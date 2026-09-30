@@ -16,7 +16,6 @@ import Invoices from './pages/Invoices'
 import Inspirations from './pages/Inspirations'
 import Postfach from './pages/Postfach'
 import Settings from './pages/Settings'
-import Approval from './pages/Approval'
 import ContractSign from './pages/ContractSign'
 import Layout from './components/Layout'
 import Spinner from './components/Spinner'
@@ -39,7 +38,6 @@ export default function App() {
 
   return (
     <Routes>
-      <Route path="/freigabe/:token" element={<Approval />} />
       <Route path="/vertrag/:token" element={<ContractSign />} />
       <Route
         path="/login"
