@@ -37,6 +37,9 @@ gebaut, ein erneuter Lauf schadet also nicht.
       (zwei Betriebe unter einem Dach, je mit eigener Farbe). Macht aus vorhandenen
       Account-Namen direkt die Kanäle und ordnet Videos zu, wo der Posting-Link
       es eindeutig sagt.
+- [ ] `supabase/migrations/0030_month_plans.sql` — **Videomenge je Monat**
+      (Retainer mit Ausnahmen, z. B. 20 statt 16 im Oktober). Ohne Ausnahme gilt
+      überall weiter der Retainer.
 
 *(0020–0023 stecken gesammelt in `ALLES_offen_20-23.sql`, 0024–0027 in
 `ALLES_offen_24-27.sql` — dann reichen zwei Durchläufe statt acht.)*
@@ -64,7 +67,7 @@ gebaut, ein erneuter Lauf schadet also nicht.
 
 | Funktion | JWT | Zweck |
 |----------|-----|-------|
-| `generate-caption` | AN | Bildunterschriften |
+| ~~`generate-caption`~~ | — | Bildunterschriften — **aktuell nicht mehr in der App**. Die Funktion bleibt liegen, falls wir sie später wieder einschalten. |
 | `generate-ideas` | AN | Ideen-Vorschläge |
 | `voice-command` | AN | Sprachbefehl |
 | `send-push` | AN | Push senden |

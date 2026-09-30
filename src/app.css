@@ -3357,3 +3357,48 @@ html { scroll-behavior: smooth; }
   /* Zwei je Zeile -- lesbar, ohne dass etwas abgeschnitten wird. */
   .kanal-filter .seg-btn { flex: 1 1 calc(50% - 6px); }
 }
+
+/* --- Monatsplan ---------------------------------------------------------- */
+/* Der Monat steht ganz oben und ist die erste Entscheidung -- alles
+   darunter bezieht sich auf ihn. */
+.mp-monat {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--bg-sunken); border-radius: 12px; padding: 5px;
+}
+.mp-monat-name {
+  flex: 1 1 auto; text-align: center;
+  font-weight: 700; font-size: 16px;
+}
+.mp-pfeil {
+  flex: 0 0 auto; width: 36px; height: 36px; padding: 0;
+  border: none; background: var(--bg-card); border-radius: 9px;
+  font-size: 18px; color: var(--text); cursor: pointer;
+}
+.mp-pfeil:hover { background: var(--bg-card-hover); }
+
+.mp-menge { display: flex; align-items: center; gap: 8px; }
+.mp-menge input { margin: 0; flex: 1 1 auto; min-width: 0; }
+.mp-menge .btn { flex: 0 0 auto; }
+
+.mp-wochentage { display: flex; gap: 6px; flex-wrap: wrap; }
+.mp-wt {
+  flex: 1 1 auto; min-width: 42px; padding: 9px 4px;
+  border: 1px solid var(--border-strong); background: var(--bg-card);
+  border-radius: 9px; font-weight: 600; font-size: 13px;
+  color: var(--text-muted); cursor: pointer;
+}
+.mp-wt.on {
+  background: var(--brand); border-color: var(--brand); color: #fff;
+}
+
+/* Die Vorschau ist der Beweis: hier steht, an welchen Tagen etwas entsteht. */
+.mp-vorschau {
+  padding: 12px 13px; border-radius: 12px;
+  background: var(--bg-sunken); font-size: 13.5px;
+}
+.mp-tage { font-weight: 700; line-height: 1.5; }
+.mp-summe { color: var(--text-muted); margin-top: 4px; font-size: 13px; }
+.mp-warn {
+  margin-top: 8px; font-size: 12.5px; line-height: 1.45;
+  color: var(--danger);
+}
