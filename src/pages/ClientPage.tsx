@@ -18,13 +18,10 @@ import LogoCropper from '../components/LogoCropper'
 import Modal from '../components/Modal'
 import ActivityLog from '../components/ActivityLog'
 import Spinner from '../components/Spinner'
-import { generateCaption } from '../lib/caption'
 import { generateIdeas } from '../lib/ideas'
 import { usePointerBoard } from '../lib/usePointerBoard'
 import { celebrate } from '../lib/confetti'
 import NudgeModal from '../components/NudgeModal'
-import RepeatPicker from '../components/RepeatPicker'
-import { occurrences, recommendedIntervalDays, type RepeatRule } from '../lib/recurrence'
 import { insertRows, tableMissing, updateRow } from '../lib/db'
 
 /**
@@ -42,7 +39,9 @@ import { klartext, lookupVideo, statsPatch } from '../lib/apify'
 import { seit } from '../lib/format'
 import { getPackages, mengeText, type Package } from '../lib/packages'
 import { monatsplan, monatsKey, type Monatsplan } from '../lib/monatsplan'
-import { verteilePlan, type PlanZeile } from '../lib/autoplan'
+import { hoechsteNummer } from '../lib/autoplan'
+import MonatsplanModal, { type PlanErgebnis } from '../components/MonatsplanModal'
+import { ladeMonatsmengen, mengeFuer, setzeMonatsmenge } from '../lib/monatsmenge'
 import { MARKEN, markeVon, type Marke } from '../lib/marken'
 import { ARTEN, artVon, istAktiv, type Kundenart } from '../lib/kundenart'
 import { fuehreZusammen, TABELLEN_NAMEN, zaehleUmzug, type MergeZaehlung } from '../lib/mergeClients'
@@ -79,7 +78,6 @@ export default function ClientPage() {
   const [linking, setLinking] = useState<Video | null>(null)
   // Pro Spalte werden nur die naechsten 3 gezeigt; aufgeklappt alle.
   const [openCols, setOpenCols] = useState<Record<string, boolean>>({})
-  const [captioning, setCaptioning] = useState<Video | null>(null)
   const [editClient, setEditClient] = useState(false)
   const [creating, setCreating] = useState(false)
   const [info, setInfo] = useState<string | null>(null)
@@ -92,9 +90,9 @@ export default function ClientPage() {
   const [askLinks, setAskLinks] = useState<Video | null>(null)
   // Seltenes zugeklappt halten -- der Alltag ist das Board, nicht der Verlauf.
   const [mehrOffen, setMehrOffen] = useState(false)
-  const [lueckeOffen, setLueckeOffen] = useState(false)
+  const [planOffen, setPlanOffen] = useState(false)
   const [nudging, setNudging] = useState<Video | null>(null)
-  const [seriesOpen, setSeriesOpen] = useState(false)
+  const [mengen, setMengen] = useState<Map<string, number>>(new Map())
   const [growthOpen, setGrowthOpen] = useState(false)
   const [stats, setStats] = useState<any[]>([])
   const [accounts, setAccounts] = useState<ClientAccount[]>([])
@@ -176,6 +174,11 @@ export default function ClientPage() {
     return kanalFilter && kanalFilter !== 'offen' ? kanalFilter : null
   }
 
+  const loadMengen = useCallback(async () => {
+    if (!id) return
+    try { setMengen(await ladeMonatsmengen(id)) } catch { setMengen(new Map()) }
+  }, [id])
+
   const loadKanaele = useCallback(async () => {
     if (!id) return
     try { setKanaele((await ladeKanaele(id)).kanaele) } catch { setKanaele([]) }
@@ -195,7 +198,7 @@ export default function ClientPage() {
     if (!id) return
     async function loadAll() {
       setLoading(true)
-      await Promise.all([loadClient(), loadVideos(), loadIdeas(), loadStats(), loadInspirations(), loadAccounts(), loadKanaele()])
+      await Promise.all([loadClient(), loadVideos(), loadIdeas(), loadStats(), loadInspirations(), loadAccounts(), loadKanaele(), loadMengen()])
       setLoading(false)
     }
     loadAll()
@@ -221,7 +224,7 @@ export default function ClientPage() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [id, loadClient, loadVideos, loadIdeas, loadStats, loadInspirations, loadAccounts, loadKanaele])
+  }, [id, loadClient, loadVideos, loadIdeas, loadStats, loadInspirations, loadAccounts, loadKanaele, loadMengen])
 
   // Deep-Link (?video=<id>) aus einem Anstupser: zur Karte springen + hervorheben
   useEffect(() => {
@@ -260,7 +263,7 @@ export default function ClientPage() {
   useEffect(() => {
     if (loading || !client) return
     if (searchParams.get('onboard') !== '1') return
-    setSeriesOpen(true)
+    setPlanOffen(true)
     searchParams.delete('onboard')
     setSearchParams(searchParams, { replace: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -465,31 +468,28 @@ export default function ClientPage() {
   // verteilt, mit fortlaufenden Platzhalter-Namen. Die Idee traegt der Mensch
   // spaeter nach; wichtig ist erst mal, dass die Menge stimmt und die Karten
   // im Board stehen.
-  async function lueckeFuellen(rows: PlanZeile[]) {
-    if (!id || rows.length === 0) return
-    const { error } = await insertRows('videos',
-      rows.map((r) => ohneLeereKanal({
-        client_id: id, title: r.title, status: 'todo' as VideoStatus,
-        scheduled_date: r.scheduled_date, channel_id: neuerKanal(),
-        created_by: user?.id ?? null,
-      })),
-    )
-    if (error) { setError(error.message); return }
-    setLueckeOffen(false)
+  /**
+   * Den Monatsplan umsetzen: Karten anlegen und, falls die Menge vom
+   * Retainer abweicht, die Ausnahme fuer diesen Monat merken.
+   */
+  async function planAnlegen(e: PlanErgebnis) {
+    if (!id) return
+    if (e.zeilen.length > 0) {
+      const { error } = await insertRows('videos',
+        e.zeilen.map((r) => ohneLeereKanal({
+          client_id: id, title: r.title, status: 'todo' as VideoStatus,
+          scheduled_date: r.scheduled_date, scheduled_time: r.scheduled_time,
+          channel_id: neuerKanal(), created_by: user?.id ?? null,
+        })),
+      )
+      if (error) { setError(error.message); return }
+    }
+    const { error: mErr } = await setzeMonatsmenge(id, e.monatsKey, e.menge, client?.monthly_quota)
+    if (mErr) setError(mErr)
+    setMengen(await ladeMonatsmengen(id))
+    setPlanOffen(false)
     loadVideos()
-    toast(`${rows.length} Videos angelegt — Namen kannst du jederzeit ändern ✓`)
-  }
-
-  async function createSeries(rows: { title: string; scheduled_date: string; scheduled_time: string | null }[]) {
-    if (!id || rows.length === 0) return
-    const series_id = crypto.randomUUID()
-    const { error } = await insertRows('videos',
-      rows.map((r) => ohneLeereKanal({ client_id: id, title: r.title, status: 'todo' as VideoStatus, scheduled_date: r.scheduled_date, scheduled_time: r.scheduled_time, series_id, channel_id: neuerKanal(), created_by: user?.id ?? null })),
-    )
-    if (error) { setError(error.message); return }
-    setSeriesOpen(false)
-    loadVideos()
-    toast(`${rows.length} Videos angelegt ✓`)
+    toast(`${e.zeilen.length} Videos angelegt — Namen kannst du jederzeit ändern ✓`)
   }
 
   const monthKey = new Date().toISOString().slice(0, 7)
@@ -550,8 +550,8 @@ export default function ClientPage() {
         <button className="btn btn-sm btn-ghost" onClick={() => setEditClient(true)}>
           Kunde bearbeiten
         </button>
-        <button className="btn btn-sm" onClick={() => setSeriesOpen(true)}>
-          📅 Content-Plan
+        <button className="btn btn-sm" onClick={() => setPlanOffen(true)}>
+          📅 Monatsplan
         </button>
         <button className="btn btn-primary" onClick={() => setCreating(true)}>
           + Idee
@@ -560,11 +560,9 @@ export default function ClientPage() {
 
       <ClientCockpit
         client={client}
-        plan={monatsplan(videos, client.monthly_quota)}
-        reachThisMonth={reachThisMonth}
-        stats={stats}
+        plan={monatsplan(videos, mengeFuer(client.monthly_quota, monatsKey(), mengen))}
         accounts={accounts}
-        onPlanen={() => setLueckeOffen(true)}
+        onPlanen={() => setPlanOffen(true)}
       />
 
       {client.notes && (
@@ -695,7 +693,6 @@ export default function ClientPage() {
                       onEdit={() => setEditing(v)}
                       onDelete={() => deleteVideo(v.id)}
                       onLink={() => setLinking(v)}
-                      onCaption={() => setCaptioning(v)}
                       onNudge={() => setNudging(v)}
                     />
                   </div>
@@ -775,8 +772,22 @@ export default function ClientPage() {
         </div>
       )}
 
+      {/* Analyse traegt alles, was mit Leistung zu tun hat: die Zahlen der
+          einzelnen Videos, die Reichweite des Monats und die Follower-Kurve.
+          Auf der Arbeitsseite haben sie nichts verloren -- wie gross der
+          Kunde ist, aendert nichts an dem, was diesen Monat zu tun ist. */}
       {tab === 'analyse' && (
-        <AnalyseSection videos={postedVideos} kanaele={kanaele} onEdit={(v) => setEditing(v)} onDelete={deleteVideo} onLinks={(v) => setAskLinks(v)} />
+        <>
+          <AnalyseSection
+            videos={postedVideos}
+            kanaele={kanaele}
+            reachThisMonth={reachThisMonth}
+            onEdit={(v) => setEditing(v)}
+            onDelete={deleteVideo}
+            onLinks={(v) => setAskLinks(v)}
+          />
+          <GrowthSection stats={stats} accounts={accounts} onAdd={() => setGrowthOpen(true)} />
+        </>
       )}
 
       {editing && (
@@ -805,12 +816,11 @@ export default function ClientPage() {
         <div className="section-block">
           <button className="mehr-klappe" onClick={() => setMehrOffen((o) => !o)}>
             {mehrOffen ? '▴' : '▾'} Mehr zum Kunden
-            <span className="muted">Vertrag · Wachstum · Verlauf</span>
+            <span className="muted">Vertrag · Verlauf</span>
           </button>
           {mehrOffen && (
             <div className="mehr-inhalt">
               <ContractCard client={client} />
-              <GrowthSection stats={stats} accounts={accounts} onAdd={() => setGrowthOpen(true)} />
               <div className="section-block">
                 <h2 className="section-title">Verlauf</h2>
                 <ActivityLog clientId={client.id} />
@@ -840,29 +850,17 @@ export default function ClientPage() {
         />
       )}
 
-      {lueckeOffen && (
-        <LueckeModal
-          plan={monatsplan(videos, client.monthly_quota)}
-          vorschlag={verteilePlan({
-            anzahl: monatsplan(videos, client.monthly_quota).ohneIdee,
-            monatsKey: monatsKey(),
-            abTag: new Date().toISOString().slice(0, 10),
-            belegteTage: videos.map((v) => v.scheduled_date ?? '').filter(Boolean),
-            vorhandeneTitel: videos.map((v) => v.title),
-          })}
-          onClose={() => setLueckeOffen(false)}
-          onCreate={lueckeFuellen}
-          onSelbst={() => { setLueckeOffen(false); setSeriesOpen(true) }}
-        />
-      )}
-
-      {seriesOpen && (
-        <SeriesModal
-          onClose={() => setSeriesOpen(false)}
-          onCreate={createSeries}
-          quota={client.monthly_quota ?? 0}
-          recommendDays={recommendedIntervalDays(client.monthly_quota ?? 0)}
-          defaultUntil={client.contract_end ?? null}
+      {planOffen && (
+        <MonatsplanModal
+          startMonat={monatsKey()}
+          retainer={client.monthly_quota ?? 0}
+          mengeImMonat={(k) => mengeFuer(client.monthly_quota, k, mengen)}
+          belegteTage={(k) => videos
+            .map((v) => v.scheduled_date ?? '')
+            .filter((d) => d.slice(0, 7) === k)}
+          vorhandeneNummern={(k) => hoechsteNummer(videos.map((v) => v.title), k)}
+          onClose={() => setPlanOffen(false)}
+          onAnlegen={planAnlegen}
         />
       )}
 
@@ -885,17 +883,6 @@ export default function ClientPage() {
         />
       )}
 
-      {captioning && (
-        <CaptionModal
-          video={captioning}
-          client={client}
-          onClose={() => setCaptioning(null)}
-          onApply={async (caption) => {
-            await patchVideo(captioning.id, { caption })
-            setCaptioning(null)
-          }}
-        />
-      )}
 
       {editClient && (
         <EditClientModal
@@ -1079,106 +1066,6 @@ function MergeModal({
   )
 }
 
-function CaptionModal({
-  video,
-  client,
-  onClose,
-  onApply,
-}: {
-  video: Video
-  client: Client
-  onClose: () => void
-  onApply: (caption: string) => void
-}) {
-  const [description, setDescription] = useState('')
-  const [extra, setExtra] = useState('')
-  const [result, setResult] = useState(video.caption ?? '')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
-
-  async function generate() {
-    if (!description.trim()) return
-    setBusy(true)
-    setError(null)
-    try {
-      const caption = await generateCaption(video, client, description.trim(), extra.trim())
-      setResult(caption)
-    } catch (err: any) {
-      setError(err.message ?? 'Fehler bei der Caption-Erstellung')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(result)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1800)
-    } catch {
-      /* ignore */
-    }
-  }
-
-  return (
-    <Modal title="✨ Auto-Caption" onClose={onClose}>
-      <form
-        className="stack"
-        onSubmit={(e) => {
-          e.preventDefault()
-          generate()
-        }}
-      >
-        {error && <div className="error-box">{error}</div>}
-        <div>
-          <label>Beschreib das Video in einem Satz *</label>
-          <input
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="z. B. Frische Pasta wird vor Gästen an der Theke gemacht"
-            autoFocus
-          />
-        </div>
-        <div>
-          <label>Zusatzwunsch (optional)</label>
-          <input
-            value={extra}
-            onChange={(e) => setExtra(e.target.value)}
-            placeholder="z. B. lustiger Ton, oder Aktion erwähnen"
-          />
-        </div>
-        <button type="submit" className="btn btn-primary" disabled={busy || !description.trim()}>
-          {busy ? 'Claude schreibt …' : result ? 'Neu generieren' : '✨ Caption generieren'}
-        </button>
-
-        {result && (
-          <div>
-            <label>Ergebnis (frei editierbar)</label>
-            <textarea value={result} onChange={(e) => setResult(e.target.value)} style={{ minHeight: 150 }} />
-          </div>
-        )}
-
-        <div className="modal-actions">
-          <button type="button" className="btn btn-ghost" onClick={onClose}>
-            Abbrechen
-          </button>
-          {result && (
-            <>
-              <button type="button" className="btn" onClick={copy}>
-                {copied ? '✓ Kopiert' : 'Kopieren'}
-              </button>
-              <button type="button" className="btn btn-primary" onClick={() => onApply(result.trim())}>
-                In Caption übernehmen
-              </button>
-            </>
-          )}
-        </div>
-      </form>
-    </Modal>
-  )
-}
-
 interface IdeaFields {
   title: string
   scheduled_date: string | null
@@ -1289,7 +1176,6 @@ function EditVideoModal({
   const [date, setDate] = useState(video.scheduled_date ?? '')
   const [time, setTime] = useState(video.scheduled_time ? video.scheduled_time.slice(0, 5) : '')
   const [caption, setCaption] = useState(video.caption ?? '')
-  const [notes, setNotes] = useState(video.notes ?? '')
   const [views, setViews] = useState(video.views != null ? String(video.views) : '')
   const [likes, setLikes] = useState(video.likes != null ? String(video.likes) : '')
   const [comments, setComments] = useState(video.comments != null ? String(video.comments) : '')
@@ -1307,7 +1193,6 @@ function EditVideoModal({
   const [ttUrl, setTtUrl] = useState(video.tiktok_url ?? '')
   const [igUrl, setIgUrl] = useState(video.instagram_url ?? '')
   const [category, setCategory] = useState<string | null>(video.category ?? null)
-  const [copied, setCopied] = useState(false)
   const { categories } = useCategories()
   const num = (s: string) => (s.trim() === '' ? null : Number(s.replace(/[^\d]/g, '')))
 
@@ -1322,7 +1207,6 @@ function EditVideoModal({
             scheduled_date: date || null,
             scheduled_time: time || null,
             caption: caption.trim() || null,
-            notes: notes.trim() || null,
             views: num(views),
             likes: num(likes),
             comments: num(comments),
@@ -1376,24 +1260,6 @@ function EditVideoModal({
             style={{ minHeight: 100 }}
           />
         </div>
-        <div>
-          <label htmlFor="vnotes">Notizen (z. B. „Personen markieren")</label>
-          <textarea id="vnotes" value={notes} onChange={(e) => setNotes(e.target.value)} />
-        </div>
-
-        {video.share_token && (
-          <button
-            type="button"
-            className="btn"
-            onClick={() => {
-              navigator.clipboard?.writeText(`${window.location.origin}/freigabe/${video.share_token}`)
-              setCopied(true)
-              setTimeout(() => setCopied(false), 1800)
-            }}
-          >
-            {copied ? '✓ Link kopiert' : '🔗 Freigabe-Link für den Kunden kopieren'}
-          </button>
-        )}
 
         <div className="section-divider">🔗 Live-Links (Auto-Statistik)</div>
         <div className="info-box" style={{ fontSize: 13 }}>
@@ -2061,142 +1927,8 @@ function AiIdeasModal({
   )
 }
 
-// ============================ Content-Serie ============================
-function iso(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-function LueckeModal({
-  plan, vorschlag, onClose, onCreate, onSelbst,
-}: {
-  plan: Monatsplan
-  vorschlag: PlanZeile[]
-  onClose: () => void
-  onCreate: (rows: PlanZeile[]) => void
-  onSelbst: () => void
-}) {
-  const [busy, setBusy] = useState(false)
-  const tag = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: 'short' })
-
-  return (
-    <Modal title="💡 Fehlende Videos anlegen" onClose={onClose}>
-      <div className="stack">
-        <div className="info-box" style={{ fontSize: 13 }}>
-          Laut Vertrag sind es <strong>{plan.soll} Videos</strong> diesen Monat, angelegt sind{' '}
-          <strong>{plan.angelegt}</strong>. Ich lege die fehlenden{' '}
-          <strong>{plan.ohneIdee}</strong> gleichmäßig verteilt an — mit
-          durchnummerierten Namen als Platzhalter. Die echte Idee trägst du beim
-          Bearbeiten nach.
-        </div>
-
-        {vorschlag.length === 0 ? (
-          <div className="warn-box">
-            Im Rest des Monats ist kein freier Tag mehr. Leg die Videos von Hand an oder
-            verteile sie auf den nächsten Monat.
-          </div>
-        ) : (
-          <div className="luecke-liste">
-            {vorschlag.map((z) => (
-              <div className="luecke-zeile" key={z.title}>
-                <span className="luecke-datum">{tag(z.scheduled_date)}</span>
-                <span className="luecke-titel">{z.title}</span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="modal-actions">
-          <button type="button" className="btn btn-ghost" onClick={onClose}>Abbrechen</button>
-          <button type="button" className="btn" onClick={onSelbst}>Selbst planen …</button>
-          <div className="spacer" />
-          <button
-            type="button"
-            className="btn btn-primary"
-            disabled={busy || vorschlag.length === 0}
-            onClick={() => { setBusy(true); onCreate(vorschlag) }}
-          >
-            {busy ? 'Lege an …' : `${vorschlag.length} anlegen`}
-          </button>
-        </div>
-      </div>
-    </Modal>
-  )
-}
-
-function SeriesModal({
-  onClose,
-  onCreate,
-  quota = 0,
-  recommendDays,
-  defaultUntil = null,
-}: {
-  onClose: () => void
-  onCreate: (rows: { title: string; scheduled_date: string; scheduled_time: string | null }[]) => void
-  quota?: number
-  recommendDays?: number
-  defaultUntil?: string | null
-}) {
-  const today = iso(new Date())
-  const [title, setTitle] = useState('Reel')
-  const [start, setStart] = useState(today)
-  const [time, setTime] = useState('')
-  // Vorbelegt mit dem empfohlenen Rhythmus (falls Videos/Monat gepflegt) + Vertragsende als Enddatum
-  const [rule, setRule] = useState<RepeatRule>(
-    recommendDays
-      ? { kind: 'days', interval: recommendDays, until: defaultUntil }
-      : { kind: 'weekly', until: defaultUntil },
-  )
-
-  const dates = start ? (rule.kind === 'none' ? [start] : occurrences(start, rule)) : []
-
-  function generate() {
-    if (!title.trim() || dates.length === 0) return
-    onCreate(dates.map((d) => ({ title: title.trim(), scheduled_date: d, scheduled_time: time || null })))
-  }
-
-  return (
-    <Modal title="📅 Content-Plan anlegen" onClose={onClose}>
-      <div className="stack">
-        {recommendDays && quota > 0 ? (
-          <p className="info-box">
-            💡 Empfehlung bei <b>{quota} Videos/Monat</b>: <b>alle {recommendDays} Tage</b> — gleichmäßiger Abstand.
-            {defaultUntil ? ' Bis zum Vertragsende vorbelegt.' : ' Enddatum leer = erstmal 3 Monate.'} Du kannst alles unten ändern
-            (andere Tage, feste Wochentage, monatlich …).
-          </p>
-        ) : (
-          <p className="info-box">
-            Legt automatisch mehrere Video-Karten an – z. B. „alle 3 Tage", „jeden Montag &amp; Donnerstag"
-            oder „monatlich". Enddatum leer = unbegrenzt (erstmal 3 Monate, später verlängerbar).
-          </p>
-        )}
-        <div>
-          <label>Titel *</label>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} autoFocus placeholder="z. B. Wochen-Reel" />
-        </div>
-        <div className="row" style={{ gap: 12 }}>
-          <div style={{ flex: 1 }}>
-            <label>Startdatum</label>
-            <input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
-          </div>
-          <div style={{ flex: 1 }}>
-            <label>Uhrzeit (optional)</label>
-            <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
-          </div>
-        </div>
-        <RepeatPicker value={rule} onChange={setRule} anchor={start} />
-        <div className="modal-actions">
-          <button type="button" className="btn btn-ghost" onClick={onClose}>Abbrechen</button>
-          <button type="button" className="btn btn-primary" onClick={generate} disabled={!title.trim() || dates.length === 0}>
-            {dates.length} Videos anlegen
-          </button>
-        </div>
-      </div>
-    </Modal>
-  )
-}
-
 // ============================ Analyse (gepostete Videos) ============================
-function AnalyseSection({ videos, kanaele, onEdit, onDelete, onLinks }: { videos: Video[]; kanaele: Channel[]; onEdit: (v: Video) => void; onDelete: (id: string) => void; onLinks: (v: Video) => void }) {
+function AnalyseSection({ videos, kanaele, reachThisMonth, onEdit, onDelete, onLinks }: { videos: Video[]; kanaele: Channel[]; reachThisMonth: number; onEdit: (v: Video) => void; onDelete: (id: string) => void; onLinks: (v: Video) => void }) {
   // Farbstreifen nur, wenn der Kunde wirklich zwei Betriebe hat.
   const trennt = trenntKanaele(kanaele)
   const num = (n: number | null | undefined) => (n == null ? '–' : n.toLocaleString('de-DE'))
@@ -2229,6 +1961,9 @@ function AnalyseSection({ videos, kanaele, onEdit, onDelete, onLinks }: { videos
         <div className="fin-tile"><span className="fin-label">Posts gesamt</span><span className="fin-value">{num(posts)}</span><span className="fin-sub">gepostete Videos</span></div>
         <div className="fin-tile"><span className="fin-label">Reichweite gesamt</span><span className="fin-value income">{num(totalReach)}</span><span className="fin-sub">Ø {num(Math.round(totalReach / posts))} / Post</span></div>
         <div className="fin-tile"><span className="fin-label">Interaktionen</span><span className="fin-value">{num(totalLikes)}</span><span className="fin-sub">Likes · {num(totalComments)} Kommentare</span></div>
+        {reachThisMonth > 0 && (
+          <div className="fin-tile"><span className="fin-label">Diesen Monat</span><span className="fin-value">{num(reachThisMonth)}</span><span className="fin-sub">Reichweite</span></div>
+        )}
       </div>
       {hasPlatformSplit && (
         <div className="fin-tiles" style={{ marginBottom: 18 }}>
@@ -2334,17 +2069,10 @@ function ContactBtn({ href, icon, label }: { href: string; icon: string; label: 
   )
 }
 
-function fmtK(n: number): string {
-  if (n >= 1000000) return (n / 1000000).toFixed(1).replace('.0', '') + 'M'
-  if (n >= 1000) return (n / 1000).toFixed(1).replace('.0', '') + 'k'
-  return String(n)
-}
 
-function ClientCockpit({ client, plan, reachThisMonth, stats, accounts, onPlanen }: {
+function ClientCockpit({ client, plan, accounts, onPlanen }: {
   client: Client
   plan: Monatsplan
-  reachThisMonth: number
-  stats: any[]
   accounts: ClientAccount[]
   onPlanen: () => void
 }) {
@@ -2373,14 +2101,10 @@ function ClientCockpit({ client, plan, reachThisMonth, stats, accounts, onPlanen
     client.website && { href: client.website, icon: '🌐', label: 'Website' },
   ].filter(Boolean) as { href: string; icon: string; label: string }[]
 
-  // Neuester Follower-Stand. Bei mehreren Accounts stehen in stats auch
-  // Zeilen einzelner Accounts -- fuer die Gesamtzahl zaehlt nur die
-  // Gesamtzeile, sonst wuerde der Tag doppelt gerechnet.
-  const gesamtZeilen = nurGesamt(stats)
-  const latestStat = gesamtZeilen.length ? gesamtZeilen[gesamtZeilen.length - 1] : null
-  const totalFollowers = latestStat ? (latestStat.followers_ig ?? 0) + (latestStat.followers_tiktok ?? 0) : 0
-
-  if (quota <= 0 && contacts.length === 0 && reachThisMonth === 0 && totalFollowers === 0) return null
+  // Follower und Reichweite stehen bewusst NICHT hier, sondern unter
+  // Analyse. Auf dieser Seite geht es um die Arbeit dieses Monats -- und
+  // die haengt nicht davon ab, wie gross der Kunde ist.
+  if (quota <= 0 && contacts.length === 0) return null
 
   return (
     <>
@@ -2411,18 +2135,6 @@ function ClientCockpit({ client, plan, reachThisMonth, stats, accounts, onPlanen
             <div className="cockpit-quota-title">{plan.gepostet} / {quota} Posts</div>
             <div className="cockpit-quota-sub">diesen Monat</div>
           </div>
-        </div>
-      )}
-      {totalFollowers > 0 && (
-        <div className="cockpit-stat" title={`📸 ${fmtK(latestStat.followers_ig ?? 0)} · 🎵 ${fmtK(latestStat.followers_tiktok ?? 0)}`}>
-          <div className="cockpit-quota-title">👥 {fmtK(totalFollowers)}</div>
-          <div className="cockpit-quota-sub">Follower gesamt</div>
-        </div>
-      )}
-      {reachThisMonth > 0 && (
-        <div className="cockpit-stat">
-          <div className="cockpit-quota-title">📡 {fmtK(reachThisMonth)}</div>
-          <div className="cockpit-quota-sub">Reichweite / Monat</div>
         </div>
       )}
       {contacts.length > 0 && (
