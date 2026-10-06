@@ -25,6 +25,7 @@ const BEISPIELE = [
   'Neuer Kunde Pizzeria Bella, 1.200 € im Monat, 12 Videos ab November, immer am 1., 3., 5.',
   'Für Schleckofatz im November 16 Videos, aber am 17. und 18. nicht.',
   'Trag mir Freitag ab 16 Uhr Arbeitszeit ein.',
+  'Drei Leads: Café Nord in Münster, angeschrieben. Burger Base, im Gespräch, 800 € möglich. Eisdiele Luna, Angebot raus.',
 ]
 
 export default function AssistentPanel({ onClose, onFertig }: { onClose: () => void; onFertig: () => void }) {
@@ -33,6 +34,7 @@ export default function AssistentPanel({ onClose, onFertig }: { onClose: () => v
   const [phase, setPhase] = useState<Phase>('eingabe')
   const [text, setText] = useState('')
   const [kunden, setKunden] = useState<Kunde[]>([])
+  const [leads, setLeads] = useState<{ id: string; name: string }[]>([])
   const [schritte, setSchritte] = useState<Schritt[]>([])
   const [aktiv, setAktiv] = useState<boolean[]>([])
   const [antwort, setAntwort] = useState('')
@@ -43,6 +45,8 @@ export default function AssistentPanel({ onClose, onFertig }: { onClose: () => v
   useEffect(() => {
     supabase.from('clients').select('id, name, monthly_quota').is('deleted_at', null).order('name')
       .then(({ data }) => setKunden((data ?? []) as Kunde[]))
+    supabase.from('leads').select('id, name').is('deleted_at', null).order('name')
+      .then(({ data }) => setLeads((data ?? []) as { id: string; name: string }[]))
   }, [])
 
   /** Name eines Kunden für die Vorschau -- auch für noch gar nicht angelegte. */
@@ -65,6 +69,7 @@ export default function AssistentPanel({ onClose, onFertig }: { onClose: () => v
         context: {
           today: new Date().toISOString().slice(0, 10),
           clients: kunden,
+          leads,
           members: members.map((m) => ({ id: m.id, name: m.name })),
         },
       },

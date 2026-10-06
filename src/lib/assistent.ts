@@ -35,6 +35,10 @@ export type SchrittArt =
   | 'video_absagen'
   | 'aufgabe_anlegen'
   | 'termin_anlegen'
+  | 'lead_anlegen'
+  | 'lead_aendern'
+  | 'idee_anlegen'
+  | 'profilbild_holen'
 
 /** Verweis auf einen Kunden: entweder eine echte Id oder ein Platzhalter. */
 export interface KundenBezug {
@@ -56,6 +60,14 @@ export type Schritt =
       wer?: string[] | null } & KundenBezug)
   | ({ art: 'termin_anlegen'; titel: string; kind: string; von: string; bis?: string | null
       ab?: string | null; bis_zeit?: string | null; wer?: string[] | null })
+  | ({ art: 'lead_anlegen'; ref?: string | null; name: string; stand?: string | null
+      ansprechpartner?: string | null; telefon?: string | null; email?: string | null
+      instagram?: string | null; stadt?: string | null; potenzial?: number | null
+      naechster_schritt?: string | null; notiz?: string | null })
+  | ({ art: 'lead_aendern'; lead_id?: string | null; lead_ref?: string | null
+      stand?: string | null; felder?: Record<string, unknown> | null })
+  | ({ art: 'idee_anlegen'; titel: string; notiz?: string | null } & KundenBezug)
+  | ({ art: 'profilbild_holen'; plattform: string; handle: string } & KundenBezug)
 
 export interface SchrittErgebnis {
   schritt: Schritt
@@ -89,9 +101,27 @@ export function beschreibe(s: Schritt, kundenName: (b: KundenBezug & { ref?: str
       return `Termin „${s.titel}" am ${datumKurz(s.von)}`
         + (s.bis && s.bis !== s.von ? ` bis ${datumKurz(s.bis)}` : '')
         + (s.ab ? `, ${s.ab}${s.bis_zeit ? `–${s.bis_zeit}` : ''} Uhr` : ', ganztägig')
+    case 'lead_anlegen': {
+      const teile = [`Lead „${s.name}" anlegen`]
+      if (s.stand) teile.push(STAND_NAME[s.stand] ?? s.stand)
+      if (s.stadt) teile.push(s.stadt)
+      if (s.potenzial != null) teile.push(`${s.potenzial} €/Monat möglich`)
+      return teile.join(' · ')
+    }
+    case 'lead_aendern':
+      return `Lead ändern${s.stand ? `: Stand auf „${STAND_NAME[s.stand] ?? s.stand}"` : ''}`
+    case 'idee_anlegen':
+      return `Idee „${s.titel}" in den Speicher von ${kundenName(s)}`
+    case 'profilbild_holen':
+      return `Profilbild von ${s.plattform === 'tiktok' ? 'TikTok' : 'Instagram'} @${s.handle.replace(/^@/, '')} für ${kundenName(s)} holen`
     default:
       return 'Unbekannter Schritt'
   }
+}
+
+const STAND_NAME: Record<string, string> = {
+  new: 'Neu', contacted: 'Kontaktiert', talking: 'Im Gespräch',
+  offer: 'Angebot', won: 'Gewonnen', lost: 'Verloren',
 }
 
 function datumKurz(d: string): string {
@@ -115,6 +145,22 @@ export function pruefe(schritte: Schritt[]): string[] {
       if (!s.name?.trim()) fehler.push(`Schritt ${nr}: Der Kunde hat keinen Namen.`)
       if (s.ref) refs.add(s.ref)
       return
+    }
+    if (s.art === 'lead_anlegen') {
+      if (!s.name?.trim()) fehler.push(`Schritt ${nr}: Der Lead hat keinen Namen.`)
+      if (s.stand && !STAENDE.has(s.stand)) fehler.push(`Schritt ${nr}: „${s.stand}" ist kein bekannter Stand.`)
+      if (s.ref) refs.add(s.ref)
+      return
+    }
+    if (s.art === 'lead_aendern') {
+      if (!s.lead_id && !s.lead_ref) fehler.push(`Schritt ${nr}: Kein Lead angegeben.`)
+      else if (s.lead_ref && !refs.has(s.lead_ref)) fehler.push(`Schritt ${nr}: Verweist auf einen Lead, der vorher nicht angelegt wird.`)
+      if (s.stand && !STAENDE.has(s.stand)) fehler.push(`Schritt ${nr}: „${s.stand}" ist kein bekannter Stand.`)
+      return
+    }
+    if (s.art === 'profilbild_holen') {
+      if (!s.handle?.trim()) fehler.push(`Schritt ${nr}: Kein Handle angegeben.`)
+      if (!['instagram', 'tiktok'].includes(s.plattform)) fehler.push(`Schritt ${nr}: „${s.plattform}" kenne ich nicht.`)
     }
     if (s.art === 'termin_anlegen') {
       if (!s.titel?.trim()) fehler.push(`Schritt ${nr}: Der Termin hat keinen Titel.`)
@@ -140,6 +186,8 @@ export function pruefe(schritte: Schritt[]): string[] {
 
   return fehler
 }
+
+const STAENDE = new Set(['new', 'contacted', 'talking', 'offer', 'won', 'lost'])
 
 function istDatum(d: unknown): boolean {
   return typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)
@@ -270,6 +318,62 @@ async function einSchritt(
       if (error) throw new Error(error.message)
       const n = (data ?? []).length
       return n === 0 ? `Am ${datumKurz(s.datum)} lag nichts an` : `${n} Video(s) vom ${datumKurz(s.datum)} in den Papierkorb`
+    }
+
+    case 'lead_anlegen': {
+      const payload: Record<string, unknown> = {
+        name: s.name.trim(),
+        stage: s.stand && STAENDE.has(s.stand) ? s.stand : 'new',
+        contact_person: s.ansprechpartner || null,
+        phone: s.telefon || null,
+        email: s.email || null,
+        handle_ig: s.instagram?.replace(/^@/, '') || null,
+        city: s.stadt || null,
+        potential_fee: s.potenzial ?? null,
+        next_followup: s.naechster_schritt || null,
+        notes: s.notiz || null,
+        created_by: userId,
+      }
+      const { data, error } = await supabase.from('leads').insert(payload).select('id').single()
+      if (error) throw new Error(error.message)
+      if (s.ref) refs.set(s.ref, (data as any).id as string)
+      return `Lead „${s.name}" angelegt`
+    }
+
+    case 'lead_aendern': {
+      const id = s.lead_id ?? (s.lead_ref ? refs.get(s.lead_ref) ?? null : null)
+      if (!id) throw new Error('Lead nicht gefunden')
+      const felder = { ...(s.felder ?? {}) }
+      if (s.stand && STAENDE.has(s.stand)) (felder as any).stage = s.stand
+      if (Object.keys(felder).length === 0) return 'Nichts zu ändern'
+      const { error } = await updateRow('leads', felder, 'id', id)
+      if (error) throw new Error(error.message)
+      return 'Lead geändert'
+    }
+
+    case 'idee_anlegen': {
+      const id = idVon(s)
+      if (!id) throw new Error('Kunde nicht gefunden')
+      const { error } = await supabase.from('video_ideas').insert({
+        client_id: id, title: s.titel.trim(), notes: s.notiz || null,
+        source: 'manual', created_by: userId,
+      })
+      if (error) throw new Error(error.message)
+      return `Idee „${s.titel}" gespeichert`
+    }
+
+    case 'profilbild_holen': {
+      const id = idVon(s)
+      if (!id) throw new Error('Kunde nicht gefunden')
+      const handle = s.handle.replace(/^@/, '').trim()
+      const { data, error } = await supabase.functions.invoke('apify-profile', {
+        body: { platform: s.plattform, handle, client_id: id },
+      })
+      if (error) throw new Error(error.message)
+      const a = data as any
+      if (a?.error) throw new Error(a.error)
+      if (!a?.logo_url) throw new Error(`Für @${handle} kam kein Profilbild zurück`)
+      return `Profilbild von @${handle} übernommen`
     }
 
     case 'aufgabe_anlegen': {

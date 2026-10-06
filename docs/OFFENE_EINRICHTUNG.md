@@ -83,6 +83,7 @@ gebaut, ein erneuter Lauf schadet also nicht.
 | `refresh-stats` | **AUS** | Video-Statistik-Cron (7 Tage täglich, dann wöchentlich/monatlich) |
 | `refresh-account-stats` | **AUS** | Account-Statistik-Cron (Follower/Following/Posts, täglich) — **nach 0028 neu deployen** |
 | `apify-lookup` | AN | Altes Video nachtragen (Sofort-Abruf) |
+| `apify-profile` | AN | Profilbild + Followerzahl zu einem Handle — der Assistent setzt damit das Kundenlogo |
 | `apify-places-search` | AN | Leads aus Google Maps suchen |
 | `mail-sync` | **AUS** | Postfach-Abruf-Cron |
 | `calendar-feed` | **AUS** | Kalender-Abo fürs Handy — die Kalender-App kann sich nicht anmelden, der Schlüssel in der Adresse ist die Berechtigung |

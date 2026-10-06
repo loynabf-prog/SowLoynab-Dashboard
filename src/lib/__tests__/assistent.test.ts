@@ -117,3 +117,68 @@ describe('beschreibe — die Vorschau muss im Klartext sagen, was passiert', () 
     expect(t).toContain('17.10.')
   })
 })
+
+describe('Leads — mehrere in einem Auftrag', () => {
+  it('laesst drei Leads mit verschiedenen Staenden durch', () => {
+    const plan: Schritt[] = [
+      { art: 'lead_anlegen', name: 'Café Nord', stand: 'contacted', stadt: 'Münster' },
+      { art: 'lead_anlegen', name: 'Burger Base', stand: 'talking', potenzial: 800 },
+      { art: 'lead_anlegen', name: 'Eisdiele Luna', stand: 'offer' },
+    ]
+    expect(pruefe(plan)).toEqual([])
+  })
+
+  it('beanstandet einen Lead ohne Namen', () => {
+    expect(pruefe([{ art: 'lead_anlegen', name: '' }])[0]).toMatch(/keinen Namen/)
+  })
+
+  it('beanstandet einen erfundenen Stand', () => {
+    expect(pruefe([{ art: 'lead_anlegen', name: 'X', stand: 'vielleicht' }])[0]).toMatch(/kein bekannter Stand/)
+  })
+
+  it('beanstandet ein Lead-Aendern ohne Lead', () => {
+    expect(pruefe([{ art: 'lead_aendern', stand: 'won' }])[0]).toMatch(/Kein Lead/)
+  })
+
+  it('erlaubt Anlegen und direktes Aendern ueber einen Platzhalter', () => {
+    const plan: Schritt[] = [
+      { art: 'lead_anlegen', ref: 'l1', name: 'Neu' },
+      { art: 'lead_aendern', lead_ref: 'l1', stand: 'talking' },
+    ]
+    expect(pruefe(plan)).toEqual([])
+  })
+
+  it('beschreibt Stand, Stadt und Potenzial im Klartext', () => {
+    const t = beschreibe({ art: 'lead_anlegen', name: 'Burger Base', stand: 'talking', stadt: 'Münster', potenzial: 800 }, name)
+    expect(t).toContain('Burger Base')
+    expect(t).toContain('Im Gespräch')
+    expect(t).toContain('Münster')
+    expect(t).toContain('800 €')
+  })
+})
+
+describe('Profilbild', () => {
+  it('laesst einen sauberen Abruf durch', () => {
+    const plan: Schritt[] = [
+      { art: 'kunde_anlegen', ref: 'k1', name: 'Bella', instagram: 'bella' },
+      { art: 'profilbild_holen', client_ref: 'k1', plattform: 'instagram', handle: 'bella' },
+    ]
+    expect(pruefe(plan)).toEqual([])
+  })
+
+  it('beanstandet eine unbekannte Plattform', () => {
+    const plan: Schritt[] = [{ art: 'profilbild_holen', client_id: 'a', plattform: 'facebook', handle: 'x' }]
+    expect(pruefe(plan)[0]).toMatch(/kenne ich nicht/)
+  })
+
+  it('beanstandet ein fehlendes Handle', () => {
+    const plan: Schritt[] = [{ art: 'profilbild_holen', client_id: 'a', plattform: 'tiktok', handle: ' ' }]
+    expect(pruefe(plan)[0]).toMatch(/Kein Handle/)
+  })
+
+  it('sagt in der Vorschau, woher das Bild kommt', () => {
+    const t = beschreibe({ art: 'profilbild_holen', client_id: 'a', plattform: 'tiktok', handle: '@bella' }, name)
+    expect(t).toContain('TikTok')
+    expect(t).toContain('@bella')
+  })
+})
