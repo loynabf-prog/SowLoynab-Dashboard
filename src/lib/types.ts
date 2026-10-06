@@ -179,6 +179,14 @@ export interface Video {
   duration_seconds: number | null
   posted_ig: boolean
   posted_tiktok: boolean
+  /**
+   * Vorarbeit in der Reihenfolge, in der gearbeitet wird. Getrennt vom
+   * Status: der sagt, wo die Karte liegt -- diese drei, was am Video schon
+   * getan ist. Optional, damit die App auch ohne Migration 0031 laeuft.
+   */
+  prep_shot?: boolean
+  prep_edited?: boolean
+  prep_scheduled?: boolean
   posted_at: string | null
   views: number | null
   likes: number | null

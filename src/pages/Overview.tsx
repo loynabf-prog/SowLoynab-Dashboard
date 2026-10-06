@@ -7,10 +7,9 @@ import { useAuth } from '../context/AuthContext'
 import { useIdentity } from '../context/IdentityContext'
 import { useTeam } from '../context/TeamContext'
 import SwipeRow from '../components/SwipeRow'
-import PostLinksModal from '../components/PostLinksModal'
 import LinkQueue from '../components/LinkQueue'
-import { seit } from '../lib/format'
-import type { Video } from '../lib/types'
+import PostSchritt, { type TagVideo } from '../components/PostSchritt'
+import { offeneHeute } from '../lib/postschritte'
 import { type TaskRow } from '../components/TaskItem'
 import TaskModal from '../components/TaskModal'
 
@@ -21,16 +20,7 @@ function greeting(): string {
   return 'Guten Abend'
 }
 
-interface PostLite {
-  id: string
-  title: string
-  scheduled_date: string
-  scheduled_time: string | null
-  client_id: string
-  clients?: { name: string } | null
-}
 interface Option { id: string; name: string }
-type PostedVideo = Video & { clients?: { name: string } | null }
 
 // Ein Eintrag im Tagesplan — Aufgabe mit Uhrzeit oder Video mit Post-Zeit.
 interface PlanEntry {
@@ -42,7 +32,7 @@ interface PlanEntry {
   dringend: boolean
   spaet: boolean
   task: TaskRow | null
-  post: PostLite | null
+  post: TagVideo | null
 }
 
 const hhmm = (t: string) => t.slice(0, 5)
@@ -63,7 +53,7 @@ export default function Overview() {
   const { memberId } = useIdentity()
   const { byId } = useTeam()
   const [tasks, setTasks] = useState<TaskRow[]>([])
-  const [posts, setPosts] = useState<PostLite[]>([])
+  const [posts, setPosts] = useState<TagVideo[]>([])
   const [loading, setLoading] = useState(true)
   const [clientOpts, setClientOpts] = useState<Option[]>([])
   const [leadOpts, setLeadOpts] = useState<Option[]>([])
@@ -72,8 +62,6 @@ export default function Overview() {
   const [day, setDay] = useState<'today' | 'tomorrow'>('today')
   // Was heute rausging -- am selben Tag will man da noch dran: Adresse
   // nachtragen, Zahlen holen, zum Kunden springen.
-  const [heuteRaus, setHeuteRaus] = useState<PostedVideo[]>([])
-  const [links, setLinks] = useState<PostedVideo | null>(null)
 
   // Nur die fälligen Aufgaben nachladen (nach Speichern/Löschen)
   const reloadTasks = useCallback(async () => {
@@ -88,21 +76,18 @@ export default function Overview() {
     setTasks((data ?? []) as unknown as TaskRow[])
   }, [])
 
-  // Heute veroeffentlichte Videos. Tagesgrenzen bewusst lokal gerechnet --
-  // posted_at liegt in UTC, ein Posting um 01:00 wuerde sonst auf gestern
-  // fallen.
-  const reloadHeuteRaus = useCallback(async () => {
-    const start = new Date(); start.setHours(0, 0, 0, 0)
-    const ende = new Date(start); ende.setDate(ende.getDate() + 1)
+  // Alle Videos, die heute oder morgen dran sind -- unabhaengig vom
+  // Zustand. Ein heute gepostetes Video verschwindet nicht, es wechselt nur
+  // den Schritt: erst Posten, dann die beiden Adressen. Erst danach ist der
+  // Tag fuer dieses Video durch.
+  const reloadPosts = useCallback(async () => {
     const { data } = await supabase
       .from('videos')
       .select('*, clients(name)')
-      .eq('status', 'posted')
       .is('deleted_at', null)
-      .gte('posted_at', start.toISOString())
-      .lt('posted_at', ende.toISOString())
-      .order('posted_at', { ascending: false })
-    setHeuteRaus((data ?? []) as unknown as PostedVideo[])
+      .in('scheduled_date', [iso(new Date()), tomorrowIso()])
+      .order('scheduled_time', { ascending: true, nullsFirst: false })
+    setPosts((data ?? []) as unknown as TagVideo[])
   }, [])
 
   useEffect(() => {
@@ -120,26 +105,25 @@ export default function Overview() {
           .not('due_date', 'is', null)
           .lte('due_date', bis)
           .order('due_date', { ascending: true }),
-        // Uploads von heute und morgen — mehr Vorausblick gibt es hier nicht
+        // Videos von heute und morgen — mehr Vorausblick gibt es hier nicht,
+        // alles Weitere steht im Kalender.
         supabase
           .from('videos')
           .select('*, clients(name)')
-          .neq('status', 'posted')
           .is('deleted_at', null)
           .in('scheduled_date', [iso(new Date()), bis])
           .order('scheduled_time', { ascending: true, nullsFirst: false }),
       ])
 
       setTasks((tasksRes.data ?? []) as unknown as TaskRow[])
-      setPosts((postsRes.data ?? []) as unknown as PostLite[])
+      setPosts((postsRes.data ?? []) as unknown as TagVideo[])
       setLoading(false)
     }
     load()
-    reloadHeuteRaus()
     // Kunden/Leads für den Aufgaben-Editor
     supabase.from('clients').select('id, name').is('deleted_at', null).order('name').then(({ data }) => setClientOpts((data ?? []) as Option[]))
     supabase.from('leads').select('id, name').is('deleted_at', null).order('name').then(({ data }) => setLeadOpts((data ?? []) as Option[]))
-  }, [reloadHeuteRaus])
+  }, [])
 
   async function completeTask(id: string) {
     setTasks((prev) => prev.filter((t) => t.id !== id))
@@ -156,13 +140,36 @@ export default function Overview() {
     })
   }
 
-  async function markPosted(p: PostLite) {
-    setPosts((prev) => prev.filter((x) => x.id !== p.id))
+  /** Schritt 1: raus damit. Die Karte bleibt stehen und fragt nach den Links. */
+  async function markPosted(p: TagVideo) {
+    const jetzt = new Date().toISOString()
+    setPosts((prev) => prev.map((x) => (x.id === p.id ? { ...x, status: 'posted', posted_at: jetzt } : x)))
     celebrate()
-    await supabase.from('videos').update({ status: 'posted', posted_at: new Date().toISOString() }).eq('id', p.id)
+    const { error } = await supabase.from('videos')
+      .update({ status: 'posted', posted_at: jetzt, prep_shot: true, prep_edited: true, prep_scheduled: true })
+      .eq('id', p.id)
+    // Ohne Migration 0031 gibt es die Vorarbeits-Spalten noch nicht.
+    if (error) await supabase.from('videos').update({ status: 'posted', posted_at: jetzt }).eq('id', p.id)
     toast('Gepostet — stark! 🎉')
-    // taucht sofort unten unter "Heute rausgegangen" auf
-    reloadHeuteRaus()
+  }
+
+  /** Schritt 2: Adresse nachtragen. Sind beide da, ist das Video durch. */
+  async function setLink(p: TagVideo, feld: 'tiktok_url' | 'instagram_url', url: string) {
+    setPosts((prev) => prev.map((x) => (x.id === p.id ? { ...x, [feld]: url } : x)))
+    const { error } = await supabase.from('videos').update({ [feld]: url }).eq('id', p.id)
+    if (error) { toast('Konnte nicht speichern: ' + error.message); reloadPosts(); return }
+    const fertig = feld === 'tiktok_url' ? !!p.instagram_url : !!p.tiktok_url
+    toast(fertig ? 'Beide Links drin — erledigt ✓' : 'Gespeichert ✓')
+  }
+
+  /** Vorarbeit fuer einen kommenden Tag abhaken. */
+  async function setVorarbeit(p: TagVideo, key: 'prep_shot' | 'prep_edited' | 'prep_scheduled', wert: boolean) {
+    setPosts((prev) => prev.map((x) => (x.id === p.id ? { ...x, [key]: wert } : x)))
+    const { error } = await supabase.from('videos').update({ [key]: wert }).eq('id', p.id)
+    if (error) {
+      toast('Dafür fehlt noch das Skript 0031 in der Datenbank.')
+      reloadPosts()
+    }
   }
 
   // Mit dem echten Namen der aktiven Identität grüßen (Fassie / Lion), nicht dem Mail-Namen
@@ -177,6 +184,10 @@ export default function Overview() {
     ? tasks.filter((t) => t.due_date === tagIso)
     : tasks.filter((t) => (t.due_date ?? '') <= todayIso)
   const tagPosts = posts.filter((p) => p.scheduled_date === tagIso)
+
+  // Durch ist ein Video erst, wenn beide Adressen stehen -- nicht schon
+  // beim Posten. Das ist die Zahl, die zaehlt.
+  const offenePosts = offeneHeute(tagPosts)
 
   const dringend = tagTasks.filter((t) => (t.priority ?? 0) === 3).length
   const overdue = morgen ? [] : tagTasks.filter((t) => (t.due_date ?? '') < todayIso)
@@ -225,7 +236,7 @@ export default function Overview() {
             {loading
               ? 'Lade …'
               : morgen
-                ? `Was ${new Date(tagIso + 'T00:00:00').toLocaleDateString('de-DE', { weekday: 'long' })} ansteht — in Ruhe vorbereiten`
+                ? `${new Date(tagIso + 'T00:00:00').toLocaleDateString('de-DE', { weekday: 'long' })} — heute schon abhaken, was geht`
                 : 'Dein Cockpit — heute im Fokus'}
           </span>
         </div>
@@ -241,8 +252,12 @@ export default function Overview() {
 
       <div className="today-strip">
         <span><strong>{tagTasks.length}</strong> {tagTasks.length === 1 ? 'Aufgabe' : 'Aufgaben'} {morgen ? 'morgen' : 'offen'}</span>
-        <span><strong>{tagPosts.length}</strong> {tagPosts.length === 1 ? 'Upload' : 'Uploads'} {morgen ? 'morgen' : 'heute'}</span>
-        {!morgen && heuteRaus.length > 0 && <span className="good"><strong>{heuteRaus.length}</strong> raus</span>}
+        <span><strong>{tagPosts.length}</strong> {tagPosts.length === 1 ? 'Video' : 'Videos'} {morgen ? 'morgen' : 'heute'}</span>
+        {!morgen && tagPosts.length > 0 && (
+          offenePosts === 0
+            ? <span className="good">alle durch 🎉</span>
+            : <span className="good"><strong>{tagPosts.length - offenePosts}</strong> durch</span>
+        )}
         {dringend > 0 && <span className="hot"><strong>{dringend}</strong> dringend</span>}
         {overdue.length > 0 && <span className="hot"><strong>{overdue.length}</strong> überfällig</span>}
       </div>
@@ -250,7 +265,7 @@ export default function Overview() {
       {/* Eine einzige Liste: was heute dran ist. Erst mit Uhrzeit, dann der
           Rest. Aufgaben und Uploads gemischt — so wie der Tag auch laeuft. */}
       <div className="section-block">
-        <h2 className="section-title">{morgen ? 'Morgen dran' : 'Jetzt dran'}</h2>
+        <h2 className="section-title">{morgen ? 'Morgen vorbereiten' : 'Jetzt dran'}</h2>
         {jetzt.length === 0 ? (
           <div className="col-empty" style={{ padding: 26 }}>
             {morgen ? 'Morgen ist noch nichts geplant. 🌙' : 'Alles erledigt. Genieß den Tag. 🎉'}
@@ -279,20 +294,16 @@ export default function Overview() {
                   </div>
                 </SwipeRow>
               ) : (
-                <div className="jetzt-row" key={e.key}>
-                  <span className="jetzt-ic">🎬</span>
-                  <button className="jetzt-main" onClick={() => navigate(`/client/${e.post!.client_id}`)}>
-                    <span className="jetzt-title">{e.title}</span>
-                    <span className="jetzt-meta">
-                      {e.time && <span className="jetzt-zeit">{e.time}</span>}
-                      <span className="jetzt-art">posten</span>
-                      {e.sub && <span className="chip">{e.sub}</span>}
-                    </span>
-                  </button>
-                  <button className="btn btn-sm" onClick={() => markPosted(e.post!)} title="Als gepostet markieren">
-                    ✓ Gepostet
-                  </button>
-                </div>
+                <PostSchritt
+                  key={e.key}
+                  video={e.post!}
+                  modus={morgen ? 'vorher' : 'heute'}
+                  zeit={e.time}
+                  onOeffnen={() => navigate(`/client/${e.post!.client_id}`)}
+                  onPosten={() => markPosted(e.post!)}
+                  onLink={(feld, url) => setLink(e.post!, feld, url)}
+                  onVorarbeit={(key, wert) => setVorarbeit(e.post!, key, wert)}
+                />
               )
             ))}
           </div>
@@ -300,48 +311,6 @@ export default function Overview() {
       </div>
 
       {!morgen && <LinkQueue />}
-
-      {/* Was heute schon rausging. Nur im Heute-Blick -- morgen ist noch
-          nichts gepostet, da waere der Abschnitt sinnlos. */}
-      {!morgen && heuteRaus.length > 0 && (
-        <div className="section-block">
-          <h2 className="section-title">Heute rausgegangen 🚀</h2>
-          <div className="task-list">
-            {heuteRaus.map((v) => {
-              const ohneLink = !v.tiktok_url && !v.instagram_url
-              return (
-                <div key={v.id} className="task-item">
-                  <span className="activity-icon" style={{ cursor: 'pointer' }} onClick={() => navigate(`/client/${v.client_id}`)}>✅</span>
-                  <div className="task-body" style={{ cursor: 'pointer' }} onClick={() => navigate(`/client/${v.client_id}`)}>
-                    <div className="task-title">{v.title}</div>
-                    <div className="task-meta">
-                      {v.clients?.name && <span className="chip">{v.clients.name}</span>}
-                      {v.views != null
-                        ? <span className="task-due">▶ {v.views.toLocaleString('de-DE')} Aufrufe</span>
-                        : <span className="task-due">noch keine Zahlen</span>}
-                    </div>
-                  </div>
-                  <button
-                    className={ohneLink ? 'link-missing' : 'stats-refresh'}
-                    onClick={() => setLinks(v)}
-                    title={ohneLink ? 'Adresse des Postings nachtragen' : 'Zahlen jetzt holen'}
-                  >
-                    {ohneLink ? '🔗 Link fehlt' : `⟳ ${v.stats_updated_at ? seit(v.stats_updated_at) : 'nie geprüft'}`}
-                  </button>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
-      {links && (
-        <PostLinksModal
-          video={links}
-          onClose={() => setLinks(null)}
-          onSaved={() => { reloadHeuteRaus(); toast('Gespeichert ✓') }}
-        />
-      )}
 
       {editing && (
         <TaskModal
