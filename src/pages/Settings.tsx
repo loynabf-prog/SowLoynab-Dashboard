@@ -7,6 +7,7 @@ import { useCategories } from '../context/CategoryContext'
 import { useToast } from '../context/ToastContext'
 import { getPackages, packageLabel, type Package } from '../lib/packages'
 import { dbKlartext, updateRow } from '../lib/db'
+import CaptionVorgabeCard from '../components/CaptionVorgabeCard'
 
 interface StatusRow { job: string; last_ok: string | null; last_error: string | null; last_error_at: string | null; detail: string | null }
 const JOB_LABEL: Record<string, string> = {
@@ -63,7 +64,7 @@ export default function Settings() {
   return (
     <>
       <div className="page-head">
-        <div><h1>Einstellungen</h1><span className="sub">Firmendaten für Rechnungen</span></div>
+        <div><h1>Einstellungen</h1><span className="sub">Firmendaten, Captions, Pakete</span></div>
       </div>
 
       <div className="settings-card">
@@ -121,6 +122,8 @@ export default function Settings() {
         </p>
         <button className="btn" onClick={testZoho} disabled={testing}>{testing ? 'Prüfe …' : '🔌 Zoho-Verbindung testen'}</button>
       </div>
+
+      <CaptionVorgabeCard />
 
       <PackagesCard />
 

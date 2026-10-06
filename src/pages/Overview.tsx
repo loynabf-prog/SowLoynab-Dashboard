@@ -140,15 +140,27 @@ export default function Overview() {
     })
   }
 
-  /** Schritt 1: raus damit. Die Karte bleibt stehen und fragt nach den Links. */
+  /**
+   * Schritt 1: raus damit.
+   *
+   * Dabei merken wir uns einen Zeitpunkt ein paar Minuten spaeter: dann ist
+   * das Video online und zuverlaessig das neueste Posting des Kunden -- der
+   * Hintergrundlauf holt die Adressen dann von selbst.
+   */
   async function markPosted(p: TagVideo) {
     const jetzt = new Date().toISOString()
-    setPosts((prev) => prev.map((x) => (x.id === p.id ? { ...x, status: 'posted', posted_at: jetzt } : x)))
+    const holen = new Date(Date.now() + 5 * 60_000).toISOString()
+    setPosts((prev) => prev.map((x) => (
+      x.id === p.id ? { ...x, status: 'posted', posted_at: jetzt, link_fetch_state: 'offen' } : x
+    )))
     celebrate()
-    const { error } = await supabase.from('videos')
-      .update({ status: 'posted', posted_at: jetzt, prep_shot: true, prep_edited: true, prep_scheduled: true })
-      .eq('id', p.id)
-    // Ohne Migration 0031 gibt es die Vorarbeits-Spalten noch nicht.
+    const voll = {
+      status: 'posted', posted_at: jetzt,
+      prep_shot: true, prep_edited: true, prep_scheduled: true,
+      link_fetch_at: holen, link_fetch_state: 'offen', link_fetch_tries: 0,
+    }
+    const { error } = await supabase.from('videos').update(voll).eq('id', p.id)
+    // Fehlen die neueren Spalten noch (Skript 0031/0033), reicht das Noetige.
     if (error) await supabase.from('videos').update({ status: 'posted', posted_at: jetzt }).eq('id', p.id)
     toast('Gepostet — stark! 🎉')
   }
@@ -156,8 +168,15 @@ export default function Overview() {
   /** Schritt 2: Adresse nachtragen. Sind beide da, ist das Video durch. */
   async function setLink(p: TagVideo, feld: 'tiktok_url' | 'instagram_url', url: string) {
     setPosts((prev) => prev.map((x) => (x.id === p.id ? { ...x, [feld]: url } : x)))
-    const { error } = await supabase.from('videos').update({ [feld]: url }).eq('id', p.id)
-    if (error) { toast('Konnte nicht speichern: ' + error.message); reloadPosts(); return }
+    // Von Hand eingetragen heisst: der Hintergrundlauf hat hier nichts mehr
+    // zu suchen, sonst ueberschreibt er spaeter die bessere Angabe.
+    const { error } = await supabase.from('videos')
+      .update({ [feld]: url, link_fetch_at: null, link_fetch_state: 'fertig', link_fetch_note: null })
+      .eq('id', p.id)
+    if (error) {
+      const { error: e2 } = await supabase.from('videos').update({ [feld]: url }).eq('id', p.id)
+      if (e2) { toast('Konnte nicht speichern: ' + e2.message); reloadPosts(); return }
+    }
     const fertig = feld === 'tiktok_url' ? !!p.instagram_url : !!p.tiktok_url
     toast(fertig ? 'Beide Links drin — erledigt ✓' : 'Gespeichert ✓')
   }

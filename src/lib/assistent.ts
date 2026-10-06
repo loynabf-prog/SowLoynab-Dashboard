@@ -26,6 +26,7 @@ import { insertRows, updateRow } from './db'
 import { gleichmaessigeTermine, platzhalterNamen, vorschlagAbstand } from './monatsrhythmus'
 import { hoechsteNummer } from './autoplan'
 import { setzeMonatsmenge } from './monatsmenge'
+import { schreibeCaption } from './caption'
 
 export type SchrittArt =
   | 'kunde_anlegen'
@@ -39,6 +40,7 @@ export type SchrittArt =
   | 'lead_aendern'
   | 'idee_anlegen'
   | 'profilbild_holen'
+  | 'caption_schreiben'
 
 /** Verweis auf einen Kunden: entweder eine echte Id oder ein Platzhalter. */
 export interface KundenBezug {
@@ -68,6 +70,8 @@ export type Schritt =
       stand?: string | null; felder?: Record<string, unknown> | null })
   | ({ art: 'idee_anlegen'; titel: string; notiz?: string | null } & KundenBezug)
   | ({ art: 'profilbild_holen'; plattform: string; handle: string } & KundenBezug)
+  | ({ art: 'caption_schreiben'; beschreibung: string; ziel?: string | null
+      titel?: string | null; datum?: string | null; extra?: string | null } & KundenBezug)
 
 export interface SchrittErgebnis {
   schritt: Schritt
@@ -114,6 +118,9 @@ export function beschreibe(s: Schritt, kundenName: (b: KundenBezug & { ref?: str
       return `Idee „${s.titel}" in den Speicher von ${kundenName(s)}`
     case 'profilbild_holen':
       return `Profilbild von ${s.plattform === 'tiktok' ? 'TikTok' : 'Instagram'} @${s.handle.replace(/^@/, '')} für ${kundenName(s)} holen`
+    case 'caption_schreiben':
+      return `Caption schreiben für ${kundenName(s)}`
+        + (s.titel ? ` — „${s.titel}"` : s.datum ? ` — Video vom ${datumKurz(s.datum)}` : '')
     default:
       return 'Unbekannter Schritt'
   }
@@ -157,6 +164,9 @@ export function pruefe(schritte: Schritt[]): string[] {
       else if (s.lead_ref && !refs.has(s.lead_ref)) fehler.push(`Schritt ${nr}: Verweist auf einen Lead, der vorher nicht angelegt wird.`)
       if (s.stand && !STAENDE.has(s.stand)) fehler.push(`Schritt ${nr}: „${s.stand}" ist kein bekannter Stand.`)
       return
+    }
+    if (s.art === 'caption_schreiben') {
+      if (!s.beschreibung?.trim()) fehler.push(`Schritt ${nr}: Ohne Beschreibung kann ich nichts schreiben.`)
     }
     if (s.art === 'profilbild_holen') {
       if (!s.handle?.trim()) fehler.push(`Schritt ${nr}: Kein Handle angegeben.`)
@@ -354,12 +364,24 @@ async function einSchritt(
     case 'idee_anlegen': {
       const id = idVon(s)
       if (!id) throw new Error('Kunde nicht gefunden')
+      // Steht eine Beschreibung dabei, schreiben wir die Caption gleich mit.
+      // Sie entsteht ohnehin aus der Idee -- getrennt zu fragen waere nur ein
+      // zweiter Handgriff fuer dasselbe Ergebnis.
+      let caption: string | null = null
+      if (s.notiz?.trim()) {
+        try {
+          const { data: k } = await supabase
+            .from('clients').select('name, handle_ig, handle_tiktok, ai_brief').eq('id', id).maybeSingle()
+          caption = await schreibeCaption(`${s.titel}. ${s.notiz}`, (k ?? {}) as any)
+        } catch { /* ohne Caption ist die Idee trotzdem etwas wert */ }
+      }
       const { error } = await supabase.from('video_ideas').insert({
         client_id: id, title: s.titel.trim(), notes: s.notiz || null,
+        ...(caption ? { caption } : {}),
         source: 'manual', created_by: userId,
       })
       if (error) throw new Error(error.message)
-      return `Idee „${s.titel}" gespeichert`
+      return caption ? `Idee „${s.titel}" gespeichert, Caption gleich mit` : `Idee „${s.titel}" gespeichert`
     }
 
     case 'profilbild_holen': {
@@ -374,6 +396,37 @@ async function einSchritt(
       if (a?.error) throw new Error(a.error)
       if (!a?.logo_url) throw new Error(`Für @${handle} kam kein Profilbild zurück`)
       return `Profilbild von @${handle} übernommen`
+    }
+
+    case 'caption_schreiben': {
+      const id = idVon(s)
+      if (!id) throw new Error('Kunde nicht gefunden')
+      const { data: k } = await supabase
+        .from('clients').select('name, handle_ig, handle_tiktok, ai_brief').eq('id', id).maybeSingle()
+      const caption = await schreibeCaption(s.beschreibung, (k ?? {}) as any, s.extra ?? '')
+
+      // Wohin damit? An das genannte Video, sonst an die zuletzt angelegte
+      // Idee desselben Kunden -- da kam die Beschreibung ja meistens her.
+      if (s.ziel === 'idee' || !s.titel && !s.datum) {
+        const { data: idee } = await supabase
+          .from('video_ideas').select('id').eq('client_id', id).is('deleted_at', null)
+          .order('created_at', { ascending: false }).limit(1).maybeSingle()
+        if (idee) {
+          const { error } = await supabase.from('video_ideas')
+            .update({ caption }).eq('id', (idee as any).id)
+          if (error) throw new Error(error.message)
+          return 'Caption an der Idee gespeichert'
+        }
+      }
+
+      let q = supabase.from('videos').select('id').eq('client_id', id).is('deleted_at', null)
+      if (s.datum) q = q.eq('scheduled_date', s.datum)
+      else if (s.titel) q = q.ilike('title', `%${s.titel}%`)
+      const { data: v } = await q.order('created_at', { ascending: false }).limit(1).maybeSingle()
+      if (!v) throw new Error('Kein passendes Video gefunden')
+      const { error } = await supabase.from('videos').update({ caption }).eq('id', (v as any).id)
+      if (error) throw new Error(error.message)
+      return 'Caption geschrieben und am Video gespeichert'
     }
 
     case 'aufgabe_anlegen': {

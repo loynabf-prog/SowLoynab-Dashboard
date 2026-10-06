@@ -46,6 +46,8 @@ gebaut, ein erneuter Lauf schadet also nicht.
 - [ ] `supabase/migrations/0032_kalender_abo.sql` — **Termine** (Arbeitszeit, Spiel,
       Einzeltermin) und ein **Abo-Schlüssel je Teammitglied**, damit jeder den
       Dashboard-Kalender auf seinem Handy abonnieren kann.
+- [ ] `supabase/migrations/0033_auto_links_caption.sql` — **Links kommen automatisch**
+      (ein paar Minuten nach „Gepostet") und **Caption an der Idee**.
 
 *(0020–0023 stecken gesammelt in `ALLES_offen_20-23.sql`, 0024–0027 in
 `ALLES_offen_24-27.sql` — dann reichen zwei Durchläufe statt acht.)*
@@ -73,7 +75,7 @@ gebaut, ein erneuter Lauf schadet also nicht.
 
 | Funktion | JWT | Zweck |
 |----------|-----|-------|
-| ~~`generate-caption`~~ | — | Bildunterschriften — **aktuell nicht mehr in der App**. Die Funktion bleibt liegen, falls wir sie später wieder einschalten. |
+| `generate-caption` | AN | Captions — der Assistent schreibt damit, Hausstil kommt aus den Einstellungen |
 | `generate-ideas` | AN | Ideen-Vorschläge |
 | `assistent` | AN | **Assistent** — macht aus einem Auftrag einen Plan aus mehreren Schritten. Schreibt selbst nichts; ausgeführt wird in der App unter dem angemeldeten Nutzer. |
 | ~~`voice-command`~~ | — | abgelöst durch `assistent`; kann gelöscht werden |
@@ -86,6 +88,7 @@ gebaut, ein erneuter Lauf schadet also nicht.
 | `apify-profile` | AN | Profilbild + Followerzahl zu einem Handle — der Assistent setzt damit das Kundenlogo |
 | `apify-places-search` | AN | Leads aus Google Maps suchen |
 | `mail-sync` | **AUS** | Postfach-Abruf-Cron |
+| `fetch-post-links` | **AUS** | holt die Posting-Adressen nach dem Posten selbst (alle 5 Min) |
 | `calendar-feed` | **AUS** | Kalender-Abo fürs Handy — die Kalender-App kann sich nicht anmelden, der Schlüssel in der Adresse ist die Berechtigung |
 
 ## 4. Zeitpläne (Cron) einrichten
@@ -96,6 +99,7 @@ Jeweils Projekt-Ref + Anon-Key eintragen und im SQL Editor ausführen:
 - [ ] `supabase/functions/refresh-stats/cron-setup.sql`
 - [ ] `supabase/functions/refresh-account-stats/cron-setup.sql`
 - [ ] `supabase/functions/mail-sync/cron-setup.sql`
+- [ ] `supabase/functions/fetch-post-links/cron-setup.sql` — alle 5 Minuten
 
 ## 5. In der App
 
@@ -106,6 +110,8 @@ Jeweils Projekt-Ref + Anon-Key eintragen und im SQL Editor ausführen:
       gemeinsamen Termine plus die eigenen. **Der Link ist ein Passwort** — nicht
       weitergeben; bei Handyverlust in der App auf „Neu".
       Braucht 0032 + `calendar-feed` deployed mit JWT **AUS**.
+- [ ] **Mehr → Einstellungen → Feste Hashtags** eintragen. Die hängt der Assistent
+      an jede Caption an, ohne dass du sie je wieder mitdiktieren musst.
 - [ ] **Mehr → Einstellungen**: Firmendaten ausfüllen (Pflicht für Rechnungen)
 - [ ] **Zoho anbinden**: Schritte in `docs/ZOHO_MAIL_SETUP.md`
 - [ ] Push erlauben (Handy fragt beim ersten Mal)
