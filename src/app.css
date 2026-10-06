@@ -3502,3 +3502,32 @@ html { scroll-behavior: smooth; }
   .abo-knoepfe { width: 100%; }
   .abo-knoepfe .btn { flex: 1 1 auto; }
 }
+
+/* --- Assistent ------------------------------------------------------------ */
+/* Beispiele zum Antippen: zeigen, was der Assistent kann, ohne eine
+   Bedienungsanleitung zu sein. */
+.as-beispiele { display: flex; flex-direction: column; gap: 6px; }
+.as-beispiel {
+  text-align: left; padding: 9px 11px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--bg-sunken);
+  font-size: 12.5px; line-height: 1.4; color: var(--text-muted); cursor: pointer;
+}
+.as-beispiel:hover { background: var(--bg-card-hover); color: var(--text); }
+
+/* Der Plan. Jeder Schritt ist abwaehlbar -- man soll nicht alles verwerfen
+   muessen, nur weil einer davon nicht stimmt. */
+.as-liste { display: flex; flex-direction: column; gap: 6px; }
+.as-schritt {
+  display: flex; align-items: flex-start; gap: 9px; width: 100%;
+  padding: 10px 11px; border-radius: 11px; text-align: left;
+  border: 1px solid var(--border); background: var(--bg-card);
+  font: inherit; font-size: 13.5px; line-height: 1.45; color: inherit;
+  cursor: pointer;
+}
+.as-schritt.aus { opacity: 0.45; text-decoration: line-through; }
+.as-schritt.fertig { cursor: default; border-color: var(--posted); }
+.as-schritt.kaputt { cursor: default; border-color: var(--danger); }
+.as-nr { flex: 0 0 auto; font-weight: 700; }
+.as-schritt.on .as-nr, .as-schritt.fertig .as-nr { color: var(--posted); }
+.as-schritt.kaputt .as-nr { color: var(--danger); }
+.as-text { flex: 1 1 auto; min-width: 0; }

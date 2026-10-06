@@ -75,7 +75,8 @@ gebaut, ein erneuter Lauf schadet also nicht.
 |----------|-----|-------|
 | ~~`generate-caption`~~ | — | Bildunterschriften — **aktuell nicht mehr in der App**. Die Funktion bleibt liegen, falls wir sie später wieder einschalten. |
 | `generate-ideas` | AN | Ideen-Vorschläge |
-| `voice-command` | AN | Sprachbefehl |
+| `assistent` | AN | **Assistent** — macht aus einem Auftrag einen Plan aus mehreren Schritten. Schreibt selbst nichts; ausgeführt wird in der App unter dem angemeldeten Nutzer. |
+| ~~`voice-command`~~ | — | abgelöst durch `assistent`; kann gelöscht werden |
 | `send-push` | AN | Push senden |
 | `mail-send` | **AN** | Rechnung/Mail verschicken |
 | `daily-reminders` | **AUS** | täglicher Reminder-Cron |
