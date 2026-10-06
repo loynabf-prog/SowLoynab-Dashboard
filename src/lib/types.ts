@@ -212,6 +212,14 @@ export interface Video {
   prep_shot?: boolean
   prep_edited?: boolean
   prep_scheduled?: boolean
+  /**
+   * Automatische Link-Abholung nach dem Posten. link_fetch_state:
+   * 'offen' = laeuft noch, 'fertig' = beide Adressen da, 'unklar' = etwas
+   * stimmt nicht und wir fragen lieber nach, 'fehlgeschlagen' = aufgegeben.
+   */
+  link_fetch_at?: string | null
+  link_fetch_state?: string | null
+  link_fetch_note?: string | null
   posted_at: string | null
   views: number | null
   likes: number | null

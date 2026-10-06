@@ -40,6 +40,7 @@ Deno.serve(async (req) => {
       c.handle_tiktok ? `TikTok: @${c.handle_tiktok.replace(/^@/, '')}` : null,
       body.notes ? `Notizen: ${body.notes}` : null,
       body.extra ? `Zusatzwunsch: ${body.extra}` : null,
+      (body as any).tonalitaet ? `Hausstil: ${(body as any).tonalitaet}` : null,
     ]
       .filter(Boolean)
       .join('\n')

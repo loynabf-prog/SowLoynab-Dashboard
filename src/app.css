@@ -3531,3 +3531,17 @@ html { scroll-behavior: smooth; }
 .as-schritt.on .as-nr, .as-schritt.fertig .as-nr { color: var(--posted); }
 .as-schritt.kaputt .as-nr { color: var(--danger); }
 .as-text { flex: 1 1 auto; min-width: 0; }
+
+/* Die Adressen werden gerade automatisch geholt -- ruhig, nicht alarmierend. */
+.ps-wartet { display: flex; align-items: center; gap: 8px; }
+.ps-puls {
+  flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--brand); animation: ps-puls 1.6s ease-in-out infinite;
+}
+@keyframes ps-puls {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50%      { opacity: 1;   transform: scale(1.15); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ps-puls { animation: none; opacity: 0.8; }
+}

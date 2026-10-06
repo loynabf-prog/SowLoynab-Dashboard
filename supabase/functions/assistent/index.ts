@@ -199,6 +199,23 @@ const WERKZEUGE = [
     },
   },
   {
+    name: 'caption_schreiben',
+    description: 'Schreibt eine Caption im Hausstil und speichert sie am Video oder an der Idee. Die festen Hashtags hängt die App selbst an.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        client_id: { type: ['string', 'null'] },
+        client_ref: { type: ['string', 'null'] },
+        beschreibung: { type: 'string', description: 'Was im Video passiert — ein bis zwei Sätze.' },
+        ziel: { type: ['string', 'null'], enum: ['video', 'idee', null], description: 'Wo die Caption hin soll. Standard: das genannte Video, sonst die zuletzt angelegte Idee.' },
+        titel: { type: ['string', 'null'], description: 'Titel des gemeinten Videos, falls genannt.' },
+        datum: { type: ['string', 'null'], description: 'YYYY-MM-DD des gemeinten Videos, falls genannt.' },
+        extra: { type: ['string', 'null'], description: 'Einmaliger Zusatzwunsch, z. B. "Aktion erwähnen".' },
+      },
+      required: ['beschreibung'],
+    },
+  },
+  {
     name: 'termin_anlegen',
     description: 'Arbeitszeit, Spiel oder sonstiger Termin — alles, was den Tag belegt, aber kein Video und keine Aufgabe ist.',
     input_schema: {
@@ -267,6 +284,13 @@ Deno.serve(async (req) => {
       '  statt ihn noch einmal anzulegen.',
       '- Wird beim Kunden ein Instagram- oder TikTok-Handle genannt, ruf danach',
       '  profilbild_holen auf -- einmal je Plattform.',
+      '- Beschreibt der Nutzer eine Videoidee inhaltlich, leg sie mit idee_anlegen an',
+      '  und schreib die Beschreibung in notiz -- die App macht daraus automatisch die',
+      '  Caption. Einen eigenen caption_schreiben-Schritt brauchst du dann NICHT.',
+      '- caption_schreiben nur, wenn ausdruecklich eine Caption fuer ein BESTEHENDES',
+      '  Video gewuenscht ist.',
+      '- Hashtags erfindest du nicht und nennst du nicht -- die haengt die App aus den',
+      '  Einstellungen selbst an.',
       '- Erfinde nichts. Was nicht gesagt wurde, bleibt null.',
       '- Bist du dir bei etwas Wesentlichem unsicher, rufe KEIN Werkzeug auf und',
       '  frag in einem Satz nach.',

@@ -34,6 +34,9 @@ export default function PostSchritt({
   const phase = postPhase(video)
   const fehlt = fehlendeLinks(video)
   const stand = vorarbeitStand(video)
+  // Laeuft die automatische Abholung noch? Dann sagen wir das, statt die
+  // Felder so hinzustellen, als muesse man gleich tippen.
+  const holtNoch = video.link_fetch_state === 'offen' && !!video.link_fetch_at
 
   return (
     <div className={`ps-karte ${phase === 'fertig' ? 'fertig' : ''}`}>
@@ -59,9 +62,20 @@ export default function PostSchritt({
           nur da sein, solange es gebraucht wird. */}
       {modus === 'heute' && phase === 'gepostet' && (
         <div className="ps-links">
-          <div className="ps-links-hinweis">
-            Noch {fehlt.length === 2 ? 'beide Adressen' : 'eine Adresse'} eintragen — ohne sie bekommen wir nie Zahlen.
-          </div>
+          {holtNoch ? (
+            <div className="ps-links-hinweis ps-wartet">
+              <span className="ps-puls" aria-hidden="true" />
+              Die {fehlt.length === 2 ? 'Adressen werden' : 'Adresse wird'} gleich automatisch
+              geholt — ein paar Minuten nach dem Posten. Du kannst sie auch jetzt schon
+              selbst eintragen.
+            </div>
+          ) : (
+            <div className="ps-links-hinweis">
+              {video.link_fetch_note
+                ? `Automatisch ging es nicht: ${video.link_fetch_note}. Bitte von Hand eintragen.`
+                : `Noch ${fehlt.length === 2 ? 'beide Adressen' : 'eine Adresse'} eintragen — ohne sie bekommen wir nie Zahlen.`}
+            </div>
+          )}
           {fehlt.includes('tiktok') && (
             <LinkFeld icon="🎵" label="TikTok-Link" onSave={(u) => onLink('tiktok_url', u)} />
           )}

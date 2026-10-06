@@ -26,6 +26,7 @@ const BEISPIELE = [
   'Für Schleckofatz im November 16 Videos, aber am 17. und 18. nicht.',
   'Trag mir Freitag ab 16 Uhr Arbeitszeit ein.',
   'Drei Leads: Café Nord in Münster, angeschrieben. Burger Base, im Gespräch, 800 € möglich. Eisdiele Luna, Angebot raus.',
+  'Idee für Schleckofatz: „Pasta-Teaser" — der Chef macht die Nudeln vor den Gästen an der Theke frisch.',
 ]
 
 export default function AssistentPanel({ onClose, onFertig }: { onClose: () => void; onFertig: () => void }) {
