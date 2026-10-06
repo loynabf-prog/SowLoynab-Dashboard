@@ -27,6 +27,7 @@ const CORS = {
 interface Ctx {
   today?: string
   clients?: { id: string; name: string; monthly_quota?: number | null }[]
+  leads?: { id: string; name: string }[]
   members?: { id: string; name: string }[]
 }
 
@@ -132,6 +133,72 @@ const WERKZEUGE = [
     },
   },
   {
+    name: 'lead_anlegen',
+    description: 'Ein Interessent, der noch kein Kunde ist. Für "neuer Lead", "Kontakt", "da waren wir im Gespräch". Mehrere Leads = mehrere Aufrufe.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        ref: { type: ['string', 'null'], description: 'Platzhalter wie "l1", falls ein späterer Schritt darauf verweist.' },
+        name: { type: 'string', description: 'Name des Betriebs.' },
+        stand: {
+          type: ['string', 'null'],
+          enum: ['new', 'contacted', 'talking', 'offer', 'won', 'lost', null],
+          description: 'Wie weit man ist: new=noch nichts, contacted=angeschrieben/angerufen, talking=im Gespräch, offer=Angebot raus, won=gewonnen, lost=abgesagt.',
+        },
+        ansprechpartner: { type: ['string', 'null'] },
+        telefon: { type: ['string', 'null'] },
+        email: { type: ['string', 'null'] },
+        instagram: { type: ['string', 'null'] },
+        stadt: { type: ['string', 'null'] },
+        potenzial: { type: ['number', 'null'], description: 'Mögliches Honorar pro Monat in Euro.' },
+        naechster_schritt: { type: ['string', 'null'], description: 'Datum YYYY-MM-DD für die nächste Nachfassung.' },
+        notiz: { type: ['string', 'null'] },
+      },
+      required: ['name'],
+    },
+  },
+  {
+    name: 'lead_aendern',
+    description: 'Ändert einen bestehenden Lead, meist den Stand ("bei dem sind wir jetzt im Gespräch").',
+    input_schema: {
+      type: 'object',
+      properties: {
+        lead_id: { type: ['string', 'null'] },
+        lead_ref: { type: ['string', 'null'] },
+        stand: { type: ['string', 'null'], enum: ['new', 'contacted', 'talking', 'offer', 'won', 'lost', null] },
+        felder: { type: ['object', 'null'], description: 'Weitere Spalten: potential_fee, next_followup, notes, phone, email, city, contact_person.' },
+      },
+    },
+  },
+  {
+    name: 'idee_anlegen',
+    description: 'Eine Videoidee in den Ideenspeicher eines Kunden — noch kein Termin, nur gemerkt.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        client_id: { type: ['string', 'null'] },
+        client_ref: { type: ['string', 'null'] },
+        titel: { type: 'string' },
+        notiz: { type: ['string', 'null'] },
+      },
+      required: ['titel'],
+    },
+  },
+  {
+    name: 'profilbild_holen',
+    description: 'Holt das öffentliche Profilbild zu einem Handle und setzt es als Logo des Kunden. Nach kunde_anlegen aufrufen, wenn ein Handle genannt wurde.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        client_id: { type: ['string', 'null'] },
+        client_ref: { type: ['string', 'null'] },
+        plattform: { type: 'string', enum: ['instagram', 'tiktok'] },
+        handle: { type: 'string', description: 'Ohne @.' },
+      },
+      required: ['plattform', 'handle'],
+    },
+  },
+  {
     name: 'termin_anlegen',
     description: 'Arbeitszeit, Spiel oder sonstiger Termin — alles, was den Tag belegt, aber kein Video und keine Aufgabe ist.',
     input_schema: {
@@ -167,6 +234,7 @@ Deno.serve(async (req) => {
     const kunden = (ctx.clients ?? [])
       .map((c) => `- ${c.name} (id: ${c.id}${c.monthly_quota ? `, ${c.monthly_quota} Videos/Monat` : ''})`)
       .join('\n') || '(noch keine)'
+    const leads = (ctx.leads ?? []).map((l) => `- ${l.name} (id: ${l.id})`).join('\n') || '(noch keine)'
     const team = (ctx.members ?? []).map((m) => `- ${m.name} (id: ${m.id})`).join('\n') || '(niemand)'
 
     const system = [
@@ -177,6 +245,9 @@ Deno.serve(async (req) => {
       '',
       'Bekannte Kunden:',
       kunden,
+      '',
+      'Bekannte Leads:',
+      leads,
       '',
       'Team:',
       team,
@@ -190,6 +261,12 @@ Deno.serve(async (req) => {
       '  start_tag=1, abstand=2. Rechne den Abstand aus den genannten Tagen aus.',
       '- "aber am 17. nicht" gehört als auslassen=[17] in denselben monatsplan-Schritt,',
       '  nicht als eigener Lösch-Schritt.',
+      '- Mehrere Leads in einem Satz heissen mehrere lead_anlegen-Aufrufe --',
+      '  einer je Betrieb, mit dem jeweils genannten Stand.',
+      '- Steht der Lead schon in der Liste, nimm lead_aendern mit seiner id,',
+      '  statt ihn noch einmal anzulegen.',
+      '- Wird beim Kunden ein Instagram- oder TikTok-Handle genannt, ruf danach',
+      '  profilbild_holen auf -- einmal je Plattform.',
       '- Erfinde nichts. Was nicht gesagt wurde, bleibt null.',
       '- Bist du dir bei etwas Wesentlichem unsicher, rufe KEIN Werkzeug auf und',
       '  frag in einem Satz nach.',
