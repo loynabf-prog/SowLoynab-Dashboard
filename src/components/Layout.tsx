@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import VoiceButton from './VoiceButton'
+import AssistentButton from './AssistentButton'
 import NudgeCenter from './NudgeCenter'
 import MailIndicator from './MailIndicator'
 import CommandPalette from './CommandPalette'
@@ -105,7 +105,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       {moreOpen && <MoreMenu onClose={() => setMoreOpen(false)} onSignOut={() => signOut()} />}
 
-      <VoiceButton />
+      <AssistentButton />
       <CommandPalette />
       <QuickAdd />
       <UpdatePrompt />
