@@ -8,9 +8,12 @@ import { useToast } from '../context/ToastContext'
 import Modal from '../components/Modal'
 import TaskModal from '../components/TaskModal'
 import LogoFrame from '../components/LogoFrame'
+import TerminModal from '../components/TerminModal'
+import { useTeam } from '../context/TeamContext'
+import type { CalEventRow } from '../lib/types'
 
 type ViewMode = 'day' | '3day' | 'week' | 'month'
-type EventKind = 'post' | 'task' | 'followup'
+type EventKind = 'post' | 'task' | 'followup' | 'termin'
 
 interface CalEvent {
   id?: string
@@ -20,8 +23,10 @@ interface CalEvent {
   title: string
   sub?: string
   to?: string
-  color?: string // Kategorie-Farbe (Aufgaben)
+  color?: string // Kategorie-Farbe (Aufgaben) bzw. Mitglieds-Farbe (Termine)
   logo?: string | null // Kunden-Logo (Posts)
+  /** Nur bei Terminen: der Datensatz, damit das Fenster ihn bearbeiten kann. */
+  row?: CalEventRow
 }
 
 const MONTHS = [
@@ -51,6 +56,8 @@ interface Option { id: string; name: string }
 export default function Calendar() {
   const navigate = useNavigate()
   const { byId } = useCategories()
+  const { members } = useTeam()
+  const [terminOffen, setTerminOffen] = useState<{ row: CalEventRow | null; datum?: string } | null>(null)
   const { user } = useAuth()
   const { toast } = useToast()
   const today = new Date()
@@ -94,7 +101,7 @@ export default function Calendar() {
     setError(null)
     const from = iso(days[0])
     const to = iso(days[days.length - 1])
-    const [vids, tasks, leads] = await Promise.all([
+    const [vids, tasks, leads, termine] = await Promise.all([
       supabase
         .from('videos')
         .select('*, clients(name, logo_url)')
@@ -114,6 +121,14 @@ export default function Calendar() {
         .is('deleted_at', null)
         .gte('next_followup', from)
         .lte('next_followup', to),
+      // Termine: Arbeitszeiten, Spiele, alles was den Tag sonst belegt.
+      // Fehlt die Tabelle (Skript 0032), bleibt es einfach leer.
+      supabase
+        .from('events')
+        .select('*')
+        .is('deleted_at', null)
+        .lte('starts_on', to)
+        .gte('starts_on', addDays(new Date(from + 'T00:00:00'), -31).toISOString().slice(0, 10)),
     ])
     if (vids.error || tasks.error || leads.error) {
       setError((vids.error || tasks.error || leads.error)!.message)
@@ -129,8 +144,30 @@ export default function Calendar() {
     for (const l of (leads.data ?? []) as any[]) {
       ev.push({ date: l.next_followup, time: null, kind: 'followup', title: l.name, sub: 'Follow-up', to: '/leads' })
     }
+    // Ein mehrtaegiger Termin steht an jedem seiner Tage -- sonst sieht man
+    // am Mittwoch nicht, dass der Urlaub noch laeuft.
+    const ICON: Record<string, string> = { arbeit: '💼', spiel: '⚽', termin: '📍' }
+    for (const t of (termine.data ?? []) as any[]) {
+      const wer = Array.isArray(t.member_ids) ? t.member_ids : []
+      const farbe = wer.length === 1 ? members.find((m) => m.id === wer[0])?.color : undefined
+      const sub = wer.length === 0
+        ? 'alle'
+        : members.filter((m) => wer.includes(m.id)).map((m) => m.name).join(', ')
+      let tag = t.starts_on
+      const letzter = t.ends_on || t.starts_on
+      let schutz = 0
+      while (tag <= letzter && schutz++ < 400) {
+        if (tag >= from && tag <= to) {
+          ev.push({
+            id: t.id, date: tag, time: t.starts_at ? String(t.starts_at).slice(0, 5) : null,
+            kind: 'termin', title: `${ICON[t.kind] ?? '📍'} ${t.title}`, sub, color: farbe, row: t as CalEventRow,
+          })
+        }
+        tag = iso(addDays(new Date(tag + 'T00:00:00'), 1))
+      }
+    }
     setEvents(ev)
-  }, [days, byId])
+  }, [days, byId, members])
 
   useEffect(() => { load() }, [load])
 
@@ -219,6 +256,7 @@ export default function Calendar() {
           <span><i className="dot task" /> Aufgabe</span>
           <span><i className="dot followup" /> Follow-up</span>
         </div>
+        <button className="btn btn-sm" onClick={() => setTerminOffen({ row: null })} title="Arbeitszeit, Spiel oder Termin eintragen">＋ Termin</button>
         <button className="btn btn-sm" onClick={toggleFullscreen} title="Vollbild / Tafel">🖥 Tafel</button>
       </div>
 
@@ -304,7 +342,19 @@ export default function Calendar() {
           onClose={() => setDayOpen(null)}
           onNavigate={(to) => { setDayOpen(null); navigate(to) }}
           onAdd={() => { const d = dayOpen; setDayOpen(null); setAddFor(d) }}
+          onTermin={(row) => { setDayOpen(null); setTerminOffen({ row }) }}
+          onNeuerTermin={() => { const d = dayOpen; setDayOpen(null); setTerminOffen({ row: null, datum: d }) }}
           color={(e) => e.color}
+        />
+      )}
+
+      {terminOffen && (
+        <TerminModal
+          termin={terminOffen.row}
+          datum={terminOffen.datum}
+          userId={user?.id ?? null}
+          onClose={() => setTerminOffen(null)}
+          onSaved={() => { setTerminOffen(null); load(); toast('Gespeichert ✓') }}
         />
       )}
 
@@ -333,17 +383,19 @@ function PostLogo({ name, logo, ring, xs }: { name: string; logo: string | null;
 }
 
 function DayModal({
-  dIso, events, onClose, onNavigate, onAdd, color,
+  dIso, events, onClose, onNavigate, onAdd, onTermin, onNeuerTermin, color,
 }: {
   dIso: string
   events: CalEvent[]
   onClose: () => void
   onNavigate: (to: string) => void
   onAdd: () => void
+  onTermin: (row: CalEventRow) => void
+  onNeuerTermin: () => void
   color: (e: CalEvent) => string | undefined
 }) {
   const title = new Date(dIso + 'T00:00:00').toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })
-  const KIND: Record<EventKind, string> = { post: 'Post', task: 'Aufgabe', followup: 'Follow-up' }
+  const KIND: Record<EventKind, string> = { post: 'Post', task: 'Aufgabe', followup: 'Follow-up', termin: 'Termin' }
   return (
     <Modal title={title} onClose={onClose}>
       <div className="stack">
@@ -352,7 +404,12 @@ function DayModal({
         ) : (
           <div className="day-list">
             {events.map((e, i) => (
-              <button key={i} className={`day-ev ${e.kind}`} style={color(e) ? { borderLeftColor: color(e) } : undefined} onClick={() => e.to && onNavigate(e.to)}>
+              <button
+                key={i}
+                className={`day-ev ${e.kind}`}
+                style={color(e) ? { borderLeftColor: color(e) } : undefined}
+                onClick={() => (e.row ? onTermin(e.row) : e.to && onNavigate(e.to))}
+              >
                 {e.kind === 'post' && <PostLogo name={e.sub ?? ''} logo={e.logo ?? null} ring={color(e)} />}
                 <span className="day-ev-kind">{e.time ? e.time.slice(0, 5) : KIND[e.kind]}</span>
                 <span className="day-ev-title">{e.title}</span>
@@ -361,9 +418,11 @@ function DayModal({
             ))}
           </div>
         )}
-        <div className="modal-actions">
+        <div className="modal-actions" style={{ flexWrap: 'wrap', gap: 8 }}>
           <button type="button" className="btn btn-ghost" onClick={onClose}>Schließen</button>
-          <button type="button" className="btn btn-primary" onClick={onAdd}>＋ Aufgabe für diesen Tag</button>
+          <div className="spacer" />
+          <button type="button" className="btn btn-sm" onClick={onNeuerTermin}>＋ Termin</button>
+          <button type="button" className="btn btn-sm btn-primary" onClick={onAdd}>＋ Aufgabe</button>
         </div>
       </div>
     </Modal>
