@@ -40,6 +40,9 @@ gebaut, ein erneuter Lauf schadet also nicht.
 - [ ] `supabase/migrations/0030_month_plans.sql` — **Videomenge je Monat**
       (Retainer mit Ausnahmen, z. B. 20 statt 16 im Oktober). Ohne Ausnahme gilt
       überall weiter der Retainer.
+- [ ] `supabase/migrations/0031_vorarbeit.sql` — **gedreht / geschnitten / eingeplant**
+      pro Video. Damit lässt sich der morgige Tag heute schon abhaken. Trägt bei
+      bereits geposteten Videos alle drei nach.
 
 *(0020–0023 stecken gesammelt in `ALLES_offen_20-23.sql`, 0024–0027 in
 `ALLES_offen_24-27.sql` — dann reichen zwei Durchläufe statt acht.)*

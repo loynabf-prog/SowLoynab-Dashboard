@@ -12,7 +12,7 @@ import { useMemo, useState } from 'react'
 import Modal from './Modal'
 import {
   WOCHENTAGE, gleichmaessigeTermine, monatVersetzt, monatsTitel,
-  platzhalterNamen, terminVorschau, vorschlagAbstand, wochentagTermine,
+  platzhalterNamen, vorschlagAbstand, wochentagTermine,
   type Rhythmus,
 } from '../lib/monatsrhythmus'
 
@@ -51,6 +51,9 @@ export default function MonatsplanModal({
   const [abstand, setAbstand] = useState<number | null>(null)
   const [tage, setTage] = useState<number[]>([1, 3]) // Di + Do
   const [zeit, setZeit] = useState('')
+  // Einzelne Termine, die der Rhythmus vorschlaegt, die aber nicht sollen --
+  // Feiertag, Urlaub, oder an dem Tag lief schon etwas anderes.
+  const [abgewaehlt, setAbgewaehlt] = useState<Set<string>>(new Set())
   const [busy, setBusy] = useState(false)
 
   const anzahl = Math.max(0, Number(menge.replace(/[^\d]/g, '')) || 0)
@@ -62,6 +65,7 @@ export default function MonatsplanModal({
     setMonat(neu)
     setMenge(String(mengeImMonat(neu) || retainer || 8))
     setAbstand(null)
+    setAbgewaehlt(new Set())
   }
 
   const termine = useMemo(() => (
@@ -71,9 +75,19 @@ export default function MonatsplanModal({
   ), [rhythmus, monat, anzahl, startTag, echterAbstand, tage])
 
   const belegt = useMemo(() => new Set(belegteTage(monat)), [monat, belegteTage])
-  const frei = termine.filter((t) => !belegt.has(t))
-  const schonDa = termine.length - frei.length
+  const frei = termine.filter((t) => !belegt.has(t) && !abgewaehlt.has(t))
+  const schonDa = termine.filter((t) => belegt.has(t)).length
   const passenNicht = anzahl - termine.length
+
+  function umschalten(tag: string) {
+    if (belegt.has(tag)) return // da liegt schon ein Video -- nichts zu waehlen
+    setAbgewaehlt((prev) => {
+      const next = new Set(prev)
+      if (next.has(tag)) next.delete(tag)
+      else next.add(tag)
+      return next
+    })
+  }
 
   async function anlegen() {
     if (frei.length === 0) return
@@ -188,17 +202,39 @@ export default function MonatsplanModal({
         {/* Die Vorschau ist der eigentliche Beweis: hier steht schwarz auf
             weiss, an welchen Tagen etwas entsteht. */}
         <div className="mp-vorschau">
-          {frei.length === 0 ? (
+          {termine.length === 0 ? (
             <span className="muted">
-              {anzahl === 0 ? 'Trag oben eine Menge ein.' : 'Für diese Einstellung bleibt kein freier Tag übrig.'}
+              {anzahl === 0 ? 'Trag oben eine Menge ein.' : 'Für diese Einstellung ergibt sich kein Termin.'}
             </span>
           ) : (
             <>
-              <div className="mp-tage">{terminVorschau(termine)}</div>
+              {/* Jeder Tag ist antippbar: einzelne wieder rausnehmen, ohne
+                  den ganzen Rhythmus umzustellen. */}
+              <div className="mp-raster">
+                {termine.map((t) => {
+                  const dieserBelegt = belegt.has(t)
+                  const aus = abgewaehlt.has(t)
+                  return (
+                    <button
+                      type="button"
+                      key={t}
+                      className={`mp-tag ${dieserBelegt ? 'belegt' : ''} ${aus ? 'aus' : ''}`}
+                      onClick={() => umschalten(t)}
+                      disabled={dieserBelegt}
+                      aria-pressed={!aus && !dieserBelegt}
+                      title={dieserBelegt ? 'Hier liegt schon ein Video' : aus ? 'Wieder aufnehmen' : 'Diesen Tag auslassen'}
+                    >
+                      {Number(t.slice(8, 10))}.
+                    </button>
+                  )
+                })}
+              </div>
               <div className="mp-summe">
                 <strong>{frei.length}</strong> {frei.length === 1 ? 'Video wird' : 'Videos werden'} angelegt
-                {schonDa > 0 && <> · {schonDa} {schonDa === 1 ? 'Tag ist' : 'Tage sind'} schon belegt</>}
+                {schonDa > 0 && <> · {schonDa} {schonDa === 1 ? 'Tag' : 'Tage'} schon belegt</>}
+                {abgewaehlt.size > 0 && <> · {abgewaehlt.size} ausgelassen</>}
               </div>
+              <div className="mp-hinweis">Tag antippen, um ihn auszulassen.</div>
             </>
           )}
           {passenNicht > 0 && (
