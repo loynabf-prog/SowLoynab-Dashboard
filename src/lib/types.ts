@@ -154,6 +154,31 @@ export interface TeamMember {
   name: string
   color: string
   active: boolean
+  /**
+   * Abo-Schluessel fuer den eigenen Kalender aufs Handy. Ein Passwort --
+   * wer ihn hat, sieht den Dienstplan. Optional, damit die App auch ohne
+   * Migration 0032 laeuft.
+   */
+  calendar_token?: string | null
+  created_at: string
+}
+
+/** Ein Termin: Arbeitszeit, Spiel oder alles andere, was den Tag belegt. */
+export type EventKind = 'arbeit' | 'spiel' | 'termin'
+
+export interface CalEventRow {
+  id: string
+  title: string
+  kind: EventKind
+  starts_on: string
+  ends_on: string | null
+  starts_at: string | null
+  ends_at: string | null
+  /** Leer heisst "gilt fuer alle" -- der haeufigere Fall. */
+  member_ids: string[]
+  notes: string | null
+  deleted_at: string | null
+  created_by: string | null
   created_at: string
 }
 

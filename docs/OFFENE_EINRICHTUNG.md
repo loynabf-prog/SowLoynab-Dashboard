@@ -43,6 +43,9 @@ gebaut, ein erneuter Lauf schadet also nicht.
 - [ ] `supabase/migrations/0031_vorarbeit.sql` — **gedreht / geschnitten / eingeplant**
       pro Video. Damit lässt sich der morgige Tag heute schon abhaken. Trägt bei
       bereits geposteten Videos alle drei nach.
+- [ ] `supabase/migrations/0032_kalender_abo.sql` — **Termine** (Arbeitszeit, Spiel,
+      Einzeltermin) und ein **Abo-Schlüssel je Teammitglied**, damit jeder den
+      Dashboard-Kalender auf seinem Handy abonnieren kann.
 
 *(0020–0023 stecken gesammelt in `ALLES_offen_20-23.sql`, 0024–0027 in
 `ALLES_offen_24-27.sql` — dann reichen zwei Durchläufe statt acht.)*
@@ -81,6 +84,7 @@ gebaut, ein erneuter Lauf schadet also nicht.
 | `apify-lookup` | AN | Altes Video nachtragen (Sofort-Abruf) |
 | `apify-places-search` | AN | Leads aus Google Maps suchen |
 | `mail-sync` | **AUS** | Postfach-Abruf-Cron |
+| `calendar-feed` | **AUS** | Kalender-Abo fürs Handy — die Kalender-App kann sich nicht anmelden, der Schlüssel in der Adresse ist die Berechtigung |
 
 ## 4. Zeitpläne (Cron) einrichten
 
@@ -93,6 +97,13 @@ Jeweils Projekt-Ref + Anon-Key eintragen und im SQL Editor ausführen:
 
 ## 5. In der App
 
+- [ ] **Kalender aufs Handy**: **Mehr → Team** → bei jedem Namen auf „Abonnieren".
+      Das iPhone fragt „Kalender abonnieren?" — bestätigen, fertig. Danach stehen
+      Posting-Tage, Aufgaben und Termine im normalen Kalender (und damit im
+      Kalender-Widget). Jeder nimmt nur seinen eigenen Link; er zeigt die
+      gemeinsamen Termine plus die eigenen. **Der Link ist ein Passwort** — nicht
+      weitergeben; bei Handyverlust in der App auf „Neu".
+      Braucht 0032 + `calendar-feed` deployed mit JWT **AUS**.
 - [ ] **Mehr → Einstellungen**: Firmendaten ausfüllen (Pflicht für Rechnungen)
 - [ ] **Zoho anbinden**: Schritte in `docs/ZOHO_MAIL_SETUP.md`
 - [ ] Push erlauben (Handy fragt beim ersten Mal)

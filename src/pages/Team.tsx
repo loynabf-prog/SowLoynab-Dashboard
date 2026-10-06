@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useTeam } from '../context/TeamContext'
+import KalenderAbo from '../components/KalenderAbo'
 import { useToast } from '../context/ToastContext'
 
 const COLORS = ['#e0521a', '#2563eb', '#2f9e44', '#c98a00', '#7c3aed', '#db2777', '#0891b2', '#65a30d']
@@ -80,6 +81,20 @@ export default function Team() {
               ✕
             </button>
           </div>
+        ))}
+      </div>
+
+      {/* Jeder bekommt seinen eigenen Abo-Link: gemeinsame Termine plus die
+          eigenen, nicht die privaten des anderen. */}
+      <h2 className="section-title" style={{ marginTop: 26 }}>📅 Kalender aufs Handy</h2>
+      <p className="muted" style={{ fontSize: 13, maxWidth: 560, marginTop: -4 }}>
+        Posting-Tage, Aufgaben und Termine im normalen Handy-Kalender — und damit
+        auch im Kalender-Widget auf dem Homescreen. Jeder abonniert nur seinen
+        eigenen Link.
+      </p>
+      <div className="card-list" style={{ maxWidth: 560, marginTop: 12 }}>
+        {members.map((m) => (
+          <KalenderAbo key={m.id} member={m} onNeu={reload} />
         ))}
       </div>
 

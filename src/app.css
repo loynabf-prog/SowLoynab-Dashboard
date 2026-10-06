@@ -3471,3 +3471,34 @@ html { scroll-behavior: smooth; }
 .ps-schritt.on {
   background: var(--posted); border-color: var(--posted); color: #fff;
 }
+
+/* --- Kalender-Abo aufs Handy --------------------------------------------- */
+.abo-zeile {
+  display: flex; align-items: center; gap: 11px; flex-wrap: wrap;
+  padding: 11px 13px; border-radius: 14px;
+  background: var(--bg-card); border: 1px solid var(--border);
+}
+.abo-text { flex: 1 1 180px; min-width: 0; }
+.abo-name { font-weight: 700; font-size: 14.5px; }
+.abo-hinweis { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+.abo-url { margin: 4px 0 0; font-size: 12px; font-family: ui-monospace, monospace; }
+.abo-knoepfe { display: flex; gap: 6px; flex-wrap: wrap; flex: 0 0 auto; }
+
+/* --- Für wen gilt ein Termin? -------------------------------------------- */
+.wer-wahl { display: flex; gap: 6px; flex-wrap: wrap; }
+.wer-btn {
+  flex: 1 1 auto; padding: 9px 12px;
+  border: 1px solid var(--border-strong); background: var(--bg-card);
+  border-radius: 9px; font-size: 13px; font-weight: 600;
+  color: var(--text-muted); cursor: pointer; white-space: nowrap;
+}
+.wer-btn.on { background: var(--brand); border-color: var(--brand); color: #fff; }
+
+/* Termine im Kalender: ruhiger als Posts, sie sind Hintergrund. */
+.day-ev.termin { border-left-color: var(--text-dim); }
+.cal-event.termin { background: var(--bg-sunken); color: var(--text-muted); }
+
+@media (max-width: 560px) {
+  .abo-knoepfe { width: 100%; }
+  .abo-knoepfe .btn { flex: 1 1 auto; }
+}
