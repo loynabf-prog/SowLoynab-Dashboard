@@ -49,6 +49,8 @@ gebaut, ein erneuter Lauf schadet also nicht.
 - [ ] `supabase/migrations/0033_auto_links_caption.sql` — **Links kommen automatisch**
       (ein paar Minuten nach „Gepostet") und **Caption an der Idee**.
 
+*(0029–0033 stecken gesammelt in `ALLES_offen_29-33.sql` — dann reicht ein Durchlauf.)*
+
 *(0020–0023 stecken gesammelt in `ALLES_offen_20-23.sql`, 0024–0027 in
 `ALLES_offen_24-27.sql` — dann reichen zwei Durchläufe statt acht.)*
 
