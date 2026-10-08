@@ -56,6 +56,22 @@ gebaut, ein erneuter Lauf schadet also nicht.
 
 *(0001–0009 bzw. `ALLES_offen_5-9.sql` sollten schon gelaufen sein — sonst zuerst die.)*
 
+## 1b. Passwort vergessen — nur falls die Mail nicht ankommt
+
+„Passwort vergessen?" steht auf der Login-Seite und braucht **kein** Skript und
+**keinen** Deploy. Der Link kommt von Supabase selbst.
+
+Kommt keine Mail an, liegt es an einer dieser zwei Stellen:
+
+- [ ] **Authentication → URL Configuration → Site URL** muss
+      `https://app.sowloynab.de` sein. Der Link aus der Mail führt dorthin; steht
+      dort noch `localhost`, landet ihr im Nichts.
+- [ ] **Project Settings → Authentication → SMTP Settings**: Der eingebaute
+      Versand von Supabase ist auf wenige Mails pro Stunde begrenzt und liefert
+      teilweise nur an Adressen, die im Projekt hinterlegt sind. Für verlässliche
+      Zustellung dort **Custom SMTP** mit den Zoho-Daten eintragen — dieselben,
+      die schon für den Rechnungsversand hinterlegt sind.
+
 ## 2. Secrets (Supabase → Edge Functions → Secrets)
 
 - [ ] `ANTHROPIC_API_KEY` — für Caption/Ideen/Sprachbefehl (Claude)
