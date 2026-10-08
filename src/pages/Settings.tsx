@@ -8,6 +8,7 @@ import { useToast } from '../context/ToastContext'
 import { getPackages, packageLabel, type Package } from '../lib/packages'
 import { dbKlartext, updateRow } from '../lib/db'
 import CaptionVorgabeCard from '../components/CaptionVorgabeCard'
+import PasswortCard from '../components/PasswortCard'
 
 interface StatusRow { job: string; last_ok: string | null; last_error: string | null; last_error_at: string | null; detail: string | null }
 const JOB_LABEL: Record<string, string> = {
@@ -122,6 +123,8 @@ export default function Settings() {
         </p>
         <button className="btn" onClick={testZoho} disabled={testing}>{testing ? 'Prüfe …' : '🔌 Zoho-Verbindung testen'}</button>
       </div>
+
+      <PasswortCard />
 
       <CaptionVorgabeCard />
 

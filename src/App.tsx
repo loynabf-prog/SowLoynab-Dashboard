@@ -21,7 +21,7 @@ import Layout from './components/Layout'
 import Spinner from './components/Spinner'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { session, loading } = useAuth()
+  const { session, loading, zuruecksetzen } = useAuth()
   if (loading) {
     return (
       <div className="center" style={{ height: '100vh' }}>
@@ -30,18 +30,22 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     )
   }
   if (!session) return <Navigate to="/login" replace />
+  // Wer ueber den Zuruecksetzen-Link kommt, hat zwar eine gueltige Sitzung --
+  // soll aber erst ein neues Passwort setzen, bevor die App aufgeht. Sonst
+  // steht man in der App und das alte Passwort gilt weiter.
+  if (zuruecksetzen) return <Login />
   return <Layout>{children}</Layout>
 }
 
 export default function App() {
-  const { session, loading } = useAuth()
+  const { session, loading, zuruecksetzen } = useAuth()
 
   return (
     <Routes>
       <Route path="/vertrag/:token" element={<ContractSign />} />
       <Route
         path="/login"
-        element={loading ? null : session ? <Navigate to="/" replace /> : <Login />}
+        element={loading ? null : session && !zuruecksetzen ? <Navigate to="/" replace /> : <Login />}
       />
       <Route path="/" element={<ProtectedRoute><Overview /></ProtectedRoute>} />
       <Route path="/kunden" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
