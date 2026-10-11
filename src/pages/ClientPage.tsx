@@ -66,6 +66,7 @@ import InspirationCard from '../components/InspirationCard'
 import PostLinksModal from '../components/PostLinksModal'
 import ContractCard from '../components/ContractCard'
 import { useToast } from '../context/ToastContext'
+import { heute } from '../lib/datum'
 
 type ClientTab = 'board' | 'termine' | 'pool' | 'analyse' | 'inspiration'
 
@@ -815,7 +816,7 @@ export default function ClientPage() {
               {termine.map((t) => {
                 const istDreh = t.kind === 'dreh'
                 const wann = new Date(t.starts_on + 'T00:00:00')
-                const vorbei = t.starts_on < new Date().toISOString().slice(0, 10)
+                const vorbei = t.starts_on < heute()
                 return (
                   <button
                     className={`tm-zeile ${istDreh ? 'dreh' : ''} ${vorbei ? 'vorbei' : ''}`}
@@ -2305,7 +2306,7 @@ function GrowthModal({ clientId, onClose, onSaved }: { clientId: string; onClose
   const [ig, setIg] = useState('')
   const [tt, setTt] = useState('')
   const [reach, setReach] = useState('')
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
+  const [date, setDate] = useState(heute())
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const num = (s: string) => (s.trim() === '' ? null : Number(s.replace(/[^\d]/g, '')))

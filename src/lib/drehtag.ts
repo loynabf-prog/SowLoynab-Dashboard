@@ -6,6 +6,7 @@
 
 import { supabase } from './supabase'
 import type { CalEventRow, Video } from './types'
+import { rufeFunktion } from './funktion'
 
 export interface DrehVideo extends Video { }
 
@@ -81,10 +82,7 @@ export async function schreibeSkripte(opts: {
   ort?: string
   datum?: string
 }): Promise<{ skripte: { id: string; script: string }[]; tagesplan: string }> {
-  const { data, error } = await supabase.functions.invoke('generate-script', { body: opts })
-  if (error) throw new Error(error.message)
-  const a = data as any
-  if (a?.error) throw new Error(a.error)
+  const a = await rufeFunktion<any>('generate-script', opts)
   return {
     skripte: Array.isArray(a?.skripte) ? a.skripte : [],
     tagesplan: String(a?.tagesplan ?? ''),

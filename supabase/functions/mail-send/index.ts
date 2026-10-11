@@ -111,6 +111,9 @@ Deno.serve(async (req) => {
     }
     return json({ ok: true })
   } catch (e) {
+    // In die Function-Logs schreiben: sonst steht dort nur "booted/shutdown"
+    // und man sucht den Grund im Blindflug.
+    console.error('mail-send:', (e as Error).message)
     return json({ error: (e as Error).message }, 500)
   }
 })

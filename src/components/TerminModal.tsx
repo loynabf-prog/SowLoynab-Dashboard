@@ -12,6 +12,7 @@ import Modal from './Modal'
 import { supabase } from '../lib/supabase'
 import { useTeam } from '../context/TeamContext'
 import type { CalEventRow, EventKind } from '../lib/types'
+import { heute } from '../lib/datum'
 
 const ARTEN: { key: EventKind; icon: string; label: string; hinweis: string }[] = [
   { key: 'dreh', icon: '🎥', label: 'Drehtag', hinweis: 'Der Tag, an dem gedreht wird. Dazu kommen die Videos und ihre Skripte.' },
@@ -45,7 +46,7 @@ export default function TerminModal({
   const [menge, setMenge] = useState(termin?.planned_videos != null ? String(termin.planned_videos) : '')
   const [title, setTitle] = useState(termin?.title ?? '')
   const [kind, setKind] = useState<EventKind>(termin?.kind ?? artVorgabe ?? 'termin')
-  const [von, setVon] = useState(termin?.starts_on ?? datum ?? new Date().toISOString().slice(0, 10))
+  const [von, setVon] = useState(termin?.starts_on ?? datum ?? heute())
   const [bis, setBis] = useState(termin?.ends_on ?? '')
   const [startZeit, setStartZeit] = useState(termin?.starts_at?.slice(0, 5) ?? '')
   const [endZeit, setEndZeit] = useState(termin?.ends_at?.slice(0, 5) ?? '')

@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { euro, dateShort } from '../lib/format'
 import type { Transaction, TransactionType } from '../lib/types'
 import Modal from '../components/Modal'
+import { heute } from '../lib/datum'
 
 interface TxRow extends Transaction {
   clients?: { name: string } | null
@@ -181,7 +182,7 @@ function TxModal({
   const [amount, setAmount] = useState(tx ? String(tx.amount) : '')
   const [description, setDescription] = useState(tx?.description ?? '')
   const [category, setCategory] = useState(tx?.category ?? '')
-  const [date, setDate] = useState(tx?.occurred_on ?? new Date().toISOString().slice(0, 10))
+  const [date, setDate] = useState(tx?.occurred_on ?? heute())
   const [recurring, setRecurring] = useState(tx?.recurring ?? false)
   const [clientId, setClientId] = useState(tx?.client_id ?? '')
   const [busy, setBusy] = useState(false)

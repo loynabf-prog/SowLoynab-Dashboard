@@ -8,6 +8,7 @@ import { exportInvoicePdf, invoicePdfBlob, itemsNet, type InvoiceItem } from '..
 import { sendMail, blobToBase64 } from '../lib/mail'
 import { insertRows, updateRow } from '../lib/db'
 import Modal from '../components/Modal'
+import { heute } from '../lib/datum'
 
 interface Invoice {
   id: string
@@ -50,7 +51,7 @@ export default function Invoices() {
       .from('invoices')
       .select('*, clients(name)')
       .order('issued_on', { ascending: false })
-    const today = new Date().toISOString().slice(0, 10)
+    const today = heute()
     const mapped = (data ?? []).map((r: any) => ({
       ...r,
       client_name: r.clients?.name ?? '—',
@@ -80,8 +81,8 @@ export default function Invoices() {
   }, [rows])
 
   async function markPaid(inv: Invoice) {
-    setRows((prev) => prev.map((r) => (r.id === inv.id ? { ...r, status: 'paid', paid_on: new Date().toISOString().slice(0, 10) } : r)))
-    await supabase.from('invoices').update({ status: 'paid', paid_on: new Date().toISOString().slice(0, 10) }).eq('id', inv.id)
+    setRows((prev) => prev.map((r) => (r.id === inv.id ? { ...r, status: 'paid', paid_on: heute() } : r)))
+    await supabase.from('invoices').update({ status: 'paid', paid_on: heute() }).eq('id', inv.id)
     toast('Als bezahlt markiert ✓')
   }
 
@@ -243,7 +244,7 @@ function InvoiceModal({ invoice, clients, company, userId, nextNumber, onClose, 
   const [number, setNumber] = useState(invoice?.number ?? nextNumber)
   const [clientId, setClientId] = useState(invoice?.client_id ?? '')
   const [status, setStatus] = useState(invoice?.status ?? 'sent')
-  const [issued, setIssued] = useState(invoice?.issued_on ?? new Date().toISOString().slice(0, 10))
+  const [issued, setIssued] = useState(invoice?.issued_on ?? heute())
   const [due, setDue] = useState(invoice?.due_date ?? '')
   const [notes, setNotes] = useState(invoice?.notes ?? '')
   const [recipient, setRecipient] = useState(invoice?.recipient ?? '')
@@ -290,7 +291,7 @@ function InvoiceModal({ invoice, clients, company, userId, nextNumber, onClose, 
       status,
       issued_on: issued,
       due_date: due || null,
-      paid_on: status === 'paid' ? (invoice?.paid_on ?? new Date().toISOString().slice(0, 10)) : null,
+      paid_on: status === 'paid' ? (invoice?.paid_on ?? heute()) : null,
       notes: notes.trim() || null,
       recipient: recipient.trim() || null,
       service_period: servicePeriod.trim() || null,
