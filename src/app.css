@@ -3555,3 +3555,90 @@ html { scroll-behavior: smooth; }
   text-underline-offset: 3px;
 }
 .login-link:hover { color: var(--brand); }
+
+/* --- Termine am Kunden ---------------------------------------------------- */
+.tm-liste { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+.tm-zeile {
+  display: flex; align-items: center; gap: 11px; width: 100%;
+  padding: 12px 14px; border-radius: 13px; text-align: left;
+  background: var(--bg-card); border: 1px solid var(--border);
+  font: inherit; color: inherit; cursor: pointer;
+}
+.tm-zeile:hover { background: var(--bg-card-hover); }
+/* Der Drehtag ist der Tag, an dem die Arbeit passiert -- er darf auffallen. */
+.tm-zeile.dreh { border-color: var(--border-strong); }
+.tm-zeile.vorbei { opacity: .58; }
+.tm-ic { flex: 0 0 auto; font-size: 17px; line-height: 1; }
+.tm-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.tm-titel { font-weight: 650; font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tm-wann { font-size: 12px; color: var(--text-dim); }
+.tm-menge {
+  flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end;
+  font-weight: 700; font-size: 15px; line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+.tm-menge small { font-size: 10.5px; font-weight: 500; color: var(--text-dim); }
+.tm-pfeil { flex: 0 0 auto; color: var(--text-dim); font-size: 17px; }
+
+/* --- Im Drehtag ----------------------------------------------------------- */
+.dt-kopf {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 12px 14px; border-radius: 12px; background: var(--bg-sunken);
+}
+.dt-datum { font-weight: 650; font-size: 14.5px; }
+.dt-kunde { font-size: 12.5px; color: var(--text-dim); margin-top: 1px; }
+.dt-zahl {
+  margin-left: auto; display: flex; flex-direction: column; align-items: flex-end;
+  line-height: 1.1; font-variant-numeric: tabular-nums;
+}
+.dt-zahl strong { font-size: 22px; }
+.dt-zahl span { font-size: 11px; color: var(--text-dim); }
+
+/* Der Ablauf des Tages steht vor den einzelnen Videos -- erst der Überblick,
+   dann das Detail. */
+.dt-plan { padding: 12px 14px; border-radius: 12px; background: var(--brand-glow); }
+.dt-plan-kopf {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .05em; color: var(--text-dim); margin-bottom: 5px;
+}
+.dt-plan-text { font-size: 13.5px; line-height: 1.55; white-space: pre-wrap; }
+
+.dt-liste { display: flex; flex-direction: column; gap: 8px; }
+.dt-video { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--bg-card); }
+.dt-video.gedreht { opacity: .66; }
+.dt-video-kopf {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 11px 13px; border: none; background: none; text-align: left;
+  font: inherit; color: inherit; cursor: pointer;
+}
+.dt-video-kopf:hover { background: var(--bg-card-hover); }
+.dt-nr {
+  flex: 0 0 auto; width: 22px; height: 22px; border-radius: 50%;
+  background: var(--bg-sunken); display: grid; place-items: center;
+  font-size: 11.5px; font-weight: 700;
+}
+.dt-titel { flex: 1 1 auto; min-width: 0; font-weight: 600; font-size: 14px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dt-marke { flex: 0 0 auto; font-size: 11px; font-weight: 600; color: var(--text-dim); }
+.dt-marke.ok { color: var(--posted); }
+.dt-pfeil { flex: 0 0 auto; color: var(--text-dim); font-size: 12px; }
+.dt-skript { padding: 0 13px 13px; }
+.dt-skript textarea { font-size: 13px; line-height: 1.6; }
+.dt-aktionen { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; margin-top: 9px; }
+
+.dt-zuordnen { border-top: 1px solid var(--border); padding-top: 13px; }
+.dt-frei { display: flex; flex-direction: column; gap: 6px; margin-top: 9px; }
+.dt-frei-zeile {
+  display: flex; align-items: center; gap: 9px; width: 100%;
+  padding: 9px 11px; border-radius: 10px; text-align: left;
+  background: var(--bg-sunken); border: 1px solid transparent;
+  font: inherit; font-size: 13px; color: inherit; cursor: pointer;
+}
+.dt-frei-zeile:hover { border-color: var(--brand); }
+.dt-frei-titel { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dt-frei-datum { flex: 0 0 auto; font-size: 11.5px; color: var(--text-dim); }
+.dt-frei-plus { flex: 0 0 auto; color: var(--brand); font-weight: 700; }
+
+@media (max-width: 560px) {
+  .dt-aktionen .btn { flex: 1 1 auto; }
+}

@@ -47,6 +47,9 @@ import { ARTEN, artVon, istAktiv, type Kundenart } from '../lib/kundenart'
 import { fuehreZusammen, TABELLEN_NAMEN, zaehleUmzug, type MergeZaehlung } from '../lib/mergeClients'
 import AccountsEditor from '../components/AccountsEditor'
 import ChannelEditor from '../components/ChannelEditor'
+import TerminModal from '../components/TerminModal'
+import DrehtagModal from '../components/DrehtagModal'
+import type { CalEventRow } from '../lib/types'
 import {
   ladeKanaele, speichereKanaele, zuKanalEntwuerfen, trenntKanaele, kanalVon,
   nachKanal, zaehleJeKanal, type Channel, type ChannelEntwurf,
@@ -64,7 +67,7 @@ import PostLinksModal from '../components/PostLinksModal'
 import ContractCard from '../components/ContractCard'
 import { useToast } from '../context/ToastContext'
 
-type ClientTab = 'board' | 'pool' | 'analyse' | 'inspiration'
+type ClientTab = 'board' | 'termine' | 'pool' | 'analyse' | 'inspiration'
 
 export default function ClientPage() {
   const { id } = useParams<{ id: string }>()
@@ -97,6 +100,9 @@ export default function ClientPage() {
   const [stats, setStats] = useState<any[]>([])
   const [accounts, setAccounts] = useState<ClientAccount[]>([])
   const [kanaele, setKanaele] = useState<Channel[]>([])
+  const [termine, setTermine] = useState<CalEventRow[]>([])
+  const [terminOffen, setTerminOffen] = useState<{ row: CalEventRow | null; art?: 'dreh' | 'termin' } | null>(null)
+  const [drehOffen, setDrehOffen] = useState<CalEventRow | null>(null)
   // null = alles zeigen, 'offen' = nur ohne Zuordnung, sonst eine Kanal-Id
   const [kanalFilter, setKanalFilter] = useState<string | null>(null)
   const [flashId, setFlashId] = useState<string | null>(null)
@@ -179,6 +185,18 @@ export default function ClientPage() {
     try { setMengen(await ladeMonatsmengen(id)) } catch { setMengen(new Map()) }
   }, [id])
 
+  const loadTermine = useCallback(async () => {
+    if (!id) return
+    const { data, error } = await supabase
+      .from('events').select('*')
+      .eq('client_id', id).is('deleted_at', null)
+      .order('starts_on', { ascending: false })
+      .limit(100)
+    // Ohne Skript 0034 gibt es die Spalte client_id nicht -- dann bleibt der
+    // Reiter eben leer, statt eine Fehlermeldung zu zeigen.
+    setTermine(error ? [] : ((data ?? []) as unknown as CalEventRow[]))
+  }, [id])
+
   const loadKanaele = useCallback(async () => {
     if (!id) return
     try { setKanaele((await ladeKanaele(id)).kanaele) } catch { setKanaele([]) }
@@ -198,7 +216,7 @@ export default function ClientPage() {
     if (!id) return
     async function loadAll() {
       setLoading(true)
-      await Promise.all([loadClient(), loadVideos(), loadIdeas(), loadStats(), loadInspirations(), loadAccounts(), loadKanaele(), loadMengen()])
+      await Promise.all([loadClient(), loadVideos(), loadIdeas(), loadStats(), loadInspirations(), loadAccounts(), loadKanaele(), loadMengen(), loadTermine()])
       setLoading(false)
     }
     loadAll()
@@ -224,7 +242,7 @@ export default function ClientPage() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [id, loadClient, loadVideos, loadIdeas, loadStats, loadInspirations, loadAccounts, loadKanaele, loadMengen])
+  }, [id, loadClient, loadVideos, loadIdeas, loadStats, loadInspirations, loadAccounts, loadKanaele, loadMengen, loadTermine])
 
   // Deep-Link (?video=<id>) aus einem Anstupser: zur Karte springen + hervorheben
   useEffect(() => {
@@ -582,6 +600,10 @@ export default function ClientPage() {
             🎬 In Umsetzung
             <span className="col-count">{boardVideos.length}</span>
           </button>
+          <button className={`seg-btn ${tab === 'termine' ? 'on' : ''}`} onClick={() => setTab('termine')}>
+            🎥 Termine
+            <span className="col-count">{termine.length}</span>
+          </button>
           <button className={`seg-btn ${tab === 'analyse' ? 'on' : ''}`} onClick={() => setTab('analyse')}>
             📊 Analyse
             <span className="col-count">{postedVideos.length}</span>
@@ -770,6 +792,79 @@ export default function ClientPage() {
             Alle Inspirationen — auch die ohne Kunden — findest du unter <strong>Mehr → Inspirationen</strong>.
           </p>
         </div>
+      )}
+
+      {tab === 'termine' && (
+        <div className="section-block">
+          <div className="toolbar-row">
+            <button className="btn btn-primary" onClick={() => setTerminOffen({ row: null, art: 'dreh' })}>
+              🎥 Drehtag
+            </button>
+            <button className="btn" onClick={() => setTerminOffen({ row: null, art: 'termin' })}>
+              📍 Termin
+            </button>
+          </div>
+
+          {termine.length === 0 ? (
+            <div className="col-empty" style={{ padding: 30 }}>
+              Noch kein Termin für {client.name}. Ein Drehtag sammelt die Videos, die an
+              dem Tag entstehen — samt Skript. 🎥
+            </div>
+          ) : (
+            <div className="tm-liste">
+              {termine.map((t) => {
+                const istDreh = t.kind === 'dreh'
+                const wann = new Date(t.starts_on + 'T00:00:00')
+                const vorbei = t.starts_on < new Date().toISOString().slice(0, 10)
+                return (
+                  <button
+                    className={`tm-zeile ${istDreh ? 'dreh' : ''} ${vorbei ? 'vorbei' : ''}`}
+                    key={t.id}
+                    onClick={() => (istDreh ? setDrehOffen(t) : setTerminOffen({ row: t }))}
+                  >
+                    <span className="tm-ic">{istDreh ? '🎥' : t.kind === 'arbeit' ? '💼' : t.kind === 'spiel' ? '⚽' : '📍'}</span>
+                    <span className="tm-text">
+                      <span className="tm-titel">{t.title}</span>
+                      <span className="tm-wann">
+                        {wann.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: 'long' })}
+                        {t.starts_at && ` · ${t.starts_at.slice(0, 5)} Uhr`}
+                      </span>
+                    </span>
+                    {istDreh && (
+                      <span className="tm-menge">
+                        {videos.filter((v) => v.shoot_event_id === t.id).length}
+                        {t.planned_videos ? ` / ${t.planned_videos}` : ''}
+                        <small>Videos</small>
+                      </span>
+                    )}
+                    <span className="tm-pfeil">›</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {terminOffen && (
+        <TerminModal
+          termin={terminOffen.row}
+          kunde={{ id: client.id, name: client.name }}
+          artVorgabe={terminOffen.art}
+          userId={user?.id ?? null}
+          onClose={() => setTerminOffen(null)}
+          onSaved={() => { setTerminOffen(null); loadTermine(); toast('Gespeichert ✓') }}
+        />
+      )}
+
+      {drehOffen && (
+        <DrehtagModal
+          termin={drehOffen}
+          kundenName={client.name}
+          briefing={client.ai_brief}
+          onClose={() => setDrehOffen(null)}
+          onGeaendert={() => { loadVideos(); loadTermine() }}
+        />
       )}
 
       {/* Analyse traegt alles, was mit Leistung zu tun hat: die Zahlen der

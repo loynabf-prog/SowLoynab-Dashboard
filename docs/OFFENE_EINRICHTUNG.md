@@ -49,7 +49,11 @@ gebaut, ein erneuter Lauf schadet also nicht.
 - [ ] `supabase/migrations/0033_auto_links_caption.sql` — **Links kommen automatisch**
       (ein paar Minuten nach „Gepostet") und **Caption an der Idee**.
 
-*(0029–0033 stecken gesammelt in `ALLES_offen_29-33.sql` — dann reicht ein Durchlauf.)*
+- [ ] `supabase/migrations/0034_drehtage.sql` — **Drehtage**: Termine am Kunden,
+      Videos am Drehtag, Skript am Video.
+
+*(0029–0033 stecken gesammelt in `ALLES_offen_29-33.sql` — dann reicht ein Durchlauf.
+0034 kommt danach einzeln dazu.)*
 
 *(0020–0023 stecken gesammelt in `ALLES_offen_20-23.sql`, 0024–0027 in
 `ALLES_offen_24-27.sql` — dann reichen zwei Durchläufe statt acht.)*
@@ -93,6 +97,7 @@ Kommt keine Mail an, liegt es an einer dieser zwei Stellen:
 
 | Funktion | JWT | Zweck |
 |----------|-----|-------|
+| `generate-script` | AN | **Drehskripte** — schreibt alle Skripte eines Drehtags zusammen, damit zusammengefasst wird, was am selben Ort passiert |
 | `generate-caption` | AN | Captions — der Assistent schreibt damit, Hausstil kommt aus den Einstellungen |
 | `generate-ideas` | AN | Ideen-Vorschläge |
 | `assistent` | AN | **Assistent** — macht aus einem Auftrag einen Plan aus mehreren Schritten. Schreibt selbst nichts; ausgeführt wird in der App unter dem angemeldeten Nutzer. |
