@@ -2,15 +2,17 @@
 // -------------------------------------------------------------------------
 // Holt neue Mails aus dem Zoho-Posteingang und schreibt sie in die Tabelle
 // "mails". Das Postfach in der App liest nur aus dieser Tabelle (schnell,
-// Realtime, offline-fähig). Gedacht für einen häufigen Cron-Aufruf
-// (z. B. alle 5 Minuten, siehe cron-setup.sql). Kann auch aus der App per
-// "Aktualisieren"-Knopf angestoßen werden.
+// Realtime, offline-fähig). Angestoßen wird sie aus der App über den
+// "Aktualisieren"-Knopf im Postfach -- ein Cron ist bewusst NICHT eingerichtet,
+// solange das Postfach nicht täglich gebraucht wird.
 //
 // Secrets: dieselben wie mail-send
 //   ZOHO_CLIENT_ID / ZOHO_CLIENT_SECRET / ZOHO_REFRESH_TOKEN
 //   ZOHO_ACCOUNT_ID (optional), ZOHO_MAIL_BASE, ZOHO_ACCOUNTS_BASE (optional)
 //
-// Beim Deploy: "Enforce JWT" AUSschalten (der Cron ruft die Funktion).
+// Beim Deploy: "Enforce JWT" AN lassen -- der Aufruf kommt aus der
+// eingeloggten App. Kommt später ein Cron dazu, muss JWT aus (oder der Cron
+// schickt den Anon-Key im Authorization-Header mit).
 
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
