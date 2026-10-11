@@ -11,6 +11,7 @@ import { normHandle } from '../lib/accounts'
 import Modal from '../components/Modal'
 import LogoFrame from '../components/LogoFrame'
 import LogoCropper from '../components/LogoCropper'
+import { heute } from '../lib/datum'
 
 // Die Video-Zahlen kommen nicht mehr aus der Kunden-Abfrage, sondern aus
 // loadCounts() — sonst zaehlt Postgres auch die geloeschten Videos mit.
@@ -131,10 +132,10 @@ export default function Dashboard() {
   }, [])
 
   // Jeden Kunden einstufen und innerhalb der Gruppe die dringendsten oben
-  const heute = new Date().toISOString().slice(0, 10)
+  const heuteIso = heute()
   const eingestuft: { c: Client; lage: Kundenlage }[] = clients
     .filter((c) => marke === 'alle' || markeVon(c.brand) === marke)
-    .map((c) => ({ c, lage: kundenlage(c, videosByClient[c.id] ?? [], heute) }))
+    .map((c) => ({ c, lage: kundenlage(c, videosByClient[c.id] ?? [], heuteIso) }))
     .sort((a, b) => {
       const dringend = (x: Kundenlage) => (x.rang === 'akut' ? 0 : x.rang === 'laeuft' ? 1 : 2)
       const last = (x: Kundenlage) => x.zuTun + x.ohneIdee + x.ohneLink

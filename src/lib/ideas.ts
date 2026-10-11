@@ -1,5 +1,5 @@
-import { supabase } from './supabase'
 import type { Client } from './types'
+import { rufeFunktion } from './funktion'
 
 export interface GeneratedIdea {
   title: string
@@ -13,8 +13,7 @@ export async function generateIdeas(
   theme: string | null,
   existing: string[],
 ): Promise<GeneratedIdea[]> {
-  const { data, error } = await supabase.functions.invoke('generate-ideas', {
-    body: {
+  const data = await rufeFunktion<{ ideas?: GeneratedIdea[] }>('generate-ideas', {
       count,
       theme,
       existing,
@@ -25,24 +24,7 @@ export async function generateIdeas(
         brand_notes: (client as any).brand_notes ?? null,
         package: client.package,
       },
-    },
   })
 
-  if (error) {
-    const c = (error as any)?.context
-    let detail = ''
-    let status: number | undefined
-    if (c && typeof c.status === 'number') status = c.status
-    if (c && typeof c.text === 'function') {
-      try {
-        const raw = await c.text()
-        try { detail = JSON.parse(raw)?.error || raw } catch { detail = raw }
-      } catch { /* ignore */ }
-    }
-    const name = (error as any)?.name || 'Fehler'
-    const msg = detail || (error as any)?.message || 'Funktion nicht erreichbar'
-    throw new Error(`[${name}${status ? ' ' + status : ''}] ${msg}`.slice(0, 400))
-  }
-  if (data?.error) throw new Error(data.error)
   return (data?.ideas ?? []) as GeneratedIdea[]
 }

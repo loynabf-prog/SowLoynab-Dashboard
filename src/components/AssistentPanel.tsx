@@ -17,6 +17,8 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useTeam } from '../context/TeamContext'
 import { beschreibe, fuehreAus, pruefe, type Schritt, type SchrittErgebnis } from '../lib/assistent'
+import { heute } from '../lib/datum'
+import { funktionsFehler } from '../lib/funktion'
 
 type Phase = 'eingabe' | 'denkt' | 'plan' | 'laeuft' | 'ergebnis'
 interface Kunde { id: string; name: string; monthly_quota: number | null }
@@ -68,7 +70,7 @@ export default function AssistentPanel({ onClose, onFertig }: { onClose: () => v
       body: {
         text: text.trim(),
         context: {
-          today: new Date().toISOString().slice(0, 10),
+          today: heute(),
           clients: kunden,
           leads,
           members: members.map((m) => ({ id: m.id, name: m.name })),
@@ -76,7 +78,7 @@ export default function AssistentPanel({ onClose, onFertig }: { onClose: () => v
       },
     })
     if (error || (data as any)?.error) {
-      setFehler((data as any)?.error ?? error?.message ?? 'Der Assistent antwortet nicht.')
+      setFehler((data as any)?.error ?? (error ? await funktionsFehler(error) : 'Der Assistent antwortet nicht.'))
       setPhase('eingabe')
       return
     }

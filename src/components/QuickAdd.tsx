@@ -5,10 +5,12 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { occurrences, type RepeatRule } from '../lib/recurrence'
 import { dbKlartext, insertRows } from '../lib/db'
-import { detectPlatform, klartext, lookupVideo, readFnError, statsPatch, type LookupResult, type PlatformResult } from '../lib/apify'
+import { detectPlatform, klartext, lookupVideo, statsPatch, type LookupResult, type PlatformResult } from '../lib/apify'
+import { funktionsFehler } from '../lib/funktion'
 import RepeatPicker from './RepeatPicker'
 import Modal from './Modal'
 import { ladeAlleAccounts, type ClientAccount } from '../lib/accounts'
+import { alsDatum, heute } from '../lib/datum'
 
 type QType = 'task' | 'lead' | 'video' | 'backfill' | 'inspiration'
 interface Opt { id: string; name: string; handle_ig?: string | null; handle_tiktok?: string | null }
@@ -148,7 +150,7 @@ export default function QuickAdd() {
       const { data, error } = await supabase.functions.invoke('apify-lookup', {
         body: { instagram_url: igUrl.trim() || null, tiktok_url: ttUrl.trim() || null },
       })
-      if (error) throw new Error(await readFnError(error))
+      if (error) throw new Error(await funktionsFehler(error))
       if (data?.error) throw new Error(data.error)
       const res = data as LookupResult
       setLookup(res)
@@ -175,7 +177,7 @@ export default function QuickAdd() {
       const caption = res.instagram?.caption || res.tiktok?.caption || ''
       setBfTitle(caption ? (caption.length > 70 ? caption.slice(0, 70) + '…' : caption) : '')
       const postedAt = res.instagram?.postedAt || res.tiktok?.postedAt || null
-      setBfDate(postedAt ? new Date(postedAt).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10))
+      setBfDate(postedAt ? alsDatum(postedAt) : heute())
     } catch (e) {
       setError(klartext((e as Error).message))
       setLookupFailed(true)
@@ -193,7 +195,7 @@ export default function QuickAdd() {
     setLookupFailed(false)
     setBfTitle('')
     setBfClientId('')
-    setBfDate(new Date().toISOString().slice(0, 10))
+    setBfDate(heute())
   }
 
   async function save() {

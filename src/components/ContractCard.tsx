@@ -11,6 +11,7 @@ import { contractPdf, contractFilename } from '../lib/contractPdf'
 import { archiviere, mailVorlage, nachricht, teile, vertragPdf, whatsappLink } from '../lib/vertragAkte'
 import { blobToBase64, sendMail } from '../lib/mail'
 import { seit } from '../lib/format'
+import { heute } from '../lib/datum'
 import { tableMissing } from '../lib/db'
 import type { Client } from '../lib/types'
 import Modal from './Modal'
@@ -31,8 +32,6 @@ interface ContractRow {
   mail_sent_at: string | null
   mail_to: string | null
 }
-
-const heute = () => new Date().toISOString().slice(0, 10)
 
 // Vertrag pro Kunde: vorbereiten, Lücken später füllen, Link verschicken,
 // unterschreiben lassen. Danach liegt die Kopie im System und lässt sich per

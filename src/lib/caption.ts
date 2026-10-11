@@ -4,8 +4,8 @@
 // Hier kommt der Hausstil dazu: die festen Hashtags und der Ton, die einmal
 // in den Einstellungen stehen, statt jedes Mal mitdiktiert zu werden.
 
-import { supabase } from './supabase'
 import { getCaptionVorgabe, mitHashtags } from './captionVorgabe'
+import { rufeFunktion } from './funktion'
 
 export interface CaptionKunde {
   name?: string | null
@@ -25,8 +25,7 @@ export async function schreibeCaption(
 ): Promise<string> {
   const vorgabe = await getCaptionVorgabe()
 
-  const { data, error } = await supabase.functions.invoke('generate-caption', {
-    body: {
+  const a = await rufeFunktion<any>('generate-caption', {
       description: beschreibung,
       extra,
       tonalitaet: vorgabe.tonalitaet ?? '',
@@ -36,11 +35,7 @@ export async function schreibeCaption(
         handle_ig: kunde.handle_ig ?? '',
         handle_tiktok: kunde.handle_tiktok ?? '',
       },
-    },
   })
-  if (error) throw new Error(error.message)
-  const a = data as any
-  if (a?.error) throw new Error(a.error)
   const text = String(a?.caption ?? a?.text ?? '').trim()
   if (!text) throw new Error('Es kam keine Caption zurück.')
 
