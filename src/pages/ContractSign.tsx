@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { contractPdf, contractFilename } from '../lib/contractPdf'
-import type { ContractBody } from '../lib/contract'
+import { betrag, konditionenVon, rechnungZeile, type ContractBody } from '../lib/contract'
 
 interface Row {
   id: string
@@ -76,6 +76,7 @@ export default function ContractSign() {
   }
 
   const b = row.body
+  const k = konditionenVon(b)
   const unterschrieben = row.status === 'signed'
   const partei = (p: { name: string; vertreten?: string | null; adresse?: string | null }) =>
     [p.name, p.vertreten ? `vertreten durch ${p.vertreten}` : null, p.adresse].filter(Boolean).join(', ')
@@ -100,6 +101,22 @@ export default function ContractSign() {
         <div className="contract-parties">
           <div><span className="contract-label">Agentur</span>{partei(b.agentur)}</div>
           <div><span className="contract-label">Kunde</span>{partei(b.kunde)}</div>
+        </div>
+
+        {/* Die Zahlen zuerst. Wer unterschreibt, soll nicht erst § 2 suchen
+            muessen, um zu sehen, was er monatlich bekommt und zahlt. */}
+        <div className="contract-parties">
+          <div><span className="contract-label">Videos je Monat</span>{k.videos == null ? '—' : k.videos}</div>
+          <div><span className="contract-label">Vergütung</span>
+            {betrag(k.netto)} netto
+            {k.ust === 0
+              ? ' — keine Umsatzsteuer (§ 19 UStG)'
+              : k.ust != null ? ` · ${betrag(k.brutto)} brutto inkl. ${k.ust.toLocaleString('de-DE')} % USt` : ''}
+          </div>
+          <div><span className="contract-label">Rechnung an</span>{rechnungZeile(b)}</div>
+          <div><span className="contract-label">Laufzeit</span>
+            {b.beginn ? `ab ${new Date(b.beginn + 'T00:00:00').toLocaleDateString('de-DE')}` : '—'}, kündbar mit {b.kuendigungsfrist}
+          </div>
         </div>
 
         <div className="contract-body">

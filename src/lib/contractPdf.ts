@@ -1,5 +1,5 @@
 import { jsPDF } from 'jspdf'
-import type { ContractBody } from './contract'
+import { betrag, konditionenVon, rechnungZeile, type ContractBody } from './contract'
 
 export interface SignInfo {
   signed_at?: string | null
@@ -9,6 +9,9 @@ export interface SignInfo {
 }
 
 const L = 20, R = 190, BREITE = R - L
+
+const dat = (d: string | null) =>
+  d ? new Date(d + 'T00:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' }) : '[Datum]'
 
 // Vertrag als PDF. Ist er unterschrieben, steht der Nachweis mit Name und
 // Zeitpunkt unten drunter — das ist der Beleg, den beide Seiten aufbewahren.
@@ -43,6 +46,31 @@ export function contractPdf(body: ContractBody, sign: SignInfo = {}): jsPDF {
   absatz('und', { grau: true, nach: 1 })
   partei(body.kunde, '— nachfolgend „Kunde" —')
 
+  doc.setDrawColor(200); doc.line(L, y, R, y); y += 6
+
+  // --- Eckdaten auf einen Blick ---
+  // Dieselben Zahlen stehen ausformuliert in den Paragraphen. Hier oben,
+  // damit man sie zum Rechnungstellen nicht im Text suchen muss.
+  const k = konditionenVon(body)
+  const zeilen: [string, string][] = [
+    ['Videos je Monat', k.videos == null ? '[Anzahl]' : String(k.videos)],
+    ['Vergütung netto', betrag(k.netto)],
+    ['Umsatzsteuer', k.ust == null ? '[Satz]' : k.ust === 0 ? 'keine (§ 19 UStG)' : `${k.ust.toLocaleString('de-DE')} %`],
+    ['Gesamt brutto', k.ust === 0 ? betrag(k.netto) : betrag(k.brutto)],
+    ['Rechnung an', rechnungZeile(body)],
+    ['Laufzeit', `ab ${dat(body.beginn)}, kündbar mit ${body.kuendigungsfrist}`],
+  ]
+  platz(zeilen.length * 5.2 + 6)
+  absatz('Eckdaten', { fett: true, groesse: 10.5, nach: 1.5 })
+  for (const [label, wert] of zeilen) {
+    doc.setFontSize(9.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(120)
+    doc.text(label, L, y)
+    doc.setFont('helvetica', 'bold'); doc.setTextColor(30)
+    const w = doc.splitTextToSize(wert, BREITE - 42)
+    doc.text(w, L + 42, y)
+    y += Math.max(1, w.length) * 4.6 + 0.6
+  }
+  y += 4
   doc.setDrawColor(200); doc.line(L, y, R, y); y += 6
 
   // --- Paragraphen ---
