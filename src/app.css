@@ -398,7 +398,8 @@
   box-shadow: var(--shadow);
 }
 .modal h2 { font-size: 19px; margin-bottom: 18px; }
-.modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 8px; }
+/* Umbruch, weil auf dem Handy sonst der linke Knopf aus dem Fenster rutscht. */
+.modal-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; margin-top: 8px; }
 
 /* Logo-Upload im Modal */
 .logo-upload {
@@ -1546,6 +1547,48 @@ a.fin-tile:hover { transform: translateY(-3px); box-shadow: var(--shadow); borde
 .contract-preview h3 { font-size: 13px; color: var(--text); margin: 12px 0 5px; }
 .contract-preview section:first-child h3 { margin-top: 0; }
 .contract-preview p { margin: 0 0 6px; }
+
+/* Zwischenüberschrift im Vertragsformular. Das Formular hat vier Blöcke --
+   ohne Überschriften sucht man auf dem Handy, wo die Zahlen hingehören. */
+.form-head {
+  font-size: 12.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+  margin: 6px 0 -4px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.stack > .form-head:first-child { border-top: none; padding-top: 0; }
+
+/* Kleiner Textknopf im Label ("Kundenanschrift übernehmen") */
+.btn-link {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-left: 8px;
+  font: inherit;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 600;
+  color: var(--brand);
+  cursor: pointer;
+}
+.btn-link:hover { text-decoration: underline; }
+
+/* Stand des Vertrags in der Kundenkarte: Status plus die Eckdaten, die man
+   zum Rechnungstellen braucht. */
+.vertrag-stand { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.vertrag-eckdaten { font-size: 12px; color: var(--text-dim); }
+.vertrag-brutto {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  font-size: 13.5px;
+  color: var(--text-muted);
+}
+.vertrag-brutto strong { color: var(--text); font-variant-numeric: tabular-nums; }
 
 /* --- Vertrag: öffentliche Seite zum Unterschreiben ---------------------- */
 .contract-card { max-width: 720px; text-align: left; }
