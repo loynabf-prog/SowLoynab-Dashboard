@@ -16,6 +16,10 @@ export default defineConfig({
   // Zugang wird trotzdem beim Import geprueft -- deshalb hier Platzhalter,
   // damit "npm test" ohne eingerichtete .env.local laeuft.
   test: {
+    // Edge Functions laufen in Deno und holen Pakete mit "npm:…". Die Tests
+    // laufen in Node und kennen dieses Praefix nicht -- hier umgebogen, damit
+    // sie dieselbe Datei pruefen koennen, die auch deployed wird.
+    alias: [{ find: /^npm:(@?[^@]+(?:\/[^@]+)?)(?:@.*)?$/, replacement: '$1' }],
     env: {
       VITE_SUPABASE_URL: 'http://localhost:54321',
       VITE_SUPABASE_ANON_KEY: 'test-anon-key',

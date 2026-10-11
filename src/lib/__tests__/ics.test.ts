@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   escape, falte, datumKompakt, zeitKompakt, tagDanach, baueIcs,
-} from '../../../supabase/functions/_shared/ics'
+} from '../../../supabase/functions/calendar-feed/index'
 
 describe('escape', () => {
   it('maskiert Semikolon und Komma', () => {
