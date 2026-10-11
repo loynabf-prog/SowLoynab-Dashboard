@@ -7,21 +7,24 @@
 // niemand ausgewaehlt heisst "fuer alle" -- der haeufigere Fall, fuer den
 // man nichts tun muss.
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Modal from './Modal'
 import { supabase } from '../lib/supabase'
 import { useTeam } from '../context/TeamContext'
 import type { CalEventRow, EventKind } from '../lib/types'
 
 const ARTEN: { key: EventKind; icon: string; label: string; hinweis: string }[] = [
+  { key: 'dreh', icon: '🎥', label: 'Drehtag', hinweis: 'Der Tag, an dem gedreht wird. Dazu kommen die Videos und ihre Skripte.' },
+  { key: 'termin', icon: '📍', label: 'Termin', hinweis: 'Gespräch, Kennenlernen, Abstimmung — alles ohne Kamera.' },
   { key: 'arbeit', icon: '💼', label: 'Arbeitszeit', hinweis: 'Hauptjob, Schicht — da geht nichts anderes.' },
   { key: 'spiel', icon: '⚽', label: 'Spiel', hinweis: 'Spielplan, Training.' },
-  { key: 'termin', icon: '📍', label: 'Termin', hinweis: 'Alles andere: Kundentermin, Arzt, privat.' },
 ]
 
 export default function TerminModal({
   termin,
   datum,
+  kunde,
+  artVorgabe,
   userId,
   onClose,
   onSaved,
@@ -29,13 +32,19 @@ export default function TerminModal({
   termin: CalEventRow | null
   /** Vorbelegtes Datum, wenn man im Kalender auf einen Tag getippt hat. */
   datum?: string
+  /** Vorbelegter Kunde, wenn man von einer Kundenseite kommt. */
+  kunde?: { id: string; name: string }
+  artVorgabe?: EventKind
   userId: string | null
   onClose: () => void
   onSaved: () => void
 }) {
   const { members } = useTeam()
+  const [kunden, setKunden] = useState<{ id: string; name: string }[]>([])
+  const [clientId, setClientId] = useState<string>(termin?.client_id ?? kunde?.id ?? '')
+  const [menge, setMenge] = useState(termin?.planned_videos != null ? String(termin.planned_videos) : '')
   const [title, setTitle] = useState(termin?.title ?? '')
-  const [kind, setKind] = useState<EventKind>(termin?.kind ?? 'termin')
+  const [kind, setKind] = useState<EventKind>(termin?.kind ?? artVorgabe ?? 'termin')
   const [von, setVon] = useState(termin?.starts_on ?? datum ?? new Date().toISOString().slice(0, 10))
   const [bis, setBis] = useState(termin?.ends_on ?? '')
   const [startZeit, setStartZeit] = useState(termin?.starts_at?.slice(0, 5) ?? '')
@@ -44,6 +53,11 @@ export default function TerminModal({
   const [notes, setNotes] = useState(termin?.notes ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    supabase.from('clients').select('id, name').is('deleted_at', null).order('name')
+      .then(({ data }) => setKunden((data ?? []) as { id: string; name: string }[]))
+  }, [])
 
   async function speichern(e: React.FormEvent) {
     e.preventDefault()
@@ -59,15 +73,21 @@ export default function TerminModal({
       ends_at: endZeit || null,
       member_ids: wer,
       notes: notes.trim() || null,
+      client_id: clientId || null,
+      // Die Zielmenge gibt es nur beim Drehtag -- bei einem Gespraech waere
+      // sie sinnlos und wuerde nur im Weg stehen.
+      planned_videos: kind === 'dreh' && menge ? Number(menge.replace(/[^\d]/g, '')) : null,
     }
     const { error: e1 } = termin
       ? await supabase.from('events').update(daten).eq('id', termin.id)
       : await supabase.from('events').insert({ ...daten, created_by: userId })
     setBusy(false)
     if (e1) {
-      setError(/does not exist|schema cache/i.test(e1.message)
-        ? 'Dafür fehlt noch das Skript 0032 in der Datenbank.'
-        : e1.message)
+      setError(/client_id|planned_videos/i.test(e1.message)
+        ? 'Dafür fehlt noch das Skript 0034 in der Datenbank.'
+        : /does not exist|schema cache/i.test(e1.message)
+          ? 'Dafür fehlt noch das Skript 0032 in der Datenbank.'
+          : e1.message)
       return
     }
     onSaved()
@@ -116,6 +136,30 @@ export default function TerminModal({
             required
           />
         </div>
+
+        <div>
+          <label htmlFor="tmkunde">Kunde <span className="muted">(optional)</span></label>
+          <select id="tmkunde" value={clientId} onChange={(e) => setClientId(e.target.value)}>
+            <option value="">— kein Kunde, interner Termin —</option>
+            {kunden.map((k) => <option key={k.id} value={k.id}>{k.name}</option>)}
+          </select>
+        </div>
+
+        {kind === 'dreh' && (
+          <div>
+            <label htmlFor="tmmenge">Wie viele Videos entstehen an dem Tag?</label>
+            <input
+              id="tmmenge"
+              value={menge}
+              onChange={(e) => setMenge(e.target.value)}
+              inputMode="numeric"
+              placeholder="z. B. 5"
+            />
+            <p className="muted" style={{ fontSize: 12, marginTop: 5 }}>
+              Das Ziel. Welche Videos es konkret werden, ordnest du danach im Drehtag zu.
+            </p>
+          </div>
+        )}
 
         {/* Für wen steht weit oben: das ist die Angabe, die entscheidet, wer
             es im Handy-Kalender sieht. */}

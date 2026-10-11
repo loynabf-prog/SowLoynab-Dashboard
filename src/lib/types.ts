@@ -164,12 +164,17 @@ export interface TeamMember {
 }
 
 /** Ein Termin: Arbeitszeit, Spiel oder alles andere, was den Tag belegt. */
-export type EventKind = 'arbeit' | 'spiel' | 'termin'
+export type EventKind = 'arbeit' | 'spiel' | 'termin' | 'dreh'
 
 export interface CalEventRow {
   id: string
   title: string
   kind: EventKind
+  /** Gehört der Termin zu einem Kunden? Leer = intern. */
+  client_id?: string | null
+  /** Nur beim Drehtag: wie viele Videos an dem Tag entstehen sollen. */
+  planned_videos?: number | null
+  clients?: { name: string } | null
   starts_on: string
   ends_on: string | null
   starts_at: string | null
@@ -220,6 +225,10 @@ export interface Video {
   link_fetch_at?: string | null
   link_fetch_state?: string | null
   link_fetch_note?: string | null
+  /** An welchem Drehtag wird gedreht? Nicht zu verwechseln mit scheduled_date, dem Posting-Tag. */
+  shoot_event_id?: string | null
+  /** Das Drehskript — steht am Video, damit es beim Drehen und später da ist. */
+  script?: string | null
   posted_at: string | null
   views: number | null
   likes: number | null
