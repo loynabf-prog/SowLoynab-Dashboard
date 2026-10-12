@@ -102,4 +102,4 @@ sind komplett gesperrt.
 1. **Bunny-Anbindung**: verlustfreier Upload (resumable) + Download der Originaldatei.
 2. **Claude-Caption**: Edge Function, die aus einer Ein-Satz-Beschreibung Caption +
    Hashtags erzeugt (API-Key server-seitig).
-3. Deploy (Netlify/Vercel) auf `app.sowloynab.de`.
+3. ~~Deploy auf `app.sowloynab.de`~~ — erledigt, laeuft ueber GitHub Pages.

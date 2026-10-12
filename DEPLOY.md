@@ -49,5 +49,7 @@ Der Login schützt alles — Fremde sehen nur den Anmelde-Screen.
 Jeder Push auf `main` (oder den Arbeits-Branch) baut die Seite automatisch neu.
 Kein manuelles Hochladen.
 
-> Netlify/Vercel gehen mit den ebenfalls vorhandenen Configs (`netlify.toml`,
-> `vercel.json`) genauso — werden aber nicht gebraucht, solange GitHub Pages läuft.
+> Gehostet wird ausschliesslich ueber GitHub Pages. Die alten Configs fuer
+> Netlify und Vercel sind raus — ein verbundenes Netlify-Projekt hat bei jedem
+> Push stillschweigend mitgebaut und Guthaben verbraucht, ohne dass jemand das
+> Ergebnis je angesehen hat.
