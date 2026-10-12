@@ -14,7 +14,10 @@
 //     -> je Plattform das neueste Posting des Kunden abrufen
 //     -> hängt die Adresse schon an einem anderen Video? Dann NICHT setzen,
 //        sondern als 'unklar' markieren und nachfragen lassen.
-//     -> sonst eintragen, fertig.
+//     -> sonst eintragen -- UND die Zahlen gleich mit, die bei genau diesem
+//        Abruf ohnehin anfallen. Danach laeuft das Video im ganz normalen
+//        Rhythmus von refresh-stats mit, so als haette man die Adresse selbst
+//        eingetragen.
 //
 // Lieber nachfragen als falsch zuordnen: eine falsche Adresse zieht Monate
 // später falsche Zahlen in die Auswertung, und niemand sucht dann noch hier.
@@ -54,7 +57,51 @@ async function apifyRun(actor: string, input: unknown, token: string): Promise<a
   return Array.isArray(data) ? data : []
 }
 
-interface Posting { url: string; zeit: string | null }
+interface Zahlen {
+  views: number | null; likes: number | null; comments: number | null
+  shares: number | null; saves: number | null; duration: number | null
+}
+interface Posting { url: string; zeit: string | null; zahlen: Zahlen }
+
+// Dieselben Feldnamen wie in refresh-stats -- die Zahlen muessen aus beiden
+// Wegen identisch herauskommen, sonst springen sie beim naechtlichen Lauf.
+function pick(obj: any, pfade: string[]): number | null {
+  for (const p of pfade) {
+    const v = p.split('.').reduce((o: any, k) => (o == null ? o : o[k]), obj)
+    if (typeof v === 'number' && isFinite(v)) return v
+    if (typeof v === 'string' && v.trim() !== '' && isFinite(Number(v))) return Number(v)
+  }
+  return null
+}
+
+export function tiktokZahlen(it: any): Zahlen {
+  return {
+    views: pick(it, ['playCount', 'views', 'videoViewCount', 'playcount']),
+    likes: pick(it, ['diggCount', 'likes', 'likeCount']),
+    comments: pick(it, ['commentCount', 'comments']),
+    shares: pick(it, ['shareCount', 'shares']),
+    saves: pick(it, ['collectCount', 'saves']),
+    duration: pick(it, ['videoMeta.duration', 'duration']),
+  }
+}
+
+export function instagramZahlen(it: any): Zahlen {
+  return {
+    views: pick(it, ['videoViewCount', 'videoPlayCount', 'views', 'playCount']),
+    likes: pick(it, ['likesCount', 'likes']),
+    comments: pick(it, ['commentsCount', 'comments']),
+    shares: pick(it, ['sharesCount', 'shares', 'reshareCount']),
+    saves: pick(it, ['savesCount', 'saves']),
+    duration: pick(it, ['videoDuration', 'duration']),
+  }
+}
+
+// Summe ueber beide Plattformen. Ist nirgends eine Zahl da, bleibt es leer --
+// 0 waere eine Behauptung, die wir nicht belegen koennen.
+export function summe(a: number | null, b: number | null): number | null {
+  if (a == null && b == null) return null
+  return (a ?? 0) + (b ?? 0)
+}
 
 function zeitAus(it: any): string | null {
   for (const k of ['timestamp', 'createTimeISO', 'takenAt', 'uploadedAtFormatted']) {
@@ -73,7 +120,7 @@ async function neuestesTiktok(handle: string, actor: string, token: string): Pro
     shouldDownloadVideos: false, shouldDownloadCovers: false,
   }, token)
   const mit = items
-    .map((it) => ({ url: String(it?.webVideoUrl ?? it?.postPage ?? ''), zeit: zeitAus(it) }))
+    .map((it) => ({ url: String(it?.webVideoUrl ?? it?.postPage ?? ''), zeit: zeitAus(it), zahlen: tiktokZahlen(it) }))
     .filter((p) => p.url.startsWith('http'))
   return sortiere(mit)[0] ?? null
 }
@@ -84,7 +131,7 @@ async function neuestesInstagram(handle: string, actor: string, token: string): 
     resultsType: 'posts', resultsLimit: 3,
   }, token)
   const mit = items
-    .map((it) => ({ url: String(it?.url ?? ''), zeit: zeitAus(it) }))
+    .map((it) => ({ url: String(it?.url ?? ''), zeit: zeitAus(it), zahlen: instagramZahlen(it) }))
     .filter((p) => p.url.startsWith('http'))
   return sortiere(mit)[0] ?? null
 }
@@ -99,7 +146,7 @@ function zuAlt(p: Posting): boolean {
   return Date.now() - Date.parse(p.zeit) > MAX_ALTER_STUNDEN * 3600_000
 }
 
-Deno.serve(async (req) => {
+const bedienen = async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
   const supa = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
@@ -112,7 +159,9 @@ Deno.serve(async (req) => {
 
     const { data: faellig, error } = await supa
       .from('videos')
-      .select('id, client_id, title, tiktok_url, instagram_url, link_fetch_tries')
+      .select('id, client_id, title, tiktok_url, instagram_url, link_fetch_tries, ' +
+              'views_ig, likes_ig, comments_ig, shares_ig, saves_ig, ' +
+              'views_tiktok, likes_tiktok, comments_tiktok, shares_tiktok, saves_tiktok')
       .is('deleted_at', null)
       .eq('status', 'posted')
       .not('link_fetch_at', 'is', null)
@@ -124,11 +173,14 @@ Deno.serve(async (req) => {
 
     let gesetzt = 0
     let unklar = 0
+    let mitZahlen = 0
     const fehler: string[] = []
 
     for (const v of faellig as any[]) {
       const versuch = (v.link_fetch_tries ?? 0) + 1
       const patch: Record<string, unknown> = { link_fetch_tries: versuch }
+      // Zahlen, die bei diesem Lauf mit abgefallen sind -- je Plattform
+      const frisch: { tiktok: Zahlen | null; instagram: Zahlen | null } = { tiktok: null, instagram: null }
 
       // Welche Accounts hat der Kunde? Bei zwei Betrieben unter einem Dach
       // kann es mehrere je Plattform geben -- dann ist nicht zu entscheiden,
@@ -173,6 +225,9 @@ Deno.serve(async (req) => {
             continue
           }
           patch[feld] = p.url
+          // Der Abruf hat die Zahlen ohnehin geliefert -- mitnehmen, statt sie
+          // wegzuwerfen und spaeter ein zweites Mal dafuer zu bezahlen.
+          frisch[platform] = p.zahlen
         } catch (e) {
           notizen.push(`${platform}: ${(e as Error).message}`)
         }
@@ -202,8 +257,61 @@ Deno.serve(async (req) => {
         patch.link_fetch_state = 'offen'
       }
 
+      // --- Zahlen gleich mitschreiben ---------------------------------------
+      // Genau dieselben Spalten und dieselbe Rechnung wie in refresh-stats,
+      // damit die Zahl von jetzt und die vom naechtlichen Lauf zusammenpassen.
+      // Danach laeuft das Video ganz normal im ueblichen Rhythmus mit:
+      // refresh-stats greift sich jedes gepostete Video mit Adresse, egal ob
+      // die Adresse von Hand kam oder von hier.
+      if (frisch.tiktok || frisch.instagram) {
+        const tt = frisch.tiktok
+        const ig = frisch.instagram
+        // Fuer die Plattform, die diesmal nichts lieferte, zaehlt der Stand aus
+        // der Datenbank -- sonst faellt die Summe beim zweiten Anlauf zurueck.
+        const ttV = tt ? tt.views : v.views_tiktok ?? null
+        const igV = ig ? ig.views : v.views_ig ?? null
+        const ttL = tt ? tt.likes : v.likes_tiktok ?? null
+        const igL = ig ? ig.likes : v.likes_ig ?? null
+        const ttK = tt ? tt.comments : v.comments_tiktok ?? null
+        const igK = ig ? ig.comments : v.comments_ig ?? null
+        const ttS = tt ? tt.shares : v.shares_tiktok ?? null
+        const igS = ig ? ig.shares : v.shares_ig ?? null
+        const ttB = tt ? tt.saves : v.saves_tiktok ?? null
+        const igB = ig ? ig.saves : v.saves_ig ?? null
+
+        const gesamt = {
+          views: summe(ttV, igV), likes: summe(ttL, igL), comments: summe(ttK, igK),
+          shares: summe(ttS, igS), saves: summe(ttB, igB),
+        }
+        Object.assign(patch, gesamt, {
+          reach: gesamt.views,
+          stats_updated_at: new Date().toISOString(),
+          views_tiktok: ttV, likes_tiktok: ttL, comments_tiktok: ttK, shares_tiktok: ttS, saves_tiktok: ttB,
+          views_ig: igV, likes_ig: igL, comments_ig: igK, shares_ig: igS, saves_ig: igB,
+        })
+        const dauer = tt?.duration ?? ig?.duration ?? null
+        if (dauer != null) patch.duration_seconds = dauer
+
+        // Tages-Schnappschuss fuer die Kurve, heutigen Eintrag ersetzen
+        const heute = new Date().toISOString().slice(0, 10)
+        try {
+          await supa.from('video_stats').delete().eq('video_id', v.id).eq('captured_on', heute)
+          await supa.from('video_stats').insert({ video_id: v.id, captured_on: heute, ...gesamt, reach: gesamt.views })
+        } catch { /* Verlauf ist Zugabe -- daran soll der Lauf nicht scheitern */ }
+        mitZahlen++
+      }
+
       const { error: uErr } = await supa.from('videos').update(patch).eq('id', v.id)
-      if (uErr) fehler.push(`${v.id}: ${uErr.message}`)
+      if (uErr) {
+        // Fehlen die Zahlen-Spalten (Migration 0020), wenigstens die Adresse retten
+        const nurLink: Record<string, unknown> = {}
+        for (const k of ['tiktok_url', 'instagram_url', 'link_fetch_at', 'link_fetch_state', 'link_fetch_note', 'link_fetch_tries']) {
+          if (k in patch) nurLink[k] = patch[k]
+        }
+        const { error: zweit } = await supa.from('videos').update(nurLink).eq('id', v.id)
+        if (zweit) fehler.push(`${v.id}: ${zweit.message}`)
+        else fehler.push(`${v.id}: Zahlen nicht gespeichert (${uErr.message})`)
+      }
     }
 
     const nowIso = new Date().toISOString()
@@ -214,7 +322,7 @@ Deno.serve(async (req) => {
       }, { onConflict: 'job' })
     } catch { /* ignore */ }
 
-    return json({ geprueft: faellig.length, gesetzt, unklar, fehler: fehler.slice(0, 5) })
+    return json({ geprueft: faellig.length, gesetzt, mitZahlen, unklar, fehler: fehler.slice(0, 5) })
   } catch (err) {
     try {
       const nowIso = new Date().toISOString()
@@ -225,7 +333,12 @@ Deno.serve(async (req) => {
     } catch { /* ignore */ }
     return json({ error: `Fehler: ${(err as Error).message}` }, 500)
   }
-})
+}
+
+// Im Betrieb bedient die Funktion Anfragen; im Test wird die Datei nur
+// importiert, um die Zuordnung der Zahlen zu pruefen -- dann darf kein
+// Server starten.
+if (typeof Deno !== 'undefined') Deno.serve(bedienen)
 
 function json(obj: unknown, status = 200): Response {
   return new Response(JSON.stringify(obj), { status, headers: { ...CORS, 'content-type': 'application/json' } })

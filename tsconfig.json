@@ -19,5 +19,5 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src", "vite.config.ts", "supabase/functions/deno.d.ts", "supabase/functions/calendar-feed/index.ts"]
+  "include": ["src", "vite.config.ts", "supabase/functions/deno.d.ts", "supabase/functions/calendar-feed/index.ts", "supabase/functions/fetch-post-links/index.ts"]
 }
