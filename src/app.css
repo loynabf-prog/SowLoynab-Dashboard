@@ -1590,6 +1590,64 @@ a.fin-tile:hover { transform: translateY(-3px); box-shadow: var(--shadow); borde
 }
 .vertrag-brutto strong { color: var(--text); font-variant-numeric: tabular-nums; }
 
+/* --- Unterschriftsfeld -------------------------------------------------- */
+/* touch-action: none ist Pflicht -- sonst scrollt das Handy die Seite, statt
+   den Strich zu zeichnen. */
+.unterschrift-feld {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  overflow: hidden;
+}
+.unterschrift-feld canvas {
+  display: block;
+  width: 100%;
+  height: 150px;
+  touch-action: none;
+  cursor: crosshair;
+}
+/* Gezeichnet wird immer schwarz, damit die Unterschrift im PDF auf weissem
+   Papier steht. Im Dunkelmodus kehren wir nur die ANZEIGE um -- die Bilddaten,
+   die gespeichert werden, bleiben schwarz. */
+:root[data-theme="dark"] .unterschrift-feld canvas { filter: invert(1); }
+.unterschrift-hinweis {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: var(--text-dim);
+  pointer-events: none;
+}
+/* Linie zum Draufschreiben -- gibt dem Feld die vertraute Form */
+.unterschrift-linie {
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: 30px;
+  height: 1px;
+  background: var(--border);
+  pointer-events: none;
+}
+.unterschrift-leiste {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 12px;
+}
+/* Die fertige Unterschrift unter der Bestaetigung */
+.unterschrift-bild {
+  display: block;
+  max-width: 220px;
+  margin-top: 10px;
+  /* Der Zug ist schwarz gezeichnet; im Dunkelmodus umkehren, sonst ist er weg */
+  filter: none;
+}
+:root[data-theme="dark"] .unterschrift-bild { filter: invert(1) brightness(1.4); }
+
 /* --- Vertrag: öffentliche Seite zum Unterschreiben ---------------------- */
 .contract-card { max-width: 720px; text-align: left; }
 .contract-title { font-size: 21px; font-weight: 800; margin: 14px 0 4px; color: var(--text); }

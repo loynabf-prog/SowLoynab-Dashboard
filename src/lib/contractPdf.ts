@@ -5,6 +5,7 @@ export interface SignInfo {
   signed_at?: string | null
   signer_name?: string | null
   signer_role?: string | null
+  signer_signature?: string | null
   client_name?: string
 }
 
@@ -100,6 +101,21 @@ export function contractPdf(body: ContractBody, sign: SignInfo = {}): jsPDF {
       `${sign.client_name ? ` (${sign.client_name})` : ''}`,
       { fett: true, nach: 3 },
     )
+
+    // Der gezeichnete Zug, falls vorhanden. Feste Hoehe, Breite nach
+    // Seitenverhaeltnis -- das Feld zeichnet immer 600x200.
+    if (sign.signer_signature?.startsWith('data:image/')) {
+      const h = 18, w = h * 3
+      platz(h + 8)
+      try {
+        doc.addImage(sign.signer_signature, 'PNG', L, y, w, h)
+        y += h + 1
+        doc.setDrawColor(60); doc.line(L, y, L + w, y); y += 4
+        absatz('Unterschrift des Kunden', { grau: true, groesse: 8, nach: 3 })
+      } catch {
+        // Bild nicht lesbar -- der getippte Name oben steht ja trotzdem
+      }
+    }
     absatz(
       'Dieser Nachweis dokumentiert den Wortlaut des Vertrags zum Zeitpunkt der Bestätigung.',
       { grau: true, groesse: 8, nach: 0 },

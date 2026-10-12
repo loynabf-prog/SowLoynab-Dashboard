@@ -30,6 +30,22 @@ describe('contractPdf', () => {
     }))
     expect(doc.getNumberOfPages()).toBeGreaterThanOrEqual(2)
   })
+  it('nimmt eine gezeichnete Unterschrift mit ins PDF', () => {
+    // Ein echtes 1x1-PNG -- jsPDF muss es einbetten koennen, nicht nur schlucken
+    const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+    const ohne = contractPdf(buildContract(v), {
+      signed_at: '2026-10-11T12:00:00Z', signer_name: 'Chef',
+    }).output('arraybuffer').byteLength
+    const mit = contractPdf(buildContract(v), {
+      signed_at: '2026-10-11T12:00:00Z', signer_name: 'Chef', signer_signature: png,
+    }).output('arraybuffer').byteLength
+    expect(mit).toBeGreaterThan(ohne)
+  })
+  it('bricht nicht ab, wenn die Unterschrift Unsinn ist', () => {
+    expect(() => contractPdf(buildContract(v), {
+      signed_at: '2026-10-11T12:00:00Z', signer_name: 'Chef', signer_signature: 'kaputt',
+    })).not.toThrow()
+  })
   it('benennt die Datei nach Kunde und Stand', () => {
     const b = buildContract(v)
     expect(contractFilename(b, true)).toBe('Rahmenvertrag-Pizzeria-Bella-unterschrieben.pdf')

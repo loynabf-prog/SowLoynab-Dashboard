@@ -15,6 +15,8 @@ import { heute } from '../lib/datum'
 import { tableMissing } from '../lib/db'
 import type { Client } from '../lib/types'
 import Modal from './Modal'
+import Unterschriftsfeld from './Unterschriftsfeld'
+import { hatUnterschrift, unterschreibe } from '../lib/unterschrift'
 
 interface ContractRow {
   id: string
@@ -27,6 +29,7 @@ interface ContractRow {
   signed_at: string | null
   signer_name: string | null
   signer_role: string | null
+  signer_signature: string | null
   starts_on: string | null
   pdf_path: string | null
   mail_sent_at: string | null
@@ -43,6 +46,7 @@ export default function ContractCard({ client }: { client: Client }) {
   const [fehlt, setFehlt] = useState(false)
   const [open, setOpen] = useState(false)
   const [versand, setVersand] = useState(false)
+  const [vorOrt, setVorOrt] = useState(false)
   const [archivFehler, setArchivFehler] = useState<string | null>(null)
 
   const load = useCallback(async () => {
@@ -76,6 +80,7 @@ export default function ContractCard({ client }: { client: Client }) {
       signed_at: row.signed_at,
       signer_name: row.signer_name,
       signer_role: row.signer_role,
+      signer_signature: row.signer_signature,
       client_name: client.name,
     })
     doc.save(contractFilename(row.body, row.status === 'signed'))
@@ -159,6 +164,11 @@ export default function ContractCard({ client }: { client: Client }) {
             )}
           </div>
           <div className="spacer" />
+          {row.status === 'sent' && (
+            <button className="btn btn-sm btn-primary" onClick={() => setVorOrt(true)}>
+              ✍️ Vor Ort unterschreiben
+            </button>
+          )}
           {row.status !== 'draft' && (
             <button className="btn btn-sm" onClick={linkKopieren}>Link</button>
           )}
@@ -190,6 +200,15 @@ export default function ContractCard({ client }: { client: Client }) {
           userId={user?.id ?? null}
           onClose={() => setOpen(false)}
           onSaved={(msg) => { setOpen(false); load(); toast(msg) }}
+        />
+      )}
+
+      {vorOrt && row && (
+        <VorOrtModal
+          client={client}
+          row={row}
+          onClose={() => setVorOrt(false)}
+          onSigned={() => { setVorOrt(false); load(); toast('Vertrag unterschrieben ✓') }}
         />
       )}
 
@@ -568,6 +587,111 @@ function VersandModal({
           <div className="spacer" />
           <button type="button" className="btn btn-primary" onClick={senden} disabled={busy}>
             {busy ? 'Verschicke …' : 'Mit PDF verschicken'}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+// --- Vor Ort unterschreiben lassen -----------------------------------------
+// Für den Fall, dass man beim Kunden sitzt: Handy rüberreichen, er liest,
+// unterschreibt mit dem Finger, fertig. Derselbe Vorgang wie über den Link —
+// es läuft über dieselbe abgesicherte Funktion und denselben Token, damit im
+// Vertrag nichts anderes steht als bei der Fassung zum Zuschicken.
+function VorOrtModal({
+  client, row, onClose, onSigned,
+}: {
+  client: Client
+  row: ContractRow
+  onClose: () => void
+  onSigned: () => void
+}) {
+  const [name, setName] = useState(row.body?.kunde?.vertreten ?? client.contact_person ?? '')
+  const [rolle, setRolle] = useState('')
+  const [signatur, setSignatur] = useState<string | null>(null)
+  const [gelesen, setGelesen] = useState(false)
+  const [text, setText] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const k = konditionenVon(row.body)
+
+  async function signieren() {
+    if (!name.trim()) { setError('Bitte den Namen eintragen.'); return }
+    setBusy(true); setError(null)
+    try {
+      await unterschreibe(row.token, name.trim(), rolle.trim(), hatUnterschrift(signatur) ? signatur : null)
+      onSigned()
+    } catch (e) {
+      setError((e as Error).message)
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Modal title="✍️ Vor Ort unterschreiben" onClose={onClose}>
+      <div className="stack">
+        {error && <div className="error-box">{error}</div>}
+
+        <div className="info-box" style={{ fontSize: 13 }}>
+          Reich dem Kunden das Gerät. Er liest den Vertrag, trägt seinen Namen ein
+          und unterschreibt mit dem Finger. Danach ist der Vertrag geschlossen und
+          lässt sich nicht mehr ändern.
+        </div>
+
+        {/* Die Zahlen noch einmal, bevor jemand unterschreibt */}
+        <div className="vertrag-brutto">
+          {k.videos != null ? `${k.videos} Video${k.videos === 1 ? '' : 's'} je Monat` : 'Videoanzahl offen'}
+          {' · '}
+          <strong>{betrag(k.ust === 0 ? k.netto : k.brutto)}</strong>
+          {k.ust === 0 ? ' (keine USt, § 19 UStG)' : ' brutto je Monat'}
+        </div>
+
+        <button type="button" className="btn btn-sm" onClick={() => setText((t) => !t)}>
+          {text ? '▴ Vertragstext ausblenden' : '▾ Vertragstext lesen'}
+        </button>
+        {text && (
+          <div className="contract-preview">
+            {row.body.paragraphen.map((p) => (
+              <section key={p.titel}>
+                <h3>{p.titel}</h3>
+                {p.absaetze.map((a, i) => <p key={i}>({i + 1}) {a}</p>)}
+              </section>
+            ))}
+          </div>
+        )}
+
+        <div>
+          <label>Name des Unterzeichners *</label>
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Vor- und Nachname" autoComplete="off" />
+        </div>
+        <div>
+          <label>Funktion <span className="muted">(optional)</span></label>
+          <input value={rolle} onChange={(e) => setRolle(e.target.value)} placeholder="z. B. Inhaber" />
+        </div>
+        <div>
+          <label>Unterschrift <span className="muted">(optional)</span></label>
+          <Unterschriftsfeld onChange={setSignatur} />
+        </div>
+
+        <label className="contract-check">
+          <input type="checkbox" checked={gelesen} onChange={(e) => setGelesen(e.target.checked)} />
+          <span>
+            Ich habe den Vertrag gelesen und bin berechtigt, ihn für {client.name} abzuschließen.
+          </span>
+        </label>
+
+        <div className="modal-actions">
+          <button type="button" className="btn btn-ghost" onClick={onClose}>Abbrechen</button>
+          <div className="spacer" />
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={signieren}
+            disabled={busy || !name.trim() || !gelesen}
+          >
+            {busy ? 'Wird bestätigt …' : '✓ Rechtsverbindlich bestätigen'}
           </button>
         </div>
       </div>
