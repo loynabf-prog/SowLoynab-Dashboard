@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { contractPdf, contractFilename } from '../lib/contractPdf'
+import Unterschriftsfeld from '../components/Unterschriftsfeld'
+import { hatUnterschrift, unterschreibe } from '../lib/unterschrift'
 import { betrag, konditionenVon, rechnungZeile, type ContractBody } from '../lib/contract'
 
 interface Row {
@@ -11,6 +13,8 @@ interface Row {
   status: string
   signed_at: string | null
   signer_name: string | null
+  signer_role: string | null
+  signer_signature: string | null
   starts_on: string | null
   client_name: string
 }
@@ -26,6 +30,7 @@ export default function ContractSign() {
   const [name, setName] = useState('')
   const [rolle, setRolle] = useState('')
   const [zugestimmt, setZugestimmt] = useState(false)
+  const [signatur, setSignatur] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   async function load() {
@@ -46,10 +51,14 @@ export default function ContractSign() {
   async function unterschreiben() {
     if (!token || !name.trim()) return
     setBusy(true)
-    const { error } = await supabase.rpc('sign_contract', { t: token, name: name.trim(), role: rolle.trim() })
-    setBusy(false)
-    if (error) { setError(error.message); return }
-    load()
+    try {
+      await unterschreibe(token, name.trim(), rolle.trim(), hatUnterschrift(signatur) ? signatur : null)
+      load()
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
   }
 
   function pdf() {
@@ -57,6 +66,8 @@ export default function ContractSign() {
     const doc = contractPdf(row.body, {
       signed_at: row.signed_at,
       signer_name: row.signer_name,
+      signer_role: row.signer_role,
+      signer_signature: row.signer_signature,
       client_name: row.client_name,
     })
     doc.save(contractFilename(row.body, !!row.signed_at))
@@ -95,6 +106,9 @@ export default function ContractSign() {
               ? new Date(row.signed_at).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
               : ''}{' '}
             Uhr durch <strong>{row.signer_name}</strong>. Beide Seiten sind an diesen Vertrag gebunden.
+            {row.signer_signature && (
+              <img className="unterschrift-bild" src={row.signer_signature} alt="Unterschrift" />
+            )}
           </div>
         )}
 
@@ -145,6 +159,10 @@ export default function ContractSign() {
               <div>
                 <label>Funktion <span className="muted">(optional)</span></label>
                 <input value={rolle} onChange={(e) => setRolle(e.target.value)} placeholder="z. B. Inhaber" />
+              </div>
+              <div>
+                <label>Unterschrift <span className="muted">(optional)</span></label>
+                <Unterschriftsfeld onChange={setSignatur} />
               </div>
               <label className="contract-check">
                 <input type="checkbox" checked={zugestimmt} onChange={(e) => setZugestimmt(e.target.checked)} />
