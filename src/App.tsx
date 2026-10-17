@@ -7,6 +7,7 @@ import ClientPage from './pages/ClientPage'
 import Leads from './pages/Leads'
 import Tasks from './pages/Tasks'
 import Calendar from './pages/Calendar'
+import Posting from './pages/Posting'
 import Finances from './pages/Finances'
 import Team from './pages/Team'
 import Trash from './pages/Trash'
@@ -53,6 +54,7 @@ export default function App() {
       <Route path="/client/:id" element={<ProtectedRoute><ClientPage /></ProtectedRoute>} />
       <Route path="/leads" element={<ProtectedRoute><Leads /></ProtectedRoute>} />
       <Route path="/aufgaben" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
+      <Route path="/posting" element={<ProtectedRoute><Posting /></ProtectedRoute>} />
       <Route path="/kalender" element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
       <Route path="/leistung" element={<ProtectedRoute><Performance /></ProtectedRoute>} />
       <Route path="/analyse" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />

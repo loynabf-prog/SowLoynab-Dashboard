@@ -21,6 +21,7 @@ export default function PostSchritt({
   onPosten,
   onLink,
   onVorarbeit,
+  hinweis,
 }: {
   video: TagVideo
   /** 'heute' = posten und Links, 'vorher' = Vorarbeit abhaken. */
@@ -30,6 +31,8 @@ export default function PostSchritt({
   onPosten: () => void
   onLink: (feld: 'tiktok_url' | 'instagram_url', url: string) => Promise<void>
   onVorarbeit: (key: 'prep_shot' | 'prep_edited' | 'prep_scheduled', wert: boolean) => void
+  /** Optionaler Zusatz in der Meta-Zeile, z. B. die Fristen-Ampel. */
+  hinweis?: React.ReactNode
 }) {
   const phase = postPhase(video)
   const fehlt = fehlendeLinks(video)
@@ -48,6 +51,7 @@ export default function PostSchritt({
             {zeit && <span className="jetzt-zeit">{zeit}</span>}
             {video.clients?.name && <span className="chip">{video.clients.name}</span>}
             {modus === 'vorher' && stand < 3 && <span className="ps-stand">{stand}/3 vorbereitet</span>}
+            {hinweis}
           </span>
         </button>
 

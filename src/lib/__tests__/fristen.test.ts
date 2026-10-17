@@ -1,0 +1,88 @@
+import { describe, it, expect } from 'vitest'
+import { fristInfo, stand, tageZwischen, nachDringlichkeit } from '../fristen'
+import type { Video } from '../types'
+
+type V = Parameters<typeof fristInfo>[0]
+const v = (p: Partial<Video> = {}): V => ({ status: 'todo', scheduled_date: '2026-10-30', ...p } as V)
+const HEUTE = '2026-10-17'
+
+describe('tageZwischen', () => {
+  it('rechnet ganze Tage', () => {
+    expect(tageZwischen('2026-10-17', '2026-10-20')).toBe(3)
+    expect(tageZwischen('2026-10-20', '2026-10-17')).toBe(-3)
+  })
+  it('ueber die Zeitumstellung hinweg', () => {
+    expect(tageZwischen('2026-10-24', '2026-10-26')).toBe(2)
+  })
+})
+
+describe('stand', () => {
+  it('spaetere Schritte schliessen fruehere ein', () => {
+    expect(stand(v({ prep_scheduled: true }))).toMatchObject({ gedreht: true, geschnitten: true, geplant: true })
+  })
+  it('Board-Status zaehlt mit', () => {
+    expect(stand(v({ status: 'ready' }))).toMatchObject({ gedreht: true, geschnitten: true, geplant: false })
+  })
+})
+
+describe('fristInfo', () => {
+  it('ungedreht 13 Tage vorher: Dreh-Frist gerissen = rot', () => {
+    const f = fristInfo(v(), HEUTE)
+    expect(f.ampel).toBe('rot')
+    expect(f.schritt).toBe('dreh')
+    expect(f.frist).toBe('2026-10-09')
+    expect(f.tageBisFrist).toBe(-8)
+  })
+  it('ungedreht mit viel Vorlauf ist gruen', () => {
+    expect(fristInfo(v({ scheduled_date: '2026-11-30' }), HEUTE).ampel).toBe('gruen')
+  })
+  it('Dreh-Frist in 5 Tagen ist gelb', () => {
+    expect(fristInfo(v({ scheduled_date: '2026-11-12' }), HEUTE).ampel).toBe('gelb')
+  })
+  it('gedreht, Schnitt-Frist heute = rot', () => {
+    const f = fristInfo(v({ prep_shot: true, scheduled_date: '2026-10-20' }), HEUTE)
+    expect(f.schritt).toBe('schnitt')
+    expect(f.ampel).toBe('rot')
+  })
+  it('geschnitten, Planung morgen faellig = gelb', () => {
+    const f = fristInfo(v({ prep_edited: true, scheduled_date: '2026-10-19' }), HEUTE)
+    expect(f.schritt).toBe('planung')
+    expect(f.ampel).toBe('gelb')
+  })
+  it('eingeplant ist gruen', () => {
+    expect(fristInfo(v({ prep_scheduled: true, scheduled_date: '2026-10-18' }), HEUTE).ampel).toBe('gruen')
+  })
+  it('Posting-Tag vorbei und nicht gepostet = rot', () => {
+    const f = fristInfo(v({ prep_scheduled: true, scheduled_date: '2026-10-15' }), HEUTE)
+    expect(f.ampel).toBe('rot')
+    expect(f.text).toContain('verpasst')
+  })
+  it('gepostet ist erledigt, ohne Datum ohne-termin', () => {
+    expect(fristInfo(v({ status: 'posted' }), HEUTE).ampel).toBe('erledigt')
+    expect(fristInfo(v({ scheduled_date: null }), HEUTE).ampel).toBe('ohne-termin')
+  })
+})
+
+describe('Drehtag', () => {
+  it('vergangener Drehtag zaehlt als gedreht', () => {
+    const f = fristInfo(v({ drehtag: '2026-10-10' } as Partial<Video>), HEUTE)
+    expect(f.schritt).toBe('schnitt')
+  })
+  it('geplanter Drehtag vor der Frist ist gruen', () => {
+    const f = fristInfo(v({ scheduled_date: '2026-11-30', drehtag: '2026-11-01' } as Partial<Video>), HEUTE)
+    expect(f.ampel).toBe('gruen')
+  })
+  it('Drehtag nach der Dreh-Frist ist gelb statt rot', () => {
+    const f = fristInfo(v({ drehtag: '2026-10-20' } as Partial<Video>), HEUTE)
+    expect(f.ampel).toBe('gelb')
+  })
+})
+
+describe('nachDringlichkeit', () => {
+  it('rot vor gelb vor gruen', () => {
+    const r = v({ scheduled_date: '2026-10-30' })
+    const g = v({ scheduled_date: '2026-11-12' })
+    const gr = v({ scheduled_date: '2026-12-30' })
+    expect(nachDringlichkeit([gr, g, r], HEUTE)).toEqual([r, g, gr])
+  })
+})

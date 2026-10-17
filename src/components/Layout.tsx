@@ -12,6 +12,7 @@ import UpdatePrompt from './UpdatePrompt'
 // Primär = Tagesgeschäft (immer sichtbar)
 const PRIMARY = [
   { to: '/', label: 'Heute', icon: '☀️', end: true },
+  { to: '/posting', label: 'Posting', icon: '📣' },
   { to: '/kunden', label: 'Kunden', icon: '👥' },
   { to: '/kalender', label: 'Kalender', icon: '🗓' },
 ]
@@ -124,6 +125,9 @@ function MobileTabBar({ inSecondary, moreOpen, onMore }: { inSecondary: boolean;
       <button className="tab tab-add" onClick={() => window.dispatchEvent(new Event('open-quickadd'))} aria-label="Neu">
         <span className="tab-add-btn">＋</span>
       </button>
+      <NavLink to="/kunden" className={({ isActive }) => `tab ${isActive ? 'on' : ''}`}>
+        <span className="tab-ic">👥</span><span className="tab-lb">Kunden</span>
+      </NavLink>
       <NavLink to="/kalender" className={({ isActive }) => `tab ${isActive ? 'on' : ''}`}>
         <span className="tab-ic">🗓</span><span className="tab-lb">Kalender</span>
       </NavLink>
