@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabase'
 import { useTeam } from '../context/TeamContext'
 import KalenderAbo from '../components/KalenderAbo'
 import { useToast } from '../context/ToastContext'
+import { BEREICHE } from '../lib/bereiche'
+import type { TeamMember } from '../lib/types'
 
 const COLORS = ['#e0521a', '#2563eb', '#2f9e44', '#c98a00', '#7c3aed', '#db2777', '#0891b2', '#65a30d']
 
@@ -37,6 +39,16 @@ export default function Team() {
 
   async function recolor(id: string, c: string) {
     await supabase.from('team_members').update({ color: c }).eq('id', id)
+    reload()
+  }
+
+  /** Bereich an/aus. Alle an = leer speichern, das heisst "sieht alles". */
+  async function toggleBereich(m: TeamMember, key: string) {
+    const jetzt = m.bereiche && m.bereiche.length ? m.bereiche : BEREICHE.map((b) => b.key)
+    const neu = jetzt.includes(key) ? jetzt.filter((k) => k !== key) : [...jetzt, key]
+    const wert = neu.length === BEREICHE.length ? null : neu
+    const { error } = await supabase.from('team_members').update({ bereiche: wert }).eq('id', m.id)
+    if (error) { toast('Dafür fehlt noch Migration 0037 in der Datenbank.'); return }
     reload()
   }
 
@@ -82,6 +94,37 @@ export default function Team() {
             </button>
           </div>
         ))}
+      </div>
+
+      {/* Welche Bereiche sieht wer in der Navigation? Fuer spaetere
+          Mitarbeiter: wer nur Analyse macht, sieht auch nur die Analyse. */}
+      <h2 className="section-title" style={{ marginTop: 26 }}>🧭 Bereiche</h2>
+      <p className="muted" style={{ fontSize: 13, maxWidth: 560, marginTop: -4 }}>
+        Wer welche Bereiche in der Navigation sieht. Alles an heißt: sieht alles.
+        Verwaltung bleibt immer erreichbar.
+      </p>
+      <div className="card-list" style={{ maxWidth: 560, marginTop: 12 }}>
+        {members.map((m) => {
+          const an = m.bereiche && m.bereiche.length ? m.bereiche : BEREICHE.map((b) => b.key)
+          return (
+            <div className="bereich-row" key={m.id}>
+              <span className="team-name">{m.name}</span>
+              <div className="bereich-chips">
+                {BEREICHE.filter((b) => b.key !== 'verwaltung').map((b) => (
+                  <button
+                    key={b.key}
+                    className={`ps-schritt ${an.includes(b.key) ? 'on' : ''}`}
+                    aria-pressed={an.includes(b.key)}
+                    title={b.zweck}
+                    onClick={() => toggleBereich(m, b.key)}
+                  >
+                    {b.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )
+        })}
       </div>
 
       {/* Jeder bekommt seinen eigenen Abo-Link: gemeinsame Termine plus die

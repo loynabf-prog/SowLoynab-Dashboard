@@ -3756,3 +3756,20 @@ html { scroll-behavior: smooth; }
 .ampel-gruen { color: var(--posted); background: color-mix(in srgb, var(--posted) 12%, transparent); }
 .posting-tag + .posting-tag { margin-top: 14px; }
 .posting-tag-kopf { font-size: 12px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: .04em; margin: 0 0 6px 2px; }
+
+/* ---- Produktion ---- */
+.prod-drehtage { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; }
+.prod-drehtag {
+  display: flex; flex-direction: column; gap: 3px; text-align: left; cursor: pointer;
+  padding: 10px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border);
+  background: var(--bg-elev); color: var(--text);
+}
+.prod-drehtag-datum { font-size: 11.5px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: .03em; }
+.prod-drehtag-titel { font-weight: 700; font-size: 14px; }
+.prod-drehtag-zahl { font-size: 12px; color: var(--text-muted); }
+.prod-drehtag-zahl.luecke { color: var(--ready); font-weight: 700; }
+.prod-seg { margin: 4px 0 14px; }
+.prod-seg .seg-btn { flex: 1; }
+.prod-zahl { display: inline-block; min-width: 20px; margin-left: 4px; font-variant-numeric: tabular-nums; color: var(--text-dim); font-weight: 700; }
+.bereich-row { display: flex; flex-direction: column; gap: 8px; padding: 10px 2px; border-bottom: 1px solid var(--border); }
+.bereich-chips { display: flex; flex-wrap: wrap; gap: 6px; }

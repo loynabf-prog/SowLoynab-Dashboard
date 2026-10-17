@@ -160,6 +160,11 @@ export interface TeamMember {
    * Migration 0032 laeuft.
    */
   calendar_token?: string | null
+  /**
+   * Welche Bereiche (lib/bereiche.ts) das Mitglied in der Navigation sieht.
+   * Leer = alle. Optional, damit die App auch ohne Migration 0037 laeuft.
+   */
+  bereiche?: string[] | null
   created_at: string
 }
 

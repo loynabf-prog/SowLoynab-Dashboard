@@ -8,25 +8,24 @@ import MailIndicator from './MailIndicator'
 import CommandPalette from './CommandPalette'
 import QuickAdd from './QuickAdd'
 import UpdatePrompt from './UpdatePrompt'
+import { useIdentity } from '../context/IdentityContext'
+import { useTeam } from '../context/TeamContext'
+import { IMMER, sichtbareBereiche, type Seite } from '../lib/bereiche'
 
-// Primär = Tagesgeschäft (immer sichtbar)
-const PRIMARY = [
-  { to: '/', label: 'Heute', icon: '☀️', end: true },
-  { to: '/posting', label: 'Posting', icon: '📣' },
-  { to: '/kunden', label: 'Kunden', icon: '👥' },
-  { to: '/kalender', label: 'Kalender', icon: '🗓' },
-]
-
-// Sekundär = getrennte Welten hinter „Mehr"
-const MORE_GROUPS = [
-  { title: 'Kommunikation', items: [{ to: '/postfach', label: 'Postfach', icon: '✉️' }] },
-  { title: 'Vertrieb', items: [{ to: '/leads', label: 'Leads-Pipeline', icon: '🎯' }, { to: '/aufgaben', label: 'Aufgaben', icon: '✓' }] },
-  { title: 'Buchhaltung', items: [{ to: '/rechnungen', label: 'Rechnungen', icon: '🧾' }, { to: '/finanzen', label: 'Finanzen', icon: '💶' }] },
-  { title: 'Analyse', items: [{ to: '/analyse', label: 'Gesamt-Analyse', icon: '📊' }, { to: '/leistung', label: 'Leistung', icon: '📈' }] },
-  { title: 'Inhalte', items: [{ to: '/inspirationen', label: 'Inspirationen', icon: '🔖' }] },
-  { title: 'Verwaltung', items: [{ to: '/team', label: 'Team', icon: '🧑‍🤝‍🧑' }, { to: '/einstellungen', label: 'Einstellungen', icon: '⚙️' }, { to: '/papierkorb', label: 'Papierkorb', icon: '🗑' }] },
-]
-const SECONDARY_PATHS = MORE_GROUPS.flatMap((g) => g.items.map((i) => i.to))
+// Navigation kommt aus den Bereichen (lib/bereiche.ts). Wer einem
+// Mitglied nur bestimmte Bereiche gibt, sieht auch nur diese.
+function useNavigation() {
+  const { memberId } = useIdentity()
+  const { byId } = useTeam()
+  const bereiche = sichtbareBereiche(memberId ? byId(memberId)?.bereiche : null)
+  const primaer = bereiche.filter((b) => b.primaer).flatMap((b) => b.seiten)
+  const gruppen = bereiche.filter((b) => !b.primaer).map((b) => ({ title: b.label, items: b.seiten }))
+  const alleSeiten = [...primaer, ...gruppen.flatMap((g) => g.items)]
+  // Am Handy: Heute + die drei wichtigsten Seiten in der Leiste, der Rest hinter "Mehr".
+  const leiste = alleSeiten.slice(0, 3)
+  const handyExtra = [...IMMER.slice(1), ...alleSeiten.slice(3).filter((s) => primaer.includes(s))]
+  return { primaer, gruppen, leiste, handyExtra }
+}
 
 function readTheme(): 'light' | 'dark' {
   try { return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light' } catch { return 'light' }
@@ -59,8 +58,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     document.documentElement.setAttribute('data-theme', next)
     try { localStorage.setItem('sl-theme', next) } catch { /* ignore */ }
   }
+  const nav = useNavigation()
   const animKey = location.pathname.startsWith('/client/') ? 'client' : location.pathname
-  const inSecondary = SECONDARY_PATHS.includes(location.pathname)
+  const inSecondary = nav.gruppen.some((g) => g.items.some((i) => i.to === location.pathname))
 
   return (
     <>
@@ -86,7 +86,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       {/* Desktop-Navigation: primär + Mehr */}
       <nav className="app-nav">
         <div className="app-nav-inner">
-          {PRIMARY.map((item) => (
+          {[IMMER[0], ...nav.primaer, IMMER[1]].map((item) => (
             <NavLink key={item.to} to={item.to} end={item.end} className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
               {item.label}
             </NavLink>
@@ -102,9 +102,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </main>
 
       {/* Mobile: Bottom-Tab-Bar */}
-      <MobileTabBar inSecondary={inSecondary} moreOpen={moreOpen} onMore={() => setMoreOpen((o) => !o)} />
+      <MobileTabBar leiste={nav.leiste} inSecondary={inSecondary} moreOpen={moreOpen} onMore={() => setMoreOpen((o) => !o)} />
 
-      {moreOpen && <MoreMenu onClose={() => setMoreOpen(false)} onSignOut={() => signOut()} />}
+      {moreOpen && <MoreMenu gruppen={nav.gruppen} handyExtra={nav.handyExtra} onClose={() => setMoreOpen(false)} onSignOut={() => signOut()} />}
 
       <AssistentButton />
       <CommandPalette />
@@ -114,23 +114,20 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   )
 }
 
-function MobileTabBar({ inSecondary, moreOpen, onMore }: { inSecondary: boolean; moreOpen: boolean; onMore: () => void }) {
+function MobileTabBar({ leiste, inSecondary, moreOpen, onMore }: { leiste: Seite[]; inSecondary: boolean; moreOpen: boolean; onMore: () => void }) {
+  const tab = (item: Seite) => (
+    <NavLink key={item.to} to={item.to} end={item.end} className={({ isActive }) => `tab ${isActive ? 'on' : ''}`}>
+      <span className="tab-ic">{item.icon}</span><span className="tab-lb">{item.label}</span>
+    </NavLink>
+  )
   return (
     <nav className="tabbar">
-      {PRIMARY.slice(0, 2).map((item) => (
-        <NavLink key={item.to} to={item.to} end={item.end} className={({ isActive }) => `tab ${isActive ? 'on' : ''}`}>
-          <span className="tab-ic">{item.icon}</span><span className="tab-lb">{item.label}</span>
-        </NavLink>
-      ))}
+      {tab(IMMER[0])}
+      {leiste.slice(0, 1).map(tab)}
       <button className="tab tab-add" onClick={() => window.dispatchEvent(new Event('open-quickadd'))} aria-label="Neu">
         <span className="tab-add-btn">＋</span>
       </button>
-      <NavLink to="/kunden" className={({ isActive }) => `tab ${isActive ? 'on' : ''}`}>
-        <span className="tab-ic">👥</span><span className="tab-lb">Kunden</span>
-      </NavLink>
-      <NavLink to="/kalender" className={({ isActive }) => `tab ${isActive ? 'on' : ''}`}>
-        <span className="tab-ic">🗓</span><span className="tab-lb">Kalender</span>
-      </NavLink>
+      {leiste.slice(1).map(tab)}
       <button className={`tab ${inSecondary || moreOpen ? 'on' : ''}`} onClick={onMore} aria-label="Mehr">
         <span className="tab-ic">☰</span><span className="tab-lb">Mehr</span>
       </button>
@@ -138,7 +135,12 @@ function MobileTabBar({ inSecondary, moreOpen, onMore }: { inSecondary: boolean;
   )
 }
 
-function MoreMenu({ onClose, onSignOut }: { onClose: () => void; onSignOut: () => void }) {
+function MoreMenu({ gruppen, handyExtra, onClose, onSignOut }: {
+  gruppen: { title: string; items: Seite[] }[]
+  handyExtra: Seite[]
+  onClose: () => void
+  onSignOut: () => void
+}) {
   const navigate = useNavigate()
   function go(to: string) { onClose(); navigate(to) }
   return createPortal(
@@ -148,7 +150,19 @@ function MoreMenu({ onClose, onSignOut }: { onClose: () => void; onSignOut: () =
           <div className="more-grip" onClick={onClose} />
           <button className="more-close" onClick={onClose} aria-label="Menü schließen">✕</button>
         </div>
-        {MORE_GROUPS.map((g) => (
+        {handyExtra.length > 0 && (
+          <div className="more-group hide-desktop">
+            <div className="more-title">Schnellzugriff</div>
+            <div className="more-items">
+              {handyExtra.map((i) => (
+                <button key={i.to} className="more-item" onClick={() => go(i.to)}>
+                  <span className="more-ic">{i.icon}</span>{i.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {gruppen.map((g) => (
           <div className="more-group" key={g.title}>
             <div className="more-title">{g.title}</div>
             <div className="more-items">
