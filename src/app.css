@@ -3773,3 +3773,52 @@ html { scroll-behavior: smooth; }
 .prod-zahl { display: inline-block; min-width: 20px; margin-left: 4px; font-variant-numeric: tabular-nums; color: var(--text-dim); font-weight: 700; }
 .bereich-row { display: flex; flex-direction: column; gap: 8px; padding: 10px 2px; border-bottom: 1px solid var(--border); }
 .bereich-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* ---- Medien (Dropbox) ---- */
+.medien-kunden { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 12px; }
+.medien-leiste input { width: 100%; margin: 0 0 10px; }
+.medien-krumen { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; font-size: 13px; margin: 0 0 12px; }
+.medien-krume { background: none; border: none; padding: 2px 4px; color: var(--brand); cursor: pointer; font-weight: 600; }
+.medien-krume:disabled { color: var(--text); cursor: default; }
+.medien-trenner { color: var(--text-dim); margin: 0 2px; }
+.medien-auswahl {
+  position: sticky; top: 8px; z-index: 5; display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px; margin: 0 0 12px; border-radius: var(--radius-sm);
+  background: var(--bg-elev); border: 1px solid var(--border); box-shadow: var(--shadow-sm);
+}
+.medien-raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; }
+@media (max-width: 760px) { .medien-raster { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; } }
+.medien-kachel { position: relative; min-width: 0; }
+.medien-bild {
+  position: relative; display: flex; align-items: center; justify-content: center; width: 100%;
+  aspect-ratio: 9 / 16; border-radius: var(--radius-sm); overflow: hidden; cursor: pointer;
+  background: var(--bg-sunken); border: 1px solid var(--border); padding: 0;
+}
+.medien-kachel.ordner .medien-bild { aspect-ratio: 4 / 3; }
+.medien-bild img { width: 100%; height: 100%; object-fit: cover; }
+.medien-icon { font-size: 30px; }
+.medien-play {
+  position: absolute; inset: auto auto 8px 8px; width: 26px; height: 26px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 11px; color: #fff; background: rgba(0,0,0,.55);
+}
+.medien-kachel.gewaehlt .medien-bild { outline: 3px solid var(--brand); outline-offset: -3px; }
+.medien-name { font-size: 12.5px; font-weight: 600; margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.medien-meta { font-size: 11px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.medien-haken {
+  position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; border-radius: 50%;
+  border: 2px solid #fff; background: rgba(0,0,0,.3); color: #fff; font-size: 13px; font-weight: 800;
+  cursor: pointer; display: grid; place-items: center; padding: 0;
+}
+.medien-haken.on { background: var(--brand); border-color: var(--brand); }
+.medien-player { display: block; width: 100%; max-height: 70vh; border-radius: var(--radius-sm); background: #000; object-fit: contain; }
+.medien-ordnerliste { display: flex; flex-direction: column; max-height: 55vh; overflow: auto; }
+.medien-ordnerwahl {
+  text-align: left; background: none; border: none; border-bottom: 1px solid var(--border);
+  padding: 10px; color: var(--text); cursor: pointer; font-size: 14px;
+}
+.medien-ordnerwahl:hover { background: var(--bg-sunken); }
+.medien-setup ol { padding-left: 20px; display: flex; flex-direction: column; gap: 14px; line-height: 1.5; max-width: 640px; }
+.medien-setup li.erledigt { opacity: .55; }
+.medien-setup code { font-size: 12px; background: var(--bg-sunken); padding: 1px 5px; border-radius: 4px; }
+.medien-verbinden { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.medien-verbinden input { flex: 1 1 180px; margin: 0; }

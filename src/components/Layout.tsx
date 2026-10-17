@@ -20,10 +20,11 @@ function useNavigation() {
   const bereiche = sichtbareBereiche(memberId ? byId(memberId)?.bereiche : null)
   const primaer = bereiche.filter((b) => b.primaer).flatMap((b) => b.seiten)
   const gruppen = bereiche.filter((b) => !b.primaer).map((b) => ({ title: b.label, items: b.seiten }))
-  const alleSeiten = [...primaer, ...gruppen.flatMap((g) => g.items)]
-  // Am Handy: Heute + die drei wichtigsten Seiten in der Leiste, der Rest hinter "Mehr".
-  const leiste = alleSeiten.slice(0, 3)
-  const handyExtra = [...IMMER.slice(1), ...alleSeiten.slice(3).filter((s) => primaer.includes(s))]
+  // Am Handy: Heute + je die Hauptseite der ersten drei Bereiche in der
+  // Leiste; Kalender und weitere Hauptseiten hinter "Mehr".
+  const kopf = bereiche.map((b) => b.seiten[0])
+  const leiste = [...kopf.filter((s) => primaer.includes(s)), ...kopf.filter((s) => !primaer.includes(s))].slice(0, 3)
+  const handyExtra = [...IMMER.slice(1), ...primaer.filter((s) => !leiste.includes(s))]
   return { primaer, gruppen, leiste, handyExtra }
 }
 

@@ -613,6 +613,9 @@ export default function ClientPage() {
 
         <div className="tabs-side">
           <span className="tabs-side-label">Vorrat</span>
+          <Link className="side-tab" to={`/medien?kunde=${id}`}>
+            📁 Medien
+          </Link>
           <button className={`side-tab ${tab === 'pool' ? 'on' : ''}`} onClick={() => setTab('pool')}>
             💡 Ideenspeicher
             <span className="col-count">{sichtbareIdeen.length}</span>

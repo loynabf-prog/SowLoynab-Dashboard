@@ -9,6 +9,7 @@ import Tasks from './pages/Tasks'
 import Calendar from './pages/Calendar'
 import Posting from './pages/Posting'
 import Produktion from './pages/Produktion'
+import Medien from './pages/Medien'
 import Finances from './pages/Finances'
 import Team from './pages/Team'
 import Trash from './pages/Trash'
@@ -57,6 +58,7 @@ export default function App() {
       <Route path="/aufgaben" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
       <Route path="/posting" element={<ProtectedRoute><Posting /></ProtectedRoute>} />
       <Route path="/produktion" element={<ProtectedRoute><Produktion /></ProtectedRoute>} />
+      <Route path="/medien" element={<ProtectedRoute><Medien /></ProtectedRoute>} />
       <Route path="/kalender" element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
       <Route path="/leistung" element={<ProtectedRoute><Performance /></ProtectedRoute>} />
       <Route path="/analyse" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />

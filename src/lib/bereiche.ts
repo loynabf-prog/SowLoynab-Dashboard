@@ -26,8 +26,8 @@ export interface Bereich {
 export const BEREICHE: Bereich[] = [
   { key: 'posting', label: 'Posting', zweck: 'Was wann rausgeht — die Seite, die der Kunde sieht', primaer: true,
     seiten: [{ to: '/posting', label: 'Posting', icon: '📣' }] },
-  { key: 'produktion', label: 'Produktion', zweck: 'Drehen, schneiden, einplanen', primaer: true,
-    seiten: [{ to: '/produktion', label: 'Produktion', icon: '🎬' }] },
+  { key: 'produktion', label: 'Produktion', zweck: 'Drehen, schneiden, einplanen, Medien aus Dropbox', primaer: true,
+    seiten: [{ to: '/produktion', label: 'Produktion', icon: '🎬' }, { to: '/medien', label: 'Medien', icon: '📁' }] },
   { key: 'kunden', label: 'Kunden', zweck: 'Kundenakten, Verträge, Material', primaer: true,
     seiten: [{ to: '/kunden', label: 'Kunden', icon: '👥' }] },
   { key: 'analyse', label: 'Analyse', zweck: 'Zahlen der geposteten Videos',
