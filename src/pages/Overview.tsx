@@ -1,324 +1,250 @@
-import { useCallback, useEffect, useState } from 'react'
+// Heute: die eine Seite, die beim Aufmachen sagt, was jetzt dran ist.
+// ---------------------------------------------------------------------------
+// Drei Blöcke, in genau dieser Reihenfolge — sie beantworten die drei Fragen,
+// die man morgens hat:
+//
+//   Brennt      Was ist schon gerissen? Fristen, Posts, Aufgaben.
+//   Heute       Termine, Drehtage, Posts, Fristen, die heute enden.
+//   Vorarbeit   Nichts Dringendes — was können wir schon wegarbeiten?
+//
+// Die Seite entscheidet nichts selbst: die Einstufung kommt aus tageslage.ts,
+// die Fristen aus fristen.ts. Hier wird nur gezeigt und weitergeleitet. Wer
+// wirklich arbeiten will, landet mit einem Klick in Posting oder Produktion.
+
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { celebrate } from '../lib/confetti'
 import { useToast } from '../context/ToastContext'
-import { useAuth } from '../context/AuthContext'
 import { useIdentity } from '../context/IdentityContext'
+import { celebrate } from '../lib/confetti'
+import { alsGepostet, vorarbeitSetzen, type VorarbeitKey } from '../lib/videoAktionen'
 import { useTeam } from '../context/TeamContext'
-import SwipeRow from '../components/SwipeRow'
-import LinkQueue from '../components/LinkQueue'
-import PostSchritt, { type TagVideo } from '../components/PostSchritt'
-import { offeneHeute, mitKundeLaden, mitPlattformen, fehlendeLinks } from '../lib/postschritte'
-import { alsGepostet, linkSetzen, postenPatch, vorarbeitSetzen, type VorarbeitKey } from '../lib/videoAktionen'
-import { type TaskRow } from '../components/TaskItem'
-import TaskModal from '../components/TaskModal'
+import { heute as heuteIso } from '../lib/datum'
+import { jetztUhrzeit } from '../lib/fristen'
+import { tagesLage, lageSatz, type LageAufgabe, type LageTermin, type LageVideo, type Punkt } from '../lib/tageslage'
 
-function greeting(): string {
-  const h = new Date().getHours()
+function gruss(): string {
+  const h = Number(jetztUhrzeit().slice(0, 2))
   if (h < 11) return 'Guten Morgen'
   if (h < 18) return 'Guten Tag'
   return 'Guten Abend'
 }
 
-interface Option { id: string; name: string }
-
-// Ein Eintrag im Tagesplan — Aufgabe mit Uhrzeit oder Video mit Post-Zeit.
-interface PlanEntry {
-  key: string
-  time: string | null
-  title: string
-  sub: string | null
-  kind: 'task' | 'post'
-  dringend: boolean
-  spaet: boolean
-  task: TaskRow | null
-  post: TagVideo | null
+const ICON: Record<Punkt['art'], string> = {
+  termin: '📍', drehtag: '🎥', posten: '📣',
+  dreh: '🎬', schnitt: '✂️', planung: '🗓', aufgabe: '✓',
 }
 
-const hhmm = (t: string) => t.slice(0, 5)
-
-function iso(d: Date) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-function tomorrowIso(): string {
-  const d = new Date()
-  d.setDate(d.getDate() + 1)
-  return iso(d)
+const WOFUER: Record<Punkt['art'], string> = {
+  termin: 'Termin', drehtag: 'Drehtag', posten: 'Posten',
+  dreh: 'Drehen', schnitt: 'Schneiden', planung: 'Einplanen', aufgabe: 'Aufgabe',
 }
 
 export default function Overview() {
   const navigate = useNavigate()
   const { toast } = useToast()
-  const { user } = useAuth()
   const { memberId } = useIdentity()
   const { byId } = useTeam()
-  const [tasks, setTasks] = useState<TaskRow[]>([])
-  const [posts, setPosts] = useState<TagVideo[]>([])
-  const [loading, setLoading] = useState(true)
-  const [clientOpts, setClientOpts] = useState<Option[]>([])
-  const [leadOpts, setLeadOpts] = useState<Option[]>([])
-  const [editing, setEditing] = useState<TaskRow | null>(null)
-  // Feierabend-Blick: zwischen heute und morgen umschalten
-  const [day, setDay] = useState<'today' | 'tomorrow'>('today')
-  // Was heute rausging -- am selben Tag will man da noch dran: Adresse
-  // nachtragen, Zahlen holen, zum Kunden springen.
+  const [videos, setVideos] = useState<LageVideo[]>([])
+  const [termine, setTermine] = useState<LageTermin[]>([])
+  const [aufgaben, setAufgaben] = useState<LageAufgabe[]>([])
+  const [laedt, setLaedt] = useState(true)
 
-  // Nur die fälligen Aufgaben nachladen (nach Speichern/Löschen)
-  const reloadTasks = useCallback(async () => {
-    const { data } = await supabase
-      .from('tasks')
-      .select('*, clients(name), leads(name)')
-      .eq('done', false)
-      .is('deleted_at', null)
-      .not('due_date', 'is', null)
-      .lte('due_date', tomorrowIso())
-      .order('due_date', { ascending: true })
-    setTasks((data ?? []) as unknown as TaskRow[])
-  }, [])
-
-  // Alle Videos, die heute oder morgen dran sind -- unabhaengig vom
-  // Zustand. Ein heute gepostetes Video verschwindet nicht, es wechselt nur
-  // den Schritt: erst Posten, dann die beiden Adressen. Erst danach ist der
-  // Tag fuer dieses Video durch.
-  const reloadPosts = useCallback(async () => {
-    const { data } = await mitKundeLaden((kunde) => supabase
-      .from('videos')
-      .select(`*, ${kunde}`)
-      .is('deleted_at', null)
-      .in('scheduled_date', [iso(new Date()), tomorrowIso()])
-      .order('scheduled_time', { ascending: true, nullsFirst: false }))
-    setPosts(mitPlattformen((data ?? []) as unknown as TagVideo[]))
-  }, [])
+  const tag = heuteIso()
 
   useEffect(() => {
-    async function load() {
-      // Heute UND morgen in einem Rutsch holen, damit das Umschalten
-      // ohne Nachladen sofort reagiert.
-      const bis = tomorrowIso()
-
-      const [tasksRes, postsRes] = await Promise.all([
-        supabase
-          .from('tasks')
-          .select('*, clients(name), leads(name)')
-          .eq('done', false)
-          .is('deleted_at', null)
-          .not('due_date', 'is', null)
-          .lte('due_date', bis)
-          .order('due_date', { ascending: true }),
-        // Videos von heute und morgen — mehr Vorausblick gibt es hier nicht,
-        // alles Weitere steht im Kalender.
-        mitKundeLaden((kunde) => supabase
-          .from('videos')
-          .select(`*, ${kunde}`)
-          .is('deleted_at', null)
-          .in('scheduled_date', [iso(new Date()), bis])
-          .order('scheduled_time', { ascending: true, nullsFirst: false })),
+    async function laden() {
+      // Alle offenen Videos, nicht nur die von heute: welche heute Arbeit
+      // machen, entscheidet die Frist, nicht der Posting-Tag.
+      const [v, e, a] = await Promise.all([
+        supabase.from('videos')
+          .select('id, title, status, scheduled_date, scheduled_time, prep_shot, prep_edited, prep_scheduled, client_id, shoot_event_id, clients(name)')
+          .is('deleted_at', null).neq('status', 'posted').limit(500),
+        supabase.from('events')
+          .select('id, title, kind, starts_on, starts_at, planned_videos, client_id, clients(name)')
+          .is('deleted_at', null).eq('starts_on', tag),
+        supabase.from('tasks')
+          .select('id, title, due_date, due_time, priority, clients(name), leads(name)')
+          .eq('done', false).is('deleted_at', null)
+          .not('due_date', 'is', null).lte('due_date', tag),
       ])
-
-      setTasks((tasksRes.data ?? []) as unknown as TaskRow[])
-      setPosts(mitPlattformen((postsRes.data ?? []) as unknown as TagVideo[]))
-      setLoading(false)
+      // Haengt ein Video an einem Drehtag, zaehlt dessen Datum: dann ist
+      // "noch nicht gedreht" kein Versaeumnis, sondern ein Plan.
+      const roh = (v.data ?? []) as unknown as (LageVideo & { shoot_event_id?: string | null })[]
+      const drehIds = [...new Set(roh.map((x) => x.shoot_event_id).filter(Boolean))] as string[]
+      let drehTage: Record<string, string> = {}
+      if (drehIds.length > 0) {
+        const { data: d } = await supabase.from('events').select('id, starts_on').in('id', drehIds)
+        drehTage = Object.fromEntries(((d ?? []) as { id: string; starts_on: string }[]).map((x) => [x.id, x.starts_on]))
+      }
+      setVideos(roh.map((x) => ({ ...x, drehtag: x.shoot_event_id ? drehTage[x.shoot_event_id] ?? null : null })))
+      setTermine((e.data ?? []) as unknown as LageTermin[])
+      setAufgaben((a.data ?? []) as unknown as LageAufgabe[])
+      setLaedt(false)
     }
-    load()
-    // Kunden/Leads für den Aufgaben-Editor
-    supabase.from('clients').select('id, name').is('deleted_at', null).order('name').then(({ data }) => setClientOpts((data ?? []) as Option[]))
-    supabase.from('leads').select('id, name').is('deleted_at', null).order('name').then(({ data }) => setLeadOpts((data ?? []) as Option[]))
-  }, [])
+    laden()
+  }, [tag])
 
-  async function completeTask(id: string) {
-    setTasks((prev) => prev.filter((t) => t.id !== id))
-    await supabase.from('tasks').update({ done: true }).eq('id', id)
-    toast('Erledigt ✓')
-  }
-
-  async function removeTask(id: string) {
-    setTasks((prev) => prev.filter((t) => t.id !== id))
-    await supabase.from('tasks').update({ deleted_at: new Date().toISOString() }).eq('id', id)
-    toast('In den Papierkorb', {
-      label: 'Rückgängig',
-      onClick: async () => { await supabase.from('tasks').update({ deleted_at: null }).eq('id', id); reloadTasks() },
-    })
-  }
-
-  /** Schritt 1: raus damit. */
-  async function markPosted(p: TagVideo) {
-    const jetzt = new Date()
-    setPosts((prev) => prev.map((x) => (
-      x.id === p.id ? { ...x, ...(postenPatch({ ...p, posted_at: null }, jetzt) as Partial<TagVideo>) } : x
-    )))
+  // Die beiden Aktionen, die taeglich anfallen, gehen direkt von hier --
+  // dafuer soll niemand erst auf eine andere Seite springen muessen.
+  async function posten(id: string) {
+    const v = videos.find((x) => x.id === id)
+    if (!v) return
     celebrate()
-    const fehler = await alsGepostet(p, jetzt)
-    if (fehler) { toast('Konnte nicht speichern: ' + fehler); reloadPosts(); return }
+    setVideos((prev) => prev.map((x) => (x.id === id ? { ...x, status: 'posted' as const } : x)))
+    const fehler = await alsGepostet({ id })
+    if (fehler) { toast('Konnte nicht speichern: ' + fehler); setVideos((prev) => prev.map((x) => (x.id === id ? v : x))); return }
     toast('Gepostet — stark! 🎉')
   }
 
-  /** Schritt 2: Adresse nachtragen. Sind alle da, ist das Video durch. */
-  async function setLink(p: TagVideo, feld: 'tiktok_url' | 'instagram_url', url: string) {
-    setPosts((prev) => prev.map((x) => (x.id === p.id ? { ...x, [feld]: url } : x)))
-    const fehler = await linkSetzen(p.id, feld, url)
-    if (fehler) { toast('Konnte nicht speichern: ' + fehler); reloadPosts(); return }
-    const fertig = fehlendeLinks({ ...p, [feld]: url }).length === 0
-    toast(fertig ? 'Alle Links drin — erledigt ✓' : 'Gespeichert ✓')
+  async function abhaken(id: string, key: VorarbeitKey) {
+    const v = videos.find((x) => x.id === id)
+    if (!v) return
+    const { patch, fehler } = await vorarbeitSetzen({ id, status: v.status }, key, true)
+    if (fehler) { toast('Konnte nicht speichern: ' + fehler); return }
+    setVideos((prev) => prev.map((x) => (x.id === id ? { ...x, ...patch } : x)))
+    toast('Abgehakt ✓')
   }
 
-  /** Vorarbeit fuer einen kommenden Tag abhaken. */
-  async function setVorarbeit(p: TagVideo, key: VorarbeitKey, wert: boolean) {
-    const { patch, fehler } = await vorarbeitSetzen(p, key, wert)
-    if (fehler) { toast('Konnte nicht speichern: ' + fehler); reloadPosts(); return }
-    setPosts((prev) => prev.map((x) => (x.id === p.id ? { ...x, ...patch } : x)))
-  }
+  const lage = useMemo(
+    () => tagesLage({ videos, termine, aufgaben }, tag, jetztUhrzeit()),
+    [videos, termine, aufgaben, tag],
+  )
 
-  // Mit dem echten Namen der aktiven Identität grüßen (Fassie / Lion), nicht dem Mail-Namen
-  const meName = ((memberId ? byId(memberId)?.name : '') ?? '').trim().split(' ')[0]
-  const todayIso = iso(new Date())
-  const morgen = day === 'tomorrow'
-  const tagIso = morgen ? tomorrowIso() : todayIso
-
-  // Heute: alles bis einschliesslich heute (Liegengebliebenes bleibt sichtbar).
-  // Morgen: ausschliesslich der morgige Tag — Vorschau, keine Altlasten.
-  const tagTasks = morgen
-    ? tasks.filter((t) => t.due_date === tagIso)
-    : tasks.filter((t) => (t.due_date ?? '') <= todayIso)
-  const tagPosts = posts.filter((p) => p.scheduled_date === tagIso)
-
-  // Durch ist ein Video erst, wenn beide Adressen stehen -- nicht schon
-  // beim Posten. Das ist die Zahl, die zaehlt.
-  const offenePosts = offeneHeute(tagPosts)
-
-  const dringend = tagTasks.filter((t) => (t.priority ?? 0) === 3).length
-  const overdue = morgen ? [] : tagTasks.filter((t) => (t.due_date ?? '') < todayIso)
-
-  // EINE Liste statt drei Bloecke. Alles, was heute ansteht — Aufgaben und
-  // Uploads gemischt —, sortiert wie der Tag ablaeuft: erst was eine Uhrzeit
-  // hat, danach der Rest. Der Kopf soll nicht entscheiden muessen, in welchem
-  // Kasten er nachsehen muss.
-  const jetzt: PlanEntry[] = [
-    ...tagTasks.map((t) => ({
-      key: `t-${t.id}`,
-      time: t.due_time ? hhmm(t.due_time) : null,
-      title: t.title,
-      sub: t.clients?.name ?? t.leads?.name ?? null,
-      kind: 'task' as const,
-      dringend: (t.priority ?? 0) === 3,
-      spaet: !morgen && (t.due_date ?? '') < todayIso,
-      task: t,
-      post: null,
-    })),
-    ...tagPosts.map((p) => ({
-      key: `p-${p.id}`,
-      time: p.scheduled_time ? hhmm(p.scheduled_time) : null,
-      title: p.title,
-      sub: p.clients?.name ?? null,
-      kind: 'post' as const,
-      dringend: false,
-      spaet: false,
-      task: null,
-      post: p,
-    })),
-  ].sort((a, b) => {
-    // Mit Uhrzeit zuerst, chronologisch; ohne Uhrzeit hinten dran
-    if (a.time && b.time) return a.time.localeCompare(b.time)
-    if (a.time) return -1
-    if (b.time) return 1
-    return 0
-  })
+  const name = ((memberId ? byId(memberId)?.name : '') ?? '').trim().split(' ')[0]
 
   return (
     <>
       <div className="page-head">
         <div>
-          <h1>{morgen ? 'Blick auf morgen 🌙' : `${greeting()}${meName ? `, ${meName}` : ''} 👋`}</h1>
-          <span className="sub">
-            {loading
-              ? 'Lade …'
-              : morgen
-                ? `${new Date(tagIso + 'T00:00:00').toLocaleDateString('de-DE', { weekday: 'long' })} — heute schon abhaken, was geht`
-                : 'Dein Cockpit — heute im Fokus'}
-          </span>
+          <h1>{gruss()}{name ? `, ${name}` : ''}</h1>
+          <span className="sub">{laedt ? 'Lade …' : lageSatz(lage)}</span>
         </div>
-        <div className="spacer" />
-        <button
-          className={`btn btn-sm peek-btn ${morgen ? 'on' : ''}`}
-          onClick={() => setDay(morgen ? 'today' : 'tomorrow')}
-          title={morgen ? 'Zurück zu heute' : 'Blick auf morgen'}
-        >
-          {morgen ? '← Heute' : 'Morgen →'}
-        </button>
       </div>
 
-      <div className="today-strip">
-        <span><strong>{tagTasks.length}</strong> {tagTasks.length === 1 ? 'Aufgabe' : 'Aufgaben'} {morgen ? 'morgen' : 'offen'}</span>
-        <span><strong>{tagPosts.length}</strong> {tagPosts.length === 1 ? 'Video' : 'Videos'} {morgen ? 'morgen' : 'heute'}</span>
-        {!morgen && tagPosts.length > 0 && (
-          offenePosts === 0
-            ? <span className="good">alle durch 🎉</span>
-            : <span className="good"><strong>{tagPosts.length - offenePosts}</strong> durch</span>
-        )}
-        {dringend > 0 && <span className="hot"><strong>{dringend}</strong> dringend</span>}
-        {overdue.length > 0 && <span className="hot"><strong>{overdue.length}</strong> überfällig</span>}
-      </div>
+      {laedt ? (
+        <div className="heute-leer">Lade …</div>
+      ) : (
+        <>
+          {lage.brennt.length > 0 && (
+            <Block
+              titel="Brennt"
+              ton="rot"
+              hinweis="Fristen gerissen — das zuerst."
+              punkte={lage.brennt}
+              onKlick={(p) => navigate(p.ziel)}
+              onPosten={posten}
+              onAbhaken={abhaken}
+            />
+          )}
 
-      {/* Eine einzige Liste: was heute dran ist. Erst mit Uhrzeit, dann der
-          Rest. Aufgaben und Uploads gemischt — so wie der Tag auch laeuft. */}
-      <div className="section-block">
-        <h2 className="section-title">{morgen ? 'Morgen vorbereiten' : 'Jetzt dran'}</h2>
-        {jetzt.length === 0 ? (
-          <div className="col-empty" style={{ padding: 26 }}>
-            {morgen ? 'Morgen ist noch nichts geplant. 🌙' : 'Alles erledigt. Genieß den Tag. 🎉'}
-          </div>
-        ) : (
-          <div className="jetzt-liste">
-            {jetzt.map((e) => (
-              e.task ? (
-                <SwipeRow key={e.key} onDelete={() => removeTask(e.task!.id)}>
-                  <div className={`jetzt-row ${e.spaet ? 'spaet' : ''}`}>
-                    <button
-                      className="jetzt-check"
-                      onClick={() => completeTask(e.task!.id)}
-                      title="Erledigt"
-                      aria-label="Als erledigt abhaken"
-                    />
-                    <button className="jetzt-main" onClick={() => setEditing(e.task)}>
-                      <span className="jetzt-title">{e.title}</span>
-                      <span className="jetzt-meta">
-                        {e.time && <span className="jetzt-zeit">{e.time}</span>}
-                        {e.spaet && <span className="jetzt-spaet">überfällig</span>}
-                        {e.dringend && <span className="jetzt-hot">dringend</span>}
-                        {e.sub && <span className="chip">{e.sub}</span>}
-                      </span>
-                    </button>
-                  </div>
-                </SwipeRow>
-              ) : (
-                <PostSchritt
-                  key={e.key}
-                  video={e.post!}
-                  modus={morgen ? 'vorher' : 'heute'}
-                  zeit={e.time}
-                  onOeffnen={() => navigate(`/client/${e.post!.client_id}`)}
-                  onPosten={() => markPosted(e.post!)}
-                  onLink={(feld, url) => setLink(e.post!, feld, url)}
-                  onVorarbeit={(key, wert) => setVorarbeit(e.post!, key, wert)}
-                />
-              )
-            ))}
-          </div>
-        )}
-      </div>
+          {lage.heute.length > 0 && (
+            <Block
+              titel="Heute"
+              ton="normal"
+              punkte={lage.heute}
+              onKlick={(p) => navigate(p.ziel)}
+              onPosten={posten}
+              onAbhaken={abhaken}
+            />
+          )}
 
-      {!morgen && <LinkQueue />}
+          {lage.ruhig && (
+            <div className="heute-ruhig">
+              <span className="heute-ruhig-ic">✓</span>
+              <div>
+                <strong>Heute brennt nichts.</strong>
+                <span>
+                  {lage.vorarbeit.length > 0
+                    ? 'Gute Gelegenheit, den nächsten Tagen Arbeit abzunehmen.'
+                    : 'Keine offenen Fristen. Genieß den Tag.'}
+                </span>
+              </div>
+            </div>
+          )}
 
-      {editing && (
-        <TaskModal
-          task={editing}
-          userId={user?.id ?? null}
-          clients={clientOpts}
-          leads={leadOpts}
-          onClose={() => setEditing(null)}
-          onSaved={() => { setEditing(null); reloadTasks(); toast('Gespeichert ✓') }}
-        />
+          {lage.vorarbeit.length > 0 && (
+            <Block
+              titel="Vorarbeiten"
+              ton="leise"
+              hinweis="Noch nicht fällig, aber schon machbar."
+              punkte={lage.vorarbeit.slice(0, 8)}
+              mehr={lage.vorarbeit.length > 8 ? lage.vorarbeit.length - 8 : 0}
+              onMehr={() => navigate('/produktion')}
+              onKlick={(p) => navigate(p.ziel)}
+              onAbhaken={abhaken}
+            />
+          )}
+
+          {!lage.ruhig && lage.vorarbeit.length === 0 && lage.heute.length === 0 && lage.brennt.length === 0 && (
+            <div className="heute-leer">Nichts offen. 🎉</div>
+          )}
+        </>
       )}
     </>
+  )
+}
+
+// Welcher Schritt laesst sich direkt hier abhaken?
+const HAKEN: Partial<Record<Punkt['art'], { feld: VorarbeitKey; label: string }>> = {
+  dreh: { feld: 'prep_shot', label: '✓ Gedreht' },
+  schnitt: { feld: 'prep_edited', label: '✓ Geschnitten' },
+  planung: { feld: 'prep_scheduled', label: '✓ Eingeplant' },
+}
+
+function Block({
+  titel, ton, hinweis, punkte, mehr, onMehr, onKlick, onPosten, onAbhaken,
+}: {
+  titel: string
+  ton: 'rot' | 'normal' | 'leise'
+  hinweis?: string
+  punkte: Punkt[]
+  mehr?: number
+  onMehr?: () => void
+  onKlick: (p: Punkt) => void
+  onPosten?: (id: string) => void
+  onAbhaken?: (id: string, key: VorarbeitKey) => void
+}) {
+  return (
+    <section className={`heute-block ${ton}`}>
+      <header className="heute-kopf">
+        <h2>{titel}</h2>
+        <span className="heute-zahl">{punkte.length}</span>
+        {hinweis && <span className="heute-hinweis">{hinweis}</span>}
+      </header>
+      <div className="heute-liste">
+        {punkte.map((p) => {
+          const haken = HAKEN[p.art]
+          return (
+            <div key={p.key} className={`heute-zeile ${p.ampel}`}>
+              <button className="heute-klick" onClick={() => onKlick(p)}>
+                <span className="heute-ic" aria-hidden>{ICON[p.art]}</span>
+                <span className="heute-text">
+                  <span className="heute-titel">{p.titel}</span>
+                  <span className="heute-meta">
+                    <span className="heute-art">{WOFUER[p.art]}</span>
+                    {p.kunde && <span className="heute-kunde">{p.kunde}</span>}
+                    <span className="heute-grund">{p.text}</span>
+                  </span>
+                </span>
+                {p.zeit && <span className="heute-zeit">{p.zeit}</span>}
+              </button>
+              {p.art === 'posten' && onPosten ? (
+                <button className="heute-tun stark" onClick={() => onPosten(p.id)}>✓ Gepostet</button>
+              ) : haken && onAbhaken ? (
+                <button className="heute-tun" onClick={() => onAbhaken(p.id, haken.feld)}>{haken.label}</button>
+              ) : (
+                <span className="heute-pfeil" aria-hidden>›</span>
+              )}
+            </div>
+          )
+        })}
+      </div>
+      {!!mehr && mehr > 0 && (
+        <button className="heute-mehr" onClick={onMehr}>
+          + {mehr} weitere in der Produktion
+        </button>
+      )}
+    </section>
   )
 }

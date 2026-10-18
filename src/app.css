@@ -3825,3 +3825,264 @@ html { scroll-behavior: smooth; }
 .ps-termin { margin-top: 8px; }
 .ps-termin-knopf { background: none; border: none; padding: 2px 0; font-size: 12px; font-weight: 600; color: var(--text-dim); cursor: pointer; }
 .ps-termin-knopf:hover { color: var(--brand); }
+
+/* ============================================================================
+   HEUTE — die Startseite. Drei Blöcke: Brennt, Heute, Vorarbeiten.
+   ============================================================================
+   Gestalterische Regel hier: Ruhe. Die Seite wird jeden Morgen aufgemacht,
+   sie darf nicht schreien. Dringlichkeit zeigt sich über einen schmalen
+   Farbstreifen links und über die Reihenfolge -- nicht über rote Flächen. */
+
+.heute-block {
+  margin-bottom: 22px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+.heute-block.rot { border-color: rgba(255, 59, 48, 0.28); }
+.heute-block.leise { background: transparent; box-shadow: none; border-style: dashed; }
+
+.heute-kopf {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 15px 18px 11px;
+}
+.heute-kopf h2 {
+  font-family: var(--font-head);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: var(--text);
+  margin: 0;
+}
+.heute-block.rot .heute-kopf h2 { color: var(--danger); }
+.heute-zahl {
+  min-width: 22px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--bg-sunken);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.heute-block.rot .heute-zahl { background: rgba(255, 59, 48, 0.12); color: var(--danger); }
+.heute-hinweis {
+  flex-basis: 100%;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  margin-top: -2px;
+}
+
+.heute-liste { display: flex; flex-direction: column; }
+
+.heute-zeile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  /* 4px Platz links für den Dringlichkeitsstreifen */
+  padding: 12px 14px 12px 18px;
+  border: none;
+  border-top: 1px solid var(--border);
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  position: relative;
+  /* Mindesthöhe fürs Antippen am Handy */
+  min-height: 56px;
+  transition: background 0.16s ease;
+}
+.heute-zeile:first-child { border-top: none; }
+.heute-zeile:hover { background: var(--bg-card-hover); }
+
+/* Die Zeile hat zwei Teile: die grosse Klickflaeche (fuehrt zur Seite) und
+   rechts der Knopf fuer das, was man taeglich tut. Der Knopf muss sich
+   eindeutig anfuehlen -- sonst postet man aus Versehen beim Antippen. */
+.heute-klick {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.heute-tun {
+  flex: none;
+  padding: 7px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--bg-elev);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease;
+}
+.heute-tun:hover { background: var(--bg-sunken); color: var(--text); }
+.heute-tun.stark {
+  border-color: transparent;
+  background: var(--brand);
+  color: #fff;
+}
+.heute-tun.stark:hover { background: var(--brand-deep); color: #fff; }
+
+/* Der Streifen: die einzige Farbfläche. Schmal genug, um nicht zu stören,
+   breit genug, um ihn beim Überfliegen zu sehen. */
+.heute-zeile::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: transparent;
+}
+.heute-zeile.rot::before  { background: var(--danger); }
+.heute-zeile.gelb::before { background: var(--ready); }
+
+.heute-ic {
+  flex: none;
+  width: 30px;
+  font-size: 17px;
+  line-height: 1;
+  text-align: center;
+}
+.heute-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.heute-titel {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.01em;
+  /* Lange Videotitel dürfen die Zeile nicht sprengen */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.heute-meta {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.35;
+}
+.heute-art {
+  font-weight: 700;
+  font-size: 10.5px;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.heute-kunde {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--bg-sunken);
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 11px;
+}
+.heute-grund { color: var(--text-dim); }
+.heute-zeile.rot .heute-grund { color: var(--danger); font-weight: 600; }
+
+.heute-zeit {
+  flex: none;
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+.heute-pfeil { flex: none; color: var(--text-dim); font-size: 18px; line-height: 1; }
+
+.heute-mehr {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-top: 1px solid var(--border);
+  background: transparent;
+  color: var(--brand);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.heute-mehr:hover { background: var(--bg-card-hover); }
+
+/* Der ruhige Tag: bewusst freundlich, nicht leer. */
+.heute-ruhig {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 20px;
+  margin-bottom: 22px;
+  border-radius: var(--radius);
+  background: rgba(52, 199, 89, 0.09);
+  border: 1px solid rgba(52, 199, 89, 0.28);
+}
+.heute-ruhig-ic {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--posted);
+  color: #fff;
+  font-size: 17px;
+  font-weight: 700;
+}
+.heute-ruhig div { display: flex; flex-direction: column; gap: 2px; }
+.heute-ruhig strong { font-size: 14.5px; color: var(--text); }
+.heute-ruhig span { font-size: 13px; color: var(--text-muted); }
+
+.heute-leer {
+  padding: 48px 20px;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
+/* --- Handy ---------------------------------------------------------------- */
+@media (max-width: 560px) {
+  .heute-block { margin-bottom: 16px; border-radius: var(--radius-sm); }
+  .heute-kopf { padding: 13px 14px 9px; }
+  .heute-zeile { padding: 11px 12px 11px 15px; gap: 10px; }
+  .heute-ic { width: 24px; font-size: 16px; }
+  .heute-titel { font-size: 14px; }
+  /* Auf schmalen Schirmen ist die Begründung wichtiger als das Etikett */
+  .heute-art { display: none; }
+  /* Der Knopf bleibt in der Zeile. Damit der Titel trotzdem lesbar bleibt,
+     darf er hier über zwei Zeilen laufen statt abzuschneiden -- der Titel
+     ist das Wichtigste, nicht die gleiche Zeilenhöhe. */
+  .heute-tun { padding: 7px 10px; font-size: 12px; }
+  .heute-klick { gap: 10px; align-items: flex-start; padding-top: 1px; }
+  .heute-titel {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    line-height: 1.3;
+  }
+  .heute-zeile { align-items: flex-start; }
+  .heute-tun { margin-top: 1px; }
+  .heute-zeit { margin-top: 1px; }
+  .heute-ruhig { padding: 15px 16px; border-radius: var(--radius-sm); }
+}
