@@ -23,6 +23,8 @@ import { usePointerBoard } from '../lib/usePointerBoard'
 import { celebrate } from '../lib/confetti'
 import NudgeModal from '../components/NudgeModal'
 import { insertRows, tableMissing, updateRow } from '../lib/db'
+import { statusFolgen } from '../lib/statusSync'
+import { postenPatch } from '../lib/videoAktionen'
 
 /**
  * channel_id nur mitschicken, wenn wirklich ein Kanal gesetzt ist.
@@ -292,8 +294,17 @@ export default function ClientPage() {
     // Wechsel auf "Gepostet" -> feiern + Zeitstempel setzen (echte Post-Statistik)
     const before = videos.find((v) => v.id === videoId)
     let p: Partial<Video> = patch
+    // Karte auf einen anderen Status gesetzt (Ziehen oder Status-Knopf):
+    // die Vorarbeit-Haekchen ziehen mit, damit Startseite, Posting und
+    // Produktion dasselbe zeigen wie das Board (lib/statusSync.ts).
+    const setztHaken = 'prep_shot' in patch || 'prep_edited' in patch || 'prep_scheduled' in patch
+    if (patch.status && before && patch.status !== before.status && !setztHaken) {
+      p = { ...statusFolgen(patch.status, before), ...p }
+    }
     if (patch.status === 'posted' && before && before.status !== 'posted') {
-      p = { ...patch, posted_at: new Date().toISOString() }
+      // Wie "Gepostet" auf der Startseite: Zeitpunkt plus automatische
+      // Link-Abholung in ein paar Minuten.
+      p = { ...(postenPatch({ ...before, posted_at: null }) as Partial<Video>), ...p }
       celebrate()
       toast('Gepostet — stark! 🎉')
     }

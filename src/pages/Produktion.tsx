@@ -105,12 +105,18 @@ export default function Produktion() {
   const videosAmDrehtag = (id: string) => videos.filter((v) => v.shoot_event_id === id).length
 
   async function abhaken(v: ProdVideo, feld: VorarbeitKey) {
-    setVideos((prev) => prev.map((x) => (x.id === v.id ? { ...x, [feld]: true } : x)))
-    const fehler = await vorarbeitSetzen(v.id, feld, true)
+    const { patch, fehler } = await vorarbeitSetzen(v, feld, true)
     if (fehler) { toast('Konnte nicht speichern: ' + fehler); laden(); return }
+    setVideos((prev) => prev.map((x) => (x.id === v.id ? { ...x, ...patch } : x)))
     toast('Erledigt ✓', {
       label: 'Rückgängig',
-      onClick: async () => { await vorarbeitSetzen(v.id, feld, false); laden() },
+      onClick: async () => {
+        // Zurueck auf genau den Stand von vorher -- inklusive Board-Status.
+        await supabase.from('videos').update({
+          prep_shot: !!v.prep_shot, prep_edited: !!v.prep_edited, prep_scheduled: !!v.prep_scheduled, status: v.status,
+        }).eq('id', v.id)
+        laden()
+      },
     })
   }
 

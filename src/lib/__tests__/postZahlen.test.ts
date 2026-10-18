@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { instagramZahlen, summe, tiktokZahlen } from '../../../supabase/functions/fetch-post-links/index'
+import { instagramZahlen, linksKomplett, summe, tiktokZahlen } from '../../../supabase/functions/fetch-post-links/index'
 
 // Die Zahlen werden an ZWEI Stellen aus den Apify-Antworten gelesen: beim
 // automatischen Abholen direkt nach dem Posten und beim naechtlichen Lauf
@@ -52,5 +52,18 @@ describe('summe', () => {
   })
   it('behaelt eine echte Null', () => {
     expect(summe(0, null)).toBe(0)
+  })
+})
+
+describe('linksKomplett', () => {
+  it('nur TikTok-Kunde: TikTok-Link reicht', () => {
+    expect(linksKomplett(['tiktok'], 'https://t', null)).toBe(true)
+  })
+  it('beide Plattformen: einer allein reicht nicht', () => {
+    expect(linksKomplett(['tiktok', 'instagram'], 'https://t', null)).toBe(false)
+    expect(linksKomplett(['tiktok', 'instagram'], 'https://t', 'https://i')).toBe(true)
+  })
+  it('ohne Accounts verlangen wir beide', () => {
+    expect(linksKomplett([], 'https://t', null)).toBe(false)
   })
 })

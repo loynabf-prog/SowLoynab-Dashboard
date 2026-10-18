@@ -9,8 +9,8 @@ import { useTeam } from '../context/TeamContext'
 import SwipeRow from '../components/SwipeRow'
 import LinkQueue from '../components/LinkQueue'
 import PostSchritt, { type TagVideo } from '../components/PostSchritt'
-import { offeneHeute } from '../lib/postschritte'
-import { alsGepostet, linkSetzen, vorarbeitSetzen } from '../lib/videoAktionen'
+import { offeneHeute, mitKundeLaden, mitPlattformen, fehlendeLinks } from '../lib/postschritte'
+import { alsGepostet, linkSetzen, postenPatch, vorarbeitSetzen, type VorarbeitKey } from '../lib/videoAktionen'
 import { type TaskRow } from '../components/TaskItem'
 import TaskModal from '../components/TaskModal'
 
@@ -82,13 +82,13 @@ export default function Overview() {
   // den Schritt: erst Posten, dann die beiden Adressen. Erst danach ist der
   // Tag fuer dieses Video durch.
   const reloadPosts = useCallback(async () => {
-    const { data } = await supabase
+    const { data } = await mitKundeLaden((kunde) => supabase
       .from('videos')
-      .select('*, clients(name)')
+      .select(`*, ${kunde}`)
       .is('deleted_at', null)
       .in('scheduled_date', [iso(new Date()), tomorrowIso()])
-      .order('scheduled_time', { ascending: true, nullsFirst: false })
-    setPosts((data ?? []) as unknown as TagVideo[])
+      .order('scheduled_time', { ascending: true, nullsFirst: false }))
+    setPosts(mitPlattformen((data ?? []) as unknown as TagVideo[]))
   }, [])
 
   useEffect(() => {
@@ -108,16 +108,16 @@ export default function Overview() {
           .order('due_date', { ascending: true }),
         // Videos von heute und morgen — mehr Vorausblick gibt es hier nicht,
         // alles Weitere steht im Kalender.
-        supabase
+        mitKundeLaden((kunde) => supabase
           .from('videos')
-          .select('*, clients(name)')
+          .select(`*, ${kunde}`)
           .is('deleted_at', null)
           .in('scheduled_date', [iso(new Date()), bis])
-          .order('scheduled_time', { ascending: true, nullsFirst: false }),
+          .order('scheduled_time', { ascending: true, nullsFirst: false })),
       ])
 
       setTasks((tasksRes.data ?? []) as unknown as TaskRow[])
-      setPosts((postsRes.data ?? []) as unknown as TagVideo[])
+      setPosts(mitPlattformen((postsRes.data ?? []) as unknown as TagVideo[]))
       setLoading(false)
     }
     load()
@@ -145,29 +145,28 @@ export default function Overview() {
   async function markPosted(p: TagVideo) {
     const jetzt = new Date()
     setPosts((prev) => prev.map((x) => (
-      x.id === p.id ? { ...x, status: 'posted', posted_at: jetzt.toISOString(), link_fetch_state: 'offen' } : x
+      x.id === p.id ? { ...x, ...(postenPatch({ ...p, posted_at: null }, jetzt) as Partial<TagVideo>) } : x
     )))
     celebrate()
-    await alsGepostet(p.id, jetzt)
+    const fehler = await alsGepostet(p, jetzt)
+    if (fehler) { toast('Konnte nicht speichern: ' + fehler); reloadPosts(); return }
     toast('Gepostet — stark! 🎉')
   }
 
-  /** Schritt 2: Adresse nachtragen. Sind beide da, ist das Video durch. */
+  /** Schritt 2: Adresse nachtragen. Sind alle da, ist das Video durch. */
   async function setLink(p: TagVideo, feld: 'tiktok_url' | 'instagram_url', url: string) {
     setPosts((prev) => prev.map((x) => (x.id === p.id ? { ...x, [feld]: url } : x)))
     const fehler = await linkSetzen(p.id, feld, url)
     if (fehler) { toast('Konnte nicht speichern: ' + fehler); reloadPosts(); return }
-    const fertig = feld === 'tiktok_url' ? !!p.instagram_url : !!p.tiktok_url
-    toast(fertig ? 'Beide Links drin — erledigt ✓' : 'Gespeichert ✓')
+    const fertig = fehlendeLinks({ ...p, [feld]: url }).length === 0
+    toast(fertig ? 'Alle Links drin — erledigt ✓' : 'Gespeichert ✓')
   }
 
   /** Vorarbeit fuer einen kommenden Tag abhaken. */
-  async function setVorarbeit(p: TagVideo, key: 'prep_shot' | 'prep_edited' | 'prep_scheduled', wert: boolean) {
-    setPosts((prev) => prev.map((x) => (x.id === p.id ? { ...x, [key]: wert } : x)))
-    if (await vorarbeitSetzen(p.id, key, wert)) {
-      toast('Dafür fehlt noch das Skript 0031 in der Datenbank.')
-      reloadPosts()
-    }
+  async function setVorarbeit(p: TagVideo, key: VorarbeitKey, wert: boolean) {
+    const { patch, fehler } = await vorarbeitSetzen(p, key, wert)
+    if (fehler) { toast('Konnte nicht speichern: ' + fehler); reloadPosts(); return }
+    setPosts((prev) => prev.map((x) => (x.id === p.id ? { ...x, ...patch } : x)))
   }
 
   // Mit dem echten Namen der aktiven Identität grüßen (Fassie / Lion), nicht dem Mail-Namen

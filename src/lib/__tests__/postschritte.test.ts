@@ -56,8 +56,13 @@ describe('Vorarbeit', () => {
     expect(vorarbeitFertig({ prep_shot: true, prep_edited: true })).toBe(false)
     expect(vorarbeitFertig({ prep_shot: true, prep_edited: true, prep_scheduled: true })).toBe(true)
   })
-  it('zwingt keine Reihenfolge auf', () => {
-    expect(vorarbeitStand({ prep_edited: true })).toBe(1)
+  it('spaeterer Schritt schliesst die frueheren ein', () => {
+    // Was geschnitten ist, ist gedreht -- gleiche Regel wie die Fristen-Ampel.
+    expect(vorarbeitStand({ prep_edited: true })).toBe(2)
+  })
+  it('Board-Status zaehlt mit', () => {
+    expect(vorarbeitStand({ status: 'ready' })).toBe(2)
+    expect(vorarbeitFertig({ status: 'planned' })).toBe(true)
   })
   it('ohne Migration gilt alles als offen', () => {
     expect(vorarbeitStand({})).toBe(0)
@@ -93,5 +98,28 @@ describe('offeneHeute', () => {
   })
   it('eine leere Liste hat nichts offen', () => {
     expect(offeneHeute([])).toBe(0)
+  })
+})
+
+import { plattformenVon, mitPlattformen } from '../postschritte'
+
+describe('Kunden mit nur einer Plattform', () => {
+  it('plattformenVon liest Accounts, sonst alte Handles, sonst beide', () => {
+    expect(plattformenVon({ client_accounts: [{ platform: 'tiktok' }] })).toEqual(['tiktok'])
+    expect(plattformenVon({ handle_ig: 'kraftfeld', handle_tiktok: '' })).toEqual(['instagram'])
+    expect(plattformenVon({ client_accounts: [] })).toEqual(['tiktok', 'instagram'])
+    expect(plattformenVon(null)).toEqual(['tiktok', 'instagram'])
+  })
+  it('nur-TikTok-Kunde ist mit TikTok-Link fertig', () => {
+    const x = { status: 'posted' as const, tiktok_url: 'https://t', instagram_url: null, plattformen: ['tiktok' as const] }
+    expect(postPhase(x)).toBe('fertig')
+    expect(naechsterSchritt(x)).toBe('Erledigt')
+  })
+  it('nur-Instagram-Kunde fehlt nur der Instagram-Link', () => {
+    expect(fehlendeLinks({ tiktok_url: null, instagram_url: null, plattformen: ['instagram'] })).toEqual(['instagram'])
+  })
+  it('mitPlattformen haengt die Plattformen an', () => {
+    const [r] = mitPlattformen([{ id: 1, clients: { handle_tiktok: 'b' } }])
+    expect(r.plattformen).toEqual(['tiktok'])
   })
 })

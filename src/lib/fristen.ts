@@ -33,7 +33,7 @@ const SCHRITT_LABEL: Record<Schritt, string> = {
 }
 
 type FristVideo = Pick<Video, 'status' | 'scheduled_date'> &
-  Partial<Pick<Video, 'prep_shot' | 'prep_edited' | 'prep_scheduled'>> & {
+  Partial<Pick<Video, 'prep_shot' | 'prep_edited' | 'prep_scheduled' | 'scheduled_time'>> & {
     /** Datum des verknuepften Drehtags (events.starts_on), falls vorhanden. */
     drehtag?: string | null
   }
@@ -75,7 +75,12 @@ function kurz(iso: string): string {
   return `${d}.${m}.`
 }
 
-export function fristInfo(v: FristVideo, heuteIso: string): FristInfo {
+/**
+ * @param jetztZeit  aktuelle Uhrzeit "HH:MM" (deutsche Zeit). Ist sie
+ *                   angegeben und die Post-Uhrzeit heute schon vorbei, ist
+ *                   ein noch nicht gepostetes Video rot.
+ */
+export function fristInfo(v: FristVideo, heuteIso: string, jetztZeit?: string): FristInfo {
   const s = stand(v, heuteIso)
   if (s.gepostet) return { ampel: 'erledigt', schritt: null, frist: null, tageBisFrist: null, text: 'Gepostet' }
   if (!v.scheduled_date) {
@@ -96,6 +101,15 @@ export function fristInfo(v: FristVideo, heuteIso: string): FristInfo {
   // Der Posting-Tag ist vorbei und nichts kam raus: das ist der Ernstfall.
   if (tageZwischen(heuteIso, tag) < 0) {
     return { ampel: 'rot', schritt, frist, tageBisFrist: rest, text: `Posting verpasst (${kurz(tag)})` }
+  }
+
+  // Heute, und die geplante Uhrzeit ist vorbei: jetzt brennt es wirklich.
+  const zeit = (v.scheduled_time ?? '').slice(0, 5)
+  if (tag === heuteIso && jetztZeit && zeit && jetztZeit > zeit) {
+    return {
+      ampel: 'rot', schritt, frist, tageBisFrist: rest,
+      text: schritt === 'posten' ? `Post-Zeit ${zeit} vorbei — posten!` : `${label} offen, Post-Zeit ${zeit} vorbei`,
+    }
   }
 
   if (schritt === 'posten') {
@@ -135,11 +149,18 @@ export function fristInfo(v: FristVideo, heuteIso: string): FristInfo {
 const RANG: Record<Ampel, number> = { rot: 0, gelb: 1, gruen: 2, 'ohne-termin': 3, erledigt: 4 }
 
 /** Dringendes zuerst, innerhalb gleicher Farbe nach Posting-Tag. */
-export function nachDringlichkeit<T extends FristVideo>(videos: T[], heuteIso: string): T[] {
+export function nachDringlichkeit<T extends FristVideo>(videos: T[], heuteIso: string, jetztZeit?: string): T[] {
   return [...videos].sort((a, b) => {
-    const fa = fristInfo(a, heuteIso)
-    const fb = fristInfo(b, heuteIso)
+    const fa = fristInfo(a, heuteIso, jetztZeit)
+    const fb = fristInfo(b, heuteIso, jetztZeit)
     if (RANG[fa.ampel] !== RANG[fb.ampel]) return RANG[fa.ampel] - RANG[fb.ampel]
     return (a.scheduled_date ?? '9999').localeCompare(b.scheduled_date ?? '9999')
   })
+}
+
+const UHR = new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit', hour12: false })
+
+/** Aktuelle Uhrzeit in deutscher Zeit als "HH:MM". */
+export function jetztUhrzeit(d: Date = new Date()): string {
+  return UHR.format(d)
 }

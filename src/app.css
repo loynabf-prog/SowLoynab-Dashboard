@@ -3822,3 +3822,6 @@ html { scroll-behavior: smooth; }
 .medien-setup code { font-size: 12px; background: var(--bg-sunken); padding: 1px 5px; border-radius: 4px; }
 .medien-verbinden { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 .medien-verbinden input { flex: 1 1 180px; margin: 0; }
+.ps-termin { margin-top: 8px; }
+.ps-termin-knopf { background: none; border: none; padding: 2px 0; font-size: 12px; font-weight: 600; color: var(--text-dim); cursor: pointer; }
+.ps-termin-knopf:hover { color: var(--brand); }

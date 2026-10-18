@@ -1,7 +1,11 @@
 // Supabase Edge Function: daily-reminders
 // -------------------------------------------------------------------------
-// Fasst zusammen, was HEUTE ansteht (Posts, Aufgaben, Follow-ups) und schickt
+// Fasst zusammen, was HEUTE ansteht (Posts, Aufgaben, Follow-ups) -- und was
+// im Posting-Plan brennt (gerissene Fristen, verpasste Posts) -- und schickt
 // eine Push-Benachrichtigung an alle angemeldeten Geräte des Teams.
+//
+// Die Fristen sind dieselben wie in src/lib/fristen.ts: gedreht 21 Tage,
+// geschnitten 3 Tage, eingeplant 1 Tag vor dem Posting-Tag.
 //
 // Gedacht für einen täglichen Cron-Aufruf (siehe Anleitung unten). Nutzt die
 // vorhandenen VAPID-Secrets + Service-Role (automatisch verfügbar).
@@ -12,6 +16,7 @@
 
 import webpush from 'npm:web-push@3.6.7'
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { brennt, plusTage } from './brennt.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -19,9 +24,9 @@ const CORS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
+// Unser "heute" ist deutsche Zeit, nicht die Uhr des Servers.
 function todayIso(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Berlin', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
 }
 
 Deno.serve(async (req) => {
@@ -36,28 +41,44 @@ Deno.serve(async (req) => {
     const supa = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
     const today = todayIso()
 
-    const [posts, tasks, follows, subs] = await Promise.all([
+    const [posts, tasks, follows, subs, plan] = await Promise.all([
       supa.from('videos').select('id').neq('status', 'posted').is('deleted_at', null).eq('scheduled_date', today),
       supa.from('tasks').select('id').eq('done', false).is('deleted_at', null).not('due_date', 'is', null).lte('due_date', today),
       supa.from('leads').select('id').is('deleted_at', null).not('next_followup', 'is', null).lte('next_followup', today),
       supa.from('push_subscriptions').select('*'),
+      supa.from('videos')
+        .select('status, scheduled_date, prep_shot, prep_edited, prep_scheduled, shoot_event_id')
+        .neq('status', 'posted').is('deleted_at', null)
+        .gte('scheduled_date', plusTage(today, -60)).lte('scheduled_date', plusTage(today, 28)),
     ])
+
+    // Drehtage nachschlagen: ein vergangener Drehtag heisst "gedreht".
+    const planListe = (plan.data ?? []) as any[]
+    const evIds = [...new Set(planListe.map((v) => v.shoot_event_id).filter(Boolean))]
+    if (evIds.length) {
+      const { data: ev } = await supa.from('events').select('id, starts_on').in('id', evIds)
+      const datum = new Map((ev ?? []).map((e: any) => [e.id, e.starts_on]))
+      for (const v of planListe) v.drehtag = datum.get(v.shoot_event_id) ?? null
+    }
+    // Heute steht schon als "Post" in der Nachricht -- hier nur der Rest.
+    const nBrennt = planListe.filter((v) => v.scheduled_date !== today && brennt(v, today)).length
 
     const nPosts = posts.data?.length ?? 0
     const nTasks = tasks.data?.length ?? 0
     const nFollow = follows.data?.length ?? 0
 
     // Nichts zu tun -> keine Push (kein Spam)
-    if (nPosts + nTasks + nFollow === 0) return json({ sent: 0, note: 'nichts fällig' })
+    if (nPosts + nTasks + nFollow + nBrennt === 0) return json({ sent: 0, note: 'nichts fällig' })
 
     const parts: string[] = []
     if (nPosts) parts.push(`${nPosts} Post${nPosts > 1 ? 's' : ''}`)
     if (nTasks) parts.push(`${nTasks} Aufgabe${nTasks > 1 ? 'n' : ''}`)
     if (nFollow) parts.push(`${nFollow} Follow-up${nFollow > 1 ? 's' : ''}`)
+    if (nBrennt) parts.unshift(`🔥 ${nBrennt} im Posting-Plan brennt`)
     const payload = JSON.stringify({
       title: '☀️ Dein Tag bei Sow & Loynab',
       body: `Heute fällig: ${parts.join(' · ')}`,
-      link: '/',
+      link: nBrennt ? '/posting' : '/',
     })
 
     let sent = 0

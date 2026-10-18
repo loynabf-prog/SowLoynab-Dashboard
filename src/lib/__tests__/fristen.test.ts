@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { fristInfo, stand, tageZwischen, nachDringlichkeit } from '../fristen'
+import { fristInfo, stand, tageZwischen, nachDringlichkeit, jetztUhrzeit } from '../fristen'
 import type { Video } from '../types'
 
 type V = Parameters<typeof fristInfo>[0]
@@ -84,5 +84,24 @@ describe('nachDringlichkeit', () => {
     const g = v({ scheduled_date: '2026-11-12' })
     const gr = v({ scheduled_date: '2026-12-30' })
     expect(nachDringlichkeit([gr, g, r], HEUTE)).toEqual([r, g, gr])
+  })
+})
+
+describe('Post-Uhrzeit heute', () => {
+  const heutePost = v({ prep_scheduled: true, scheduled_date: HEUTE, scheduled_time: '18:00:00' } as Partial<Video>)
+  it('vor der Zeit: gruen', () => {
+    expect(fristInfo(heutePost, HEUTE, '17:30').ampel).toBe('gruen')
+  })
+  it('nach der Zeit: rot', () => {
+    const f = fristInfo(heutePost, HEUTE, '18:05')
+    expect(f.ampel).toBe('rot')
+    expect(f.text).toContain('18:00')
+  })
+  it('ohne Uhrzeit-Angabe wie bisher', () => {
+    expect(fristInfo(heutePost, HEUTE).ampel).toBe('gruen')
+  })
+  it('jetztUhrzeit liefert HH:MM in deutscher Zeit', () => {
+    expect(jetztUhrzeit(new Date('2026-10-18T10:07:00Z'))).toBe('12:07')
+    expect(jetztUhrzeit(new Date('2026-11-18T10:07:00Z'))).toBe('11:07')
   })
 })

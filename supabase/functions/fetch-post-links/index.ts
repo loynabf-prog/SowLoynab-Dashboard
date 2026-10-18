@@ -141,6 +141,15 @@ function sortiere(p: Posting[]): Posting[] {
   return [...p].sort((a, b) => (b.zeit ?? '').localeCompare(a.zeit ?? ''))
 }
 
+/** Hat jede Plattform des Kunden ihren Link? Ohne Accounts verlangen wir beide. */
+export function linksKomplett(plattformen: string[], tiktok: unknown, instagram: unknown): boolean {
+  const braucht = new Set(plattformen.filter((p) => p === 'tiktok' || p === 'instagram'))
+  if (braucht.size === 0) { braucht.add('tiktok'); braucht.add('instagram') }
+  if (braucht.has('tiktok') && !tiktok) return false
+  if (braucht.has('instagram') && !instagram) return false
+  return true
+}
+
 function zuAlt(p: Posting): boolean {
   if (!p.zeit) return false // ohne Zeitstempel nicht ausschliessen
   return Date.now() - Date.parse(p.zeit) > MAX_ALTER_STUNDEN * 3600_000
@@ -235,9 +244,12 @@ const bedienen = async (req: Request): Promise<Response> => {
 
       const neuTiktok = patch.tiktok_url ?? v.tiktok_url
       const neuInsta = patch.instagram_url ?? v.instagram_url
-      const beide = !!neuTiktok && !!neuInsta
+      // Fertig ist, wenn jede Plattform, auf der der Kunde einen Account hat,
+      // ihren Link hat. Nicht jeder ist auf beiden (BelChicken nur TikTok,
+      // Kraftfeld nur Instagram) -- sonst liefe das Video ewig als "offen".
+      const komplett = linksKomplett(handles.map((h) => h.platform), neuTiktok, neuInsta)
 
-      if (beide) {
+      if (komplett) {
         patch.link_fetch_at = null
         patch.link_fetch_state = 'fertig'
         patch.link_fetch_note = null

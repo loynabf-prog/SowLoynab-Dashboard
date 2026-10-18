@@ -9,9 +9,15 @@
 
 import { useState } from 'react'
 import type { Video } from '../lib/types'
-import { fehlendeLinks, postPhase, vorarbeit, vorarbeitStand } from '../lib/postschritte'
+import { fehlendeLinks, postPhase, vorarbeit, vorarbeitStand, type Plattform } from '../lib/postschritte'
 
-export type TagVideo = Video & { clients?: { name: string } | null }
+export type TagVideo = Video & {
+  clients?: { name: string; handle_ig?: string | null; handle_tiktok?: string | null; client_accounts?: { platform: string }[] | null } | null
+  /** Auf welchen Plattformen der Kunde postet (siehe plattformenVon). */
+  plattformen?: Plattform[]
+  /** Datum des verknuepften Drehtags, falls geladen. */
+  drehtag?: string | null
+}
 
 export default function PostSchritt({
   video,
@@ -22,6 +28,7 @@ export default function PostSchritt({
   onLink,
   onVorarbeit,
   hinweis,
+  onTermin,
 }: {
   video: TagVideo
   /** 'heute' = posten und Links, 'vorher' = Vorarbeit abhaken. */
@@ -33,6 +40,8 @@ export default function PostSchritt({
   onVorarbeit: (key: 'prep_shot' | 'prep_edited' | 'prep_scheduled', wert: boolean) => void
   /** Optionaler Zusatz in der Meta-Zeile, z. B. die Fristen-Ampel. */
   hinweis?: React.ReactNode
+  /** Wenn gesetzt: kleiner Knopf, um den Posting-Tag zu verschieben. */
+  onTermin?: (datum: string) => Promise<void>
 }) {
   const phase = postPhase(video)
   const fehlt = fehlendeLinks(video)
@@ -105,6 +114,37 @@ export default function PostSchritt({
           ))}
         </div>
       )}
+
+      {onTermin && phase === 'offen' && <TerminFeld datum={video.scheduled_date} onSave={onTermin} />}
+    </div>
+  )
+}
+
+/** Posting-Tag verschieben -- erst auf Knopfdruck, damit die Karte ruhig bleibt. */
+function TerminFeld({ datum, onSave }: { datum: string | null; onSave: (d: string) => Promise<void> }) {
+  const [offen, setOffen] = useState(false)
+  const [wert, setWert] = useState(datum ?? '')
+  const [busy, setBusy] = useState(false)
+  if (!offen) {
+    return (
+      <div className="ps-termin">
+        <button className="ps-termin-knopf" onClick={() => setOffen(true)}>📅 Verschieben</button>
+      </div>
+    )
+  }
+  async function los() {
+    if (!wert || busy) return
+    setBusy(true)
+    await onSave(wert)
+    setBusy(false)
+    setOffen(false)
+  }
+  return (
+    <div className="ps-termin ps-linkfeld">
+      <span className="ps-linkic">📅</span>
+      <input type="date" value={wert} onChange={(e) => setWert(e.target.value)} aria-label="Neuer Posting-Tag" />
+      <button className="btn btn-sm" onClick={() => setOffen(false)}>✕</button>
+      <button className="btn btn-sm btn-primary" onClick={los} disabled={busy || !wert || wert === datum}>{busy ? '…' : 'Sichern'}</button>
     </div>
   )
 }
