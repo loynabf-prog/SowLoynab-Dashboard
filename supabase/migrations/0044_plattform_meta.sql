@@ -104,7 +104,12 @@ select
   coalesce(b.tiktok_cover, b.ig_cover) as cover,
   b.tiktok_cover, b.ig_cover,
   b.tiktok_url, b.instagram_url,
-  b.stats_updated_at, b.meta_updated_at
+  b.stats_updated_at, b.meta_updated_at,
+  -- Echte Uhrzeit? Plattform-Zeit oder ein Tipp auf "Gepostet". Alte, von Hand
+  -- nachgetragene Videos stehen auf voller Stunde (Platzhalter) -- die
+  -- verfaelschen sonst die "beste Zeit".
+  (b.tiktok_published_at is not null or b.ig_published_at is not null
+    or date_trunc('hour', b.posted_at) <> b.posted_at) as zeit_echt
 from basis b
 left join lateral (
   select
