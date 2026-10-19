@@ -102,7 +102,7 @@ export default function MonatsplanModal({
   }
 
   return (
-    <Modal title="📅 Monatsplan" onClose={onClose}>
+    <Modal title="Monatsplan" onClose={onClose}>
       <div className="stack">
         <div className="mp-monat">
           <button type="button" className="mp-pfeil" onClick={() => wechsel(-1)} aria-label="Monat zurück">‹</button>

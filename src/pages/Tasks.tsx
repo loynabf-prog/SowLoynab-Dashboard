@@ -1,3 +1,4 @@
+import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -135,7 +136,7 @@ export default function Tasks() {
           className="search-input"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="🔎 Aufgabe suchen …"
+          placeholder="Aufgabe suchen …"
         />
         <select value={filterMember} onChange={(e) => setFilterMember(e.target.value)} className="filter-select">
           <option value="">Alle Zuständigen</option>
@@ -148,7 +149,7 @@ export default function Tasks() {
             className={`btn ${filterMember === memberId ? 'btn-primary' : ''}`}
             onClick={() => setFilterMember(filterMember === memberId ? '' : memberId)}
           >
-            🙋 Nur meine
+            Nur meine
           </button>
         )}
         <div className="seg">
@@ -159,7 +160,7 @@ export default function Tasks() {
 
       {error && <div className="error-box" style={{ marginBottom: 16 }}>{error}</div>}
 
-      {open.length === 0 && !loading && <div className="col-empty">Keine offenen Aufgaben. 🎉</div>}
+      {open.length === 0 && !loading && <div className="col-empty">Keine offenen Aufgaben.</div>}
 
       {sortMode === 'date' ? (
         <div className="task-list">
@@ -170,7 +171,7 @@ export default function Tasks() {
           ))}
         </div>
       ) : (
-        [...PRIORITIES, { value: 0, label: 'Ohne Priorität', color: 'var(--border-strong)', icon: '⚪' }].map((p) => {
+        [...PRIORITIES, { value: 0, label: 'Ohne Priorität', color: 'var(--border-strong)', icon: '' }].map((p) => {
           const group = byDue(open.filter((t) => (t.priority ?? 0) === p.value))
           if (group.length === 0) return null
           return (
@@ -191,7 +192,7 @@ export default function Tasks() {
       {done.length > 0 && (
         <div style={{ marginTop: 22 }}>
           <button className="btn btn-sm btn-ghost" onClick={() => setShowDone((s) => !s)}>
-            {showDone ? '▾' : '▸'} Erledigt ({done.length})
+            {showDone ? <ChevronDown size={16} className="chev" /> : <ChevronRight size={16} className="chev" />} Erledigt ({done.length})
           </button>
           {showDone && (
             <div className="task-list" style={{ marginTop: 12, opacity: 0.7 }}>
@@ -219,7 +220,7 @@ export default function Tasks() {
             setCreating(false)
             setEditing(null)
             load()
-            toast('Gespeichert ✓')
+            toast('Gespeichert')
           }}
         />
       )}

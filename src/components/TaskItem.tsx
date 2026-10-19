@@ -31,27 +31,27 @@ export default function TaskItem({
   return (
     <div className="task-item" style={barColor ? { borderLeft: `3px solid ${barColor}` } : undefined}>
       <button className={`task-check ${t.done ? 'on' : ''}`} onClick={onToggle} aria-label="erledigt umschalten">
-        {t.done ? '✓' : ''}
+        {t.done ? '' : ''}
       </button>
       <div className="task-body" onClick={onEdit}>
         <div className={`task-title ${t.done ? 'strike' : ''}`}>{t.title}</div>
         <div className="task-meta">
           {due && (
             <span className={`task-due ${due.overdue ? 'overdue' : due.soon ? 'soon' : ''}`}>
-              {due.overdue ? '⚠ ' : '📅 '}
+              {due.overdue ? '' : ''}
               {due.text}
             </span>
           )}
-          {time && <span className="task-time">⏰ {time} Uhr</span>}
+          {time && <span className="task-time">{time} Uhr</span>}
           {prio && <span className="cat-tag" style={{ background: prio.color }}>{prio.label}</span>}
           {cat && <span className="cat-tag" style={{ background: cat.color }}>{cat.name}</span>}
-          {linked && <span className="chip">{t.clients?.name ? '👤 ' : '🎯 '}{linked}</span>}
+          {linked && <span className="chip">{t.clients?.name ? '' : ''}{linked}</span>}
           <AssigneeChips ids={t.assignee_ids ?? []} />
         </div>
       </div>
       {onDelete && (
         <button className="btn btn-sm btn-danger hide-mobile" onClick={onDelete} title="löschen">
-          ✕
+          
         </button>
       )}
     </div>

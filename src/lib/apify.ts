@@ -53,9 +53,9 @@ export function detectPlatform(url: string): Platform {
 }
 
 export const PLATFORM_ICON: Record<Platform, string> = {
-  tiktok: '🎵',
-  instagram: '📸',
-  other: '🔗',
+  tiktok: 'TikTok',
+  instagram: 'Instagram',
+  other: 'Link',
 }
 
 

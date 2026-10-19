@@ -40,8 +40,8 @@ export interface AccountEntwurf {
 }
 
 export const PLATTFORMEN: { wert: Plattform; name: string; icon: string }[] = [
-  { wert: 'instagram', name: 'Instagram', icon: '📸' },
-  { wert: 'tiktok', name: 'TikTok', icon: '🎵' },
+  { wert: 'instagram', name: 'Instagram', icon: '' },
+  { wert: 'tiktok', name: 'TikTok', icon: '' },
 ]
 
 export function plattformInfo(p: Plattform) {

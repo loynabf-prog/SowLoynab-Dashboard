@@ -66,7 +66,7 @@ export default function PostLinksModal({
   }
 
   return (
-    <Modal title={hatLinks ? '📊 Zahlen jetzt holen' : '🔗 Wo ist es online?'} onClose={onClose}>
+    <Modal title={hatLinks ? 'Zahlen jetzt holen' : 'Wo ist es online?'} onClose={onClose}>
       <div className="stack">
         <div className="info-box" style={{ fontSize: 13 }}>
           {hatLinks ? (
@@ -83,14 +83,14 @@ export default function PostLinksModal({
           )}
         </div>
 
-        {err && <div className="warn-box">⚠ {err}</div>}
+        {err && <div className="warn-box">{err}</div>}
 
         <div>
-          <label>🎵 TikTok-Link</label>
+          <label>TikTok-Link</label>
           <input type="url" value={tt} onChange={(e) => setTt(e.target.value)} autoFocus placeholder="https://www.tiktok.com/@…/video/…" />
         </div>
         <div>
-          <label>📸 Instagram-Link</label>
+          <label>Instagram-Link</label>
           <input type="url" value={ig} onChange={(e) => setIg(e.target.value)} placeholder="https://www.instagram.com/reel/…" />
         </div>
 
@@ -101,7 +101,7 @@ export default function PostLinksModal({
             {busy === 'speichern' ? 'Speichere …' : 'Nur merken'}
           </button>
           <button type="button" className="btn btn-primary" onClick={holen} disabled={!!busy}>
-            {busy === 'holen' ? 'Hole Zahlen …' : '📊 Zahlen jetzt holen'}
+            {busy === 'holen' ? 'Hole Zahlen …' : 'Zahlen jetzt holen'}
           </button>
         </div>
       </div>

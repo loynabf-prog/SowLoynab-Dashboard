@@ -101,7 +101,7 @@ export default function ContractSign() {
 
         {unterschrieben && (
           <div className="contract-done">
-            ✅ Bestätigt am{' '}
+            Bestätigt am{' '}
             {row.signed_at
               ? new Date(row.signed_at).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
               : ''}{' '}
@@ -179,7 +179,7 @@ export default function ContractSign() {
                   onClick={unterschreiben}
                   disabled={busy || !name.trim() || !zugestimmt}
                 >
-                  {busy ? 'Wird bestätigt …' : '✓ Rechtsverbindlich bestätigen'}
+                  {busy ? 'Wird bestätigt …' : 'Rechtsverbindlich bestätigen'}
                 </button>
               </div>
             </div>

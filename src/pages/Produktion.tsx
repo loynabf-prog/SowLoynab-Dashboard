@@ -38,9 +38,9 @@ interface Drehtag {
 type Spalte = Extract<Schritt, 'dreh' | 'schnitt' | 'planung'>
 
 const SPALTEN: { key: Spalte; label: string; aktion: string; feld: VorarbeitKey }[] = [
-  { key: 'dreh', label: 'Drehen', aktion: '✓ Gedreht', feld: 'prep_shot' },
-  { key: 'schnitt', label: 'Schneiden', aktion: '✓ Geschnitten', feld: 'prep_edited' },
-  { key: 'planung', label: 'Einplanen', aktion: '✓ Eingeplant', feld: 'prep_scheduled' },
+  { key: 'dreh', label: 'Drehen', aktion: 'Gedreht', feld: 'prep_shot' },
+  { key: 'schnitt', label: 'Schneiden', aktion: 'Geschnitten', feld: 'prep_edited' },
+  { key: 'planung', label: 'Einplanen', aktion: 'Eingeplant', feld: 'prep_scheduled' },
 ]
 
 function offenerSchritt(v: ProdVideo, heuteIso: string): Spalte | null {
@@ -112,7 +112,7 @@ export default function Produktion() {
     const { patch, fehler } = await vorarbeitSetzen(v, feld, true)
     if (fehler) { toast('Konnte nicht speichern: ' + fehler); laden(); return }
     setVideos((prev) => prev.map((x) => (x.id === v.id ? { ...x, ...patch } : x)))
-    toast('Erledigt ✓', {
+    toast('Erledigt', {
       label: 'Rückgängig',
       onClick: async () => {
         // Zurueck auf genau den Stand von vorher -- inklusive Board-Status.
@@ -135,7 +135,7 @@ export default function Produktion() {
     const fehler = await terminSetzen(v.id, datum)
     if (fehler) { toast('Konnte nicht verschieben: ' + fehler); return }
     setVideos((prev) => prev.map((x) => (x.id === v.id ? { ...x, scheduled_date: datum } : x)))
-    toast('Verschoben ✓')
+    toast('Verschoben')
   }
 
   const aktiv = SPALTEN.find((s) => s.key === spalte)!

@@ -20,7 +20,7 @@ export default function KalenderAbo({ member, onNeu }: { member: TeamMember; onN
     if (!token) return
     try {
       await navigator.clipboard.writeText(aboUrl(token, 'https'))
-      toast('Link kopiert ✓')
+      toast('Link kopiert')
     } catch {
       setZeigen(true)
       toast('Konnte nicht kopieren — Link steht jetzt da zum Markieren.')

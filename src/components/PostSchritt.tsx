@@ -8,6 +8,7 @@
 // eingeplant. Damit laesst sich der naechste Tag heute schon leerraeumen.
 
 import { useState } from 'react'
+import { Link2, X } from 'lucide-react'
 import type { Video } from '../lib/types'
 import { fehlendeLinks, postPhase, vorarbeit, vorarbeitStand, type Plattform } from '../lib/postschritte'
 
@@ -53,7 +54,7 @@ export default function PostSchritt({
   return (
     <div className={`ps-karte ${phase === 'fertig' ? 'fertig' : ''}`}>
       <div className="ps-kopf">
-        <span className="ps-ic">{phase === 'fertig' ? '✅' : '🎬'}</span>
+        <span className="ps-ic">{phase === 'fertig' ? '' : ''}</span>
         <button className="ps-main" onClick={onOeffnen}>
           <span className="ps-titel">{video.title}</span>
           <span className="ps-meta">
@@ -65,7 +66,7 @@ export default function PostSchritt({
         </button>
 
         {modus === 'heute' && phase === 'offen' && (
-          <button className="btn btn-sm btn-primary" onClick={onPosten}>✓ Gepostet</button>
+          <button className="btn btn-sm btn-primary" onClick={onPosten}>Gepostet</button>
         )}
         {modus === 'heute' && phase === 'fertig' && <span className="ps-fertig">erledigt</span>}
       </div>
@@ -90,10 +91,10 @@ export default function PostSchritt({
             </div>
           )}
           {fehlt.includes('tiktok') && (
-            <LinkFeld icon="🎵" label="TikTok-Link" onSave={(u) => onLink('tiktok_url', u)} />
+            <LinkFeld icon="" label="TikTok-Link" onSave={(u) => onLink('tiktok_url', u)} />
           )}
           {fehlt.includes('instagram') && (
-            <LinkFeld icon="📸" label="Instagram-Link" onSave={(u) => onLink('instagram_url', u)} />
+            <LinkFeld icon="" label="Instagram-Link" onSave={(u) => onLink('instagram_url', u)} />
           )}
         </div>
       )}
@@ -109,7 +110,7 @@ export default function PostSchritt({
               aria-pressed={s.erledigt}
               onClick={() => onVorarbeit(s.key, !s.erledigt)}
             >
-              {s.erledigt ? '✓ ' : ''}{s.label}
+              {s.erledigt ? '' : ''}{s.label}
             </button>
           ))}
         </div>
@@ -128,7 +129,7 @@ function TerminFeld({ datum, onSave }: { datum: string | null; onSave: (d: strin
   if (!offen) {
     return (
       <div className="ps-termin">
-        <button className="ps-termin-knopf" onClick={() => setOffen(true)}>📅 Verschieben</button>
+        <button className="ps-termin-knopf" onClick={() => setOffen(true)}>Verschieben</button>
       </div>
     )
   }
@@ -141,9 +142,9 @@ function TerminFeld({ datum, onSave }: { datum: string | null; onSave: (d: strin
   }
   return (
     <div className="ps-termin ps-linkfeld">
-      <span className="ps-linkic">📅</span>
+      <span className="ps-linkic"><Link2 size={15} /></span>
       <input type="date" value={wert} onChange={(e) => setWert(e.target.value)} aria-label="Neuer Posting-Tag" />
-      <button className="btn btn-sm" onClick={() => setOffen(false)}>✕</button>
+      <button className="btn btn-sm" onClick={() => setOffen(false)}><X size={15} strokeWidth={2.4} /></button>
       <button className="btn btn-sm btn-primary" onClick={los} disabled={busy || !wert || wert === datum}>{busy ? '…' : 'Sichern'}</button>
     </div>
   )

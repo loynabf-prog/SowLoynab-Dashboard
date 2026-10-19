@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { X } from 'lucide-react'
 import { compactNum, PLATFORM_ICON, type Platform } from '../lib/apify'
 import type { Inspiration } from '../lib/types'
 
@@ -41,7 +42,7 @@ export default function InspirationCard({
       <div className="insp-body">
         <div className="insp-head">
           <div className="insp-title">{item.title || 'Ohne Titel'}</div>
-          <button className="pool-x" onClick={onDelete} title="löschen">✕</button>
+          <button className="pool-x" onClick={onDelete} title="löschen"><X size={15} strokeWidth={2.4} /></button>
         </div>
 
         {item.author && <div className="insp-author">@{item.author.replace(/^@/, '')}</div>}
@@ -49,8 +50,8 @@ export default function InspirationCard({
         {zahlen ? (
           <div className="insp-stats">
             <span title="Aufrufe">▶ {compactNum(item.views)}</span>
-            <span title="Likes">❤ {compactNum(item.likes)}</span>
-            <span title="Kommentare">💬 {compactNum(item.comments)}</span>
+            <span title="Likes">{compactNum(item.likes)}</span>
+            <span title="Kommentare">{compactNum(item.comments)}</span>
           </div>
         ) : (
           <div className="insp-stats muted">Keine Zahlen abrufbar</div>
@@ -59,7 +60,7 @@ export default function InspirationCard({
         {item.notes && <div className="insp-notes">{item.notes}</div>}
 
         <div className="insp-foot">
-          <a className="btn btn-sm" href={item.url} target="_blank" rel="noreferrer">Ansehen ↗</a>
+          <a className="btn btn-sm" href={item.url} target="_blank" rel="noreferrer">Ansehen</a>
           {onAssign && clients && (
             <select
               className="insp-assign"

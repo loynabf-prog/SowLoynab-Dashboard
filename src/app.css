@@ -448,7 +448,6 @@
   line-height: 1.45;
   word-break: break-word;
 }
-:root[data-theme="dark"] .warn-box { color: #e0a760; background: rgba(224, 167, 96, 0.10); }
 .empty-state {
   text-align: center;
   padding: 60px 20px;
@@ -1607,10 +1606,10 @@ a.fin-tile:hover { transform: translateY(-3px); box-shadow: var(--shadow); borde
   touch-action: none;
   cursor: crosshair;
 }
-/* Gezeichnet wird immer schwarz, damit die Unterschrift im PDF auf weissem
+/* Gezeichnet wird immer schwarz,
+damit die Unterschrift im PDF auf weissem
    Papier steht. Im Dunkelmodus kehren wir nur die ANZEIGE um -- die Bilddaten,
-   die gespeichert werden, bleiben schwarz. */
-:root[data-theme="dark"] .unterschrift-feld canvas { filter: invert(1); }
+die gespeichert werden { filter: invert(1); }
 .unterschrift-hinweis {
   position: absolute;
   inset: 0;
@@ -1646,7 +1645,6 @@ a.fin-tile:hover { transform: translateY(-3px); box-shadow: var(--shadow); borde
   /* Der Zug ist schwarz gezeichnet; im Dunkelmodus umkehren, sonst ist er weg */
   filter: none;
 }
-:root[data-theme="dark"] .unterschrift-bild { filter: invert(1) brightness(1.4); }
 
 /* --- Vertrag: öffentliche Seite zum Unterschreiben ---------------------- */
 .contract-card { max-width: 720px; text-align: left; }
@@ -2074,7 +2072,6 @@ button, a, .flag, .nudge-item, .ai-idea, .pool-card, .seg-btn {
   background: var(--brand);
   box-shadow: none;
 }
-:root[data-theme="dark"] .nav-link:hover { background: rgba(255, 255, 255, 0.08); }
 
 /* --- Seitentitel: größer, edler --- */
 .page-head h1 { font-size: 30px; letter-spacing: -0.03em; }
@@ -2415,59 +2412,8 @@ html { scroll-behavior: smooth; }
   background: var(--brand-glow); color: var(--brand);
 }
 .quota-chip.done { background: rgba(47, 158, 68, 0.14); color: var(--posted); }
-
-/* ============================================================================
-   DARK MODE — edler Nacht-Look (Espresso + Gold)
-   ============================================================================ */
-:root[data-theme="dark"] {
-  /* Apple-Look — dunkel (OLED-Schwarz) */
-  --bg:            #000000;
-  --bg-elev:       #1c1c1e;
-  --bg-card:       #1c1c1e;
-  --bg-card-hover: #2c2c2e;
-  --bg-sunken:     #0e0e10;
-  --border:        #2c2c2e;
-  --border-strong: #3a3a3c;
-
-  --text:          #f5f5f7;
-  --text-muted:    #aeaeb2;
-  --text-dim:      #8e8e93;
-
-  --brand:         #0a84ff;
-  --brand-light:   #4aa5ff;
-  --brand-deep:    #0060df;
-  --brand-glow:    rgba(10, 132, 255, 0.26);
-  --gold:          #8e8e93;
-  --gold-soft:     rgba(142, 142, 147, 0.4);
-
-  --todo:    #8e8e93;
-  --ready:   #ff9f0a;
-  --planned: #0a84ff;
-  --posted:  #30d158;
-  --danger:  #ff453a;
-
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.5);
-  --shadow:    0 8px 24px -10px rgba(0,0,0,0.7);
-  --shadow-lg: 0 24px 60px -16px rgba(0,0,0,0.8);
-  --hairline:  1px solid rgba(255,255,255,0.10);
-}
-
-:root[data-theme="dark"] body { background: var(--bg); }
-/* Flächen flach auf Apple-Dunkel setzen */
-:root[data-theme="dark"] .app-header { background: rgba(0,0,0,0.6); border-bottom-color: var(--border); }
-:root[data-theme="dark"] .app-nav { background: rgba(0,0,0,0.5); }
 @media (max-width: 760px) {
-  :root[data-theme="dark"] .app-header, :root[data-theme="dark"] .app-nav { background: rgba(0,0,0,0.9); }
 }
-:root[data-theme="dark"] .video-card,
-:root[data-theme="dark"] .pool-card,
-:root[data-theme="dark"] .client-cockpit,
-:root[data-theme="dark"] .fin-tile,
-:root[data-theme="dark"] .logo-tile { background: var(--bg-card); }
-:root[data-theme="dark"] .board-col { background: var(--bg-sunken); }
-:root[data-theme="dark"] .logo-tile::after { background: none; }
-:root[data-theme="dark"] .health-dot { box-shadow: 0 0 0 2px var(--bg-card); }
-:root[data-theme="dark"] .drag-ghost { box-shadow: 0 20px 60px rgba(0,0,0,0.7); }
 
 /* Theme-Umschalter im Header */
 .theme-toggle {
@@ -2552,7 +2498,6 @@ html { scroll-behavior: smooth; }
   border: 1px solid var(--border); border-radius: var(--radius);
   box-shadow: var(--shadow-sm); padding: 16px 18px; margin-bottom: 20px;
 }
-:root[data-theme="dark"] .growth-block { background: linear-gradient(180deg, #221b12, #1c160f); }
 .growth-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 10px; }
 .linechart { width: 100%; }
 .lc-legend { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 8px; font-size: 13px; color: var(--text-muted); }
@@ -2621,7 +2566,6 @@ html { scroll-behavior: smooth; }
   padding: 12px 15px; box-shadow: var(--shadow-sm);
   transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.12s ease;
 }
-:root[data-theme="dark"] .inv-row { background: linear-gradient(180deg, #221b12, #1c160f); }
 .inv-row:hover { border-color: var(--gold-soft); box-shadow: var(--shadow); transform: translateY(-1px); }
 .inv-main { flex: 1; min-width: 0; cursor: pointer; }
 .inv-top { display: flex; align-items: center; gap: 8px; }
@@ -2804,7 +2748,6 @@ html { scroll-behavior: smooth; }
     box-shadow: none;
     justify-content: space-around; align-items: stretch;
   }
-  :root[data-theme="dark"] .tabbar { background: rgba(0,0,0,0.72); border-top-color: var(--border); }
   .tab {
     flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
     border: none; background: transparent; color: var(--text-dim); cursor: pointer; padding: 7px 0;
@@ -3298,7 +3241,6 @@ html { scroll-behavior: smooth; }
 }
 .contract-chip.soon { background: rgba(255,149,0,0.16); color: #b35b00; }
 .contract-chip.expired { background: rgba(255,59,48,0.15); color: var(--danger); }
-:root[data-theme="dark"] .contract-chip.soon { color: #ffb340; }
 
 .ga-row {
   display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;

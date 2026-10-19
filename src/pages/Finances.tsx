@@ -135,7 +135,7 @@ export default function Finances() {
                 remove(t.id)
               }}
             >
-              ✕
+              
             </button>
           </div>
         ))}

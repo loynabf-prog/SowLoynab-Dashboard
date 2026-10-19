@@ -1,3 +1,4 @@
+import { Camera, ChevronDown, ChevronUp, Globe, Mail, MessageCircle, Music, Phone } from 'lucide-react'
 import { Fragment, useCallback, useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -307,7 +308,7 @@ export default function ClientPage() {
       // automatische Link-Abholung.
       p = { ...(postenPatch({ ...before, posted_at: null }) as Partial<Video>), ...p }
       celebrate()
-      toast('Gepostet — stark! 🎉')
+      toast('Gepostet — stark!')
     }
     setVideos((prev) => prev.map((v) => (v.id === videoId ? { ...v, ...p } : v)))
     const { error } = await updateRow('videos', p as Record<string, any>, 'id', videoId)
@@ -349,7 +350,7 @@ export default function ClientPage() {
       }
       await patchVideo(v.id, statsPatch(res) as Partial<Video>)
       const gesamt = (res.tiktok?.views ?? 0) + (res.instagram?.views ?? 0)
-      toast(`Zahlen geholt ✓ ${gesamt.toLocaleString('de-DE')} Aufrufe`)
+      toast(`Zahlen geholt ${gesamt.toLocaleString('de-DE')} Aufrufe`)
     } catch (e) {
       toast('Adresse gespeichert — Abruf klappte nicht. Heute Nacht erneut.')
       setError(klartext((e as Error).message))
@@ -484,7 +485,7 @@ export default function ClientPage() {
     await supabase.from('video_ideas').update({ moved_video_id: data.id }).eq('id', idea.id)
     loadVideos()
     loadIdeas()
-    toast('Ins Board übernommen ✓', {
+    toast('Ins Board übernommen', {
       label: 'Zurück in den Speicher',
       onClick: async () => {
         await supabase.from('videos').update({ deleted_at: new Date().toISOString() }).eq('id', data.id)
@@ -520,7 +521,7 @@ export default function ClientPage() {
     setMengen(await ladeMonatsmengen(id))
     setPlanOffen(false)
     loadVideos()
-    toast(`${e.zeilen.length} Videos angelegt — Namen kannst du jederzeit ändern ✓`)
+    toast(`${e.zeilen.length} Videos angelegt — Namen kannst du jederzeit ändern`)
   }
 
   const monthKey = new Date().toISOString().slice(0, 7)
@@ -569,7 +570,7 @@ export default function ClientPage() {
           <h1>{client.name}</h1>
           <span className="sub">
             {(accounts.length
-              ? accounts.map((a) => `${plattformInfo(a.platform).icon} @${a.handle}`)
+              ? accounts.map((a) => `@${a.handle}`)
               : [
                   client.handle_ig && `IG @${client.handle_ig.replace(/^@/, '')}`,
                   client.handle_tiktok && `TikTok @${client.handle_tiktok.replace(/^@/, '')}`,
@@ -582,7 +583,7 @@ export default function ClientPage() {
           Kunde bearbeiten
         </button>
         <button className="btn btn-sm" onClick={() => setPlanOffen(true)}>
-          📅 Monatsplan
+          Monatsplan
         </button>
         <button className="btn btn-primary" onClick={() => setCreating(true)}>
           + Idee
@@ -598,7 +599,7 @@ export default function ClientPage() {
 
       {client.notes && (
         <div className="info-box" style={{ marginBottom: 20 }}>
-          📝 {client.notes}
+          {client.notes}
         </div>
       )}
 
@@ -610,15 +611,15 @@ export default function ClientPage() {
       <div className="client-tabs">
         <div className="seg tabs-main">
           <button className={`seg-btn ${tab === 'board' ? 'on' : ''}`} onClick={() => setTab('board')}>
-            🎬 In Umsetzung
+            In Umsetzung
             <span className="col-count">{boardVideos.length}</span>
           </button>
           <button className={`seg-btn ${tab === 'termine' ? 'on' : ''}`} onClick={() => setTab('termine')}>
-            🎥 Termine
+            Termine
             <span className="col-count">{termine.length}</span>
           </button>
           <button className={`seg-btn ${tab === 'analyse' ? 'on' : ''}`} onClick={() => setTab('analyse')}>
-            📊 Analyse
+            Analyse
             <span className="col-count">{postedVideos.length}</span>
           </button>
         </div>
@@ -626,14 +627,14 @@ export default function ClientPage() {
         <div className="tabs-side">
           <span className="tabs-side-label">Vorrat</span>
           <Link className="side-tab" to={`/medien?kunde=${id}`}>
-            📁 Medien
+            Medien
           </Link>
           <button className={`side-tab ${tab === 'pool' ? 'on' : ''}`} onClick={() => setTab('pool')}>
-            💡 Ideenspeicher
+            Ideenspeicher
             <span className="col-count">{sichtbareIdeen.length}</span>
           </button>
           <button className={`side-tab ${tab === 'inspiration' ? 'on' : ''}`} onClick={() => setTab('inspiration')}>
-            🔖 Inspiration
+            Inspiration
             <span className="col-count">{inspirations.length}</span>
           </button>
         </div>
@@ -743,8 +744,8 @@ export default function ClientPage() {
                     onClick={() => setOpenCols((o) => ({ ...o, [status]: !o[status] }))}
                   >
                     {expanded
-                      ? <>▴ Weniger zeigen</>
-                      : <>▾ Alle {items.length} zeigen <span className="col-more-rest">+{rest}</span></>}
+                      ? <>Weniger zeigen</>
+                      : <>Alle {items.length} zeigen <span className="col-more-rest">+{rest}</span></>}
                   </button>
                 )}
               </div>
@@ -771,7 +772,7 @@ export default function ClientPage() {
       {tab === 'inspiration' && (
         <div className="pool-anim">
           <div className="info-box" style={{ marginBottom: 16 }}>
-            🔖 Fremde Videos, die ihr für <strong>{client.name}</strong> so ähnlich machen wollt.
+            Fremde Videos, die ihr für <strong>{client.name}</strong> so ähnlich machen wollt.
             Link aus TikTok oder Instagram einfügen — die Zahlen holen wir automatisch dazu.
           </div>
 
@@ -787,14 +788,14 @@ export default function ClientPage() {
 
           {inspFehlt && (
             <div className="warn-box" style={{ marginBottom: 16 }}>
-              ⚠ Dafür fehlt noch eine Ergänzung in der Datenbank. Bitte am PC im Supabase
+              Dafür fehlt noch eine Ergänzung in der Datenbank. Bitte am PC im Supabase
               SQL-Editor einmal das Skript <strong>ALLES_offen_20-23.sql</strong> ausführen.
             </div>
           )}
 
           {inspirations.length === 0 && !inspFehlt ? (
             <div className="col-empty" style={{ padding: 30 }}>
-              Noch nichts gemerkt. Link kopieren, oben auf „+ Inspiration“. 🔖
+              Noch nichts gemerkt. Link kopieren, oben auf „+ Inspiration“. 
             </div>
           ) : (
             <div className="insp-grid">
@@ -814,17 +815,17 @@ export default function ClientPage() {
         <div className="section-block">
           <div className="toolbar-row">
             <button className="btn btn-primary" onClick={() => setTerminOffen({ row: null, art: 'dreh' })}>
-              🎥 Drehtag
+              Drehtag
             </button>
             <button className="btn" onClick={() => setTerminOffen({ row: null, art: 'termin' })}>
-              📍 Termin
+              Termin
             </button>
           </div>
 
           {termine.length === 0 ? (
             <div className="col-empty" style={{ padding: 30 }}>
               Noch kein Termin für {client.name}. Ein Drehtag sammelt die Videos, die an
-              dem Tag entstehen — samt Skript. 🎥
+              dem Tag entstehen — samt Skript. 
             </div>
           ) : (
             <div className="tm-liste">
@@ -838,7 +839,7 @@ export default function ClientPage() {
                     key={t.id}
                     onClick={() => (istDreh ? setDrehOffen(t) : setTerminOffen({ row: t }))}
                   >
-                    <span className="tm-ic">{istDreh ? '🎥' : t.kind === 'arbeit' ? '💼' : t.kind === 'spiel' ? '⚽' : '📍'}</span>
+                    <span className="tm-ic">{istDreh ? '' : t.kind === 'arbeit' ? '' : t.kind === 'spiel' ? '' : ''}</span>
                     <span className="tm-text">
                       <span className="tm-titel">{t.title}</span>
                       <span className="tm-wann">
@@ -869,7 +870,7 @@ export default function ClientPage() {
           artVorgabe={terminOffen.art}
           userId={user?.id ?? null}
           onClose={() => setTerminOffen(null)}
-          onSaved={() => { setTerminOffen(null); loadTermine(); toast('Gespeichert ✓') }}
+          onSaved={() => { setTerminOffen(null); loadTermine(); toast('Gespeichert') }}
         />
       )}
 
@@ -915,7 +916,7 @@ export default function ClientPage() {
             await supabase.from('videos').update({ deleted_at: new Date().toISOString() }).eq('series_id', editing.series_id).is('deleted_at', null)
             setEditing(null)
             loadVideos()
-            toast('Serie in den Papierkorb ✓')
+            toast('Serie in den Papierkorb')
           }}
         />
       )}
@@ -926,7 +927,7 @@ export default function ClientPage() {
       {tab === 'board' && (
         <div className="section-block">
           <button className="mehr-klappe" onClick={() => setMehrOffen((o) => !o)}>
-            {mehrOffen ? '▴' : '▾'} Mehr zum Kunden
+            {mehrOffen ? <ChevronUp size={16} className="chev" /> : <ChevronDown size={16} className="chev" />} Mehr zum Kunden
             <span className="muted">Vertrag · Verlauf</span>
           </button>
           {mehrOffen && (
@@ -945,7 +946,7 @@ export default function ClientPage() {
         <PostLinksModal
           video={askLinks}
           onClose={() => setAskLinks(null)}
-          onSaved={() => { loadVideos(); toast('Gespeichert ✓') }}
+          onSaved={() => { loadVideos(); toast('Gespeichert') }}
         />
       )}
 
@@ -955,7 +956,7 @@ export default function ClientPage() {
 
       {nudging && (
         <NudgeModal
-          defaultBody={`„${nudging.title}" ist fertig – kannst du posten? 🎬`}
+          defaultBody={`„${nudging.title}" ist fertig – kannst du posten?`}
           link={`/client/${client.id}?video=${nudging.id}`}
           onClose={() => setNudging(null)}
         />
@@ -979,7 +980,7 @@ export default function ClientPage() {
         <GrowthModal
           clientId={client.id}
           onClose={() => setGrowthOpen(false)}
-          onSaved={() => { setGrowthOpen(false); loadStats(); toast('Wachstum erfasst ✓') }}
+          onSaved={() => { setGrowthOpen(false); loadStats(); toast('Wachstum erfasst') }}
         />
       )}
 
@@ -1106,14 +1107,14 @@ function MergeModal({
     setBusy(true); setFehler(null)
     const { error } = await fuehreZusammen(client.id, ziel.id)
     if (error) { setFehler(error); setBusy(false); return }
-    toast(`Zusammengeführt — alles liegt jetzt bei ${ziel.name} ✓`)
+    toast(`Zusammengeführt — alles liegt jetzt bei ${ziel.name}`)
     window.location.href = `${import.meta.env.BASE_URL}client/${ziel.id}`
   }
 
   const gesamt = (umzug ?? []).reduce((n, x) => n + x.anzahl, 0)
 
   return (
-    <Modal title="🔗 Kunden zusammenführen" onClose={onClose}>
+    <Modal title="Kunden zusammenführen" onClose={onClose}>
       <div className="stack">
         <div className="info-box" style={{ fontSize: 13 }}>
           Alles von <strong>{client.name}</strong> zieht zum gewählten Kunden um.
@@ -1150,7 +1151,7 @@ function MergeModal({
         )}
 
         <div className="warn-box" style={{ fontSize: 12.5 }}>
-          ⚠ Follower-Zahlen werden je Tag <strong>addiert</strong> — zwei Accounts haben
+          Follower-Zahlen werden je Tag <strong>addiert</strong> — zwei Accounts haben
           zusammen so viele. Die Social-Accounts ziehen mit um, es werden danach also
           <strong> alle</strong> weiter automatisch abgefragt. Die Zahlen der einzelnen
           Videos bleiben unberührt, die hängen am Video-Link.
@@ -1372,21 +1373,21 @@ function EditVideoModal({
           />
         </div>
 
-        <div className="section-divider">🔗 Live-Links (Auto-Statistik)</div>
+        <div className="section-divider">Live-Links (Auto-Statistik)</div>
         <div className="info-box" style={{ fontSize: 13 }}>
           Nach dem Posten die öffentlichen Links einfügen — die Zahlen werden dann täglich automatisch aktualisiert.
-          {video.stats_updated_at && <><br />✅ Zuletzt aktualisiert: {new Date(video.stats_updated_at).toLocaleString('de-DE', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</>}
+          {video.stats_updated_at && <><br />Zuletzt aktualisiert: {new Date(video.stats_updated_at).toLocaleString('de-DE', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</>}
         </div>
         <div>
-          <label>🎵 TikTok-Link</label>
+          <label>TikTok-Link</label>
           <input type="url" value={ttUrl} onChange={(e) => setTtUrl(e.target.value)} placeholder="https://www.tiktok.com/@…/video/…" />
         </div>
         <div>
-          <label>📸 Instagram-Link</label>
+          <label>Instagram-Link</label>
           <input type="url" value={igUrl} onChange={(e) => setIgUrl(e.target.value)} placeholder="https://www.instagram.com/reel/…" />
         </div>
 
-        <div className="section-divider">📈 Zahlen — getrennt nach Plattform</div>
+        <div className="section-divider">Zahlen — getrennt nach Plattform</div>
         <div className="info-box" style={{ fontSize: 13 }}>
           Hier siehst du genau, welche Zahlen von welcher Plattform stammen. Änderst du Instagram
           oder TikTok, wird die Gesamtspalte automatisch neu gerechnet — du kannst sie aber auch
@@ -1394,8 +1395,8 @@ function EditVideoModal({
         </div>
         <div className="stats-grid">
           <div className="stats-head" />
-          <div className="stats-head">📸 Instagram</div>
-          <div className="stats-head">🎵 TikTok</div>
+          <div className="stats-head">Instagram</div>
+          <div className="stats-head">TikTok</div>
           <div className="stats-head">Σ Gesamt</div>
           {([
             ['views', 'Aufrufe', views, setViews],
@@ -1437,7 +1438,7 @@ function EditVideoModal({
 
         {video.series_id && (
           <div className="info-box" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-            <span>🔁 Teil einer Serie.</span>
+            <span>Teil einer Serie.</span>
             <button type="button" className="btn btn-sm btn-danger" onClick={onDeleteSeries}>Ganze Serie löschen</button>
           </div>
         )}
@@ -1733,9 +1734,9 @@ function EditClientModal({
             <label>Status</label>
             <select value={health} onChange={(e) => setHealth(e.target.value)}>
               <option value="">— neutral —</option>
-              <option value="gut">🟢 Gut</option>
-              <option value="mittel">🟡 Mittel</option>
-              <option value="kritisch">🔴 Kritisch</option>
+              <option value="gut">Gut</option>
+              <option value="mittel">Mittel</option>
+              <option value="kritisch">Kritisch</option>
             </select>
           </div>
         </div>
@@ -1772,7 +1773,7 @@ function EditClientModal({
           <textarea id="ecnotes" value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
         <div>
-          <label htmlFor="ecbrief">🤖 KI-Briefing (Randbedingungen für Videoideen)</label>
+          <label htmlFor="ecbrief">KI-Briefing (Randbedingungen für Videoideen)</label>
           <textarea
             id="ecbrief"
             value={aiBrief}
@@ -1849,7 +1850,7 @@ function IdeaPool({
   return (
     <div className="pool-anim">
       <div className="info-box" style={{ marginBottom: 16 }}>
-        💡 Dein Ideen-Vorrat für <strong>{client.name}</strong>. Sammle hier so viele Ideen wie
+        Dein Ideen-Vorrat für <strong>{client.name}</strong>. Sammle hier so viele Ideen wie
         du willst. Wenn ihr eine drehen wollt, mit einem Klick <strong>ins Board</strong> holen —
         dann wird sie zur echten Videoidee in Umsetzung.
       </div>
@@ -1859,10 +1860,10 @@ function IdeaPool({
           className="search-input"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="🔎 Idee suchen …"
+          placeholder="Idee suchen …"
         />
         <button className="btn" onClick={() => setAdding(true)}>+ Idee</button>
-        <button className="btn btn-primary" onClick={() => setAiOpen(true)}>✨ KI-Ideen</button>
+        <button className="btn btn-primary" onClick={() => setAiOpen(true)}>KI-Ideen</button>
       </div>
 
       {!client.ai_brief && (
@@ -1877,7 +1878,7 @@ function IdeaPool({
 
       {filtered.length === 0 ? (
         <div className="col-empty" style={{ padding: 30 }}>
-          {ideas.length === 0 ? 'Noch keine Ideen im Speicher. Leg welche an oder lass die KI ran. ✨' : 'Keine Treffer.'}
+          {ideas.length === 0 ? 'Noch keine Ideen im Speicher. Leg welche an oder lass die KI ran.' : 'Keine Treffer.'}
         </div>
       ) : (
         <div className="pool-grid">
@@ -1888,8 +1889,8 @@ function IdeaPool({
               key={idea.id}
             >
               <div className="pool-card-head">
-                <span className={`pool-badge ${idea.source}`}>{idea.source === 'ai' ? '🤖 KI' : '✍️ manuell'}</span>
-                <button className="pool-x" onClick={() => onDelete(idea.id)} title="löschen">✕</button>
+                <span className={`pool-badge ${idea.source}`}>{idea.source === 'ai' ? 'KI' : 'manuell'}</span>
+                <button className="pool-x" onClick={() => onDelete(idea.id)} title="löschen"></button>
               </div>
               <div className="pool-title">{idea.title}</div>
               {idea.notes && <div className="pool-notes">{idea.notes}</div>}
@@ -2006,7 +2007,7 @@ function AiIdeasModal({
   const chosen = (result ?? []).filter((r) => r.on)
 
   return (
-    <Modal title="✨ KI-Videoideen" onClose={onClose}>
+    <Modal title="KI-Videoideen" onClose={onClose}>
       <div className="stack">
         {error && <div className="error-box">{error}</div>}
 
@@ -2029,7 +2030,7 @@ function AiIdeasModal({
               <input value={theme} onChange={(e) => setTheme(e.target.value)} placeholder="z. B. Weihnachtsaktion, Team vorstellen, neues Gericht" />
             </div>
             <button className="btn btn-primary" onClick={run} disabled={busy}>
-              {busy ? 'KI denkt nach …' : `✨ ${count} Ideen erstellen`}
+              {busy ? 'KI denkt nach …' : `${count} Ideen erstellen`}
             </button>
           </>
         )}
@@ -2081,7 +2082,7 @@ function AnalyseSection({ videos, kanaele, reachThisMonth, onEdit, onDelete, onL
   if (posts === 0) {
     return (
       <div className="col-empty" style={{ padding: '28px 4px' }}>
-        Noch keine geposteten Videos. Sobald du ein Video auf „Gepostet" ziehst, landet es hier dauerhaft in der Analyse. 📊
+        Noch keine geposteten Videos. Sobald du ein Video auf „Gepostet" ziehst, landet es hier dauerhaft in der Analyse. 
       </div>
     )
   }
@@ -2097,9 +2098,9 @@ function AnalyseSection({ videos, kanaele, reachThisMonth, onEdit, onDelete, onL
     <div className="analyse">
       {ohneLink.length > 0 && (
         <div className="warn-box" style={{ marginBottom: 14 }}>
-          ⚠ Bei {ohneLink.length === 1 ? 'einem Video' : `${ohneLink.length} Videos`} fehlt die
+          Bei {ohneLink.length === 1 ? 'einem Video' : `${ohneLink.length} Videos`} fehlt die
           Adresse des Postings — dort holt die nächtliche Abfrage <strong>keine Zahlen</strong>.
-          Unten am „🔗 Link fehlt" antippen und nachtragen.
+          Unten am „Link fehlt" antippen und nachtragen.
         </div>
       )}
       <div className="fin-tiles" style={{ marginBottom: hasPlatformSplit ? 10 : 18 }}>
@@ -2112,8 +2113,8 @@ function AnalyseSection({ videos, kanaele, reachThisMonth, onEdit, onDelete, onL
       </div>
       {hasPlatformSplit && (
         <div className="fin-tiles" style={{ marginBottom: 18 }}>
-          <div className="fin-tile"><span className="fin-label">📸 Instagram</span><span className="fin-value">{num(totalViewsIg)}</span><span className="fin-sub">Views gesamt</span></div>
-          <div className="fin-tile"><span className="fin-label">🎵 TikTok</span><span className="fin-value">{num(totalViewsTiktok)}</span><span className="fin-sub">Views gesamt</span></div>
+          <div className="fin-tile"><span className="fin-label">Instagram</span><span className="fin-value">{num(totalViewsIg)}</span><span className="fin-sub">Views gesamt</span></div>
+          <div className="fin-tile"><span className="fin-label">TikTok</span><span className="fin-value">{num(totalViewsTiktok)}</span><span className="fin-sub">Views gesamt</span></div>
         </div>
       )}
       <div className="analyse-list">
@@ -2142,7 +2143,7 @@ function AnalyseSection({ videos, kanaele, reachThisMonth, onEdit, onDelete, onL
                         title="Adresse des Postings nachtragen — sonst kommen nie Zahlen"
                         onClick={(e) => { e.stopPropagation(); onLinks(v) }}
                       >
-                        🔗 Link fehlt
+                        Link fehlt
                       </span>
                     ) : (
                       // Auch mit Link muss man die Zahlen sofort ziehen koennen --
@@ -2163,9 +2164,9 @@ function AnalyseSection({ videos, kanaele, reachThisMonth, onEdit, onDelete, onL
                     als "wir haben noch keine Zahlen". */}
                 <div className="analyse-stats">
                   <span title="Reichweite">▶ {num(v.reach ?? v.views)}</span>
-                  <span title="Likes">❤ {num(v.likes)}</span>
-                  <span title="Kommentare">💬 {num(v.comments)}</span>
-                  <span title="Shares">↗ {num(v.shares)}</span>
+                  <span title="Likes">{num(v.likes)}</span>
+                  <span title="Kommentare">{num(v.comments)}</span>
+                  <span title="Shares">{num(v.shares)}</span>
                 </div>
               </button>
               <button
@@ -2173,7 +2174,7 @@ function AnalyseSection({ videos, kanaele, reachThisMonth, onEdit, onDelete, onL
                 onClick={() => onDelete(v.id)}
                 title="Video löschen — fliegt aus allen Statistiken"
               >
-                ✕
+                
               </button>
             </div>
           </SwipeRow>
@@ -2205,10 +2206,19 @@ function ProgressRing({ value, max }: { value: number; max: number }) {
   )
 }
 
-function ContactBtn({ href, icon, label }: { href: string; icon: string; label: string }) {
+function kontaktSymbol(href: string, label: string) {
+  if (href.startsWith('tel:')) return <Phone size={20} />
+  if (href.includes('wa.me')) return <MessageCircle size={20} />
+  if (href.startsWith('mailto:')) return <Mail size={20} />
+  if (/tiktok/i.test(href + label)) return <Music size={20} />
+  if (/instagram/i.test(href + label)) return <Camera size={20} />
+  return <Globe size={20} />
+}
+
+function ContactBtn({ href, label }: { href: string; icon: string; label: string }) {
   return (
     <a href={href} target="_blank" rel="noopener noreferrer" className="contact-btn" title={label}>
-      <span>{icon}</span>
+      <span className="contact-btn-ic">{kontaktSymbol(href, label)}</span>
       <span className="contact-btn-label">{label}</span>
     </a>
   )
@@ -2235,15 +2245,15 @@ function ClientCockpit({ client, plan, accounts, onPlanen }: {
     label: mehrfach(a.platform) ? accountName(a) : plattformInfo(a.platform).name,
   }))
   const contacts = [
-    client.phone && { href: `tel:${client.phone}`, icon: '📞', label: 'Anrufen' },
-    digits && { href: `https://wa.me/${digits}`, icon: '💬', label: 'WhatsApp' },
-    client.email && { href: `mailto:${client.email}`, icon: '✉️', label: 'Mail' },
+    client.phone && { href: `tel:${client.phone}`, icon: '', label: 'Anrufen' },
+    digits && { href: `https://wa.me/${digits}`, icon: '', label: 'WhatsApp' },
+    client.email && { href: `mailto:${client.email}`, icon: '', label: 'Mail' },
     // Ohne Accounts-Tabelle (Migration 0028 fehlt) die alten Einzelfelder.
     ...(accounts.length ? accLinks : [
-      ig && { href: `https://instagram.com/${ig}`, icon: '📸', label: 'Instagram' },
-      tt && { href: `https://www.tiktok.com/@${tt}`, icon: '🎵', label: 'TikTok' },
+      ig && { href: `https://instagram.com/${ig}`, icon: '', label: 'Instagram' },
+      tt && { href: `https://www.tiktok.com/@${tt}`, icon: '', label: 'TikTok' },
     ]),
-    client.website && { href: client.website, icon: '🌐', label: 'Website' },
+    client.website && { href: client.website, icon: '', label: 'Website' },
   ].filter(Boolean) as { href: string; icon: string; label: string }[]
 
   // Follower und Reichweite stehen bewusst NICHT hier, sondern unter
@@ -2265,9 +2275,9 @@ function ClientCockpit({ client, plan, accounts, onPlanen }: {
             <strong>{plan.ohneIdee}</strong> ohne Idee — jetzt planen →
           </button>
         ) : plan.fertig ? (
-          <span className="ml-teil ok">Monat erfüllt 🎉</span>
+          <span className="ml-teil ok">Monat erfüllt</span>
         ) : (
-          <span className="ml-teil ok">Monat vollständig geplant ✓</span>
+          <span className="ml-teil ok">Monat vollständig geplant</span>
         )}
       </div>
     )}
@@ -2318,14 +2328,14 @@ function GrowthSection({ stats, accounts, onAdd }: { stats: any[]; accounts: Cli
   return (
     <div className="growth-block">
       <div className="growth-head">
-        <h2 className="section-title" style={{ margin: 0 }}>📊 Wachstum</h2>
-        <button className="btn btn-sm" onClick={onAdd}>＋ Zahlen erfassen</button>
+        <h2 className="section-title" style={{ margin: 0 }}>Wachstum</h2>
+        <button className="btn btn-sm" onClick={onAdd}>+ Zahlen erfassen</button>
       </div>
       {enough ? (
         <LineChart series={series} />
       ) : (
         <div className="col-empty" style={{ padding: 18 }}>
-          Noch zu wenig Daten. Trag die aktuellen Follower ein — ab dem 2. Eintrag siehst du die Kurve. 📈
+          Noch zu wenig Daten. Trag die aktuellen Follower ein — ab dem 2. Eintrag siehst du die Kurve. 
         </div>
       )}
 
@@ -2396,17 +2406,17 @@ function GrowthModal({ clientId, onClose, onSaved }: { clientId: string; onClose
   }
 
   return (
-    <Modal title="📊 Wachstum erfassen" onClose={onClose}>
+    <Modal title="Wachstum erfassen" onClose={onClose}>
       <div className="stack">
         {error && <div className="error-box">{error}</div>}
         <p className="info-box">Trag die aktuellen Zahlen ein (am besten wöchentlich). Daraus entsteht die Verlaufskurve.</p>
         <div className="row" style={{ gap: 12 }}>
           <div style={{ flex: 1 }}>
-            <label>📸 Instagram-Follower</label>
+            <label>Instagram-Follower</label>
             <input value={ig} onChange={(e) => setIg(e.target.value)} inputMode="numeric" placeholder="z. B. 2400" autoFocus />
           </div>
           <div style={{ flex: 1 }}>
-            <label>🎵 TikTok-Follower</label>
+            <label>TikTok-Follower</label>
             <input value={tt} onChange={(e) => setTt(e.target.value)} inputMode="numeric" placeholder="z. B. 1200" />
           </div>
         </div>

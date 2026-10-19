@@ -146,7 +146,7 @@ export default function Calendar() {
     }
     // Ein mehrtaegiger Termin steht an jedem seiner Tage -- sonst sieht man
     // am Mittwoch nicht, dass der Urlaub noch laeuft.
-    const ICON: Record<string, string> = { arbeit: '💼', spiel: '⚽', termin: '📍' }
+    const ICON: Record<string, string> = { arbeit: '', spiel: '', termin: '' }
     for (const t of (termine.data ?? []) as any[]) {
       const wer = Array.isArray(t.member_ids) ? t.member_ids : []
       const farbe = wer.length === 1 ? members.find((m) => m.id === wer[0])?.color : undefined
@@ -160,7 +160,7 @@ export default function Calendar() {
         if (tag >= from && tag <= to) {
           ev.push({
             id: t.id, date: tag, time: t.starts_at ? String(t.starts_at).slice(0, 5) : null,
-            kind: 'termin', title: `${ICON[t.kind] ?? '📍'} ${t.title}`, sub, color: farbe, row: t as CalEventRow,
+            kind: 'termin', title: `${ICON[t.kind] ?? ''} ${t.title}`, sub, color: farbe, row: t as CalEventRow,
           })
         }
         tag = iso(addDays(new Date(tag + 'T00:00:00'), 1))
@@ -256,8 +256,8 @@ export default function Calendar() {
           <span><i className="dot task" /> Aufgabe</span>
           <span><i className="dot followup" /> Follow-up</span>
         </div>
-        <button className="btn btn-sm" onClick={() => setTerminOffen({ row: null })} title="Arbeitszeit, Spiel oder Termin eintragen">＋ Termin</button>
-        <button className="btn btn-sm" onClick={toggleFullscreen} title="Vollbild / Tafel">🖥 Tafel</button>
+        <button className="btn btn-sm" onClick={() => setTerminOffen({ row: null })} title="Arbeitszeit, Spiel oder Termin eintragen">+ Termin</button>
+        <button className="btn btn-sm" onClick={toggleFullscreen} title="Vollbild / Tafel">Tafel</button>
       </div>
 
       {error && <div className="error-box" style={{ marginBottom: 16 }}>{error}</div>}
@@ -303,7 +303,7 @@ export default function Calendar() {
                   <span className="agenda-wd">{WEEKDAYS[(d.getDay() + 6) % 7]}</span>
                   <span className="agenda-day">{d.getDate()}. {MONTHS[d.getMonth()].slice(0, 3)}</span>
                   {isToday && <span className="agenda-today">Heute</span>}
-                  <span className="agenda-add" onClick={(e) => { e.stopPropagation(); setAddFor(dIso) }} title="Aufgabe für diesen Tag">＋</span>
+                  <span className="agenda-add" onClick={(e) => { e.stopPropagation(); setAddFor(dIso) }} title="Aufgabe für diesen Tag">+</span>
                 </div>
                 <div className="agenda-body">
                   {list.length === 0 && <div className="col-empty">{dragId ? 'hierher' : '—'}</div>}
@@ -354,7 +354,7 @@ export default function Calendar() {
           datum={terminOffen.datum}
           userId={user?.id ?? null}
           onClose={() => setTerminOffen(null)}
-          onSaved={() => { setTerminOffen(null); load(); toast('Gespeichert ✓') }}
+          onSaved={() => { setTerminOffen(null); load(); toast('Gespeichert') }}
         />
       )}
 
@@ -366,7 +366,7 @@ export default function Calendar() {
           leads={leadOpts}
           defaults={{ due_date: addFor }}
           onClose={() => setAddFor(null)}
-          onSaved={() => { setAddFor(null); load(); toast('Aufgabe angelegt ✓') }}
+          onSaved={() => { setAddFor(null); load(); toast('Aufgabe angelegt') }}
         />
       )}
     </div>
@@ -421,8 +421,8 @@ function DayModal({
         <div className="modal-actions" style={{ flexWrap: 'wrap', gap: 8 }}>
           <button type="button" className="btn btn-ghost" onClick={onClose}>Schließen</button>
           <div className="spacer" />
-          <button type="button" className="btn btn-sm" onClick={onNeuerTermin}>＋ Termin</button>
-          <button type="button" className="btn btn-sm btn-primary" onClick={onAdd}>＋ Aufgabe</button>
+          <button type="button" className="btn btn-sm" onClick={onNeuerTermin}>+ Termin</button>
+          <button type="button" className="btn btn-sm btn-primary" onClick={onAdd}>+ Aufgabe</button>
         </div>
       </div>
     </Modal>

@@ -111,7 +111,7 @@ export default function SwipeRow({
         tabIndex={reveal > 0 ? 0 : -1}
         aria-label={label}
       >
-        <span className="swipe-action-label">🗑 {label}</span>
+        <span className="swipe-action-label">{label}</span>
       </button>
       <div
         className={`swipe-content ${dragging ? 'swiping' : ''} ${committing ? 'committing' : ''}`}

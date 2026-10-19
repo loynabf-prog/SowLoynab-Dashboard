@@ -93,7 +93,7 @@ export default function ContractCard({ client }: { client: Client }) {
   async function linkKopieren() {
     try {
       await navigator.clipboard.writeText(link)
-      toast('Link kopiert ✓')
+      toast('Link kopiert')
     } catch {
       // Auf manchen iPhones ist die Zwischenablage gesperrt — dann zum Markieren anzeigen
       window.prompt('Link zum Kopieren:', link)
@@ -115,7 +115,7 @@ export default function ContractCard({ client }: { client: Client }) {
       <div className="section-block">
         <h2 className="section-title">Vertrag</h2>
         <div className="warn-box">
-          ⚠ Dafür fehlt noch eine Ergänzung in der Datenbank. Bitte am PC im Supabase
+          Dafür fehlt noch eine Ergänzung in der Datenbank. Bitte am PC im Supabase
           SQL-Editor einmal <strong>0025_contracts.sql</strong> ausführen.
         </div>
       </div>
@@ -145,19 +145,19 @@ export default function ContractCard({ client }: { client: Client }) {
           <div className="vertrag-stand">
             {row.status === 'signed' ? (
               <span className="contract-state signed">
-                ✅ Unterschrieben von {row.signer_name}
+                Unterschrieben von {row.signer_name}
                 {row.signed_at ? ` · ${seit(row.signed_at)}` : ''}
               </span>
             ) : row.status === 'sent' ? (
               <span className="contract-state sent">
-                ⏳ Versendet{row.sent_at ? ` ${seit(row.sent_at)}` : ''} — wartet auf Bestätigung
+                Versendet{row.sent_at ? ` ${seit(row.sent_at)}` : ''} — wartet auf Bestätigung
               </span>
             ) : (
-              <span className="contract-state draft">✎ Entwurf — noch nicht versendet</span>
+              <span className="contract-state draft">Entwurf — noch nicht versendet</span>
             )}
             {eckdaten && <span className="vertrag-eckdaten">{eckdaten}</span>}
             {row.status === 'signed' && row.pdf_path && (
-              <span className="vertrag-eckdaten">Kopie im System hinterlegt ✓</span>
+              <span className="vertrag-eckdaten">Kopie im System hinterlegt</span>
             )}
             {row.mail_sent_at && (
               <span className="vertrag-eckdaten">Per Mail an {row.mail_to} · {seit(row.mail_sent_at)}</span>
@@ -166,7 +166,7 @@ export default function ContractCard({ client }: { client: Client }) {
           <div className="spacer" />
           {row.status === 'sent' && (
             <button className="btn btn-sm btn-primary" onClick={() => setVorOrt(true)}>
-              ✍️ Vor Ort unterschreiben
+              Vor Ort unterschreiben
             </button>
           )}
           {row.status !== 'draft' && (
@@ -187,7 +187,7 @@ export default function ContractCard({ client }: { client: Client }) {
 
       {archivFehler && (
         <div className="warn-box" style={{ marginTop: 10 }}>
-          ⚠ Die Kopie konnte nicht im System abgelegt werden ({archivFehler}). Herunterladen
+          Die Kopie konnte nicht im System abgelegt werden ({archivFehler}). Herunterladen
           und Verschicken geht trotzdem. Fehlt der Ablageort, einmal am PC im Supabase
           SQL-Editor <strong>0035_vertrag_konditionen.sql</strong> ausführen.
         </div>
@@ -208,7 +208,7 @@ export default function ContractCard({ client }: { client: Client }) {
           client={client}
           row={row}
           onClose={() => setVorOrt(false)}
-          onSigned={() => { setVorOrt(false); load(); toast('Vertrag unterschrieben ✓') }}
+          onSigned={() => { setVorOrt(false); load(); toast('Vertrag unterschrieben') }}
         />
       )}
 
@@ -344,7 +344,7 @@ function ContractModal({
         const { error } = await supabase.from('contracts').insert({ ...felder, created_by: userId })
         if (error) throw error
       }
-      onSaved(status === 'sent' ? 'Vertrag freigegeben — Link kann raus ✓' : 'Entwurf gespeichert ✓')
+      onSaved(status === 'sent' ? 'Vertrag freigegeben — Link kann raus' : 'Entwurf gespeichert')
     } catch (e) {
       setError((e as Error).message)
       setBusy(false)
@@ -363,7 +363,7 @@ function ContractModal({
 
   return (
     <Modal
-      title={gesperrt ? '📄 Vertrag (unterschrieben)' : row ? '📄 Vertrag bearbeiten' : '📄 Vertrag vorbereiten'}
+      title={gesperrt ? 'Vertrag (unterschrieben)' : row ? 'Vertrag bearbeiten' : 'Vertrag vorbereiten'}
       onClose={onClose}
     >
       <div className="stack">
@@ -481,7 +481,7 @@ function ContractModal({
         </div>
 
         <button type="button" className="btn btn-sm" onClick={textZeigen}>
-          {vorschau ? '▴ Vertragstext ausblenden' : '▾ Vollständigen Vertragstext lesen'}
+          {vorschau ? 'Vertragstext ausblenden' : 'Vollständigen Vertragstext lesen'}
         </button>
         {vorschau && (
           <div className="contract-preview">
@@ -555,7 +555,7 @@ function VersandModal({
       await supabase.from('contracts')
         .update({ mail_sent_at: new Date().toISOString(), mail_to: to.trim() })
         .eq('id', row.id)
-      onSent('Vertrag per Mail verschickt ✓')
+      onSent('Vertrag per Mail verschickt')
     } catch (e) {
       setError((e as Error).message)
       setBusy(false)
@@ -563,7 +563,7 @@ function VersandModal({
   }
 
   return (
-    <Modal title="✉️ Vertrag verschicken" onClose={onClose}>
+    <Modal title="Vertrag verschicken" onClose={onClose}>
       <div className="stack">
         {error && <div className="error-box">{error}</div>}
         <div className="info-box" style={{ fontSize: 13 }}>
@@ -630,7 +630,7 @@ function VorOrtModal({
   }
 
   return (
-    <Modal title="✍️ Vor Ort unterschreiben" onClose={onClose}>
+    <Modal title="Vor Ort unterschreiben" onClose={onClose}>
       <div className="stack">
         {error && <div className="error-box">{error}</div>}
 
@@ -649,7 +649,7 @@ function VorOrtModal({
         </div>
 
         <button type="button" className="btn btn-sm" onClick={() => setText((t) => !t)}>
-          {text ? '▴ Vertragstext ausblenden' : '▾ Vertragstext lesen'}
+          {text ? 'Vertragstext ausblenden' : 'Vertragstext lesen'}
         </button>
         {text && (
           <div className="contract-preview">
@@ -691,7 +691,7 @@ function VorOrtModal({
             onClick={signieren}
             disabled={busy || !name.trim() || !gelesen}
           >
-            {busy ? 'Wird bestätigt …' : '✓ Rechtsverbindlich bestätigen'}
+            {busy ? 'Wird bestätigt …' : 'Rechtsverbindlich bestätigen'}
           </button>
         </div>
       </div>

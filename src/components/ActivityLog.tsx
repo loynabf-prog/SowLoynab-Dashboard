@@ -4,14 +4,14 @@ import { useAuth } from '../context/AuthContext'
 import type { Activity } from '../lib/types'
 
 const KINDS: { value: string; label: string; icon: string }[] = [
-  { value: 'note', label: 'Notiz', icon: '📝' },
-  { value: 'call', label: 'Anruf', icon: '📞' },
-  { value: 'email', label: 'E-Mail', icon: '✉️' },
-  { value: 'meeting', label: 'Termin', icon: '🤝' },
+  { value: 'note', label: 'Notiz', icon: '' },
+  { value: 'call', label: 'Anruf', icon: '' },
+  { value: 'email', label: 'E-Mail', icon: '' },
+  { value: 'meeting', label: 'Termin', icon: '' },
 ]
 
 function iconFor(kind: string) {
-  return KINDS.find((k) => k.value === kind)?.icon ?? '📝'
+  return KINDS.find((k) => k.value === kind)?.icon ?? ''
 }
 
 interface Props {
@@ -67,7 +67,7 @@ export default function ActivityLog({ clientId, leadId }: Props) {
         <select value={kind} onChange={(e) => setKind(e.target.value)} className="activity-kind">
           {KINDS.map((k) => (
             <option key={k.value} value={k.value}>
-              {k.icon} {k.label}
+              {k.label}
             </option>
           ))}
         </select>
@@ -100,7 +100,7 @@ export default function ActivityLog({ clientId, leadId }: Props) {
                 </div>
               </div>
               <button className="activity-del" onClick={() => remove(a.id)} title="loeschen">
-                ✕
+                
               </button>
             </div>
           ))}

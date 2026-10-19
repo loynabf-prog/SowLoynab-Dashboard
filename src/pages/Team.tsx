@@ -25,7 +25,7 @@ export default function Team() {
       setName('')
       setColor(COLORS[(members.length + 1) % COLORS.length])
       reload()
-      toast('Mitglied hinzugefügt ✓')
+      toast('Mitglied hinzugefügt')
     }
   }
 
@@ -34,7 +34,7 @@ export default function Team() {
     if (n == null || !n.trim()) return
     await supabase.from('team_members').update({ name: n.trim() }).eq('id', id)
     reload()
-    toast('Umbenannt ✓')
+    toast('Umbenannt')
   }
 
   async function recolor(id: string, c: string) {
@@ -90,7 +90,7 @@ export default function Team() {
               Umbenennen
             </button>
             <button className="btn btn-sm btn-danger" onClick={() => remove(m.id, m.name)}>
-              ✕
+              
             </button>
           </div>
         ))}
@@ -98,7 +98,7 @@ export default function Team() {
 
       {/* Welche Bereiche sieht wer in der Navigation? Fuer spaetere
           Mitarbeiter: wer nur Analyse macht, sieht auch nur die Analyse. */}
-      <h2 className="section-title" style={{ marginTop: 26 }}>🧭 Bereiche</h2>
+      <h2 className="section-title" style={{ marginTop: 26 }}>Bereiche</h2>
       <p className="muted" style={{ fontSize: 13, maxWidth: 560, marginTop: -4 }}>
         Wer welche Bereiche in der Navigation sieht. Alles an heißt: sieht alles.
         Verwaltung bleibt immer erreichbar.
@@ -129,7 +129,7 @@ export default function Team() {
 
       {/* Jeder bekommt seinen eigenen Abo-Link: gemeinsame Termine plus die
           eigenen, nicht die privaten des anderen. */}
-      <h2 className="section-title" style={{ marginTop: 26 }}>📅 Kalender aufs Handy</h2>
+      <h2 className="section-title" style={{ marginTop: 26 }}>Kalender aufs Handy</h2>
       <p className="muted" style={{ fontSize: 13, maxWidth: 560, marginTop: -4 }}>
         Posting-Tage, Aufgaben und Termine im normalen Handy-Kalender — und damit
         auch im Kalender-Widget auf dem Homescreen. Jeder abonniert nur seinen

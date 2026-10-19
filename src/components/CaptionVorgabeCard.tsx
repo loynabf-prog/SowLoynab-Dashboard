@@ -23,7 +23,7 @@ export default function CaptionVorgabeCard() {
         hashtags: (v.hashtags ?? '').trim() || undefined,
         tonalitaet: (v.tonalitaet ?? '').trim() || undefined,
       })
-      toast('Gespeichert ✓')
+      toast('Gespeichert')
     } catch (e: any) {
       toast('Fehler: ' + (e?.message ?? 'unbekannt'))
     }
@@ -35,7 +35,7 @@ export default function CaptionVorgabeCard() {
   return (
     <div className="settings-card" style={{ marginTop: 20 }}>
       <div className="info-box" style={{ marginBottom: 16 }}>
-        ✍️ Gilt für jede Caption, die der Assistent schreibt. Einmal ausfüllen — danach
+        Gilt für jede Caption, die der Assistent schreibt. Einmal ausfüllen — danach
         musst du Hashtags nie wieder mitdiktieren.
       </div>
 

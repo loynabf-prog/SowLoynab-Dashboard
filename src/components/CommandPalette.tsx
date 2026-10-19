@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Search, Users, Target, CheckCircle2, ArrowRight } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -53,9 +54,9 @@ export default function CommandPalette() {
         supabase.from('tasks').select('id, title, done').is('deleted_at', null).eq('done', false),
       ])
       const list: Hit[] = []
-      for (const x of (c.data ?? []) as any[]) list.push({ kind: 'client', id: x.id, label: x.name, sub: x.handle_ig ? '@' + x.handle_ig.replace(/^@/, '') : 'Kunde', to: `/client/${x.id}`, icon: '👤' })
-      for (const x of (l.data ?? []) as any[]) list.push({ kind: 'lead', id: x.id, label: x.name, sub: x.city || 'Lead', to: '/leads', icon: '🎯' })
-      for (const x of (t.data ?? []) as any[]) list.push({ kind: 'task', id: x.id, label: x.title, sub: 'Aufgabe', to: '/aufgaben', icon: '✓' })
+      for (const x of (c.data ?? []) as any[]) list.push({ kind: 'client', id: x.id, label: x.name, sub: x.handle_ig ? '@' + x.handle_ig.replace(/^@/, '') : 'Kunde', to: `/client/${x.id}`, icon: '' })
+      for (const x of (l.data ?? []) as any[]) list.push({ kind: 'lead', id: x.id, label: x.name, sub: x.city || 'Lead', to: '/leads', icon: '' })
+      for (const x of (t.data ?? []) as any[]) list.push({ kind: 'task', id: x.id, label: x.title, sub: 'Aufgabe', to: '/aufgaben', icon: '' })
       setHits(list)
     }
     load()
@@ -81,7 +82,7 @@ export default function CommandPalette() {
     <div className="cmd-backdrop" onClick={() => setOpen(false)}>
       <div className="cmd-panel" onClick={(e) => e.stopPropagation()}>
         <div className="cmd-search">
-          <span className="cmd-mag">🔍</span>
+          <span className="cmd-mag"><Search size={18} /></span>
           <input
             ref={inputRef}
             value={q}
@@ -97,9 +98,9 @@ export default function CommandPalette() {
         </div>
         {!q.trim() && (
           <div className="cmd-actions">
-            <button className="cmd-action" onClick={() => { setOpen(false); window.dispatchEvent(new CustomEvent('open-quickadd', { detail: { type: 'task' } })) }}>＋ Aufgabe</button>
-            <button className="cmd-action" onClick={() => { setOpen(false); window.dispatchEvent(new CustomEvent('open-quickadd', { detail: { type: 'lead' } })) }}>＋ Lead</button>
-            <button className="cmd-action" onClick={() => { setOpen(false); window.dispatchEvent(new CustomEvent('open-quickadd', { detail: { type: 'video' } })) }}>＋ Video</button>
+            <button className="cmd-action" onClick={() => { setOpen(false); window.dispatchEvent(new CustomEvent('open-quickadd', { detail: { type: 'task' } })) }}>+ Aufgabe</button>
+            <button className="cmd-action" onClick={() => { setOpen(false); window.dispatchEvent(new CustomEvent('open-quickadd', { detail: { type: 'lead' } })) }}>+ Lead</button>
+            <button className="cmd-action" onClick={() => { setOpen(false); window.dispatchEvent(new CustomEvent('open-quickadd', { detail: { type: 'video' } })) }}>+ Video</button>
           </div>
         )}
         <div className="cmd-list">
@@ -111,7 +112,7 @@ export default function CommandPalette() {
               onMouseEnter={() => setActive(i)}
               onClick={() => go(h)}
             >
-              <span className="cmd-icon">{h.icon}</span>
+              <span className="cmd-icon">{h.kind === 'client' ? <Users size={16} /> : h.kind === 'lead' ? <Target size={16} /> : h.kind === 'task' ? <CheckCircle2 size={16} /> : <ArrowRight size={16} />}</span>
               <span className="cmd-label">{h.label}</span>
               <span className="cmd-sub">{h.sub}</span>
             </button>
@@ -119,7 +120,7 @@ export default function CommandPalette() {
         </div>
         <div className="cmd-foot">
           <span><kbd>↑</kbd><kbd>↓</kbd> wählen</span>
-          <span><kbd>↵</kbd> öffnen</span>
+          <span><kbd></kbd> öffnen</span>
           <span><kbd>⌘</kbd><kbd>K</kbd> Suche</span>
         </div>
       </div>

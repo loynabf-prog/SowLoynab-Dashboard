@@ -45,7 +45,7 @@ export default function Settings() {
     setTesting(true)
     try {
       const r = await testMailConnection()
-      toast(`Zoho verbunden ✓ Absender: ${r.from ?? '—'}`)
+      toast(`Zoho verbunden Absender: ${r.from ?? '—'}`)
     } catch (e) {
       toast('Zoho-Fehler: ' + (e as Error).message)
     } finally {
@@ -57,7 +57,7 @@ export default function Settings() {
     setBusy(true)
     await saveCompany(c)
     setBusy(false)
-    toast('Firmendaten gespeichert ✓')
+    toast('Firmendaten gespeichert')
   }
 
   if (loading) return <div className="col-empty">Lade …</div>
@@ -70,7 +70,7 @@ export default function Settings() {
 
       <div className="settings-card">
         <div className="info-box" style={{ marginBottom: 16 }}>
-          🧾 Diese Daten stehen auf jeder PDF-Rechnung (Absender, Steuer, Bankverbindung). Einmal ausfüllen — fertig.
+          Diese Daten stehen auf jeder PDF-Rechnung (Absender, Steuer, Bankverbindung). Einmal ausfüllen — fertig.
         </div>
 
         <div className="stack">
@@ -121,7 +121,7 @@ export default function Settings() {
         <p className="muted" style={{ fontSize: 13, margin: '4px 0 12px' }}>
           Prüft Token & Postfach, ohne etwas zu verschicken. Grün = du kannst Rechnungen direkt aus der App senden.
         </p>
-        <button className="btn" onClick={testZoho} disabled={testing}>{testing ? 'Prüfe …' : '🔌 Zoho-Verbindung testen'}</button>
+        <button className="btn" onClick={testZoho} disabled={testing}>{testing ? 'Prüfe …' : 'Zoho-Verbindung testen'}</button>
       </div>
 
       <PasswortCard />
@@ -185,7 +185,7 @@ function PackagesCard() {
       notes: p.notes?.trim() || null,
     }, 'id', p.id)
     setBusy(false)
-    toast(error ? `Fehler: ${error.message}` : 'Paket gespeichert ✓')
+    toast(error ? `Fehler: ${error.message}` : 'Paket gespeichert')
   }
 
   async function add() {
@@ -216,7 +216,7 @@ function PackagesCard() {
 
       {fehlt && (
         <div className="warn-box" style={{ marginBottom: 12 }}>
-          ⚠ Noch keine Pakete. Fehlt die Tabelle, bitte am PC im Supabase SQL-Editor einmal
+          Noch keine Pakete. Fehlt die Tabelle, bitte am PC im Supabase SQL-Editor einmal
           <strong> 0024_packages.sql</strong> ausführen — dann stehen die drei Grundpakete da.
         </div>
       )}
@@ -231,7 +231,7 @@ function PackagesCard() {
                 onChange={(e) => upd(p.id, { name: e.target.value })}
                 placeholder="Name (z. B. Wachstum)"
               />
-              <button type="button" className="pos-del" onClick={() => remove(p.id)} title="Paket entfernen">✕</button>
+              <button type="button" className="pos-del" onClick={() => remove(p.id)} title="Paket entfernen"></button>
             </div>
             <div className="pkg-row">
               <div>
@@ -311,7 +311,7 @@ function CategoriesCard() {
     setCats(clean)
     reload()
     setBusy(false)
-    toast('Kategorien gespeichert ✓')
+    toast('Kategorien gespeichert')
   }
 
   return (
@@ -324,7 +324,7 @@ function CategoriesCard() {
 
       {cats.length === 0 && (
         <button className="btn btn-sm" style={{ marginBottom: 12 }} onClick={() => setCats(DEFAULT_CATEGORIES.map((c) => ({ ...c, id: crypto.randomUUID() })))}>
-          ✨ Vorschläge laden
+          Vorschläge laden
         </button>
       )}
 
@@ -334,7 +334,7 @@ function CategoriesCard() {
             <div className="cat-edit-row">
               <button type="button" className="cat-swatch-btn" style={{ background: c.color }} onClick={() => setOpen(open === c.id ? null : c.id)} title="Farbe wählen" />
               <input value={c.name} onChange={(e) => upd(c.id, { name: e.target.value })} placeholder="Name (z. B. Kundendreh)" />
-              <button type="button" className="pos-del" onClick={() => del(c.id)} title="Kategorie entfernen">✕</button>
+              <button type="button" className="pos-del" onClick={() => del(c.id)} title="Kategorie entfernen"></button>
             </div>
             {open === c.id && (
               <div className="cat-palette">

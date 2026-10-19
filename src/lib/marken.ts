@@ -12,8 +12,8 @@ export interface MarkeInfo {
 }
 
 export const MARKEN: MarkeInfo[] = [
-  { key: 'media', kurz: 'Sow & Loynab', lang: 'Sow & Loynab Media', icon: '🏢', hinweis: 'Unternehmen & Gastronomie' },
-  { key: 'creator', kurz: 'Creator Scout', lang: 'Creator Scout', icon: '⭐', hinweis: 'Personenmarken & Creator' },
+  { key: 'media', kurz: 'Sow & Loynab', lang: 'Sow & Loynab Media', icon: '', hinweis: 'Unternehmen & Gastronomie' },
+  { key: 'creator', kurz: 'Creator Scout', lang: 'Creator Scout', icon: '', hinweis: 'Personenmarken & Creator' },
 ]
 
 // Unbekanntes oder fehlendes Feld faellt auf "media" zurueck -- das war das

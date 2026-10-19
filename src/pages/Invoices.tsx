@@ -83,7 +83,7 @@ export default function Invoices() {
   async function markPaid(inv: Invoice) {
     setRows((prev) => prev.map((r) => (r.id === inv.id ? { ...r, status: 'paid', paid_on: heute() } : r)))
     await supabase.from('invoices').update({ status: 'paid', paid_on: heute() }).eq('id', inv.id)
-    toast('Als bezahlt markiert ✓')
+    toast('Als bezahlt markiert')
   }
 
   async function pdf(inv: Invoice) {
@@ -121,7 +121,7 @@ export default function Invoices() {
         <div className="fin-tile"><span className="fin-label">Überfällig</span><span className={`fin-value ${totals.overdue > 0 ? 'expense' : ''}`}>{euro(totals.overdue)}</span><span className="fin-sub">nachhaken!</span></div>
       </div>
 
-      {!loading && rows.length === 0 && <div className="col-empty">Noch keine Rechnungen. Leg die erste an. 🧾</div>}
+      {!loading && rows.length === 0 && <div className="col-empty">Noch keine Rechnungen. Leg die erste an.</div>}
 
       <div className="inv-list">
         {rows.map((r) => (
@@ -135,10 +135,10 @@ export default function Invoices() {
             </div>
             <div className="inv-amount">{euro(Number(r.amount))}</div>
             <div className="inv-actions">
-              <button className="btn btn-sm" onClick={() => pdf(r)} title="PDF erstellen / teilen">📄 PDF</button>
-              <button className="btn btn-sm" onClick={() => openSend(r)} title="Per E-Mail senden">✉️ Senden</button>
+              <button className="btn btn-sm" onClick={() => pdf(r)} title="PDF erstellen / teilen">PDF</button>
+              <button className="btn btn-sm" onClick={() => openSend(r)} title="Per E-Mail senden">Senden</button>
               {r.status !== 'paid' && <button className="btn btn-sm btn-primary" onClick={() => markPaid(r)}>Bezahlt</button>}
-              <button className="btn btn-sm btn-danger" onClick={() => remove(r.id)}>✕</button>
+              <button className="btn btn-sm btn-danger" onClick={() => remove(r.id)}></button>
             </div>
           </div>
         ))}
@@ -152,7 +152,7 @@ export default function Invoices() {
           userId={user?.id ?? null}
           nextNumber={`${new Date().getFullYear()}-${String(rows.length + 1).padStart(3, '0')}`}
           onClose={() => { setCreating(false); setEditing(null) }}
-          onSaved={() => { setCreating(false); setEditing(null); load(); toast('Gespeichert ✓') }}
+          onSaved={() => { setCreating(false); setEditing(null); load(); toast('Gespeichert') }}
         />
       )}
 
@@ -168,7 +168,7 @@ export default function Invoices() {
               await supabase.from('invoices').update({ status: 'sent' }).eq('id', inv.id)
               load()
             }
-            toast('Rechnung verschickt ✓')
+            toast('Rechnung verschickt')
           }}
         />
       )}
@@ -216,7 +216,7 @@ function SendInvoiceModal({ invoice, company, onClose, onSent }: {
     <Modal title="Rechnung per E-Mail senden" onClose={onClose}>
       <div className="stack">
         {error && <div className="error-box">{error}</div>}
-        <div className="info-box">📎 Die Rechnung wird als PDF angehängt und über euer Zoho-Postfach verschickt (landet in „Gesendet").</div>
+        <div className="info-box">Die Rechnung wird als PDF angehängt und über euer Zoho-Postfach verschickt (landet in „Gesendet").</div>
         <div>
           <label>An (E-Mail) *</label>
           <input value={to} onChange={(e) => setTo(e.target.value)} inputMode="email" placeholder="kunde@beispiel.de" autoFocus />
@@ -231,7 +231,7 @@ function SendInvoiceModal({ invoice, company, onClose, onSent }: {
         </div>
         <div className="modal-actions">
           <button type="button" className="btn btn-ghost" onClick={onClose}>Abbrechen</button>
-          <button type="button" className="btn btn-primary" onClick={send} disabled={busy}>{busy ? 'Sende …' : 'Senden ✉️'}</button>
+          <button type="button" className="btn btn-primary" onClick={send} disabled={busy}>{busy ? 'Sende …' : 'Senden'}</button>
         </div>
       </div>
     </Modal>
@@ -363,7 +363,7 @@ function InvoiceModal({ invoice, clients, company, userId, nextNumber, onClose, 
                 <input className="pos-desc" value={it.desc} onChange={(e) => setItem(i, { desc: e.target.value })} placeholder="z. B. 8 Reels inkl. Schnitt" />
                 <input className="pos-qty" value={String(it.qty)} onChange={(e) => setItem(i, { qty: Number(e.target.value.replace(',', '.')) || 0 })} inputMode="decimal" title="Menge" />
                 <input className="pos-price" value={String(it.price)} onChange={(e) => setItem(i, { price: Number(e.target.value.replace(',', '.')) || 0 })} inputMode="decimal" title="Einzelpreis netto €" placeholder="€" />
-                <button type="button" className="pos-del" onClick={() => removeItem(i)} disabled={items.length <= 1} title="Position entfernen">✕</button>
+                <button type="button" className="pos-del" onClick={() => removeItem(i)} disabled={items.length <= 1} title="Position entfernen"></button>
               </div>
             ))}
           </div>

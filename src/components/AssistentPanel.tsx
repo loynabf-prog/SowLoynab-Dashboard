@@ -104,7 +104,7 @@ export default function AssistentPanel({ onClose, onFertig }: { onClose: () => v
   const gewaehlteAnzahl = aktiv.filter(Boolean).length
 
   return (
-    <Modal title="✨ Assistent" onClose={onClose}>
+    <Modal title="Assistent" onClose={onClose}>
       <div className="stack">
         {fehler && <div className="error-box">{fehler}</div>}
 
@@ -154,7 +154,7 @@ export default function AssistentPanel({ onClose, onFertig }: { onClose: () => v
                     onClick={() => setAktiv((a) => a.map((x, j) => (j === i ? !x : x)))}
                     disabled={phase === 'laeuft'}
                   >
-                    <span className="as-nr">{aktiv[i] ? '✓' : '○'}</span>
+                    <span className="as-nr">{aktiv[i] ? '' : '○'}</span>
                     <span className="as-text">{beschreibe(s, kundenName)}</span>
                   </button>
                 ))}
@@ -166,7 +166,7 @@ export default function AssistentPanel({ onClose, onFertig }: { onClose: () => v
 
             {beanstandet.length > 0 && (
               <div className="warn-box" style={{ fontSize: 12.5 }}>
-                {beanstandet.map((b, i) => <div key={i}>⚠ {b}</div>)}
+                {beanstandet.map((b, i) => <div key={i}>{b}</div>)}
               </div>
             )}
 
@@ -192,7 +192,7 @@ export default function AssistentPanel({ onClose, onFertig }: { onClose: () => v
             <div className="as-liste">
               {ergebnis.map((r, i) => (
                 <div className={`as-schritt ${r.ok ? 'fertig' : 'kaputt'}`} key={i}>
-                  <span className="as-nr">{r.ok ? '✓' : '✕'}</span>
+                  <span className="as-nr">{r.ok ? '' : ''}</span>
                   <span className="as-text">{r.text}</span>
                 </div>
               ))}

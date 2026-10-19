@@ -62,7 +62,7 @@ export default function NudgeCenter() {
           if (seen.current.has(n.id)) return
           seen.current.add(n.id)
           setNudges((prev) => [n, ...prev])
-          toast(`👉 ${n.from_name || 'Jemand'}: ${n.body}`, n.link ? { label: 'Öffnen', onClick: () => openNudge(n) } : undefined)
+          toast(`${n.from_name || 'Jemand'}: ${n.body}`, n.link ? { label: 'Öffnen', onClick: () => openNudge(n) } : undefined)
         },
       )
       .subscribe()
@@ -110,7 +110,7 @@ export default function NudgeCenter() {
     setPushBusy(true)
     try {
       const { sent } = await sendTestPush(memberId)
-      toast(sent > 0 ? `Test gesendet an ${sent} Gerät(e) 🔔` : 'Kein aktives Abo für dich gefunden — bitte Push (neu) aktivieren.')
+      toast(sent > 0 ? `Test gesendet an ${sent} Gerät(e)` : 'Kein aktives Abo für dich gefunden — bitte Push (neu) aktivieren.')
     } catch (e) {
       toast('Test fehlgeschlagen: ' + (e as Error).message)
     } finally {
@@ -125,7 +125,7 @@ export default function NudgeCenter() {
     setPushBusy(false)
     if (res.ok) {
       setPushOn(true)
-      toast('Handy-Push aktiv 🔔')
+      toast('Handy-Push aktiv')
     } else {
       toast(res.reason || 'Push konnte nicht aktiviert werden')
     }
@@ -180,7 +180,7 @@ export default function NudgeCenter() {
             {me && pushConfigured() && pushSupported() && pushNeedsHomeScreen() && (
               <div className="nudge-push">
                 <span className="muted" style={{ fontSize: 13 }}>
-                  📲 Für Handy-Push die App zuerst über <strong>Teilen → „Zum Home-Bildschirm"</strong> öffnen.
+                  Für Handy-Push die App zuerst über <strong>Teilen → „Zum Home-Bildschirm"</strong> öffnen.
                 </span>
               </div>
             )}
@@ -188,14 +188,14 @@ export default function NudgeCenter() {
               <div className="nudge-push">
                 {pushOn ? (
                   <div className="nudge-push-row">
-                    <span className="nudge-push-on">✓ Handy-Push aktiv</span>
+                    <span className="nudge-push-on">Handy-Push aktiv</span>
                     <button className="btn btn-sm" onClick={testPush} disabled={pushBusy}>
                       {pushBusy ? '…' : 'Test an mich'}
                     </button>
                   </div>
                 ) : (
                   <button className="btn btn-sm btn-primary" onClick={turnOnPush} disabled={pushBusy}>
-                    {pushBusy ? 'Aktiviere …' : '🔔 Handy-Push aktivieren'}
+                    {pushBusy ? 'Aktiviere …' : 'Handy-Push aktivieren'}
                   </button>
                 )}
               </div>
@@ -204,7 +204,7 @@ export default function NudgeCenter() {
             {/* Liste */}
             <div className="nudge-list">
               {!memberId && <div className="col-empty">Wähle oben, wer du bist.</div>}
-              {memberId && nudges.length === 0 && <div className="col-empty">Keine Anstupser. 🎉</div>}
+              {memberId && nudges.length === 0 && <div className="col-empty">Keine Anstupser.</div>}
               {nudges.map((n) => (
                 <button key={n.id} className={`nudge-item ${n.read ? '' : 'unread'}`} onClick={() => openNudge(n)}>
                   <div className="nudge-item-body">

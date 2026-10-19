@@ -11,9 +11,9 @@ export interface ArtInfo {
 }
 
 export const ARTEN: ArtInfo[] = [
-  { key: 'zahlend',  titel: 'Zahlende Kunden',        kurz: 'Zahlend',  icon: '💶', hinweis: 'Bringt Umsatz — hat Vorrang' },
-  { key: 'referenz', titel: 'Ehrenamt & Referenzen',  kurz: 'Referenz', icon: '🤝', hinweis: 'Ohne Honorar, für Portfolio oder gute Sache' },
-  { key: 'passiv',   titel: 'Passiv',                 kurz: 'Passiv',   icon: '💤', hinweis: 'Abgeschlossen oder pausiert' },
+  { key: 'zahlend',  titel: 'Zahlende Kunden',        kurz: 'Zahlend',  icon: '', hinweis: 'Bringt Umsatz — hat Vorrang' },
+  { key: 'referenz', titel: 'Ehrenamt & Referenzen',  kurz: 'Referenz', icon: '', hinweis: 'Ohne Honorar, für Portfolio oder gute Sache' },
+  { key: 'passiv',   titel: 'Passiv',                 kurz: 'Passiv',   icon: '', hinweis: 'Abgeschlossen oder pausiert' },
 ]
 
 export function artVon(wert: string | null | undefined): Kundenart {

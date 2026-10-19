@@ -33,7 +33,7 @@ export default function NudgeModal({
     try {
       await sendNudge({ toMemberId: to, fromName, body: body.trim(), link })
       onClose()
-      toast('Angestupst 👉')
+      toast('Angestupst')
     } catch (e) {
       setError((e as Error).message)
       setBusy(false)
@@ -41,12 +41,12 @@ export default function NudgeModal({
   }
 
   return (
-    <Modal title="👉 Anstupsen" onClose={onClose}>
+    <Modal title="Anstupsen" onClose={onClose}>
       <div className="stack">
         {error && <div className="error-box">{error}</div>}
         {!fromName && (
           <div className="info-box">
-            Tipp: Sag oben bei der 🔔 einmal, wer du bist — dann sieht die Person, von wem der Anstupser kommt.
+            Tipp: Sag oben bei der einmal, wer du bist — dann sieht die Person, von wem der Anstupser kommt.
           </div>
         )}
         <div>

@@ -12,12 +12,12 @@ interface Item {
 // Rechnungen und Zahlen, die beim echten Loeschen stumm mitgehen wuerden.
 // Wiederherstellen ja, unwiderruflich vernichten nicht per Knopfdruck.
 const KINDS: { key: Kind; title: string; icon: string; labelField: string; endgueltig?: boolean }[] = [
-  { key: 'clients', title: 'Kunden', icon: '👤', labelField: 'name', endgueltig: false },
-  { key: 'videos', title: 'Videos', icon: '🎬', labelField: 'title' },
-  { key: 'video_ideas', title: 'Ideen', icon: '💡', labelField: 'title' },
-  { key: 'inspirations', title: 'Inspirationen', icon: '🔖', labelField: 'title' },
-  { key: 'leads', title: 'Leads', icon: '🎯', labelField: 'name' },
-  { key: 'tasks', title: 'Aufgaben', icon: '✓', labelField: 'title' },
+  { key: 'clients', title: 'Kunden', icon: '', labelField: 'name', endgueltig: false },
+  { key: 'videos', title: 'Videos', icon: '', labelField: 'title' },
+  { key: 'video_ideas', title: 'Ideen', icon: '', labelField: 'title' },
+  { key: 'inspirations', title: 'Inspirationen', icon: '', labelField: 'title' },
+  { key: 'leads', title: 'Leads', icon: '', labelField: 'name' },
+  { key: 'tasks', title: 'Aufgaben', icon: '', labelField: 'title' },
 ]
 
 export default function Trash() {
@@ -51,7 +51,7 @@ export default function Trash() {
   async function restore(kind: Kind, id: string) {
     setData((prev) => ({ ...prev, [kind]: prev[kind].filter((i) => i.id !== id) }))
     await supabase.from(kind).update({ deleted_at: null }).eq('id', id)
-    toast('Wiederhergestellt ✓')
+    toast('Wiederhergestellt')
   }
 
   // Bei zwei Dutzend Videos ist Einzeln-Antippen keine Bedienung, sondern
@@ -66,7 +66,7 @@ export default function Trash() {
     setData((prev) => ({ ...prev, [kind]: [] }))
     const { error } = await supabase.from(kind).update({ deleted_at: null }).in('id', ids)
     if (error) { toast('Fehler: ' + error.message); load(); return }
-    toast(`${n} wiederhergestellt ✓`)
+    toast(`${n} wiederhergestellt`)
   }
 
   async function purge(kind: Kind, id: string) {
@@ -87,13 +87,13 @@ export default function Trash() {
         </div>
       </div>
 
-      {!loading && total === 0 && <div className="col-empty">Papierkorb ist leer. 🧹</div>}
+      {!loading && total === 0 && <div className="col-empty">Papierkorb ist leer.</div>}
 
       {KINDS.map((k) =>
         data[k.key].length === 0 ? null : (
           <div className="section-block" key={k.key}>
             <div className="trash-head">
-              <h2 className="section-title" style={{ margin: 0 }}>{k.icon} {k.title}</h2>
+              <h2 className="section-title" style={{ margin: 0 }}>{k.title}</h2>
               <div className="spacer" />
               {data[k.key].length > 1 && (
                 <button className="btn btn-sm btn-primary" onClick={() => restoreAll(k.key)}>

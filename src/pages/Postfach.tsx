@@ -55,7 +55,7 @@ export default function Postfach() {
     try {
       const res = await syncMail()
       await load()
-      toast(res.imported > 0 ? `${res.imported} neue Mail${res.imported > 1 ? 's' : ''} ✓` : 'Alles aktuell ✓')
+      toast(res.imported > 0 ? `${res.imported} neue Mail${res.imported > 1 ? 's' : ''}` : 'Alles aktuell')
     } catch (e) {
       toast('Abruf-Fehler: ' + (e as Error).message)
     } finally {
@@ -86,11 +86,11 @@ export default function Postfach() {
           <span className="sub">{loading ? 'Lade …' : unread > 0 ? `${unread} ungelesen` : 'Alles gelesen'}</span>
         </div>
         <div className="spacer" />
-        <button className="btn btn-primary" onClick={refresh} disabled={syncing}>{syncing ? 'Rufe ab …' : '↻ Abrufen'}</button>
+        <button className="btn btn-primary" onClick={refresh} disabled={syncing}>{syncing ? 'Rufe ab …' : 'Abrufen'}</button>
       </div>
 
       {!loading && rows.length === 0 && (
-        <div className="col-empty">Noch keine Mails. Tippe auf „Abrufen" — oder der automatische Abruf läuft alle 5 Minuten. 📬</div>
+        <div className="col-empty">Noch keine Mails. Tippe auf „Abrufen" — oder der automatische Abruf läuft alle 5 Minuten.</div>
       )}
 
       <div className="mail-list">
@@ -126,13 +126,13 @@ export default function Postfach() {
             />
             <div className="modal-actions">
               <button className="btn btn-ghost" onClick={() => archive(open)}>Archivieren</button>
-              <button className="btn btn-primary" onClick={() => { const m = open; setOpen(null); setReply(m) }}>↩︎ Antworten</button>
+              <button className="btn btn-primary" onClick={() => { const m = open; setOpen(null); setReply(m) }}>︎ Antworten</button>
             </div>
           </div>
         </Modal>
       )}
 
-      {reply && <ReplyModal mail={reply} onClose={() => setReply(null)} onSent={() => { setReply(null); toast('Antwort verschickt ✓') }} />}
+      {reply && <ReplyModal mail={reply} onClose={() => setReply(null)} onSent={() => { setReply(null); toast('Antwort verschickt') }} />}
     </>
   )
 }
@@ -167,7 +167,7 @@ function ReplyModal({ mail, onClose, onSent }: { mail: Mail; onClose: () => void
         <div><label>Nachricht</label><textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={8} autoFocus /></div>
         <div className="modal-actions">
           <button className="btn btn-ghost" onClick={onClose}>Abbrechen</button>
-          <button className="btn btn-primary" onClick={send} disabled={busy}>{busy ? 'Sende …' : 'Senden ✉️'}</button>
+          <button className="btn btn-primary" onClick={send} disabled={busy}>{busy ? 'Sende …' : 'Senden'}</button>
         </div>
       </div>
     </Modal>

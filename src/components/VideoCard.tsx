@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { Camera, ChevronDown, ChevronUp, Eye, Heart, Lightbulb, Link2, MessageCircle, Music, Radio } from 'lucide-react'
 import type { Video, VideoStatus } from '../lib/types'
 import { STATUS_ORDER, STATUS_LABELS } from '../lib/types'
 import StatusPill from './StatusPill'
@@ -131,16 +132,16 @@ export default function VideoCard({ video, kanaele = [], onPatch, onEdit, onDele
           <button className="vc-title-btn" onClick={() => setOpen(true)} title="Aufklappen">{video.title}</button>
         )}
         {!open && istPlatzhalter(video.title) && (
-          <span className="vc-ideeflag" title="Platzhalter — hier fehlt noch die echte Idee">💡</span>
+          <span className="vc-ideeflag" title="Platzhalter — hier fehlt noch die echte Idee"><Lightbulb size={14} /></span>
         )}
-        {!open && fehltLink && <span className="vc-linkflag" title="Posting-Adresse fehlt — ohne sie keine Zahlen">🔗</span>}
+        {!open && fehltLink && <span className="vc-linkflag" title="Posting-Adresse fehlt — ohne sie keine Zahlen"><Link2 size={14} /></span>}
         {!open && trennt && kanal && (
           <span className="vc-kanal" style={{ color: kanal.color }} title={`Kanal: ${kanal.name}`}>
             {kanal.name}
           </span>
         )}
-        {!open && cDate && <span className="vc-compact-date">📅 {cDate}</span>}
-        <button className="vc-toggle" onClick={() => setOpen((o) => !o)} aria-label={open ? 'Zuklappen' : 'Aufklappen'}>{open ? '▲' : '▾'}</button>
+        {!open && cDate && <span className="vc-compact-date">{cDate}</span>}
+        <button className="vc-toggle" onClick={() => setOpen((o) => !o)} aria-label={open ? 'Zuklappen' : 'Aufklappen'}>{open ? <ChevronUp size={16} className="chev" /> : <ChevronDown size={16} className="chev" />}</button>
       </div>
 
       {!open ? null : (
@@ -163,7 +164,7 @@ export default function VideoCard({ video, kanaele = [], onPatch, onEdit, onDele
       </div>
 
       <div className="vc-line">
-        📅 {fmtDate(video.scheduled_date, video.scheduled_time)}
+        {fmtDate(video.scheduled_date, video.scheduled_time)}
         {due && <span className="due-tag">fällig</span>}
       </div>
 
@@ -176,15 +177,15 @@ export default function VideoCard({ video, kanaele = [], onPatch, onEdit, onDele
       {video.video_url ? (
         <div className="vc-videolink">
           <a href={video.video_url} target="_blank" rel="noopener noreferrer" className="vc-open">
-            🎬 Video öffnen / laden
+            Video öffnen / laden
           </a>
           <button className="vc-linkedit" onClick={onLink} title="Link aendern">
-            ✎
+            
           </button>
         </div>
       ) : (
         <button className="vc-upload" onClick={onLink}>
-          ＋ Video-Link einfügen
+          + Video-Link einfügen
         </button>
       )}
 
@@ -193,10 +194,10 @@ export default function VideoCard({ video, kanaele = [], onPatch, onEdit, onDele
           Umweg ueber "Bearbeiten". Ist eine Adresse da, faellt ihr Feld weg. */}
       {fehltLink && (
         <div className="vc-links">
-          <span className="vc-links-hint">🔗 Ohne Posting-Adresse kommen keine Zahlen</span>
+          <span className="vc-links-hint">Ohne Posting-Adresse kommen keine Zahlen</span>
           {!video.tiktok_url && (
             <label className="vc-link-row">
-              <span className="vc-link-ic">🎵</span>
+              <span className="vc-link-ic"><Music size={15} /></span>
               <input
                 className="vc-link-input"
                 type="url"
@@ -211,7 +212,7 @@ export default function VideoCard({ video, kanaele = [], onPatch, onEdit, onDele
           )}
           {!video.instagram_url && (
             <label className="vc-link-row">
-              <span className="vc-link-ic">📸</span>
+              <span className="vc-link-ic"><Camera size={15} /></span>
               <input
                 className="vc-link-input"
                 type="url"
@@ -232,15 +233,15 @@ export default function VideoCard({ video, kanaele = [], onPatch, onEdit, onDele
           {hasIg && hasTiktok && (
             <div className="seg vc-platform-seg">
               <button type="button" className={`seg-btn ${statView === 'all' ? 'on' : ''}`} onClick={() => setStatView('all')}>Gesamt</button>
-              <button type="button" className={`seg-btn ${statView === 'ig' ? 'on' : ''}`} onClick={() => setStatView('ig')}>📸 IG</button>
-              <button type="button" className={`seg-btn ${statView === 'tiktok' ? 'on' : ''}`} onClick={() => setStatView('tiktok')}>🎵 TikTok</button>
+              <button type="button" className={`seg-btn ${statView === 'ig' ? 'on' : ''}`} onClick={() => setStatView('ig')}>IG</button>
+              <button type="button" className={`seg-btn ${statView === 'tiktok' ? 'on' : ''}`} onClick={() => setStatView('tiktok')}>TikTok</button>
             </div>
           )}
           <div className="vc-stats">
-            {stat.views != null && <span>👁 {fmtNum(stat.views)}</span>}
-            {statView === 'all' && video.reach != null && <span>📡 {fmtNum(video.reach)}</span>}
-            {stat.likes != null && <span>❤️ {fmtNum(stat.likes)}</span>}
-            {stat.comments != null && <span>💬 {fmtNum(stat.comments)}</span>}
+            {stat.views != null && <span><Eye size={14} />{fmtNum(stat.views)}</span>}
+            {statView === 'all' && video.reach != null && <span><Radio size={14} />{fmtNum(video.reach)}</span>}
+            {stat.likes != null && <span><Heart size={14} />{fmtNum(stat.likes)}</span>}
+            {stat.comments != null && <span><MessageCircle size={14} />{fmtNum(stat.comments)}</span>}
           </div>
         </>
       ) : null}
@@ -252,7 +253,7 @@ export default function VideoCard({ video, kanaele = [], onPatch, onEdit, onDele
           role="checkbox"
           aria-checked={video.posted_ig}
         >
-          {video.posted_ig ? '✓' : ''} IG
+          {video.posted_ig ? '' : ''} IG
         </span>
         <span
           className={`flag ${video.posted_tiktok ? 'on' : ''}`}
@@ -260,7 +261,7 @@ export default function VideoCard({ video, kanaele = [], onPatch, onEdit, onDele
           role="checkbox"
           aria-checked={video.posted_tiktok}
         >
-          {video.posted_tiktok ? '✓' : ''} TikTok
+          {video.posted_tiktok ? '' : ''} TikTok
         </span>
       </div>
 
@@ -269,7 +270,7 @@ export default function VideoCard({ video, kanaele = [], onPatch, onEdit, onDele
           Bearbeiten
         </button>
         <button className="btn btn-sm" onClick={onNudge} title="Person anstupsen">
-          👉 Anstupsen
+          Anstupsen
         </button>
         <div className="spacer" />
         <button className="btn btn-sm btn-danger" onClick={onDelete} title="Video loeschen">

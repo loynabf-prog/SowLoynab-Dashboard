@@ -19,7 +19,7 @@ import {
 
 interface KundeOrdner { id: string; name: string; ordner: string[] }
 
-const ICON: Record<Eintrag['art'], string> = { ordner: '📁', video: '🎬', bild: '🖼', datei: '📄' }
+const ICON: Record<Eintrag['art'], string> = { ordner: '', video: '', bild: '', datei: '' }
 
 export default function Medien() {
   const { toast } = useToast()
@@ -152,7 +152,7 @@ export default function Medien() {
       const r = await dropbox.verschieben(pfade, ziel)
       const ok = r.filter((x) => x.ok).length
       const schief = r.filter((x) => !x.ok)
-      toast(schief.length ? `${ok} verschoben, ${schief.length} fehlgeschlagen: ${schief[0].fehler}` : `${ok} verschoben ✓`)
+      toast(schief.length ? `${ok} verschoben, ${schief.length} fehlgeschlagen: ${schief[0].fehler}` : `${ok} verschoben`)
     } catch (e) { toast('Verschieben fehlgeschlagen: ' + (e as Error).message) }
     if (pfad) ladeOrdner(pfad)
   }
@@ -220,7 +220,7 @@ export default function Medien() {
         </div>
       )}
 
-      {fehler && <div className="col-empty" style={{ padding: 20 }}>⚠️ {fehler}</div>}
+      {fehler && <div className="col-empty" style={{ padding: 20 }}>{fehler}</div>}
       {!fehler && laedt && !treffer && <div className="col-empty" style={{ padding: 20 }}>Lade …</div>}
       {!fehler && !laedt && anzeige.length === 0 && (
         <div className="col-empty" style={{ padding: 20 }}>{treffer ? 'Nichts gefunden.' : 'Dieser Ordner ist leer.'}</div>
@@ -261,7 +261,7 @@ export default function Medien() {
                 onClick={() => umschalten(e.pfad)}
                 aria-label={gewaehlt ? 'Abwählen' : 'Auswählen'}
                 aria-pressed={gewaehlt}
-              >{gewaehlt ? '✓' : ''}</button>
+              >{gewaehlt ? '' : ''}</button>
             </div>
           )
         })}
@@ -300,7 +300,7 @@ function OrdnerWahl({ start, anzahl, onWahl, onClose }: { start: string; anzahl:
   }, [start])
   return (
     <Modal title={`${anzahl} ${anzahl === 1 ? 'Datei' : 'Dateien'} verschieben nach …`} onClose={onClose}>
-      {fehler && <div className="col-empty">⚠️ {fehler}</div>}
+      {fehler && <div className="col-empty">{fehler}</div>}
       {!ordner && !fehler && <div className="col-empty">Lade Ordner …</div>}
       <div className="medien-ordnerliste">
         {(ordner ?? []).map((o) => {
@@ -308,7 +308,7 @@ function OrdnerWahl({ start, anzahl, onWahl, onClose }: { start: string; anzahl:
           const tiefe = rel === '/' ? 0 : rel.split('/').length
           return (
             <button key={o} className="medien-ordnerwahl" style={{ paddingLeft: 10 + tiefe * 14 }} onClick={() => onWahl(o)}>
-              📁 {rel === '/' ? start.split('/').pop() : rel.split('/').pop()}
+              {rel === '/' ? start.split('/').pop() : rel.split('/').pop()}
             </button>
           )
         })}
@@ -332,7 +332,7 @@ function Einrichtung({ status, fehler, onVerbunden }: { status: DropboxStatus | 
     setBusy(true)
     try {
       const r = await dropbox.verbinden(code.trim())
-      toast(`Dropbox verbunden${r.konto ? ` (${r.konto})` : ''} ✓`)
+      toast(`Dropbox verbunden${r.konto ? ` (${r.konto})` : ''}`)
       onVerbunden()
     } catch (e) { toast((e as Error).message) }
     setBusy(false)
@@ -342,7 +342,7 @@ function Einrichtung({ status, fehler, onVerbunden }: { status: DropboxStatus | 
     <>
       <div className="page-head"><div><h1>Medien</h1><span className="sub">Dropbox verbinden — einmalig</span></div></div>
       <div className="section-block medien-setup">
-        {fehler && <p className="muted">⚠️ {fehler}</p>}
+        {fehler && <p className="muted">{fehler}</p>}
         <ol>
           <li className={appFehlt ? '' : 'erledigt'}>
             <strong>Dropbox-App anlegen</strong> (am PC): dropbox.com/developers/apps → „Create app“ →
@@ -356,7 +356,7 @@ function Einrichtung({ status, fehler, onVerbunden }: { status: DropboxStatus | 
           <li>
             <strong>Verbinden</strong>: Code bei Dropbox holen, hier einfügen.
             <div className="medien-verbinden">
-              <button className="btn btn-sm" onClick={holeCode} disabled={appFehlt}>1. Code holen ↗</button>
+              <button className="btn btn-sm" onClick={holeCode} disabled={appFehlt}>1. Code holen</button>
               <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="2. Code einfügen" aria-label="Dropbox-Code" />
               <button className="btn btn-sm btn-primary" onClick={verbinden} disabled={busy || !code.trim()}>{busy ? '…' : 'Verbinden'}</button>
             </div>

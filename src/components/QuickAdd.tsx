@@ -16,11 +16,11 @@ type QType = 'task' | 'lead' | 'video' | 'backfill' | 'inspiration'
 interface Opt { id: string; name: string; handle_ig?: string | null; handle_tiktok?: string | null }
 
 const TABS: { key: QType; label: string; icon: string }[] = [
-  { key: 'task', label: 'Aufgabe', icon: '✓' },
-  { key: 'lead', label: 'Lead', icon: '🎯' },
-  { key: 'video', label: 'Video', icon: '🎬' },
-  { key: 'backfill', label: 'Nachtragen', icon: '🔗' },
-  { key: 'inspiration', label: 'Inspiration', icon: '🔖' },
+  { key: 'task', label: 'Aufgabe', icon: '' },
+  { key: 'lead', label: 'Lead', icon: '' },
+  { key: 'video', label: 'Video', icon: '' },
+  { key: 'backfill', label: 'Nachtragen', icon: '' },
+  { key: 'inspiration', label: 'Inspiration', icon: '' },
 ]
 
 function fmtN(n: number | null | undefined): string {
@@ -214,20 +214,20 @@ export default function QuickAdd() {
           const dates = occurrences(date, rule)
           const { error } = await insertRows('tasks', dates.map((d) => ({ title: title.trim(), due_date: d, client_id, lead_id, series_id, created_by: user?.id ?? null })))
           if (error) throw error
-          toast(`${dates.length} Aufgaben angelegt ✓`)
+          toast(`${dates.length} Aufgaben angelegt`)
           navigate('/aufgaben')
           setOpen(false)
           return
         }
         const { error } = await supabase.from('tasks').insert({ title: title.trim(), due_date: date || null, client_id, lead_id, created_by: user?.id ?? null })
         if (error) throw error
-        toast('Aufgabe angelegt ✓')
+        toast('Aufgabe angelegt')
         navigate('/aufgaben')
       } else if (type === 'lead') {
         if (!name.trim()) { setError('Bitte einen Namen angeben.'); setBusy(false); return }
         const { error } = await supabase.from('leads').insert({ name: name.trim(), city: city.trim() || null, phone: phone.trim() || null, next_followup: date || null, stage: 'new', created_by: user?.id ?? null })
         if (error) throw error
-        toast('Lead angelegt ✓')
+        toast('Lead angelegt')
         navigate('/leads')
       } else if (type === 'inspiration') {
         const url = inspUrl.trim()
@@ -268,7 +268,7 @@ export default function QuickAdd() {
           created_by: user?.id ?? null,
         }])
         if (error) throw error
-        toast(abrufFehler ? 'Inspiration gemerkt — ohne Zahlen' : 'Inspiration gemerkt 🔖')
+        toast(abrufFehler ? 'Inspiration gemerkt — ohne Zahlen' : 'Inspiration gemerkt')
         navigate(inspClientId ? `/client/${inspClientId}?tab=inspiration` : '/inspirationen')
       } else if (type === 'backfill') {
         if (!lookup) { setError('Bitte zuerst die Daten abrufen.'); setBusy(false); return }
@@ -286,7 +286,7 @@ export default function QuickAdd() {
           created_by: user?.id ?? null,
         }])
         if (error) throw error
-        toast('Altes Video nachgetragen ✓')
+        toast('Altes Video nachgetragen')
         navigate(`/client/${bfClientId}`)
       } else {
         if (!clientId) { setError('Bitte einen Kunden wählen.'); setBusy(false); return }
@@ -296,14 +296,14 @@ export default function QuickAdd() {
           const dates = occurrences(date, rule)
           const { error } = await insertRows('videos', dates.map((d) => ({ client_id: clientId, title: title.trim(), status: 'todo', scheduled_date: d, scheduled_time: time || null, series_id, created_by: user?.id ?? null })))
           if (error) throw error
-          toast(`${dates.length} Videos angelegt ✓`)
+          toast(`${dates.length} Videos angelegt`)
           navigate(`/client/${clientId}`)
           setOpen(false)
           return
         }
         const { error } = await supabase.from('videos').insert({ client_id: clientId, title: title.trim(), status: 'todo', scheduled_date: date || null, scheduled_time: time || null, created_by: user?.id ?? null })
         if (error) throw error
-        toast('Video angelegt ✓')
+        toast('Video angelegt')
         navigate(`/client/${clientId}`)
       }
       setOpen(false)
@@ -324,12 +324,12 @@ export default function QuickAdd() {
     : lookup ? (lookup.instagram?.views ?? 0) + (lookup.tiktok?.views ?? 0) : null
 
   return (
-    <Modal title="⚡ Schnell erfassen" onClose={() => setOpen(false)}>
+    <Modal title="Schnell erfassen" onClose={() => setOpen(false)}>
       <div className="stack">
         <div className="seg voice-typeseg">
           {TABS.map((t) => (
             <button key={t.key} type="button" className={`seg-btn ${type === t.key ? 'on' : ''}`} onClick={() => setType(t.key)}>
-              {t.icon} {t.label}
+              {t.label}
             </button>
           ))}
         </div>
@@ -339,7 +339,7 @@ export default function QuickAdd() {
         {type === 'inspiration' ? (
           <>
             <div className="info-box" style={{ fontSize: 13 }}>
-              🔖 Ein fremdes Video, das ihr so ähnlich machen wollt. Link aus TikTok oder
+              Ein fremdes Video, das ihr so ähnlich machen wollt. Link aus TikTok oder
               Instagram einfügen — Titel und Zahlen holen wir automatisch dazu.
             </div>
             <div>
@@ -370,7 +370,7 @@ export default function QuickAdd() {
             <div className="modal-actions">
               <button type="button" className="btn btn-ghost" onClick={() => setOpen(false)}>Abbrechen</button>
               <button type="button" className="btn btn-primary" onClick={save} disabled={busy}>
-                {busy ? 'Hole Daten …' : '🔖 Merken'}
+                {busy ? 'Hole Daten …' : 'Merken'}
               </button>
             </div>
           </>
@@ -382,11 +382,11 @@ export default function QuickAdd() {
                   Instagram- und/oder TikTok-Link eines bereits geposteten Videos einfügen — Titel-Vorschlag, Kunde und Zahlen werden automatisch geholt.
                 </div>
                 <div>
-                  <label>📸 Instagram-Link</label>
+                  <label>Instagram-Link</label>
                   <input type="url" value={igUrl} onChange={(e) => setIgUrl(e.target.value)} autoFocus placeholder="https://www.instagram.com/reel/…" onKeyDown={(e) => e.key === 'Enter' && runLookup()} />
                 </div>
                 <div>
-                  <label>🎵 TikTok-Link</label>
+                  <label>TikTok-Link</label>
                   <input type="url" value={ttUrl} onChange={(e) => setTtUrl(e.target.value)} placeholder="https://www.tiktok.com/@…/video/…" onKeyDown={(e) => e.key === 'Enter' && runLookup()} />
                 </div>
                 {lookupFailed && (
@@ -402,16 +402,16 @@ export default function QuickAdd() {
                 <div className="modal-actions">
                   <button type="button" className="btn btn-ghost" onClick={() => setOpen(false)}>Abbrechen</button>
                   <button type="button" className="btn btn-primary" onClick={runLookup} disabled={lookupBusy}>
-                    {lookupBusy ? 'Hole Daten …' : '🔍 Daten abrufen'}
+                    {lookupBusy ? 'Hole Daten …' : 'Daten abrufen'}
                   </button>
                 </div>
               </>
             ) : (
               <>
-                {lookupWarn && <div className="warn-box">⚠ {lookupWarn}</div>}
+                {lookupWarn && <div className="warn-box">{lookupWarn}</div>}
                 <div className="vc-stats">
-                  {lookup.instagram && <span title="Instagram">📸 {fmtN(lookup.instagram.views)}</span>}
-                  {lookup.tiktok && <span title="TikTok">🎵 {fmtN(lookup.tiktok.views)}</span>}
+                  {lookup.instagram && <span title="Instagram">{fmtN(lookup.instagram.views)}</span>}
+                  {lookup.tiktok && <span title="TikTok">{fmtN(lookup.tiktok.views)}</span>}
                   <span title="Gesamt"><strong>Σ {fmtN(sumViews)} Views</strong></span>
                 </div>
                 <div>

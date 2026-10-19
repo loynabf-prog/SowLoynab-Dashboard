@@ -62,7 +62,7 @@ export default function LinkQueue() {
       }
       await updateRow('videos', statsPatch(res), 'id', v.id)
       const gesamt = (res.tiktok?.views ?? 0) + (res.instagram?.views ?? 0)
-      toast(`${v.title}: ${gesamt.toLocaleString('de-DE')} Aufrufe ✓`)
+      toast(`${v.title}: ${gesamt.toLocaleString('de-DE')} Aufrufe`)
     } catch (e) {
       toast(`Link gespeichert — ${klartext((e as Error).message).slice(0, 90)}`)
     } finally {

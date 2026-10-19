@@ -1,3 +1,4 @@
+import { ChevronDown, ChevronRight } from 'lucide-react'
 // Ein Drehtag: was heute entsteht, und wie es gedreht wird.
 // ---------------------------------------------------------------------------
 // Der Drehtag ist nicht der Posting-Tag. Fünf Videos entstehen an einem
@@ -69,7 +70,7 @@ export default function DrehtagModal({
     if (error) { setFehler(error.message); return }
     setVideos((prev) => prev.map((x) => (x.id === v.id ? { ...x, script: entwurf } : x)))
     setOffen(null)
-    toast('Skript gespeichert ✓')
+    toast('Skript gespeichert')
   }
 
   /** Alle Skripte des Tages auf einmal — damit die KI zusammenfassen kann. */
@@ -90,7 +91,7 @@ export default function DrehtagModal({
       }
       await laden()
       onGeaendert()
-      toast(`${skripte.length} Skripte geschrieben ✓`)
+      toast(`${skripte.length} Skripte geschrieben`)
     } catch (e: any) {
       setFehler(e?.message ?? 'Das hat nicht geklappt.')
     }
@@ -100,7 +101,7 @@ export default function DrehtagModal({
   const tagesplan = (termin.notes ?? '').trim()
 
   return (
-    <Modal title={`🎥 ${termin.title}`} onClose={onClose}>
+    <Modal title={`${termin.title}`} onClose={onClose}>
       <div className="stack">
         {fehler && <div className="error-box">{fehler}</div>}
 
@@ -145,9 +146,9 @@ export default function DrehtagModal({
                     <span className="dt-nr">{i + 1}</span>
                     <span className="dt-titel">{v.title}</span>
                     <span className={`dt-marke ${hatSkript ? 'ok' : ''}`}>
-                      {v.prep_shot ? '✓ gedreht' : hatSkript ? 'Skript da' : 'kein Skript'}
+                      {v.prep_shot ? 'gedreht' : hatSkript ? 'Skript da' : 'kein Skript'}
                     </span>
-                    <span className="dt-pfeil">{auf ? '▾' : '▸'}</span>
+                    <span className="dt-pfeil">{auf ? <ChevronDown size={16} className="chev" /> : <ChevronRight size={16} className="chev" />}</span>
                   </button>
 
                   {auf && (
@@ -170,7 +171,7 @@ export default function DrehtagModal({
                             laden()
                           }}
                         >
-                          {v.prep_shot ? 'Doch nicht gedreht' : '✓ Gedreht'}
+                          {v.prep_shot ? 'Doch nicht gedreht' : 'Gedreht'}
                         </button>
                         <button className="btn btn-sm btn-primary" onClick={() => skriptSpeichern(v)}>
                           Speichern
@@ -189,8 +190,8 @@ export default function DrehtagModal({
             {schreibt
               ? 'Schreibt …'
               : stand.ohneSkript > 0
-                ? `✍️ Skripte für alle ${videos.length} schreiben`
-                : '✍️ Skripte neu schreiben'}
+                ? `Skripte für alle ${videos.length} schreiben`
+                : 'Skripte neu schreiben'}
           </button>
         )}
         {videos.length > 1 && !schreibt && (
@@ -202,7 +203,7 @@ export default function DrehtagModal({
 
         <div className="dt-zuordnen">
           <button className="btn btn-sm" onClick={() => setZuordnen((z) => !z)}>
-            {zuordnen ? '▴ Zuordnen schließen' : `＋ Video zuordnen${stand.fehlen > 0 ? ` (${stand.fehlen} fehlen)` : ''}`}
+            {zuordnen ? 'Zuordnen schließen' : `Video zuordnen${stand.fehlen > 0 ? ` (${stand.fehlen} fehlen)` : ''}`}
           </button>
           {zuordnen && (
             frei.length === 0 ? (
@@ -220,7 +221,7 @@ export default function DrehtagModal({
                         postet {new Date(v.scheduled_date + 'T00:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: 'short' })}
                       </span>
                     )}
-                    <span className="dt-frei-plus">＋</span>
+                    <span className="dt-frei-plus">+</span>
                   </button>
                 ))}
               </div>

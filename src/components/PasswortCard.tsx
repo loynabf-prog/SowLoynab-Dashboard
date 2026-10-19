@@ -27,7 +27,7 @@ export default function PasswortCard() {
     setBusy(false)
     if (error) { setFehler(error); return }
     setPw(''); setPw2(''); setOffen(false)
-    toast('Passwort geändert ✓')
+    toast('Passwort geändert')
   }
 
   return (

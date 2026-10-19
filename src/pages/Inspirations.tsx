@@ -53,7 +53,7 @@ export default function Inspirations() {
   async function assign(id: string, clientId: string | null) {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, client_id: clientId } : r)))
     await supabase.from('inspirations').update({ client_id: clientId }).eq('id', id)
-    toast(clientId ? 'Kunde zugeordnet ✓' : 'Nach „Allgemein" verschoben ✓')
+    toast(clientId ? 'Kunde zugeordnet' : 'Nach „Allgemein" verschoben')
   }
 
   const gefiltert = useMemo(() => {
@@ -82,7 +82,7 @@ export default function Inspirations() {
     <>
       <div className="page-head">
         <div>
-          <h1>Inspirationen 🔖</h1>
+          <h1>Inspirationen</h1>
           <span className="sub">
             {loading ? 'Lade …' : `${rows.length} gemerkte ${rows.length === 1 ? 'Video' : 'Videos'}`}
           </span>
@@ -98,14 +98,14 @@ export default function Inspirations() {
 
       {fehlt && (
         <div className="warn-box" style={{ marginBottom: 16 }}>
-          ⚠ Dafür fehlt noch eine Ergänzung in der Datenbank. Bitte am PC im Supabase
+          Dafür fehlt noch eine Ergänzung in der Datenbank. Bitte am PC im Supabase
           SQL-Editor einmal das Skript <strong>ALLES_offen_20-23.sql</strong> ausführen —
           danach ist der Bereich sofort da.
         </div>
       )}
 
       <div className="toolbar-row">
-        <input className="search-input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="🔎 Inspiration suchen …" />
+        <input className="search-input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Inspiration suchen …" />
         <select value={filter} onChange={(e) => setFilter(e.target.value)} style={{ maxWidth: 220 }}>
           <option value="">Alle</option>
           <option value={ALLGEMEIN}>Allgemein (ohne Kunde)</option>
@@ -116,7 +116,7 @@ export default function Inspirations() {
       {!loading && rows.length === 0 && !fehlt && (
         <div className="col-empty" style={{ padding: 30 }}>
           Noch nichts gemerkt. Wenn dir ein Video über den Weg läuft, das ihr so ähnlich machen
-          wollt: Link kopieren, oben auf „+ Inspiration“. 🔖
+          wollt: Link kopieren, oben auf „+ Inspiration“. 
         </div>
       )}
 

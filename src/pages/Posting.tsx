@@ -161,14 +161,14 @@ export default function Posting() {
     celebrate()
     const fehler = await alsGepostet(v, zeit)
     if (fehler) { toast('Konnte nicht speichern: ' + fehler); laden(); return }
-    toast('Gepostet — stark! 🎉')
+    toast('Gepostet — stark!')
   }
 
   async function link(v: TagVideo, feld: LinkFeld, url: string) {
     setVideos((prev) => prev.map((x) => (x.id === v.id ? { ...x, [feld]: url } : x)))
     const fehler = await linkSetzen(v.id, feld, url)
     if (fehler) { toast('Konnte nicht speichern: ' + fehler); laden(); return }
-    toast(fehlendeLinks({ ...v, [feld]: url }).length === 0 ? 'Alle Links drin — erledigt ✓' : 'Gespeichert ✓')
+    toast(fehlendeLinks({ ...v, [feld]: url }).length === 0 ? 'Alle Links drin — erledigt' : 'Gespeichert')
   }
 
   async function vorarbeit(v: TagVideo, key: VorarbeitKey, wert: boolean) {
@@ -181,7 +181,7 @@ export default function Posting() {
     const fehler = await terminSetzen(v.id, datum)
     if (fehler) { toast('Konnte nicht verschieben: ' + fehler); return }
     setVideos((prev) => prev.map((x) => (x.id === v.id ? { ...x, scheduled_date: datum } : x)))
-    toast(`Verschoben auf ${wochentag(datum)} ✓`)
+    toast(`Verschoben auf ${wochentag(datum)}`)
   }
 
   function zeile(v: TagVideo, zeigeDatum = false) {

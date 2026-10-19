@@ -28,6 +28,6 @@ describe('ARTEN', () => {
   })
   it('liefert zu jedem Wert etwas Anzeigbares', () => {
     expect(artInfo('referenz').titel).toBe('Ehrenamt & Referenzen')
-    expect(artInfo(null).icon).toBe('💶')
+    expect(artInfo(null).kurz).toBe('Zahlend')
   })
 })

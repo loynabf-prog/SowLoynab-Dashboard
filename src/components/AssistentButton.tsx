@@ -33,7 +33,7 @@ export default function AssistentButton() {
         aria-label="Assistent"
         title="Sag, was passieren soll — der Assistent legt es an"
       >
-        ✨
+        
       </button>
       {offen && (
         <AssistentPanel

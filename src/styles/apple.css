@@ -1,0 +1,525 @@
+/* ============================================================================
+   APPLE — die letzte Schicht. Wird nach allem anderen geladen und gewinnt.
+   ============================================================================
+   Regeln (bitte halten, sonst wird es wieder bunt):
+   - Nur hell. Kein Dunkelmodus.
+   - Hintergrund Systemgrau, Inhalte auf weissen Flaechen ohne Rahmen.
+   - Genau EINE Akzentfarbe: Glut-Orange -- fuer alles, was man antippen kann.
+     Rot/Gelb/Gruen nur als kleiner Status (Punkt oder Text), nie als Flaeche
+     oder Seitenstreifen.
+   - Keine Emojis in der Oberflaeche. Symbole kommen aus lucide.
+   - Knoepfe: "gefuellt" (Orange) fuer die eine Hauptaktion, "getoent"
+     (helles Orange) fuer Nebenaktionen, "schlicht" (nur Text) fuer den Rest.
+   - Felder: gefuellt grau, ohne Rahmen, wie in iOS.
+   ========================================================================== */
+
+:root {
+  color-scheme: light only;
+
+  --bg:            #f5f5f7;
+  --bg-elev:       #ffffff;
+  --bg-card:       #ffffff;
+  --bg-card-hover: #fafafa;
+  --bg-sunken:     #f0f0f2;
+  --fill:          rgba(118, 118, 128, 0.12);
+  --fill-2:        rgba(118, 118, 128, 0.08);
+  --border:        rgba(0, 0, 0, 0.06);
+  --border-strong: rgba(0, 0, 0, 0.1);
+  --sep:           rgba(60, 60, 67, 0.12);
+
+  --text:       #1d1d1f;
+  --text-muted: #6e6e73;
+  --text-dim:   #86868b;
+
+  --akzent:      #ff6a1f;
+  --akzent-tief: #f05a0e;
+  --akzent-soft: rgba(255, 106, 31, 0.1);
+  --glut:        var(--akzent);
+  --glut-soft:   var(--akzent-soft);
+
+  --ink:    var(--akzent);
+  --on-ink: #ffffff;
+  --brand:       var(--akzent);
+  --brand-light: #ff8a4d;
+  --brand-deep:  var(--akzent-tief);
+  --brand-glow:  rgba(255, 106, 31, 0.2);
+  --gold:        var(--text-dim);
+  --gold-soft:   var(--sep);
+
+  --rot:   #ff3b30;
+  --gelb:  #ff9500;
+  --gruen: #34c759;
+  --danger: var(--rot);
+  --todo:    #aeaeb2;
+  --ready:   var(--gelb);
+  --planned: var(--akzent);
+  --posted:  var(--gruen);
+
+  --radius:    18px;
+  --radius-lg: 24px;
+  --radius-sm: 12px;
+  --shadow-sm: none;
+  --shadow:    0 2px 12px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.14);
+  --hairline:  0.5px solid var(--sep);
+
+  --font-head: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', system-ui, sans-serif;
+  --font-body: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+}
+
+html, body { background: var(--bg); }
+body {
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.45;
+  letter-spacing: -0.011em;
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3, h4 { font-family: var(--font-head); color: var(--text); letter-spacing: -0.022em; }
+a { color: var(--akzent); }
+a:hover { text-decoration: none; opacity: 0.8; }
+::selection { background: var(--akzent-soft); }
+.muted, .sub { color: var(--text-muted); }
+
+/* Ruhige, kurze Bewegung -- nichts springt, nichts glaenzt */
+.page { animation: aSeite 0.28s cubic-bezier(0.25, 0.1, 0.25, 1) both; }
+@keyframes aSeite { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.tile-in, .fin-tile, .logo-tile, .video-card, .lead-card, .task-item { animation: none !important; }
+
+/* ============================================================================
+   Seitenkopf: grosser Titel wie in iOS
+   ========================================================================== */
+.page-head {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 12px;
+  margin: 6px 0 22px; padding: 0; border: none; background: none;
+}
+.page-head h1 {
+  font-size: 34px; line-height: 1.1; font-weight: 700; letter-spacing: -0.028em; margin: 0;
+}
+.page-head .sub { display: block; margin-top: 4px; font-size: 15px; color: var(--text-muted); font-weight: 400; }
+.page-head .btn { margin-left: auto; }
+.page-head .btn + .btn { margin-left: 0; }
+
+.h-datum { font-size: 15px; font-weight: 600; color: var(--text-muted); text-transform: none; letter-spacing: -0.01em; }
+.h-gruss { font-size: 34px; font-weight: 700; letter-spacing: -0.028em; margin: 2px 0 22px; }
+
+/* ============================================================================
+   Knoepfe
+   ========================================================================== */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 40px; padding: 0 18px;
+  border: none !important; border-radius: 999px;
+  background: var(--fill-2); color: var(--text);
+  font-family: var(--font-body); font-size: 15px; font-weight: 600; letter-spacing: -0.01em;
+  box-shadow: none !important; transform: none !important; filter: none !important;
+  transition: opacity 0.15s ease, background 0.15s ease;
+  white-space: nowrap;
+}
+.btn:hover { background: var(--fill); opacity: 1; }
+.btn:active { opacity: 0.6; }
+.btn:disabled { opacity: 0.35; }
+.btn svg { width: 17px; height: 17px; }
+
+.btn-primary, .btn-primary:hover { background: var(--akzent) !important; color: #fff !important; }
+.btn-primary:hover { background: var(--akzent-tief) !important; }
+
+.btn-ghost, .btn-ghost:hover { background: transparent; color: var(--akzent); }
+.btn-ghost:hover { background: var(--akzent-soft); }
+
+.btn-danger, .btn-danger:hover { background: transparent; color: var(--rot); }
+.btn-danger:hover { background: rgba(255, 59, 48, 0.08); }
+
+.btn-sm { min-height: 32px; padding: 0 13px; font-size: 14px; }
+.btn-sm svg { width: 15px; height: 15px; }
+
+/* Der eine Knopf in einer Listenzeile */
+.n-tun {
+  background: var(--fill-2); color: var(--text);
+  padding: 7px 14px; font-size: 14px; font-weight: 600;
+}
+.n-tun.stark { background: var(--akzent); color: #fff; }
+.n-tun.glut { background: var(--akzent); color: #fff; }
+
+/* ============================================================================
+   Felder
+   ========================================================================== */
+input, textarea, select {
+  font-family: var(--font-body); font-size: 16px; color: var(--text);
+  background: var(--fill-2); border: none !important; border-radius: 12px;
+  padding: 11px 14px; box-shadow: none;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+input::placeholder, textarea::placeholder { color: var(--text-dim); }
+input:focus, textarea:focus, select:focus {
+  background: #fff; box-shadow: 0 0 0 3px var(--akzent-soft), 0 0 0 1px var(--akzent) inset;
+}
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]), select { height: 44px; }
+input[type="checkbox"], input[type="radio"] { accent-color: var(--akzent); background: none; }
+select {
+  -webkit-appearance: none; appearance: none; padding-right: 34px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2386868b' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 13px center;
+}
+label {
+  font-size: 13px; font-weight: 500; text-transform: none; letter-spacing: -0.005em;
+  color: var(--text-muted); margin: 0 0 6px 4px;
+}
+.search-input { background: var(--fill); }
+.filter-select { width: auto; min-width: 0; }
+
+/* ============================================================================
+   Segment-Umschalter (iOS)
+   ========================================================================== */
+.seg, .n-segment, .cal-views {
+  display: inline-flex; gap: 0; padding: 2px; border: none !important;
+  background: var(--fill) !important; border-radius: 10px; box-shadow: none !important;
+}
+.seg-btn, .n-segment button, .cal-views button {
+  flex: 1; min-height: 30px; padding: 0 14px; border: none !important; border-radius: 8px;
+  background: transparent !important; color: var(--text) !important; box-shadow: none !important;
+  font-size: 13.5px; font-weight: 500; white-space: nowrap; cursor: pointer;
+}
+.seg-btn.on, .n-segment button.on, .cal-views button.on {
+  background: #fff !important; font-weight: 600;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12), 0 3px 1px rgba(0, 0, 0, 0.04) !important;
+}
+
+/* ============================================================================
+   Flaechen: Karten ohne Rahmen, weich
+   ========================================================================== */
+.card, .settings-card, .section-block, .info-card, .fin-tile, .inv-row, .lead-card,
+.task-item, .video-card, .logo-tile, .upcoming, .stats-head, .contract-card, .perf-table,
+.pipe-col, .col, .board-col, .cal-wrap, .cal-agenda, .agenda-col {
+  border: none !important;
+  box-shadow: none !important;
+  background-image: none !important;
+}
+.card, .settings-card, .section-block, .info-card, .fin-tile, .inv-row, .upcoming,
+.stats-head, .contract-card {
+  background: var(--bg-card) !important; border-radius: var(--radius) !important;
+}
+.card::before, .card::after, .logo-tile::before, .logo-tile::after,
+.fin-tile::before, .fin-tile::after, .video-card::before, .pipe-col::before,
+.board-col::before, .col::before { display: none !important; }
+
+/* Abschnittstitel: gross und ruhig, ohne Haken und Linien */
+.section-title {
+  font-family: var(--font-head); font-size: 20px; font-weight: 700; letter-spacing: -0.022em;
+  color: var(--text); text-transform: none; margin: 28px 4px 10px; border: none; padding: 0;
+}
+.section-title::before, .section-title::after { display: none !important; }
+.section-divider { border: none; height: 0; margin: 20px 0; }
+
+/* Hinweise: kein Kasten mit Rahmen, sondern ruhige Flaeche */
+.info-box, .warn-box, .error-box {
+  border: none !important; border-radius: 14px; padding: 12px 14px; font-size: 14.5px;
+  box-shadow: none !important;
+}
+.info-box { background: var(--fill-2) !important; color: var(--text-muted) !important; }
+.warn-box { background: rgba(255, 149, 0, 0.1) !important; color: #8a5300 !important; }
+.error-box { background: rgba(255, 59, 48, 0.08) !important; color: #c4271d !important; }
+
+.col-empty, .n-leer, .empty-state {
+  color: var(--text-dim); font-size: 15px; text-align: center; padding: 28px 16px;
+  border: none !important; background: none !important;
+}
+
+/* Chips / Pillen: klein, getoent, nie laut */
+.chip, .status-pill, .inv-badge, .cat-tag, .quota-chip, .gap-chip, .ruhe-chip, .contract-chip, .lead-source {
+  display: inline-flex; align-items: center; gap: 4px;
+  border: none !important; box-shadow: none !important;
+  border-radius: 999px; padding: 2px 9px; font-size: 12.5px; font-weight: 600; letter-spacing: -0.005em;
+  background: var(--fill-2) !important; color: var(--text-muted) !important;
+}
+
+/* ============================================================================
+   Kennzahl-Kacheln (Finanzen, Rechnungen, Analyse)
+   ========================================================================== */
+.fin-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 22px; }
+.fin-tile { padding: 16px 18px !important; }
+.fin-label { font-size: 13px; font-weight: 500; text-transform: none; letter-spacing: -0.005em; color: var(--text-muted); }
+.fin-value { font-family: var(--font-head); font-size: 26px; font-weight: 700; letter-spacing: -0.025em; color: var(--text); margin-top: 2px; font-variant-numeric: tabular-nums; }
+.fin-sub { font-size: 13px; color: var(--text-dim); }
+
+/* ============================================================================
+   Listen ohne bunte Seitenstreifen
+   ========================================================================== */
+.task-list, .inv-list { display: flex; flex-direction: column; gap: 0; background: var(--bg-card); border-radius: var(--radius); overflow: hidden; }
+.task-item, .inv-row {
+  border-left: none !important; border-radius: 0 !important; margin: 0 !important;
+  background: var(--bg-card) !important; position: relative;
+}
+.task-list > .task-item + .task-item::before, .task-list > * + * .task-item::before,
+.inv-list > .inv-row + .inv-row::before {
+  content: ''; position: absolute; top: 0; left: 52px; right: 0; border-top: 0.5px solid var(--sep);
+}
+.inv-list > .inv-row + .inv-row::before { left: 18px; }
+.task-item { padding: 13px 16px 13px 14px !important; }
+.task-check {
+  width: 24px !important; height: 24px !important; border-radius: 50% !important;
+  border: 1.6px solid #c7c7cc !important; background: transparent !important;
+}
+.task-check.on { background: var(--akzent) !important; border-color: var(--akzent) !important; }
+.task-title { font-size: 16px; font-weight: 500; color: var(--text); }
+.task-meta { font-size: 13px; color: var(--text-muted); gap: 8px; }
+.prio-head, .prio-group > .prio-head {
+  font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: none; letter-spacing: -0.005em;
+  margin: 22px 4px 8px;
+}
+.prio-count { background: none !important; color: var(--text-dim) !important; font-weight: 500; }
+
+/* Rechnungen */
+.inv-row { padding: 14px 18px !important; }
+.inv-number { font-weight: 600; font-size: 16px; }
+.inv-amount { font-family: var(--font-head); font-weight: 700; font-size: 18px; font-variant-numeric: tabular-nums; }
+.inv-actions { gap: 4px; }
+
+/* ============================================================================
+   Spalten (Leads, Board) -- ruhig, grau, Karten weiss
+   ========================================================================== */
+.pipe-col, .board-col, .col {
+  background: var(--fill-2) !important; border-radius: var(--radius) !important;
+}
+.pipe-head { font-size: 15px; font-weight: 600; text-transform: none; letter-spacing: -0.01em; }
+.col-count { background: none !important; color: var(--text-dim) !important; font-weight: 500; border: none !important; }
+.lead-card, .video-card {
+  background: var(--bg-card) !important; border-radius: 14px !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+}
+.lead-name { font-size: 16px; font-weight: 600; }
+.lead-fee { color: var(--text) !important; font-weight: 600; }
+
+/* ============================================================================
+   Modale: Blatt wie in iOS
+   ========================================================================== */
+.modal-backdrop {
+  background: rgba(0, 0, 0, 0.32) !important;
+  backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+}
+.modal {
+  background: var(--bg) !important; border: none !important; border-radius: 22px !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+.modal h2, .modal-head h2, .modal > h2 { font-size: 22px; font-weight: 700; letter-spacing: -0.022em; }
+.modal input, .modal textarea, .modal select { background: #fff; }
+.modal input:focus, .modal textarea:focus, .modal select:focus { background: #fff; }
+.modal-actions { gap: 10px; border: none !important; padding-top: 6px; }
+.modal-actions .btn { min-height: 46px; padding: 0 22px; font-size: 16px; }
+/* Am Handy: Blatt von unten, wie in iOS */
+@media (max-width: 640px) {
+  .modal-backdrop { padding: 48px 0 0 !important; }
+  .modal {
+    max-width: none !important; margin: auto 0 0 !important;
+    border-radius: 22px 22px 0 0 !important;
+    padding: 22px 18px calc(22px + env(safe-area-inset-bottom)) !important;
+    animation: aBlatt 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both !important;
+  }
+}
+@keyframes aBlatt { from { transform: translateY(60px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* ============================================================================
+   Toasts: dunkle Kapsel unten, wie iOS-Hinweise
+   ========================================================================== */
+.toast {
+  background: rgba(29, 29, 31, 0.92) !important; color: #fff !important;
+  border: none !important; border-radius: 999px !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2) !important;
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  font-size: 15px; font-weight: 500; padding: 12px 20px !important;
+}
+.toast-action { color: #ff9a62 !important; background: none !important; border: none !important; font-weight: 600; }
+
+/* ============================================================================
+   Schale: Kopf, Leiste, Seitenleiste
+   ========================================================================== */
+.n-kopf {
+  background: rgba(245, 245, 247, 0.8);
+  backdrop-filter: saturate(1.8) blur(20px); -webkit-backdrop-filter: saturate(1.8) blur(20px);
+}
+.n-marke { font-size: 17px; font-weight: 600; letter-spacing: -0.022em; }
+.n-marke i { width: 26px; height: 26px; border-radius: 8px; font-size: 11px; background: var(--akzent); }
+.n-kopf-knopf { width: 36px; height: 36px; color: var(--text); }
+.n-kopf-knopf svg { width: 20px; height: 20px; }
+.n-kopf-knopf:hover { background: var(--fill-2); }
+.n-avatar { width: 32px; height: 32px; font-size: 13px; }
+
+.n-leiste {
+  background: rgba(250, 250, 252, 0.82) !important;
+  backdrop-filter: saturate(1.8) blur(24px); -webkit-backdrop-filter: saturate(1.8) blur(24px);
+  border-top: 0.5px solid rgba(0, 0, 0, 0.1);
+}
+.n-tab { color: #8e8e93; font-size: 10px; font-weight: 500; }
+.n-tab svg { width: 24px; height: 24px; }
+.n-tab.on { color: var(--akzent); }
+.n-neu {
+  width: 46px; height: 46px; background: var(--akzent); color: #fff;
+  box-shadow: 0 4px 14px rgba(255, 106, 31, 0.35);
+}
+.n-neu svg { width: 22px; height: 22px; }
+
+@media (min-width: 900px) {
+  .n-seite { background: rgba(255, 255, 255, 0.7); border-right: 0.5px solid var(--sep); }
+  .n-seite-neu { background: var(--akzent) !important; color: #fff !important; }
+  .n-seite-link { font-size: 14.5px; color: var(--text); }
+  .n-seite-link.on { background: var(--akzent-soft); color: var(--akzent); }
+}
+
+/* Gruppierte Listen (iOS-Einstellungen) */
+.n-gruppe { background: var(--bg-card); border-radius: var(--radius); box-shadow: none; }
+.n-zeile { min-height: 60px; }
+.n-ic { border-radius: 8px; width: 30px; height: 30px; }
+.n-ic svg { width: 17px; height: 17px; }
+.n-ic.tinte { background: var(--text); }
+.n-abschnitt h2 { font-size: 22px; letter-spacing: -0.024em; }
+.n-mehr-link { color: var(--akzent); background: none; border: none; font: inherit; font-size: 15px; font-weight: 500; cursor: pointer; }
+
+/* ============================================================================
+   Heute: Fokus-Karte hell, ein klarer Knopf
+   ========================================================================== */
+.h-fokus {
+  background: #fff !important; color: var(--text) !important;
+  border-radius: 24px !important; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06) !important;
+  padding: 22px !important;
+}
+.h-fokus-marke { color: var(--akzent) !important; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.h-fokus-grund { color: var(--text-muted) !important; font-weight: 500; }
+.h-fokus-grund.rot { color: var(--rot) !important; }
+.h-fokus h2 { color: var(--text) !important; font-size: 26px; font-weight: 700; letter-spacing: -0.026em; line-height: 1.15; }
+.h-fokus-wer { color: var(--text-muted) !important; font-size: 16px; }
+.h-fokus-haupt {
+  background: var(--akzent) !important; color: #fff !important; border: none !important;
+  min-height: 50px; border-radius: 14px !important; font-size: 17px; font-weight: 600;
+}
+.h-fokus-neben {
+  background: var(--fill-2) !important; color: var(--text) !important; border: none !important;
+  min-height: 50px; min-width: 50px; border-radius: 14px !important;
+}
+.h-fokus-liste { background: var(--bg) !important; }
+
+.h-ring .spur { stroke: var(--fill) !important; }
+.h-ring .wert { stroke: var(--akzent) !important; }
+.h-ring text { fill: var(--text) !important; font-weight: 700; }
+.h-ring-text strong { font-size: 19px; font-weight: 700; letter-spacing: -0.02em; }
+.h-ring-text span { color: var(--text-muted); font-size: 15px; }
+
+/* Profil-Blatt */
+.n-blatt { background: var(--bg); }
+
+/* Scrollbalken am Desktop: fein */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.15); border-radius: 10px; border: 3px solid transparent; background-clip: content-box; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* Symbole, die frueher Emojis waren und jetzt leer sind */
+.art-icon:empty, .marken-icon:empty, .acc-split-icon:empty, .cmd-icon:empty, .acc-icon:empty { display: none !important; }
+
+/* ============================================================================
+   Kunden: gruppierte Liste statt Kachelwand
+   ========================================================================== */
+.rang-block { margin-bottom: 26px; }
+.rang-block .section-title { display: flex; align-items: baseline; gap: 8px; margin: 0 4px 2px; }
+.rang-block .section-title .col-count { font-size: 15px; }
+.rang-hinweis { margin: 0 4px 10px; font-size: 14px; color: var(--text-muted); }
+.rang-block .logo-grid {
+  display: flex !important; flex-direction: column; gap: 0 !important; max-width: none !important;
+  background: var(--bg-card); border-radius: var(--radius); overflow: hidden;
+}
+.rang-block .logo-tile {
+  position: relative; display: flex !important; flex-direction: row !important; align-items: center;
+  gap: 14px !important; padding: 12px 14px 12px 16px !important; min-height: 72px;
+  background: transparent !important; border-radius: 0 !important; transform: none !important;
+  text-align: left; color: var(--text); text-decoration: none; opacity: 1 !important; filter: none !important;
+}
+.rang-block .logo-tile:hover { background: var(--bg-card-hover) !important; }
+.rang-block .logo-tile + .logo-tile::before {
+  content: ''; position: absolute; top: 0; left: 76px; right: 0; border-top: 0.5px solid var(--sep);
+}
+.rang-block .logo-frame {
+  flex: none; width: 46px !important; height: 46px !important; border-radius: 12px !important;
+  border: 0.5px solid var(--sep) !important; box-shadow: none !important; background: #fff;
+  margin: 0 !important; font-size: 16px;
+}
+.rang-block .tile-body { flex: 1; min-width: 0; text-align: left; }
+.rang-block .tile-name { font-size: 17px; font-weight: 600; letter-spacing: -0.02em; text-align: left; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rang-block .tile-meta {
+  display: block !important; font-size: 14px; color: var(--text-muted); text-align: left; margin-top: 1px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.rang-block .tile-meta > span {
+  display: inline !important; background: none !important; padding: 0 !important; border-radius: 0;
+  font-size: 14px !important; font-weight: 400 !important; color: var(--text-muted) !important;
+}
+.rang-block .tile-meta > span + span::before { content: ' · '; color: var(--text-dim); }
+.rang-block .tile-meta .gap-chip, .rang-block .tile-meta .contract-chip.expired { color: var(--akzent) !important; font-weight: 500 !important; }
+.tile-chevron { flex: none; color: #c4c4c7; }
+.art-passiv .logo-tile { opacity: 0.55 !important; }
+.marken-filter { margin-bottom: 18px; }
+/* Initialen ohne Logo: neutral wie in Apple Kontakte, nicht orange */
+.logo-fallback {
+  width: 100%; height: 100%; display: grid; place-items: center;
+  background: linear-gradient(180deg, #b4b4b9, #98989d) !important; color: #fff !important;
+  font-family: var(--font-head); font-weight: 600 !important; letter-spacing: 0.01em;
+}
+.rang-block .logo-fallback { font-size: 16px !important; }
+.logo-frame { overflow: hidden; }
+.art-referenz .section-title, .art-passiv .section-title { opacity: 1 !important; color: var(--text) !important; }
+
+/* ============================================================================
+   Kundenseite
+   ========================================================================== */
+.monatsleiste {
+  margin: 0 0 12px !important; padding: 14px 16px !important; border: none !important;
+  border-radius: var(--radius) !important; background: var(--bg-card) !important; font-size: 15px;
+}
+.ml-teil strong { font-size: 17px; }
+.ml-luecke {
+  border: none !important; background: var(--akzent-soft) !important; color: var(--akzent) !important;
+  padding: 7px 14px !important; font-size: 14px !important;
+}
+.ml-luecke:hover { background: var(--akzent) !important; color: #fff !important; }
+.client-cockpit {
+  background: var(--bg-card) !important; border: none !important; box-shadow: none !important;
+  padding: 16px !important; gap: 16px !important;
+}
+.contact-bar { gap: 8px !important; }
+.contact-btn {
+  flex-direction: column; gap: 3px !important; min-width: 62px; padding: 8px 6px 6px !important;
+  border: none !important; border-radius: 12px !important; background: var(--fill-2) !important;
+  color: var(--akzent) !important; transform: none !important; box-shadow: none !important;
+}
+.contact-btn-label { display: block !important; font-size: 11px; font-weight: 500; color: var(--akzent); }
+.contact-btn:hover { background: var(--fill) !important; }
+
+/* Board-Spalten */
+.board-col > .col-head, .col-head {
+  background: none !important; border: none !important; padding: 4px 6px 8px !important;
+  font-size: 15px; font-weight: 600; letter-spacing: -0.01em; text-transform: none;
+}
+.vc-grip { background: none !important; border: none !important; box-shadow: none !important; color: #c7c7cc; }
+.col-more {
+  border: none !important; background: none !important; color: var(--akzent) !important;
+  font-weight: 500; font-size: 15px; padding: 8px !important;
+}
+.col-more-rest { background: none !important; color: var(--text-dim) !important; }
+.mehr-klappe {
+  border: none !important; background: var(--bg-card) !important; border-radius: var(--radius) !important;
+  color: var(--text) !important; font-weight: 600; display: flex; align-items: center; gap: 8px;
+}
+.chev { vertical-align: -3px; flex: none; }
+.vc-toggle { background: none !important; border: none !important; color: var(--text-dim) !important; }
+
+/* Team: Bereiche-Schalter ruhig */
+.cat-chip { border: none !important; box-shadow: none !important; background: var(--fill-2) !important; color: var(--text-muted) !important; }
+.cat-chip.on { background: var(--akzent-soft) !important; color: var(--akzent) !important; }
+.bereich-chips .ps-schritt { border: none !important; box-shadow: none !important; background: var(--fill-2) !important; color: var(--text-muted) !important; }
+.bereich-chips .ps-schritt.on, .bereich-chips .ps-schritt.fertig, .bereich-chips .ps-schritt.an { background: var(--akzent-soft) !important; color: var(--akzent) !important; }
+.team-row { flex-wrap: wrap; row-gap: 10px; background: var(--bg-card) !important; border: none !important; box-shadow: none !important; border-radius: var(--radius) !important; }
+.team-colors { flex-wrap: wrap; }
+.fin-value { color: var(--text) !important; }
+.h-fokus-oben { flex-direction: column; align-items: flex-start !important; gap: 6px !important; margin-bottom: 10px !important; }
+.h-fokus-grund { margin-left: 0 !important; text-align: left !important; font-size: 15px !important; }
+.n-grund { white-space: normal !important; font-size: 14px; }
+.n-ic.tinte { background: #1d1d1f !important; color: #fff !important; }
+.p-tag.on, .medien-chip.on, .n-chips > button.on { box-shadow: 0 4px 12px rgba(255, 106, 31, 0.3); }

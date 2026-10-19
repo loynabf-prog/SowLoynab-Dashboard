@@ -9,6 +9,7 @@
 // KI-Briefing).
 
 import { PLATTFORMEN, accountName, normHandle, type AccountEntwurf, type Plattform } from '../lib/accounts'
+import { Music, Camera, Plus } from 'lucide-react'
 import type { ChannelEntwurf } from '../lib/channels'
 
 export default function AccountsEditor({
@@ -71,7 +72,7 @@ export default function AccountsEditor({
           const haupt = entwuerfe.findIndex((x) => x.platform === e.platform) === i
           return (
             <div className={`acc-zeile ${doppelt ? 'doppelt' : ''}`} key={i}>
-              <span className="acc-icon" title={info.name}>{info.icon}</span>
+              <span className="acc-icon" title={info.name}>{info.wert === 'tiktok' ? <Music size={16} /> : <Camera size={16} />}</span>
               <div className="acc-felder">
                 <input
                   className="acc-handle"
@@ -110,7 +111,7 @@ export default function AccountsEditor({
                 </span>
               )}
               <button type="button" className="acc-weg" onClick={() => raus(i)} aria-label={`${accountName({ label: e.label, handle: h || '…' })} entfernen`}>
-                ✕
+                
               </button>
             </div>
           )
@@ -120,7 +121,7 @@ export default function AccountsEditor({
       <div className="acc-dazu">
         {PLATTFORMEN.map((p) => (
           <button type="button" key={p.wert} className="btn btn-sm btn-ghost" onClick={() => dazu(p.wert)}>
-            ＋ {p.icon} {p.name}
+            <Plus size={15} /> {p.name}
           </button>
         ))}
       </div>

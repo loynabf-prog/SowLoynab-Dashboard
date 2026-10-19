@@ -156,7 +156,7 @@ export default function Leads() {
         </div>
         <div className="spacer" />
         <button className="btn" onClick={() => setMapsOpen(true)}>
-          🗺️ Google Maps
+          Google Maps
         </button>
         <button className="btn btn-primary" onClick={() => setCreating(true)}>
           + Lead
@@ -168,7 +168,7 @@ export default function Leads() {
           className="search-input"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="🔎 Lead suchen (Name, Ort, Kontakt …)"
+          placeholder="Lead suchen (Name, Ort, Kontakt …)"
         />
         <select value={filterMember} onChange={(e) => setFilterMember(e.target.value)} className="filter-select">
           <option value="">Alle Zuständigen</option>
@@ -181,7 +181,7 @@ export default function Leads() {
             className={`btn ${filterMember === memberId ? 'btn-primary' : ''}`}
             onClick={() => setFilterMember(filterMember === memberId ? '' : memberId)}
           >
-            🙋 Nur meine
+            Nur meine
           </button>
         )}
       </div>
@@ -236,13 +236,13 @@ export default function Leads() {
                           {[l.city, l.contact_person].filter(Boolean).join(' · ')}
                         </div>
                       )}
-                      {l.source && <span className="chip lead-source">📥 {l.source}</span>}
+                      {l.source && <span className="chip lead-source">{l.source}</span>}
                       {l.potential_fee != null && (
                         <div className="lead-fee">{euro(l.potential_fee)}/Mon.</div>
                       )}
                       {l.next_followup && (
                         <div className={`lead-followup ${fu.overdue ? 'overdue' : fu.soon ? 'soon' : ''}`}>
-                          ⏰ Follow-up: {fu.text}
+                          Follow-up: {fu.text}
                         </div>
                       )}
 
@@ -275,7 +275,7 @@ export default function Leads() {
                         )}
                         <div className="spacer" />
                         <button className="btn btn-sm btn-danger" onClick={() => deleteLead(l.id)}>
-                          ✕
+                          
                         </button>
                       </div>
                     </div>
@@ -300,7 +300,7 @@ export default function Leads() {
             setCreating(false)
             setEditing(null)
             load()
-            toast('Gespeichert ✓')
+            toast('Gespeichert')
           }}
         />
       )}
@@ -312,7 +312,7 @@ export default function Leads() {
           onImported={(n) => {
             setMapsOpen(false)
             load()
-            toast(`${n} Leads importiert ✓`)
+            toast(`${n} Leads importiert`)
           }}
         />
       )}
@@ -413,7 +413,7 @@ function GoogleMapsSearchModal({
           city: p.city || city.trim() || null,
           stage: 'new',
           source: 'Google Maps',
-          notes: [p.category, p.address, p.rating != null ? `⭐ ${p.rating}${p.reviews != null ? ` (${p.reviews} Bewertungen)` : ''}` : null, p.mapsUrl]
+          notes: [p.category, p.address, p.rating != null ? `${p.rating}${p.reviews != null ? ` (${p.reviews} Bewertungen)` : ''}` : null, p.mapsUrl]
             .filter(Boolean)
             .join('\n'),
           created_by: userId,
@@ -428,7 +428,7 @@ function GoogleMapsSearchModal({
   }
 
   return (
-    <Modal title="🗺️ Google Maps durchsuchen" onClose={onClose}>
+    <Modal title="Google Maps durchsuchen" onClose={onClose}>
       <div className="stack">
         {error && <div className="error-box">{error}</div>}
 
@@ -463,7 +463,7 @@ function GoogleMapsSearchModal({
             <div className="modal-actions">
               <button type="button" className="btn btn-ghost" onClick={onClose}>Abbrechen</button>
               <button type="button" className="btn btn-primary" onClick={runSearch} disabled={busy || !category.trim()}>
-                {busy ? 'Suche läuft …' : '🔍 Suchen'}
+                {busy ? 'Suche läuft …' : 'Suchen'}
               </button>
             </div>
           </>
@@ -481,7 +481,7 @@ function GoogleMapsSearchModal({
                       {isDuplicate(p.name) && <span className="muted"> · bereits vorhanden</span>}
                     </span>
                     <span className="ai-idea-notes">
-                      {[p.category, p.address, p.rating != null ? `⭐ ${p.rating}` : null].filter(Boolean).join(' · ')}
+                      {[p.category, p.address, p.rating != null ? `${p.rating}` : null].filter(Boolean).join(' · ')}
                     </span>
                   </span>
                 </label>

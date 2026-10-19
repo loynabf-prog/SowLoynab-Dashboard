@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { X } from 'lucide-react'
 import { subscribeUpdate } from '../lib/swUpdate'
 
 // Dezente Leiste unten: „Neue Version verfügbar → Aktualisieren".
@@ -14,7 +15,7 @@ export default function UpdatePrompt() {
       <span className="update-dot" />
       <span className="update-text">Neue Version verfügbar</span>
       <button className="btn btn-sm btn-primary" onClick={() => window.location.reload()}>Aktualisieren</button>
-      <button className="update-x" onClick={() => setShow(false)} aria-label="später">✕</button>
+      <button className="update-x" onClick={() => setShow(false)} aria-label="später"><X size={16} strokeWidth={2.4} /></button>
     </div>
   )
 }

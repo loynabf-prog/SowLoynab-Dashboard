@@ -20,7 +20,6 @@ export default class ErrorBoundary extends Component<{ children: ReactNode }, St
       return (
         <div className="center" style={{ minHeight: '100vh', padding: 24 }}>
           <div className="login-card" style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 34, marginBottom: 8 }}>🛟</div>
             <h1 style={{ marginBottom: 8 }}>Kurz was schiefgelaufen</h1>
             <p className="muted" style={{ marginBottom: 18 }}>
               Kein Grund zur Sorge — deine Daten sind sicher. Lade die Seite einfach neu.

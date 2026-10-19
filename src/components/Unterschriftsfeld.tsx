@@ -99,7 +99,7 @@ export default function Unterschriftsfeld({ onChange, disabled }: Unterschriftsf
         <span className="unterschrift-linie" />
       </div>
       <div className="unterschrift-leiste">
-        <span className="muted">{leer ? 'Noch nichts gezeichnet' : 'Unterschrift erfasst ✓'}</span>
+        <span className="muted">{leer ? 'Noch nichts gezeichnet' : 'Unterschrift erfasst'}</span>
         <div className="spacer" />
         <button type="button" className="btn btn-sm" onClick={leeren} disabled={leer || disabled}>
           Nochmal

@@ -8,6 +8,7 @@
 // man nichts tun muss.
 
 import { useEffect, useState } from 'react'
+import { Camera, Briefcase, Trophy, Users } from 'lucide-react'
 import Modal from './Modal'
 import { supabase } from '../lib/supabase'
 import { useTeam } from '../context/TeamContext'
@@ -15,10 +16,10 @@ import type { CalEventRow, EventKind } from '../lib/types'
 import { heute } from '../lib/datum'
 
 const ARTEN: { key: EventKind; icon: string; label: string; hinweis: string }[] = [
-  { key: 'dreh', icon: '🎥', label: 'Drehtag', hinweis: 'Der Tag, an dem gedreht wird. Dazu kommen die Videos und ihre Skripte.' },
-  { key: 'termin', icon: '📍', label: 'Termin', hinweis: 'Gespräch, Kennenlernen, Abstimmung — alles ohne Kamera.' },
-  { key: 'arbeit', icon: '💼', label: 'Arbeitszeit', hinweis: 'Hauptjob, Schicht — da geht nichts anderes.' },
-  { key: 'spiel', icon: '⚽', label: 'Spiel', hinweis: 'Spielplan, Training.' },
+  { key: 'dreh', icon: '', label: 'Drehtag', hinweis: 'Der Tag, an dem gedreht wird. Dazu kommen die Videos und ihre Skripte.' },
+  { key: 'termin', icon: '', label: 'Termin', hinweis: 'Gespräch, Kennenlernen, Abstimmung — alles ohne Kamera.' },
+  { key: 'arbeit', icon: '', label: 'Arbeitszeit', hinweis: 'Hauptjob, Schicht — da geht nichts anderes.' },
+  { key: 'spiel', icon: '', label: 'Spiel', hinweis: 'Spielplan, Training.' },
 ]
 
 export default function TerminModal({
@@ -116,7 +117,7 @@ export default function TerminModal({
                 className={`art-btn ${kind === a.key ? 'on' : ''}`}
                 onClick={() => setKind(a.key)}
               >
-                <span className="art-icon">{a.icon}</span>
+                <span className="art-icon">{a.key === 'dreh' ? <Camera size={18} /> : a.key === 'arbeit' ? <Briefcase size={18} /> : a.key === 'spiel' ? <Trophy size={18} /> : <Users size={18} />}</span>
                 <span className="art-name">{a.label}</span>
               </button>
             ))}

@@ -177,7 +177,7 @@ export default function Overview() {
       .in('id', ohne.map((x) => x.id))
     if (e2) { toast('Drehtag angelegt, Videos nicht verknüpft: ' + e2.message); laden(); return }
     setPlanen(null)
-    toast(`Drehtag am ${new Date(datum + 'T12:00:00').toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric' })} · ${ohne.length} Videos dran ✓`)
+    toast(`Drehtag am ${new Date(datum + 'T12:00:00').toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric' })} · ${ohne.length} Videos dran`)
     window.dispatchEvent(new Event('daten-geaendert'))
   }
 
@@ -195,7 +195,7 @@ export default function Overview() {
       const { error } = await supabase.from('tasks').update({ done: true }).eq('id', p.id)
       if (error) { toast('Konnte nicht speichern: ' + error.message); laden(); return }
       setErledigtDb((n) => n + 1)
-      toast('Erledigt ✓')
+      toast('Erledigt')
       return
     }
 
@@ -217,7 +217,7 @@ export default function Overview() {
       setVideos((prev) => prev.map((x) => (x.id === p.id ? { ...x, ...patch } : x)))
       haekchenPlus(tag)
       setHaken((n) => n + 1)
-      toast(`${was.label} ✓`)
+      toast(`${was.label}`)
     }
   }
 
@@ -271,7 +271,7 @@ export default function Overview() {
                 strokeDashoffset={UMFANG * (1 - anteil)}
                 transform="rotate(-90 32 32)"
               />
-              <text x="32" y="38" textAnchor="middle">{tagPlan.ruhig && !tagPlan.geschafft ? '✓' : tagPlan.geschafft}</text>
+              <text x="32" y="38" textAnchor="middle">{tagPlan.ruhig && !tagPlan.geschafft ? '' : tagPlan.geschafft}</text>
             </svg>
             <div className="h-ring-text">
               <strong>{satz.oben}</strong>

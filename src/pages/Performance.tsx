@@ -49,7 +49,7 @@ export default function Performance() {
     const num = value.trim() === '' ? null : Number(value.replace(/[^\d]/g, ''))
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: num } : r)))
     const { error } = await supabase.from('videos').update({ [field]: num }).eq('id', id)
-    if (!error) toast('Gespeichert ✓')
+    if (!error) toast('Gespeichert')
   }
 
   const shown = onlyOpen ? rows.filter((r) => r.reach == null) : rows
@@ -64,25 +64,25 @@ export default function Performance() {
         </div>
         <div className="spacer" />
         <button className={`btn ${onlyOpen ? 'btn-primary' : ''}`} onClick={() => setOnlyOpen((o) => !o)}>
-          {onlyOpen ? '✓ Nur offene' : 'Nur offene'}
+          {onlyOpen ? 'Nur offene' : 'Nur offene'}
         </button>
       </div>
 
       <div className="info-box" style={{ marginBottom: 16 }}>
-        💡 Trag die Zahlen aus Instagram/TikTok-Insights hier ein — <strong>Reichweite</strong> ist das Wichtigste.
+        Trag die Zahlen aus Instagram/TikTok-Insights hier ein — <strong>Reichweite</strong> ist das Wichtigste.
         Speichert automatisch. Am besten einmal pro Woche durchgehen.
       </div>
 
-      {!loading && shown.length === 0 && <div className="col-empty">{onlyOpen ? 'Alles erfasst. 🎉' : 'Noch keine geposteten Videos.'}</div>}
+      {!loading && shown.length === 0 && <div className="col-empty">{onlyOpen ? 'Alles erfasst.' : 'Noch keine geposteten Videos.'}</div>}
 
       <div className="perf-table">
         {shown.length > 0 && (
           <div className="perf-row perf-head">
             <span className="perf-title">Video</span>
-            <span>📡 Reichweite</span>
-            <span>👁 Aufrufe</span>
-            <span>❤️ Likes</span>
-            <span>💬 Komm.</span>
+            <span>Reichweite</span>
+            <span>Aufrufe</span>
+            <span>Likes</span>
+            <span>Komm.</span>
           </div>
         )}
         {shown.map((r) => (
@@ -91,16 +91,16 @@ export default function Performance() {
               <span className="perf-vtitle">{r.title}</span>
               <span className="perf-vsub">{r.client_name} · {(r.posted_at ?? r.scheduled_date ?? '').slice(0, 10)}</span>
             </span>
-            <label className="perf-cell"><span className="perf-cell-label">📡 Reichweite</span>
+            <label className="perf-cell"><span className="perf-cell-label">Reichweite</span>
               <input inputMode="numeric" defaultValue={r.reach ?? ''} placeholder="—" className={r.reach == null ? 'perf-empty' : ''} onBlur={(e) => save(r.id, 'reach', e.target.value)} />
             </label>
-            <label className="perf-cell"><span className="perf-cell-label">👁 Aufrufe</span>
+            <label className="perf-cell"><span className="perf-cell-label">Aufrufe</span>
               <input inputMode="numeric" defaultValue={r.views ?? ''} placeholder="—" onBlur={(e) => save(r.id, 'views', e.target.value)} />
             </label>
-            <label className="perf-cell"><span className="perf-cell-label">❤️ Likes</span>
+            <label className="perf-cell"><span className="perf-cell-label">Likes</span>
               <input inputMode="numeric" defaultValue={r.likes ?? ''} placeholder="—" onBlur={(e) => save(r.id, 'likes', e.target.value)} />
             </label>
-            <label className="perf-cell"><span className="perf-cell-label">💬 Komm.</span>
+            <label className="perf-cell"><span className="perf-cell-label">Komm.</span>
               <input inputMode="numeric" defaultValue={r.comments ?? ''} placeholder="—" onBlur={(e) => save(r.id, 'comments', e.target.value)} />
             </label>
           </div>

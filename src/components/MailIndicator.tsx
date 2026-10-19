@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Mail } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
@@ -23,7 +24,7 @@ export default function MailIndicator() {
 
   return (
     <Link to="/postfach" className="mail-indicator" title="Postfach">
-      <span>✉️</span>
+      <Mail size={16} />
       {unread > 0 && <span className="mail-badge">{unread > 99 ? '99+' : unread}</span>}
     </Link>
   )

@@ -11,7 +11,7 @@ import { createPortal } from 'react-dom'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
   Sun, CalendarDays, Clapperboard, Users, Plus, Search, Sparkles, ChevronRight,
-  Moon, LogOut, Calendar, Mail, BarChart3, TrendingUp, Target, ListChecks,
+  LogOut, Calendar, Mail, BarChart3, TrendingUp, Target, ListChecks,
   ReceiptEuro, Wallet, Bookmark, UserRound, Settings, Trash2, FolderOpen,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -51,10 +51,6 @@ const FARBE: Record<string, string> = {
   '/inspirationen': 'lila', '/team': 'blau', '/einstellungen': 'grau', '/papierkorb': 'grau',
 }
 
-function readTheme(): 'light' | 'dark' {
-  try { return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light' } catch { return 'light' }
-}
-
 function aktiv(z: Ziel, pfad: string): boolean {
   if (z.end) return pfad === z.to
   return [z.to, ...(z.auch ?? [])].some((p) => pfad === p || pfad.startsWith(p + '/'))
@@ -65,30 +61,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const { memberId } = useIdentity()
   const { byId } = useTeam()
   const location = useLocation()
-  const [theme, setTheme] = useState<'light' | 'dark'>(readTheme)
   const [blatt, setBlatt] = useState(false)
 
   useEffect(() => { setBlatt(false) }, [location.pathname])
-
-  // Ohne manuelle Wahl der iPhone-Einstellung (hell/dunkel) live folgen
-  useEffect(() => {
-    const mq = window.matchMedia('(prefers-color-scheme: dark)')
-    const onChange = () => {
-      try { if (localStorage.getItem('sl-theme')) return } catch { /* ignore */ }
-      const next = mq.matches ? 'dark' : 'light'
-      setTheme(next)
-      document.documentElement.setAttribute('data-theme', next)
-    }
-    mq.addEventListener?.('change', onChange)
-    return () => mq.removeEventListener?.('change', onChange)
-  }, [])
-
-  function toggleTheme() {
-    const next = theme === 'dark' ? 'light' : 'dark'
-    setTheme(next)
-    document.documentElement.setAttribute('data-theme', next)
-    try { localStorage.setItem('sl-theme', next) } catch { /* ignore */ }
-  }
 
   const ich = memberId ? byId(memberId) : undefined
   const bereiche = sichtbareBereiche(ich?.bereiche)
@@ -96,7 +71,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const gruppen = bereiche
     .map((b) => ({ titel: b.label, seiten: b.seiten.filter((s) => !HAUPT_PFADE.includes(s.to)) }))
     .filter((g) => g.seiten.length > 0)
-  const breit = location.pathname.startsWith('/client/') || location.pathname === '/kalender' || location.pathname === '/kunden'
+  const breit = location.pathname.startsWith('/client/') || location.pathname === '/kalender'
   const animKey = location.pathname.startsWith('/client/') ? 'client' : location.pathname
 
   const neu = () => window.dispatchEvent(new Event('open-quickadd'))
@@ -165,9 +140,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       {blatt && (
         <ProfilBlatt
           gruppen={gruppen}
-          theme={theme}
           email={user?.email ?? ''}
-          onTheme={toggleTheme}
           onClose={() => setBlatt(false)}
           onSignOut={() => signOut()}
         />
@@ -191,11 +164,9 @@ function Tab({ z, pfad }: { z: Ziel; pfad: string }) {
   )
 }
 
-function ProfilBlatt({ gruppen, theme, email, onTheme, onClose, onSignOut }: {
+function ProfilBlatt({ gruppen, email, onClose, onSignOut }: {
   gruppen: { titel: string; seiten: { to: string; label: string }[] }[]
-  theme: 'light' | 'dark'
   email: string
-  onTheme: () => void
   onClose: () => void
   onSignOut: () => void
 }) {
@@ -251,10 +222,6 @@ function ProfilBlatt({ gruppen, theme, email, onTheme, onClose, onSignOut }: {
         ))}
 
         <div className="n-gruppe">
-          <button className="n-zeile" onClick={onTheme}>
-            <span className="n-ic tinte">{theme === 'dark' ? <Sun strokeWidth={2.1} /> : <Moon strokeWidth={2.1} />}</span>
-            <span className="n-text"><span className="n-titel">{theme === 'dark' ? 'Hell' : 'Dunkel'}</span></span>
-          </button>
           <button className="n-zeile" onClick={() => { onClose(); onSignOut() }}>
             <span className="n-ic rot"><LogOut strokeWidth={2.1} /></span>
             <span className="n-text"><span className="n-titel">Abmelden</span></span>

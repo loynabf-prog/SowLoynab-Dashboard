@@ -79,7 +79,7 @@ export default function ChannelEditor({
                   ))}
                 </div>
                 <button type="button" className="acc-weg" onClick={() => raus(i)} aria-label={`Kanal ${e.name || '(ohne Namen)'} entfernen`}>
-                  ✕
+                  
                 </button>
               </div>
             )
@@ -88,7 +88,7 @@ export default function ChannelEditor({
       )}
 
       <div className="acc-dazu">
-        <button type="button" className="btn btn-sm btn-ghost" onClick={dazu}>＋ Kanal</button>
+        <button type="button" className="btn btn-sm btn-ghost" onClick={dazu}>+ Kanal</button>
       </div>
 
       {[...zaehler.values()].some((n) => n > 1) && (

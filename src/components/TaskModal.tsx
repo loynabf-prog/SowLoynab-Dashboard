@@ -175,7 +175,7 @@ export default function TaskModal({
         {!task && <RepeatPicker value={repeat} onChange={setRepeat} anchor={due} />}
         {task?.series_id && (
           <div className="info-box" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-            <span>🔁 Teil einer Serie.</span>
+            <span>Teil einer Serie.</span>
             <button type="button" className="btn btn-sm btn-danger" onClick={deleteSeries} disabled={busy}>Ganze Serie löschen</button>
           </div>
         )}

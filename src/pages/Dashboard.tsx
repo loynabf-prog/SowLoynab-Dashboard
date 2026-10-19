@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
+import { Plus, ChevronRight } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { uploadLogo } from '../lib/storage'
-import type { Client, Video, VideoStatus } from '../lib/types'
+import type { Client, Video } from '../lib/types'
 import { kundenlage, type Kundenlage } from '../lib/kundenrang'
 import { MARKEN, markeVon, type Marke } from '../lib/marken'
 import { ARTEN, artVon, istAktiv, type Kundenart } from '../lib/kundenart'
@@ -25,20 +26,10 @@ function contractDaysLeft(end: string | null | undefined): number | null {
   return Math.round((d.getTime() - n.getTime()) / 86400000)
 }
 
-interface UpcomingItem {
-  id: string
-  title: string
-  status: VideoStatus
-  scheduled_date: string
-  scheduled_time: string | null
-  client_name: string
-  client_id: string
-}
 
 export default function Dashboard() {
   const { user } = useAuth()
   const [clients, setClients] = useState<ClientWithCount[]>([])
-  const [upcoming, setUpcoming] = useState<UpcomingItem[]>([])
   const [videosByClient, setVideosByClient] = useState<Record<string, Video[]>>({})
   const [postedMonth, setPostedMonth] = useState<Record<string, number>>({})
   const [videoCount, setVideoCount] = useState<Record<string, number>>({})
@@ -65,26 +56,6 @@ export default function Dashboard() {
     setLoading(false)
   }
 
-  async function loadUpcoming() {
-    const { data } = await supabase
-      .from('videos')
-      .select('id, title, status, scheduled_date, scheduled_time, client_id, clients(name)')
-      .in('status', ['ready', 'planned'])
-      .is('deleted_at', null)
-      .not('scheduled_date', 'is', null)
-      .order('scheduled_date', { ascending: true })
-      .limit(6)
-    const mapped: UpcomingItem[] = (data ?? []).map((v: any) => ({
-      id: v.id,
-      title: v.title,
-      status: v.status,
-      scheduled_date: v.scheduled_date,
-      scheduled_time: v.scheduled_time,
-      client_name: v.clients?.name ?? 'Kunde',
-      client_id: v.client_id,
-    }))
-    setUpcoming(mapped)
-  }
 
   // Beide Kachel-Zahlen aus EINER Abfrage — und ausschliesslich ueber Videos,
   // die nicht im Papierkorb liegen. Vorher kam die Gesamtzahl aus einer
@@ -114,15 +85,13 @@ export default function Dashboard() {
 
   useEffect(() => {
     load()
-    loadUpcoming()
     loadCounts()
     const channel = supabase
       .channel('dashboard-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'clients' }, () => load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'videos' }, () => {
         load()
-        loadUpcoming()
-        loadCounts()
+            loadCounts()
       })
       .subscribe()
     return () => {
@@ -146,8 +115,13 @@ export default function Dashboard() {
 
   return (
     <>
-      <div className="h-datum">{loading ? 'Lade …' : 'Kunde antippen, um Videos zu verwalten'}</div>
-      <h1 className="h-gruss">Kunden</h1>
+      <div className="page-head">
+        <div>
+          <h1>Kunden</h1>
+          <span className="sub">{loading ? 'Lade …' : `${clients.filter((c) => c.active !== false).length} aktiv`}</span>
+        </div>
+        <button className="btn btn-primary btn-sm" onClick={() => setShowAdd(true)}><Plus size={16} strokeWidth={2.4} />Kunde</button>
+      </div>
 
       {error && (
         <div className="error-box" style={{ maxWidth: 940, margin: '0 auto 20px' }}>
@@ -155,7 +129,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {upcoming.length > 0 && <UpcomingBar items={upcoming} />}
 
       {!loading && clients.length === 0 && !error && (
         <div className="empty-state">
@@ -177,7 +150,7 @@ export default function Dashboard() {
             <button className={`seg-btn ${marke === 'alle' ? 'on' : ''}`} onClick={() => setMarke('alle')}>Alle</button>
             {MARKEN.map((m) => (
               <button key={m.key} className={`seg-btn ${marke === m.key ? 'on' : ''}`} onClick={() => setMarke(m.key)}>
-                {m.icon} {m.kurz}
+                {m.kurz}
               </button>
             ))}
           </div>
@@ -194,7 +167,7 @@ export default function Dashboard() {
         return (
           <div className={`rang-block art-${art.key}`} key={art.key}>
             <h2 className="section-title">
-              {art.icon} {art.titel}
+              {art.titel}
               <span className="col-count">{gruppe.length}</span>
             </h2>
             <p className="rang-hinweis">
@@ -205,13 +178,12 @@ export default function Dashboard() {
             <div className="logo-grid">
               {gruppe.map(({ c, lage }) => (
                 <Link key={c.id} to={`/client/${c.id}`} className={`logo-tile rang-${lage.rang}`}>
-                  {c.health && <span className={`health-dot ${c.health}`} title={`Status: ${c.health}`} />}
                   <LogoFrame name={c.name} logoUrl={c.logo_url} />
                   <div className="tile-body">
                     <div className="tile-name">{c.name}</div>
                     <div className="tile-meta">
                       {c.monthly_quota
-                        ? <span className={`quota-chip ${(postedMonth[c.id] ?? 0) >= c.monthly_quota ? 'done' : ''}`}>🎬 {postedMonth[c.id] ?? 0}/{c.monthly_quota} · Monat</span>
+                        ? <span className={`quota-chip ${(postedMonth[c.id] ?? 0) >= c.monthly_quota ? 'done' : ''}`}>{postedMonth[c.id] ?? 0}/{c.monthly_quota} · Monat</span>
                         : <>{videoCount[c.id] ?? 0} {(videoCount[c.id] ?? 0) === 1 ? 'Video' : 'Videos'}</>}
                       {lage.rang === 'akut'
                         ? <span className="gap-chip">{lage.grund}</span>
@@ -219,27 +191,18 @@ export default function Dashboard() {
                       {(() => {
                         const dl = contractDaysLeft(c.contract_end)
                         if (dl === null || dl > 30) return null
-                        if (dl < 0) return <span className="contract-chip expired">⚠ Vertrag abgelaufen</span>
-                        return <span className="contract-chip soon">⏳ Vertrag endet {dl === 0 ? 'heute' : dl === 1 ? 'morgen' : `in ${dl} Tg`}</span>
+                        if (dl < 0) return <span className="contract-chip expired">Vertrag abgelaufen</span>
+                        return <span className="contract-chip soon">Vertrag endet {dl === 0 ? 'heute' : dl === 1 ? 'morgen' : `in ${dl} Tg`}</span>
                       })()}
                     </div>
                   </div>
+                  <ChevronRight className="tile-chevron" size={18} />
                 </Link>
               ))}
             </div>
           </div>
         )
       })}
-
-      <div className="logo-grid">
-        {(clients.length > 0 || (!loading && !error)) && (
-
-          <button className="add-tile" onClick={() => setShowAdd(true)}>
-            <span style={{ fontSize: 22 }}>+</span>
-            Kunde hinzufuegen
-          </button>
-        )}
-      </div>
 
       {showAdd && (
         <AddClientModal
@@ -252,42 +215,6 @@ export default function Dashboard() {
         />
       )}
     </>
-  )
-}
-
-function fmtWhen(dateStr: string, time: string | null): { text: string; due: boolean } {
-  const d = new Date(dateStr + 'T00:00:00')
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const diffDays = Math.round((d.getTime() - today.getTime()) / 86400000)
-  const dateFmt = d.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: 'short' })
-  const timeFmt = time ? ' · ' + time.slice(0, 5) + ' Uhr' : ''
-  let prefix = ''
-  if (diffDays === 0) prefix = 'Heute · '
-  else if (diffDays === 1) prefix = 'Morgen · '
-  return { text: prefix + dateFmt + timeFmt, due: diffDays <= 1 }
-}
-
-function UpcomingBar({ items }: { items: UpcomingItem[] }) {
-  return (
-    <div className="upcoming">
-      <h2>⏰ Anstehende Posts</h2>
-      {items.map((it) => {
-        const when = fmtWhen(it.scheduled_date, it.scheduled_time)
-        return (
-          <Link
-            key={it.id}
-            to={`/client/${it.client_id}`}
-            className="upcoming-row"
-            style={{ color: 'inherit' }}
-          >
-            <span className={`upcoming-when ${when.due ? 'due' : ''}`}>{when.text}</span>
-            <span style={{ fontWeight: 600 }}>{it.title}</span>
-            <span className="upcoming-client">· {it.client_name}</span>
-          </Link>
-        )
-      })}
-    </div>
   )
 }
 
