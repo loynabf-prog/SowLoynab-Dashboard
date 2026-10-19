@@ -45,7 +45,7 @@ select cron.unschedule('refresh-account-stats') where exists (
 
 select cron.schedule(
   'refresh-account-stats',
-  '45 5 * * *',
+  '45 5 1 * *',  -- monatlich am 1.
   $$
   select net.http_post(
     url     := 'https://kxrbeyecsdvejhvxtrin.supabase.co/functions/v1/refresh-account-stats',

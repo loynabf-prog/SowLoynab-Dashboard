@@ -62,7 +62,10 @@ interface Zahlen {
   views: number | null; likes: number | null; comments: number | null
   shares: number | null; saves: number | null; duration: number | null
 }
-interface Posting { url: string; zeit: string | null; zahlen: Zahlen }
+interface Konto { followers: number | null; following: number | null; posts: number | null }
+// konto: Follower-Stand des Accounts. Liefert der TikTok-Abruf ohnehin mit
+// (authorMeta) -- kostet also nichts extra. Instagram-Posts enthalten ihn nicht.
+interface Posting { url: string; zeit: string | null; zahlen: Zahlen; konto?: Konto | null }
 
 // Dieselben Feldnamen wie in refresh-stats -- die Zahlen muessen aus beiden
 // Wegen identisch herauskommen, sonst springen sie beim naechtlichen Lauf.
@@ -120,8 +123,14 @@ async function neuestesTiktok(handle: string, actor: string, token: string): Pro
     profiles: [handle], resultsPerPage: 3,
     shouldDownloadVideos: false, shouldDownloadCovers: false,
   }, token)
+  const autor = items.find((it) => it?.authorMeta)?.authorMeta ?? null
+  const konto: Konto | null = autor ? {
+    followers: pick(autor, ['fans', 'followerCount', 'followers']),
+    following: pick(autor, ['following', 'followingCount']),
+    posts: pick(autor, ['video', 'videoCount']),
+  } : null
   const mit = items
-    .map((it) => ({ url: String(it?.webVideoUrl ?? it?.postPage ?? ''), zeit: zeitAus(it), zahlen: tiktokZahlen(it) }))
+    .map((it) => ({ url: String(it?.webVideoUrl ?? it?.postPage ?? ''), zeit: zeitAus(it), zahlen: tiktokZahlen(it), konto }))
     .filter((p) => p.url.startsWith('http'))
   return sortiere(mit)[0] ?? null
 }
@@ -201,8 +210,8 @@ const bedienen = async (req: Request): Promise<Response> => {
       // kann es mehrere je Plattform geben -- dann ist nicht zu entscheiden,
       // welcher gemeint war, also fragen wir.
       const { data: accs } = await supa
-        .from('client_accounts').select('platform, handle').eq('client_id', v.client_id)
-      let handles = (accs ?? []) as { platform: string; handle: string }[]
+        .from('client_accounts').select('id, platform, handle').eq('client_id', v.client_id)
+      let handles = (accs ?? []) as { id?: string; platform: string; handle: string }[]
       if (handles.length === 0) {
         const { data: c } = await supa
           .from('clients').select('handle_ig, handle_tiktok').eq('id', v.client_id).maybeSingle()
@@ -233,6 +242,11 @@ const bedienen = async (req: Request): Promise<Response> => {
           const p = platform === 'tiktok'
             ? await neuestesTiktok(handle, ttActor, token)
             : await neuestesInstagram(handle, igActor, token)
+          // Follower gleich mitnehmen, auch wenn das Posting selbst noch
+          // nicht passt -- die Zahl stimmt trotzdem.
+          if (p?.konto && platform === 'tiktok') {
+            try { await followerSchreiben(supa, v.client_id, passend[0].id ?? null, p.konto) } catch { /* Zugabe */ }
+          }
           if (!p) { notizen.push(`${platform}: kein Posting gefunden`); continue }
           if (zuAlt(p)) { notizen.push(`${platform}: neuestes Posting ist älter als ${MAX_ALTER_STUNDEN} h`); continue }
 
@@ -362,6 +376,25 @@ const bedienen = async (req: Request): Promise<Response> => {
 // importiert, um die Zuordnung der Zahlen zu pruefen -- dann darf kein
 // Server starten.
 if (typeof Deno !== 'undefined') Deno.serve(bedienen)
+
+/**
+ * TikTok-Follower in client_stats fuer heute eintragen: in die Zeile des
+ * Accounts und in die Gesamtzeile des Kunden. Nur die TikTok-Spalten --
+ * Instagram-Werte derselben Zeile bleiben unberuehrt. Da wir hier nur bei
+ * genau einem TikTok-Account abrufen, ist dessen Stand auch die Summe.
+ */
+async function followerSchreiben(supa: any, clientId: string, accountId: string | null, k: Konto) {
+  if (k.followers == null) return
+  const patch = { followers_tiktok: k.followers, following_tiktok: k.following, posts_tiktok: k.posts }
+  const tag = new Date().toISOString().slice(0, 10)
+  for (const acc of accountId ? [accountId, null] : [null]) {
+    let q = supa.from('client_stats').select('id').eq('client_id', clientId).eq('captured_on', tag)
+    q = acc ? q.eq('account_id', acc) : q.is('account_id', null)
+    const { data: da } = await q.maybeSingle()
+    if (da) await supa.from('client_stats').update(patch).eq('id', da.id)
+    else await supa.from('client_stats').insert({ client_id: clientId, captured_on: tag, ...(acc ? { account_id: acc } : {}), ...patch })
+  }
+}
 
 function json(obj: unknown, status = 200): Response {
   return new Response(JSON.stringify(obj), { status, headers: { ...CORS, 'content-type': 'application/json' } })

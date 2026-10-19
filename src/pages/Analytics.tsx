@@ -68,7 +68,10 @@ export default function Analytics() {
     const latestByClient = new Map<string, { ig: number; tt: number }>()
     for (const r of statRows) {
       if (marke !== 'alle' && markeVon(r.clients?.brand) !== marke) continue
-      latestByClient.set(r.client_id, { ig: r.followers_ig ?? 0, tt: r.followers_tiktok ?? 0 })
+      // Je Plattform der letzte bekannte Wert -- eine Zeile mit nur TikTok
+      // (kommt beim Posten mit) darf Instagram nicht auf 0 setzen.
+      const alt = latestByClient.get(r.client_id) ?? { ig: 0, tt: 0 }
+      latestByClient.set(r.client_id, { ig: r.followers_ig ?? alt.ig, tt: r.followers_tiktok ?? alt.tt })
     }
     let ig = 0, tt = 0
     for (const v of latestByClient.values()) { ig += v.ig; tt += v.tt }

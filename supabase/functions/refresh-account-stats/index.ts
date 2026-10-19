@@ -1,7 +1,10 @@
 // Supabase Edge Function: refresh-account-stats
 // -------------------------------------------------------------------------
-// Liest für jeden hinterlegten Social-Account einmal täglich die Zahlen aus
-// (Follower, Following, Anzahl Posts) und schreibt einen Tages-Punkt in
+// Liest für jeden Social-Account AKTIVER Kunden einmal im Monat (am 1., per
+// Cron) die Zahlen aus. TikTok-Follower kommen zusätzlich kostenlos bei jedem
+// Posting über fetch-post-links mit.
+//
+// Gelesen werden Follower, Following und Anzahl Posts; die Funktion schreibt einen Tages-Punkt in
 // client_stats. Die "Wachstum"-Kurve bei jedem Kunden füllt sich damit von
 // selbst — "＋ Zahlen erfassen" bleibt weiterhin für die manuelle Eingabe
 // (z. B. Reichweite) nutzbar.
@@ -21,7 +24,7 @@
 //
 // Anders als bei den Videos (refresh-stats, gestaffelt 7 Tage/wöchentlich/
 // monatlich) läuft das hier NICHT gestaffelt: es gibt nur eine Handvoll
-// Accounts, täglich ist hier kostenmäßig zu vernachlässigen.
+// Accounts. Monatlich reicht für die Kurve; mehr kostet nur Apify-Guthaben.
 //
 // Ein vorhandener Eintrag für heute wird nur ergänzt, eine von Hand
 // eingetragene Reichweite für heute bleibt erhalten.
@@ -130,6 +133,8 @@ Deno.serve(async (req) => {
       .from('clients')
       .select('id, handle_ig, handle_tiktok')
       .is('deleted_at', null)
+      // Nur laufende Kunden -- fuer passive/ehemalige zahlen wir nicht mit.
+      .eq('active', true)
       .limit(500)
     if (cErr) return json({ error: cErr.message }, 500)
     const lebende = new Set((clients ?? []).map((c: any) => c.id))
