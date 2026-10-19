@@ -146,10 +146,8 @@ export default function Dashboard() {
 
   return (
     <>
-      <div className="dashboard-intro">
-        <h1>Unsere Kunden</h1>
-        <p>{loading ? 'Lade …' : 'Kunde antippen, um Videos zu verwalten.'}</p>
-      </div>
+      <div className="h-datum">{loading ? 'Lade …' : 'Kunde antippen, um Videos zu verwalten'}</div>
+      <h1 className="h-gruss">Kunden</h1>
 
       {error && (
         <div className="error-box" style={{ maxWidth: 940, margin: '0 auto 20px' }}>

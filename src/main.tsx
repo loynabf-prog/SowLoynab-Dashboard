@@ -11,6 +11,7 @@ import ErrorBoundary from './components/ErrorBoundary'
 import { registerSW } from './lib/swUpdate'
 import './index.css'
 import './app.css'
+import './styles/neu.css'
 
 // Service Worker registrieren (Handy-Push, Offline & Auto-Update-Hinweis)
 window.addEventListener('load', () => registerSW())

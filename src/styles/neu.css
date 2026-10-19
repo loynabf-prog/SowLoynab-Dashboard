@@ -1,0 +1,514 @@
+/* ============================================================================
+   NEUANFANG — Designsystem Sow & Loynab (Oktober 2026)
+   ============================================================================
+   Leitidee: so, wie Apple eine Arbeits-App fuer zwei Leute bauen wuerde.
+   - Eine Frage pro Bildschirm. "Heute" sagt, was JETZT dran ist.
+   - Viel Luft, grosse Titel, Systemschrift (auf dem iPhone ist das SF Pro).
+   - Genau eine kraeftige Farbe: Glut-Orange, die Farbe vom Startbild.
+     Sie markiert Fortschritt und den einen Fokus -- nie Dekoration.
+   - Rot/Gelb/Gruen nur als Status, klein: Punkt, Streifen, Text.
+   - Gruppierte Listen wie in den iOS-Einstellungen statt Kartenstapel.
+   Diese Datei wird nach index.css und app.css geladen und gewinnt daher.
+   ========================================================================== */
+
+:root {
+  --bg:            #f2f2f7;
+  --bg-elev:       #ffffff;
+  --bg-card:       #ffffff;
+  --bg-card-hover: #f7f7f9;
+  --bg-sunken:     #e9e9ee;
+  --border:        rgba(60, 60, 67, 0.13);
+  --border-strong: rgba(60, 60, 67, 0.24);
+  --sep:           rgba(60, 60, 67, 0.13);
+
+  --text:       #1d1d1f;
+  --text-muted: #6e6e73;
+  --text-dim:   #8e8e93;
+
+  /* Tinte: primaere Knoepfe, aktive Zustaende */
+  --ink:    #1d1d1f;
+  --on-ink: #ffffff;
+  /* Glut: die eine Markenfarbe */
+  --glut:      #ff5f1f;
+  --glut-soft: rgba(255, 95, 31, 0.12);
+
+  --rot:   #ff3b30;
+  --gelb:  #ff9500;
+  --gruen: #34c759;
+
+  /* Alte Namen auf die neue Sprache legen -- die bestehenden Seiten erben
+     so den neuen Look, ohne einzeln umgebaut zu werden. */
+  --brand:       var(--ink);
+  --brand-light: #48484a;
+  --brand-deep:  #000000;
+  --brand-glow:  rgba(0, 0, 0, 0.08);
+  --danger:  var(--rot);
+  --ready:   var(--gelb);
+  --posted:  var(--gruen);
+
+  --radius:    16px;
+  --radius-lg: 22px;
+  --radius-sm: 12px;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow:    0 8px 24px -12px rgba(0, 0, 0, 0.16);
+  --shadow-lg: 0 24px 60px -20px rgba(0, 0, 0, 0.28);
+
+  --font-head: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', system-ui, sans-serif;
+  --font-body: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+
+  --tabbar-h: 64px;
+  --seite-max: 720px;
+}
+
+:root[data-theme="dark"] {
+  --bg:            #000000;
+  --bg-elev:       #1c1c1e;
+  --bg-card:       #1c1c1e;
+  --bg-card-hover: #242426;
+  --bg-sunken:     #2c2c2e;
+  --border:        rgba(84, 84, 88, 0.55);
+  --border-strong: rgba(120, 120, 128, 0.6);
+  --sep:           rgba(84, 84, 88, 0.55);
+
+  --text:       #f5f5f7;
+  --text-muted: #aeaeb2;
+  --text-dim:   #8e8e93;
+
+  --ink:    #f5f5f7;
+  --on-ink: #000000;
+  --glut:      #ff7a3d;
+  --glut-soft: rgba(255, 122, 61, 0.16);
+
+  --rot:   #ff453a;
+  --gelb:  #ff9f0a;
+  --gruen: #30d158;
+
+  --brand-light: #d1d1d6;
+  --brand-deep:  #ffffff;
+  --brand-glow:  rgba(255, 255, 255, 0.1);
+  --shadow:    0 8px 24px -12px rgba(0, 0, 0, 0.6);
+}
+
+body { background: var(--bg); color: var(--text); font-size: 16px; letter-spacing: -0.01em; }
+
+/* --- Grundbausteine fuer alle Seiten ------------------------------------ */
+.btn { border-radius: 999px; font-weight: 600; }
+.btn:hover { transform: none; border-color: var(--border-strong); }
+.btn-primary, .btn-primary:hover { background: var(--ink); color: var(--on-ink); box-shadow: none; filter: none; }
+.btn-primary:hover { opacity: 0.88; }
+input, select, textarea { border-radius: 12px; }
+.brand-dot { animation: none; }
+.page { animation: neuSeite 0.35s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+@keyframes neuSeite { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* Grosser Seitentitel wie in iOS ("Large Title") */
+.page-head h1 {
+  font-family: var(--font-head);
+  font-size: 34px; line-height: 1.12; font-weight: 700; letter-spacing: -0.025em;
+}
+.page-head .sub { font-size: 15px; color: var(--text-muted); }
+
+/* ============================================================================
+   SCHALE: Seitenleiste (Desktop), Kopf + Leiste (Handy)
+   ========================================================================== */
+.n-schale { min-height: 100%; }
+.n-inhalt { padding: 12px 20px calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 28px); }
+.n-inhalt > .page { max-width: var(--seite-max); margin: 0 auto; }
+.n-inhalt.breit > .page { max-width: 1180px; }
+
+.n-kopf {
+  position: sticky; top: 0; z-index: 1100;
+  display: flex; align-items: center; gap: 6px;
+  padding: calc(env(safe-area-inset-top) + 8px) 16px 8px;
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  backdrop-filter: saturate(1.8) blur(20px); -webkit-backdrop-filter: saturate(1.8) blur(20px);
+}
+.n-marke {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--font-head); font-weight: 700; font-size: 15px; letter-spacing: -0.02em;
+  color: var(--text); text-decoration: none;
+}
+.n-marke i {
+  width: 22px; height: 22px; border-radius: 7px; background: var(--glut); display: grid; place-items: center;
+  color: #fff; font-style: normal; font-size: 12px; font-weight: 800; letter-spacing: -0.04em;
+}
+.n-kopf-knopf {
+  position: relative;
+  width: 38px; height: 38px; border-radius: 50%;
+  display: grid; place-items: center;
+  border: none; background: transparent; color: var(--text); cursor: pointer;
+}
+.n-kopf-knopf:hover { background: var(--bg-sunken); }
+.n-kopf-knopf .n-badge {
+  position: absolute; top: 6px; right: 6px; min-width: 8px; height: 8px; border-radius: 999px; background: var(--glut);
+  box-shadow: 0 0 0 2px var(--bg);
+}
+.n-avatar {
+  width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center;
+  color: #fff; font-size: 13px; font-weight: 700; letter-spacing: -0.02em;
+  border: none; cursor: pointer;
+}
+
+/* Untere Leiste: fuenf gleich breite Spalten -- zwei, Knopf, zwei. */
+.n-leiste {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 1200;
+  display: grid; grid-template-columns: repeat(5, 1fr); align-items: center;
+  height: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+  padding: 0 6px env(safe-area-inset-bottom);
+  background: color-mix(in srgb, var(--bg-card) 84%, transparent);
+  backdrop-filter: saturate(1.8) blur(24px); -webkit-backdrop-filter: saturate(1.8) blur(24px);
+  border-top: 0.5px solid var(--sep);
+}
+.n-tab {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  height: 100%; text-decoration: none; color: var(--text-dim);
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.n-tab.on { color: var(--glut); }
+.n-tab svg { width: 25px; height: 25px; }
+.n-neu {
+  justify-self: center;
+  width: 50px; height: 50px; border-radius: 50%;
+  display: grid; place-items: center;
+  border: none; background: var(--ink); color: var(--on-ink); cursor: pointer;
+  box-shadow: 0 6px 16px -6px rgba(0, 0, 0, 0.4);
+  transition: transform 0.15s ease;
+}
+.n-neu:active { transform: scale(0.94); }
+.n-neu svg { width: 24px; height: 24px; }
+
+/* Desktop: Seitenleiste links */
+.n-seite { display: none; }
+@media (min-width: 900px) {
+  .n-leiste, .n-kopf .n-marke { display: none; }
+  .n-seite {
+    display: flex; flex-direction: column; gap: 2px;
+    position: fixed; top: 0; bottom: 0; left: 0; width: 248px; z-index: 1100;
+    padding: 22px 14px;
+    background: var(--bg-card); border-right: 0.5px solid var(--sep);
+    overflow-y: auto;
+  }
+  .n-seite .n-marke { padding: 0 10px 18px; font-size: 16px; }
+  .n-seite-neu {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    margin: 0 4px 16px; padding: 10px 14px; border-radius: 999px;
+    border: none; background: var(--ink); color: var(--on-ink);
+    font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+  .n-seite-link {
+    display: flex; align-items: center; gap: 12px;
+    padding: 9px 12px; border-radius: 10px;
+    color: var(--text); text-decoration: none; font-size: 14.5px; font-weight: 500;
+  }
+  .n-seite-link svg { width: 19px; height: 19px; color: var(--text-muted); }
+  .n-seite-link:hover { background: var(--bg-sunken); }
+  .n-seite-link.on { background: var(--glut-soft); color: var(--glut); font-weight: 600; }
+  .n-seite-link.on svg { color: var(--glut); }
+  .n-seite-titel { margin: 18px 12px 6px; font-size: 12px; font-weight: 600; color: var(--text-dim); }
+  .n-kopf, .n-inhalt { margin-left: 248px; }
+  .n-kopf { justify-content: flex-end; background: transparent; backdrop-filter: none; -webkit-backdrop-filter: none; position: absolute; right: 0; left: 0; }
+  .n-inhalt { padding: 40px 40px 60px; }
+}
+@media (max-width: 899px) {
+  .n-kopf .n-spacer { flex: 1; }
+}
+
+/* Profil-Blatt: alles, was man selten braucht, wie die iOS-Einstellungen */
+.n-blatt-hinten {
+  position: fixed; inset: 0; z-index: 1500; background: rgba(0, 0, 0, 0.35);
+  animation: neuBlende 0.2s ease both;
+}
+.n-blatt {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 1501;
+  max-height: 88vh; overflow-y: auto;
+  padding: 10px 16px calc(env(safe-area-inset-bottom) + 20px);
+  border-radius: 22px 22px 0 0; background: var(--bg);
+  animation: neuHoch 0.32s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+@media (min-width: 900px) {
+  .n-blatt { left: auto; right: 24px; top: 70px; bottom: auto; width: 360px; border-radius: 18px; box-shadow: var(--shadow-lg); max-height: calc(100vh - 100px); }
+}
+@keyframes neuBlende { from { opacity: 0; } to { opacity: 1; } }
+@keyframes neuHoch { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+.n-blatt-griff { width: 36px; height: 5px; border-radius: 3px; background: var(--border-strong); margin: 0 auto 14px; }
+.n-blatt-kopf { display: flex; align-items: center; gap: 12px; padding: 4px 4px 16px; }
+.n-blatt-kopf .n-avatar { width: 48px; height: 48px; font-size: 17px; cursor: default; }
+.n-blatt-kopf strong { display: block; font-size: 17px; }
+.n-blatt-kopf div span { font-size: 13px; color: var(--text-muted); }
+.n-blatt-kopf .n-avatar { color: #fff; }
+
+/* ============================================================================
+   GRUPPIERTE LISTE — der Baustein fuer fast alles
+   ========================================================================== */
+.n-abschnitt { margin: 28px 0 8px; display: flex; align-items: baseline; gap: 8px; padding: 0 4px; }
+.n-abschnitt h2 { margin: 0; font-family: var(--font-head); font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
+.n-abschnitt span { font-size: 15px; color: var(--text-dim); font-weight: 500; }
+.n-abschnitt .n-mehr-link { margin-left: auto; }
+
+.n-gruppe {
+  background: var(--bg-card); border-radius: var(--radius); overflow: hidden;
+}
+.n-zeile {
+  position: relative;
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; min-height: 58px; padding: 10px 14px 10px 14px;
+  border: none; background: transparent; color: inherit; font: inherit; text-align: left;
+  cursor: pointer;
+}
+.n-zeile:active { background: var(--bg-card-hover); }
+@media (hover: hover) { .n-zeile:hover { background: var(--bg-card-hover); } }
+/* Trennlinie eingerueckt bis hinter das Symbol, wie in iOS */
+.n-gruppe > * + * > .n-zeile::before, .n-gruppe > .n-zeile + .n-zeile::before {
+  content: ''; position: absolute; top: 0; right: 0; left: 58px; border-top: 0.5px solid var(--sep);
+}
+.n-ic {
+  flex: none; width: 32px; height: 32px; border-radius: 9px;
+  display: grid; place-items: center; color: #fff;
+}
+.n-ic svg { width: 18px; height: 18px; }
+.n-ic.grau { background: #8e8e93; }
+.n-ic.glut { background: var(--glut); }
+.n-ic.rot { background: var(--rot); }
+.n-ic.gelb { background: var(--gelb); }
+.n-ic.gruen { background: var(--gruen); }
+.n-ic.blau { background: #0a84ff; }
+.n-ic.lila { background: #af52de; }
+.n-ic.tinte { background: var(--ink); color: var(--on-ink); }
+.n-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.n-titel {
+  font-size: 16px; font-weight: 600; color: var(--text); letter-spacing: -0.015em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.n-unter { font-size: 13.5px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.n-unter .rot { color: var(--rot); font-weight: 600; }
+.n-unter .gelb { color: var(--gelb); font-weight: 600; }
+.n-zeit { flex: none; font-size: 14px; font-weight: 600; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.n-chevron { flex: none; color: var(--text-dim); width: 18px; height: 18px; }
+
+/* Der eine Knopf rechts in einer Zeile */
+.n-tun {
+  flex: none;
+  padding: 7px 14px; border-radius: 999px;
+  border: none; background: var(--bg-sunken); color: var(--text);
+  font: inherit; font-size: 14px; font-weight: 600; white-space: nowrap; cursor: pointer;
+  transition: transform 0.12s ease, opacity 0.12s ease;
+}
+.n-tun:active { transform: scale(0.95); }
+.n-tun.stark { background: var(--ink); color: var(--on-ink); }
+.n-tun.glut { background: var(--glut); color: #fff; }
+.n-tun:disabled { opacity: 0.4; cursor: default; }
+
+.n-leer {
+  padding: 28px 20px; text-align: center; color: var(--text-dim); font-size: 15px;
+}
+.n-mehr-link {
+  border: none; background: none; padding: 0; color: var(--glut); font: inherit; font-size: 15px; font-weight: 600; cursor: pointer;
+}
+
+/* Segment-Schalter wie in iOS */
+.n-segment {
+  display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
+  padding: 2px; border-radius: 10px; background: var(--bg-sunken); margin: 4px 0 18px;
+}
+.n-segment > * {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 7px 8px; border: none; border-radius: 8px; background: transparent;
+  color: var(--text); font: inherit; font-size: 14px; font-weight: 600; white-space: nowrap;
+  text-decoration: none; cursor: pointer;
+}
+.n-segment > .on { background: var(--bg-card); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12); }
+.n-segment small { font-size: 12px; color: var(--text-dim); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* ============================================================================
+   HEUTE
+   ========================================================================== */
+.h-datum { margin: 8px 4px 2px; font-size: 15px; font-weight: 600; color: var(--text-muted); }
+.h-gruss { margin: 0 4px 20px; font-family: var(--font-head); font-size: 34px; line-height: 1.1; font-weight: 700; letter-spacing: -0.03em; }
+
+/* Tagesring: das eine Element mit Charakter */
+.h-ring-zeile { display: flex; align-items: center; gap: 16px; margin: 0 4px 22px; }
+.h-ring { flex: none; width: 64px; height: 64px; }
+.h-ring circle { fill: none; stroke-width: 7; }
+.h-ring .spur { stroke: var(--bg-sunken); }
+.h-ring .wert { stroke: var(--glut); stroke-linecap: round; transition: stroke-dashoffset 0.6s cubic-bezier(0.22, 0.61, 0.36, 1); }
+.h-ring text { font-family: var(--font-head); font-size: 17px; font-weight: 700; fill: var(--text); }
+.h-ring-text strong { display: block; font-size: 17px; font-weight: 700; letter-spacing: -0.02em; }
+.h-ring-text span { font-size: 14.5px; color: var(--text-muted); }
+
+/* Fokus-Karte: die Sache, die jetzt dran ist */
+.h-fokus {
+  position: relative;
+  padding: 20px 20px 18px; border-radius: 22px;
+  background: #1d1d1f; color: #f5f5f7;
+  box-shadow: 0 20px 40px -24px rgba(0, 0, 0, 0.55);
+  animation: neuFokus 0.4s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+:root[data-theme="dark"] .h-fokus { background: #1c1c1e; box-shadow: inset 0 0 0 1px rgba(255, 122, 61, 0.35); }
+@keyframes neuFokus { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: none; } }
+.h-fokus-oben { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+.h-fokus-marke {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13px; font-weight: 700; color: var(--glut);
+}
+.h-fokus-marke svg { width: 15px; height: 15px; }
+.h-fokus-grund { margin-left: auto; font-size: 13px; font-weight: 600; color: #a1a1a6; text-align: right; }
+.h-fokus-grund.rot { color: #ff6961; }
+.h-fokus h2 {
+  margin: 0 0 4px; font-family: var(--font-head); font-size: 26px; line-height: 1.15; font-weight: 700; letter-spacing: -0.025em;
+  overflow-wrap: anywhere;
+}
+.h-fokus-wer { font-size: 15px; color: #a1a1a6; margin-bottom: 20px; }
+.h-fokus-knoepfe { display: flex; gap: 10px; align-items: center; }
+.h-fokus-haupt {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;
+  height: 50px; border-radius: 14px; border: none;
+  background: #ffffff; color: #1d1d1f; font: inherit; font-size: 16px; font-weight: 700; cursor: pointer;
+  transition: transform 0.12s ease;
+}
+.h-fokus-haupt:active { transform: scale(0.98); }
+.h-fokus-haupt svg { width: 19px; height: 19px; }
+.h-fokus-neben {
+  width: 50px; height: 50px; border-radius: 14px; border: none; display: grid; place-items: center;
+  background: rgba(255, 255, 255, 0.1); color: #f5f5f7; cursor: pointer;
+}
+.h-fokus-neben svg { width: 20px; height: 20px; }
+
+/* Ruhiger Tag */
+.h-ruhig {
+  display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px;
+  padding: 34px 24px; border-radius: 22px; background: var(--bg-card);
+}
+.h-ruhig .n-ic { width: 52px; height: 52px; border-radius: 16px; margin-bottom: 6px; }
+.h-ruhig .n-ic svg { width: 26px; height: 26px; }
+.h-ruhig strong { font-size: 20px; letter-spacing: -0.02em; }
+.h-ruhig span { font-size: 15px; color: var(--text-muted); max-width: 30ch; }
+
+/* ============================================================================
+   PLAN
+   ========================================================================== */
+.p-woche {
+  display: flex; gap: 6px; margin: 0 -20px 18px; padding: 4px 20px 6px;
+  overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none;
+}
+.p-woche::-webkit-scrollbar { display: none; }
+.p-tag {
+  flex: none; scroll-snap-align: start;
+  width: 50px; padding: 8px 0 9px; border-radius: 14px;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  border: none; background: transparent; color: var(--text); font: inherit; cursor: pointer;
+}
+.p-tag small { font-size: 11.5px; font-weight: 600; color: var(--text-dim); }
+.p-tag strong { font-family: var(--font-head); font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.p-tag i { width: 6px; height: 6px; border-radius: 50%; background: transparent; }
+.p-tag i.rot { background: var(--rot); }
+.p-tag i.gelb { background: var(--gelb); }
+.p-tag i.gruen { background: var(--gruen); }
+.p-tag i.leer { background: var(--border-strong); }
+.p-tag.heute strong { color: var(--glut); }
+.p-tag.on { background: var(--ink); color: var(--on-ink); }
+.p-tag.on small { color: color-mix(in srgb, var(--on-ink) 65%, transparent); }
+.p-tag.on.heute strong { color: var(--on-ink); }
+
+.p-lage { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--bg-card); border-radius: var(--radius); margin: 0 0 18px; }
+.p-lage > div { padding: 12px 14px; display: flex; flex-direction: column; gap: 1px; }
+.p-lage > div + div { border-left: 0.5px solid var(--sep); }
+.p-lage strong { font-family: var(--font-head); font-size: 24px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.p-lage span { font-size: 13px; color: var(--text-muted); font-weight: 500; }
+.p-lage .rot strong { color: var(--rot); }
+.p-lage .gelb strong { color: var(--gelb); }
+.p-lage .gruen strong { color: var(--gruen); }
+.p-lage .null strong { color: var(--text-dim); }
+
+/* Hinweisband, das eine lange Liste ersetzt */
+.p-band {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  padding: 12px 14px; border-radius: var(--radius); margin: 0 0 10px;
+  border: none; background: var(--bg-card); color: var(--text); font: inherit; text-align: left; cursor: pointer;
+}
+.p-band .n-text strong { font-size: 15.5px; }
+.p-band .n-text span { font-size: 13.5px; color: var(--text-muted); }
+
+/* ============================================================================
+   ZEILE MIT DETAILS (Plan, Produktion)
+   ========================================================================== */
+.z-auf { padding: 2px 14px 14px 58px; display: flex; flex-direction: column; gap: 12px; animation: neuBlende 0.2s ease; }
+.z-label { font-size: 13px; font-weight: 600; color: var(--text-dim); margin-bottom: 6px; }
+.z-schritte { display: flex; gap: 6px; flex-wrap: wrap; }
+.z-schritt {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 6px 12px; border-radius: 999px; border: none;
+  background: var(--bg-sunken); color: var(--text-muted);
+  font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer;
+}
+.z-schritt svg { width: 14px; height: 14px; }
+.z-schritt.on { background: color-mix(in srgb, var(--gruen) 18%, transparent); color: color-mix(in srgb, var(--gruen) 70%, var(--text)); }
+.z-feld { display: flex; gap: 8px; align-items: center; }
+.z-feld input { flex: 1; min-width: 0; margin: 0; height: 38px; padding: 0 12px; font-size: 15px; border-radius: 10px; background: var(--bg-sunken); border: none; color: var(--text); }
+.z-link { align-self: flex-start; border: none; background: none; padding: 0; color: var(--glut); font: inherit; font-size: 14.5px; font-weight: 600; cursor: pointer; }
+
+/* ============================================================================
+   Handy-Feinschliff
+   ========================================================================== */
+@media (max-width: 560px) {
+  .n-inhalt { padding-left: 16px; padding-right: 16px; }
+  .p-woche { margin: 0 -16px 16px; padding: 4px 16px 6px; }
+  .page-head h1, .h-gruss { font-size: 32px; }
+  .h-fokus h2 { font-size: 24px; }
+  .n-zeile { min-height: 56px; }
+}
+
+/* Alte Kopfzeile/Leiste werden nicht mehr gerendert -- sicherheitshalber aus */
+.app-header, .app-nav, .tabbar { display: none !important; }
+.voice-fab { display: none !important; }
+
+/* Glocke im Kopf: wie die anderen Kopf-Knoepfe */
+.nudge-bell {
+  width: 38px; height: 38px; padding: 0; border: none; border-radius: 50%;
+  display: grid; place-items: center; background: transparent; color: var(--text);
+}
+.nudge-bell:hover { background: var(--bg-sunken); box-shadow: none; }
+.nudge-badge {
+  top: 3px; right: 2px; min-width: 16px; height: 16px; padding: 0 4px; font-size: 10px;
+  background: var(--glut); color: #fff; box-shadow: 0 0 0 2px var(--bg);
+}
+
+/* Zeile mit eigenem Knopf: die Flaeche links oeffnet, der Knopf rechts tut */
+.n-zeile[role="group"] { cursor: default; }
+.n-zeile-klick {
+  display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0;
+  padding: 0; border: none; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.n-gruppe > .n-zeile-wrap + .n-zeile-wrap > .n-zeile::before {
+  content: ''; position: absolute; top: 0; right: 0; left: 58px; border-top: 0.5px solid var(--sep);
+}
+.p-fuss { margin: 14px 4px 0; font-size: 13px; color: var(--text-dim); line-height: 1.45; }
+.m-extern { margin: -8px 4px 14px; }
+.medien-chip { border: none; background: var(--bg-card); color: var(--text); }
+.medien-chip.on { background: var(--ink); color: var(--on-ink); }
+.medien-leiste input { background: var(--bg-sunken); border: none; border-radius: 10px; }
+.medien-bild { border: none; border-radius: 12px; }
+.medien-haken.on { background: var(--glut); border-color: var(--glut); }
+.medien-kachel.gewaehlt .medien-bild { outline-color: var(--glut); }
+
+/* Der Grund steht in einer eigenen Zeile -- er ist die wichtigste Info */
+.n-grund { font-size: 13.5px; font-weight: 500; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.n-grund.rot { color: var(--rot); font-weight: 600; }
+.n-grund.gelb { color: var(--gelb); font-weight: 600; }
+.n-zeile { min-height: 64px; }
+.n-marke i { font-size: 9.5px; letter-spacing: -0.06em; width: 24px; height: 24px; }
+
+/* Filter-Chips (Produktion) */
+.n-chips { display: flex; gap: 8px; margin: -4px 0 16px; overflow-x: auto; scrollbar-width: none; }
+.n-chips::-webkit-scrollbar { display: none; }
+.n-chips > button {
+  flex: none; display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 14px; border-radius: 999px; border: none;
+  background: var(--bg-card); color: var(--text); font: inherit; font-size: 14.5px; font-weight: 600; cursor: pointer;
+}
+.n-chips > button small { font-size: 13px; color: var(--text-dim); font-weight: 600; font-variant-numeric: tabular-nums; }
+.n-chips > button.on { background: var(--ink); color: var(--on-ink); }
+.n-chips > button.on small { color: color-mix(in srgb, var(--on-ink) 60%, transparent); }
+
+/* Kunden-Seite: Titel links wie ueberall */
+.dashboard-intro { display: none; }

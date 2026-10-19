@@ -12,6 +12,8 @@
 // Oben stehen die naechsten Drehtage, weil die den Takt vorgeben.
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Camera, ChevronRight } from 'lucide-react'
+import ProduktionKopf from '../components/ProduktionKopf'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../context/ToastContext'
@@ -139,75 +141,71 @@ export default function Produktion() {
   const aktiv = SPALTEN.find((s) => s.key === spalte)!
   const liste = proSpalte[spalte]
 
+  const [alle, setAlle] = useState(false)
+  const GRENZE = 12
+  const sichtbar = alle ? liste : liste.slice(0, GRENZE)
+
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1>Produktion</h1>
-          <span className="sub">{loading ? 'Lade …' : 'Was als Nächstes angefasst werden muss'}</span>
-        </div>
-      </div>
+      <ProduktionKopf unter="Drehen, schneiden, einplanen" />
 
-      <section className="heute-block">
-        <header className="heute-kopf">
-          <h2>Nächste Drehtage</h2>
-          {drehtage.length > 0 && <span className="heute-zahl">{drehtage.length}</span>}
-        </header>
-        <div className="heute-liste">
-          {drehtage.length === 0 ? (
-            <div className="pz-leer">{loading ? 'Lade …' : 'Kein Drehtag geplant — im Kalender als „Drehtag“ anlegen.'}</div>
-          ) : drehtage.map((d) => {
-            const dran = videosAmDrehtag(d.id)
-            const soll = d.planned_videos ?? 0
-            const luecke = soll > 0 && dran < soll
-            return (
-              <button key={d.id} className={`heute-zeile ${luecke ? 'gelb' : ''}`} onClick={() => d.client_id && navigate(`/client/${d.client_id}`)}>
-                <span className="heute-ic" aria-hidden>🎥</span>
-                <span className="heute-text">
-                  <span className="heute-titel">{d.clients?.name ?? d.title}</span>
-                  <span className="heute-meta">
-                    <span className="pz-datum">{kurzDatum(d.starts_on)}</span>
-                    <span className="heute-grund">
-                      {dran}{soll ? ` von ${soll}` : ''} Videos zugeordnet{luecke ? ` — ${soll - dran} fehlen noch` : ''}
-                    </span>
-                  </span>
-                </span>
-                <span className="heute-pfeil" aria-hidden>›</span>
-              </button>
-            )
-          })}
-        </div>
-      </section>
-
-      <div className="pz-reiter" role="tablist">
+      <div className="n-chips" role="tablist" aria-label="Schritt">
         {SPALTEN.map((sp) => (
-          <button key={sp.key} role="tab" aria-selected={spalte === sp.key} className={spalte === sp.key ? 'on' : ''} onClick={() => setSpalte(sp.key)}>
-            {sp.label}<span className="heute-zahl">{proSpalte[sp.key].length}</span>
+          <button key={sp.key} role="tab" className={spalte === sp.key ? 'on' : ''} onClick={() => { setSpalte(sp.key); setAlle(false) }} aria-selected={spalte === sp.key}>
+            {sp.label}<small>{proSpalte[sp.key].length}</small>
           </button>
         ))}
       </div>
 
-      <section className="heute-block">
-        <div className="heute-liste">
-          {liste.length === 0 ? (
-            <div className="heute-leer">{loading ? 'Lade …' : `Nichts zu ${aktiv.label.toLowerCase()}. 🎉`}</div>
-          ) : liste.map((v) => (
-            <PostZeile
-              key={v.id}
-              video={v}
-              frist={fristInfo(v, heuteIso)}
-              heuteIso={heuteIso}
-              zeigeDatum
-              nurSchritt={aktiv.feld}
-              onOeffnen={() => navigate(`/client/${v.client_id}`)}
-              onPosten={() => {}}
-              onLink={async (feld, url) => { await linkSetzen(v.id, feld, url); laden() }}
-              onVorarbeit={(key, wert) => vorarbeit(v, key, wert)}
-              onTermin={(d) => verschieben(v, d)}
-            />
-          ))}
+      <div className="n-gruppe">
+        {liste.length === 0 ? (
+          <div className="n-leer">{loading ? 'Lade …' : `Nichts zu ${aktiv.label.toLowerCase()}.`}</div>
+        ) : sichtbar.map((v) => (
+          <PostZeile
+            key={v.id}
+            video={v}
+            frist={fristInfo(v, heuteIso)}
+            heuteIso={heuteIso}
+            zeigeDatum
+            nurSchritt={aktiv.feld}
+            onOeffnen={() => navigate(`/client/${v.client_id}`)}
+            onPosten={() => {}}
+            onLink={async (feld, url) => { await linkSetzen(v.id, feld, url); laden() }}
+            onVorarbeit={(key, wert) => vorarbeit(v, key, wert)}
+            onTermin={(d) => verschieben(v, d)}
+          />
+        ))}
+      </div>
+      {liste.length > GRENZE && (
+        <div className="n-abschnitt" style={{ marginTop: 12 }}>
+          <button className="n-mehr-link" style={{ marginLeft: 0 }} onClick={() => setAlle((x) => !x)}>
+            {alle ? 'Weniger anzeigen' : `Alle ${liste.length} anzeigen`}
+          </button>
         </div>
-      </section>
+      )}
+
+      <div className="n-abschnitt"><h2>Nächste Drehtage</h2></div>
+      <div className="n-gruppe">
+        {drehtage.length === 0 ? (
+          <div className="n-leer">{loading ? 'Lade …' : 'Kein Drehtag geplant. Leg ihn im Kalender als Drehtag an.'}</div>
+        ) : drehtage.map((d) => {
+          const dran = videosAmDrehtag(d.id)
+          const soll = d.planned_videos ?? 0
+          const luecke = soll > 0 && dran < soll
+          return (
+            <button key={d.id} className="n-zeile" onClick={() => d.client_id && navigate(`/client/${d.client_id}`)}>
+              <span className={`n-ic ${luecke ? 'gelb' : 'lila'}`}><Camera strokeWidth={2.2} /></span>
+              <span className="n-text">
+                <span className="n-titel">{d.clients?.name ?? d.title}</span>
+                <span className="n-unter">
+                  {kurzDatum(d.starts_on)} · {dran}{soll ? ` von ${soll}` : ''} Videos{luecke ? <span className="gelb"> · {soll - dran} fehlen</span> : null}
+                </span>
+              </span>
+              <ChevronRight className="n-chevron" />
+            </button>
+          )
+        })}
+      </div>
     </>
   )
 }

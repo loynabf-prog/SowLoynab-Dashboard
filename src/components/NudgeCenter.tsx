@@ -1,3 +1,4 @@
+import { Bell } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -138,7 +139,7 @@ export default function NudgeCenter() {
         aria-label="Anstupser"
         title="Anstupser & Benachrichtigungen"
       >
-        🔔
+        <Bell size={21} strokeWidth={2} />
         {unread > 0 && <span className="nudge-badge">{unread > 9 ? '9+' : unread}</span>}
       </button>
 

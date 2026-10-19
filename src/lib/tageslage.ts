@@ -126,7 +126,7 @@ function videoPunkt(v: LageVideo, heuteIso: string, jetztZeit: string): Punkt {
     zeit: hhmm(v.scheduled_time),
     text: f.text,
     ampel: f.ampel,
-    ziel: f.schritt === 'posten' ? '/posting' : '/produktion',
+    ziel: f.schritt === 'posten' ? '/plan' : '/produktion',
   }
 }
 

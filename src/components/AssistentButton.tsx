@@ -18,8 +18,11 @@ export default function AssistentButton() {
         setOffen(true)
       }
     }
+    // Der Knopf sitzt jetzt oben im Kopf und schickt dieses Ereignis.
+    const auf = () => setOffen(true)
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    window.addEventListener('open-assistent', auf)
+    return () => { window.removeEventListener('keydown', onKey); window.removeEventListener('open-assistent', auf) }
   }, [])
 
   return (

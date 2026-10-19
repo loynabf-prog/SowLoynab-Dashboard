@@ -24,8 +24,8 @@ export interface Bereich {
 }
 
 export const BEREICHE: Bereich[] = [
-  { key: 'posting', label: 'Posting', zweck: 'Was wann rausgeht — die Seite, die der Kunde sieht', primaer: true,
-    seiten: [{ to: '/posting', label: 'Posting', icon: '📣' }] },
+  { key: 'posting', label: 'Plan', zweck: 'Was wann rausgeht — die Seite, die der Kunde sieht', primaer: true,
+    seiten: [{ to: '/plan', label: 'Plan', icon: '📣' }] },
   { key: 'produktion', label: 'Produktion', zweck: 'Drehen, schneiden, einplanen, Medien aus Dropbox', primaer: true,
     seiten: [{ to: '/produktion', label: 'Produktion', icon: '🎬' }, { to: '/medien', label: 'Medien', icon: '📁' }] },
   { key: 'kunden', label: 'Kunden', zweck: 'Kundenakten, Verträge, Material', primaer: true,

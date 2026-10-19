@@ -1,21 +1,15 @@
-// Posting-Bereich: das, was der Kunde von uns sieht.
+// Plan: was rausgeht -- und ob es rechtzeitig fertig wird.
 // ---------------------------------------------------------------------------
-// Eine Seite, eine Frage: kommt jedes Video rechtzeitig raus?
+// Statt einer langen Liste ein Wochenstreifen: jeder Tag mit einem Punkt
+// in der Ampelfarbe seines schlimmsten Posts. Man tippt einen Tag an und
+// sieht nur dessen Posts. Was hinterherhaengt oder ohne Link ist, steht als
+// je ein Band oben und klappt erst auf, wenn man es braucht.
 //
-//   Brennt           Fristen gerissen oder Posting verpasst (ausser heute/
-//                    morgen -- die stehen darunter)
-//   Heute            posten, danach die Links
-//   Morgen           letzte Vorarbeit
-//   Naechste Wochen  alles bis 4 Wochen voraus, mit Ampel
-//   Links fehlen     gepostet, aber ohne Link -- ohne Link keine Zahlen
-//
-// Die Ampel rechnet rueckwaerts vom Posting-Tag (siehe lib/fristen.ts):
-// gedreht 21 Tage vorher, geschnitten 3, eingeplant 1. Heute nach der
-// geplanten Uhrzeit wird ein offener Post rot.
-//
-// Live: aendert Lion auf seinem Handy etwas, sieht man es hier sofort.
+// Fristen (lib/fristen.ts): gedreht 21 Tage, geschnitten 3, eingeplant 1
+// Tag vor dem Posting-Tag. Live: aendert Lion etwas, sieht man es sofort.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Flame, Link2, ChevronDown } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { celebrate } from '../lib/confetti'
@@ -114,40 +108,50 @@ export default function Posting() {
 
   // ---- Einteilen -----------------------------------------------------------
   const f = useCallback((v: TagVideo) => fristInfo(v, heuteIso, jetzt.zeit), [heuteIso, jetzt.zeit])
+  const [wahl, setWahl] = useState<string | null>(null)
+  const [band, setBand] = useState<'brennt' | 'links' | null>(null)
+  const gewaehlt = wahl ?? heuteIso
 
   const einteilung = useMemo(() => {
     const vergangen = videos.filter((v) => (v.scheduled_date ?? '') < heuteIso)
-    const kommend = videos.filter((v) => (v.scheduled_date ?? '') >= heuteIso)
-
+    const offen = videos.filter((v) => v.status !== 'posted')
     const verpasst = vergangen.filter((v) => v.status !== 'posted')
     const linksFehlen = vergangen
       .filter((v) => postPhase(v) === 'gepostet')
       .sort((a, b) => (b.scheduled_date ?? '').localeCompare(a.scheduled_date ?? ''))
       .slice(0, 15)
+    const brennt = nachDringlichkeit(offen.filter((v) => f(v).ampel === 'rot'), heuteIso, jetzt.zeit)
 
-    // Alles Rote steht oben unter "Brennt" -- auch wenn es heute oder morgen
-    // dran ist. So zaehlt die Kachel oben genau das, was der Block zeigt.
-    const istRot = (v: TagVideo) => v.status !== 'posted' && f(v).ampel === 'rot'
-    const kommendRot = kommend.filter(istRot)
-    const kommendRest = kommend.filter((v) => !istRot(v))
-    const heuteListe = kommendRest.filter((v) => v.scheduled_date === heuteIso)
-    const morgenListe = kommendRest.filter((v) => v.scheduled_date === morgenIso)
-    const spaeterRest = kommendRest.filter((v) => (v.scheduled_date ?? '') > morgenIso)
-
-    const brennt = [
-      ...nachDringlichkeit(verpasst, heuteIso, jetzt.zeit),
-      ...nachDringlichkeit(kommendRot, heuteIso, jetzt.zeit),
-    ]
-
-    const nachTag = new Map<string, TagVideo[]>()
-    for (const v of spaeterRest) nachTag.set(v.scheduled_date!, [...(nachTag.get(v.scheduled_date!) ?? []), v])
-
-    const offen = [...verpasst, ...kommend.filter((v) => v.status !== 'posted')].map(f)
-    return {
-      brennt, heuteListe, morgenListe, linksFehlen, nachTag: [...nachTag.entries()],
-      zahl: (a: string) => offen.filter((x) => x.ampel === a).length,
+    // Pro Tag: alle Posts und die schlimmste Ampel.
+    const proTag = new Map<string, TagVideo[]>()
+    for (const v of videos) if (v.scheduled_date) proTag.set(v.scheduled_date, [...(proTag.get(v.scheduled_date) ?? []), v])
+    const RANG = { rot: 3, gelb: 2, gruen: 1 } as Record<string, number>
+    const ampelTag = (tag: string): string | null => {
+      const l = proTag.get(tag)
+      if (!l || l.length === 0) return null
+      let schlimm = 'gruen'
+      for (const v of l) {
+        if (v.status === 'posted') continue
+        const a = f(v).ampel
+        if ((RANG[a] ?? 0) > (RANG[schlimm] ?? 0)) schlimm = a
+      }
+      return schlimm
     }
-  }, [videos, heuteIso, morgenIso, jetzt.zeit, f])
+
+    const zahlen = offen.map(f)
+    return {
+      brennt, verpasst, linksFehlen, proTag, ampelTag,
+      zahl: (a: string) => zahlen.filter((x) => x.ampel === a).length,
+    }
+  }, [videos, heuteIso, jetzt.zeit, f])
+
+  // Streifen: eine Woche zurueck bis vier Wochen voraus.
+  const tage = useMemo(() => Array.from({ length: 7 + VORAUS_TAGE + 1 }, (_, i) => datumPlus(heuteIso, i - 7)), [heuteIso])
+  const streifen = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    const el = streifen.current?.querySelector('.p-tag.on') as HTMLElement | null
+    el?.scrollIntoView({ block: 'nearest', inline: 'center' })
+  }, [gewaehlt, loading])
 
   // ---- Aktionen ------------------------------------------------------------
   async function posten(v: TagVideo) {
@@ -196,95 +200,91 @@ export default function Posting() {
     )
   }
 
-  const { brennt, heuteListe, morgenListe, linksFehlen, nachTag, zahl } = einteilung
-  const spaeterAnzahl = nachTag.reduce((n, [, l]) => n + l.length, 0)
+  const { brennt, linksFehlen, proTag, ampelTag, zahl } = einteilung
+  const tagListe = proTag.get(gewaehlt) ?? []
+  const monat = new Date(gewaehlt + 'T12:00:00').toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })
+  const tagTitel = gewaehlt === heuteIso ? 'Heute' : gewaehlt === morgenIso ? 'Morgen'
+    : new Date(gewaehlt + 'T12:00:00').toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })
 
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1>Posting</h1>
-          <span className="sub">Was rausgeht — und ob es rechtzeitig fertig wird</span>
-        </div>
-      </div>
+      <div className="h-datum">{monat}</div>
+      <h1 className="h-gruss">Plan</h1>
 
       {loading ? (
-        <div className="heute-leer">Lade …</div>
+        <div className="n-leer">Lade …</div>
       ) : (
         <>
-          <div className="pz-zahlen" role="list">
-            <div className={`pz-kachel rot ${zahl('rot') ? '' : 'null'}`} role="listitem">
-              <strong>{zahl('rot')}</strong><span>brennt</span>
-            </div>
-            <div className={`pz-kachel gelb ${zahl('gelb') ? '' : 'null'}`} role="listitem">
-              <strong>{zahl('gelb')}</strong><span>bald fällig</span>
-            </div>
-            <div className="pz-kachel gruen" role="listitem">
-              <strong>{zahl('gruen')}</strong><span>im Plan</span>
-            </div>
+          <div className="p-lage" role="list">
+            <div className={zahl('rot') ? 'rot' : 'null'} role="listitem"><strong>{zahl('rot')}</strong><span>brennt</span></div>
+            <div className={zahl('gelb') ? 'gelb' : 'null'} role="listitem"><strong>{zahl('gelb')}</strong><span>bald fällig</span></div>
+            <div className="gruen" role="listitem"><strong>{zahl('gruen')}</strong><span>im Plan</span></div>
           </div>
-          <p className="pz-regel">
-            Vorlauf vor dem Posting-Tag: gedreht {FRISTEN.dreh} Tage · geschnitten {FRISTEN.schnitt} Tage · eingeplant {FRISTEN.planung} Tag
-            {ohneTermin > 0 && <> · <strong>{ohneTermin}</strong> ohne Posting-Tag</>}
-          </p>
+
+          <div className="p-woche" ref={streifen} role="tablist" aria-label="Tage">
+            {tage.map((t) => {
+              const d = new Date(t + 'T12:00:00')
+              const a = ampelTag(t)
+              return (
+                <button
+                  key={t}
+                  role="tab"
+                  aria-selected={t === gewaehlt}
+                  className={`p-tag ${t === gewaehlt ? 'on' : ''} ${t === heuteIso ? 'heute' : ''}`}
+                  onClick={() => setWahl(t)}
+                >
+                  <small>{d.toLocaleDateString('de-DE', { weekday: 'short' }).replace('.', '')}</small>
+                  <strong>{d.getDate()}</strong>
+                  <i className={a ?? ''} />
+                </button>
+              )
+            })}
+          </div>
 
           {brennt.length > 0 && (
-            <Block titel="Brennt" ton="rot" hinweis="Frist gerissen oder Posting verpasst — das zuerst." anzahl={brennt.length}>
-              {brennt.map((v) => zeile(v, true))}
-            </Block>
+            <>
+              <button className="p-band" onClick={() => setBand(band === 'brennt' ? null : 'brennt')} aria-expanded={band === 'brennt'}>
+                <span className="n-ic rot"><Flame strokeWidth={2.2} /></span>
+                <span className="n-text">
+                  <strong>{brennt.length} {brennt.length === 1 ? 'Post hängt' : 'Posts hängen'} hinterher</strong>
+                  <span>Frist gerissen oder verpasst</span>
+                </span>
+                <ChevronDown className="n-chevron" style={{ transform: band === 'brennt' ? 'rotate(180deg)' : undefined }} />
+              </button>
+              {band === 'brennt' && <div className="n-gruppe" style={{ marginBottom: 10 }}>{brennt.map((v) => zeile(v, true))}</div>}
+            </>
           )}
-
-          <Block titel="Heute" ton="normal" anzahl={heuteListe.length}>
-            {heuteListe.length === 0
-              ? <div className="pz-leer">Heute steht kein Post an.</div>
-              : heuteListe.map((v) => zeile(v))}
-          </Block>
-
-          <Block titel="Morgen" ton="normal" anzahl={morgenListe.length}>
-            {morgenListe.length === 0
-              ? <div className="pz-leer">Morgen steht kein Post an.</div>
-              : morgenListe.map((v) => zeile(v))}
-          </Block>
-
-          <Block titel={`Nächste ${Math.round(VORAUS_TAGE / 7)} Wochen`} ton="normal" anzahl={spaeterAnzahl}>
-            {nachTag.length === 0 ? (
-              <div className="pz-leer">Noch nichts geplant.</div>
-            ) : (
-              nachTag.map(([tag, liste]) => (
-                <div key={tag} className="pz-tag">
-                  <div className="pz-tag-kopf">{wochentag(tag)}</div>
-                  {liste.map((v) => zeile(v))}
-                </div>
-              ))
-            )}
-          </Block>
 
           {linksFehlen.length > 0 && (
-            <Block titel="Links fehlen" ton="leise" hinweis="Gepostet, aber ohne Link — dafür kommen nie Zahlen." anzahl={linksFehlen.length}>
-              {linksFehlen.map((v) => zeile(v, true))}
-            </Block>
+            <>
+              <button className="p-band" onClick={() => setBand(band === 'links' ? null : 'links')} aria-expanded={band === 'links'}>
+                <span className="n-ic gelb"><Link2 strokeWidth={2.2} /></span>
+                <span className="n-text">
+                  <strong>{linksFehlen.length} ohne Link</strong>
+                  <span>Ohne Link kommen keine Zahlen</span>
+                </span>
+                <ChevronDown className="n-chevron" style={{ transform: band === 'links' ? 'rotate(180deg)' : undefined }} />
+              </button>
+              {band === 'links' && <div className="n-gruppe" style={{ marginBottom: 10 }}>{linksFehlen.map((v) => zeile(v, true))}</div>}
+            </>
           )}
+
+          <div className="n-abschnitt">
+            <h2>{tagTitel}</h2>
+            {tagListe.length > 0 && <span>{tagListe.length} {tagListe.length === 1 ? 'Post' : 'Posts'}</span>}
+          </div>
+          <div className="n-gruppe">
+            {tagListe.length === 0
+              ? <div className="n-leer">An diesem Tag geht nichts raus.</div>
+              : tagListe.map((v) => zeile(v))}
+          </div>
+
+          {ohneTermin > 0 && (
+            <p className="p-fuss">{ohneTermin} {ohneTermin === 1 ? 'Video hat' : 'Videos haben'} noch keinen Posting-Tag.</p>
+          )}
+          <p className="p-fuss">Vorlauf: gedreht {FRISTEN.dreh} Tage, geschnitten {FRISTEN.schnitt} Tage, eingeplant {FRISTEN.planung} Tag vor dem Posting-Tag.</p>
         </>
       )}
     </>
-  )
-}
-
-function Block({ titel, ton, hinweis, anzahl, children }: {
-  titel: string
-  ton: 'rot' | 'normal' | 'leise'
-  hinweis?: string
-  anzahl: number
-  children: React.ReactNode
-}) {
-  return (
-    <section className={`heute-block ${ton}`}>
-      <header className="heute-kopf">
-        <h2>{titel}</h2>
-        {anzahl > 0 && <span className="heute-zahl">{anzahl}</span>}
-        {hinweis && <span className="heute-hinweis">{hinweis}</span>}
-      </header>
-      <div className="heute-liste">{children}</div>
-    </section>
   )
 }

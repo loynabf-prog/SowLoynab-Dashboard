@@ -10,6 +10,8 @@ import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../context/ToastContext'
 import Modal from '../components/Modal'
+import ProduktionKopf from '../components/ProduktionKopf'
+import { Folder, ChevronRight } from 'lucide-react'
 import {
   BASIS, brotkrumen, dropbox, dropboxWebLink, groesse, relativ, sortiert,
   type DropboxStatus, type Eintrag,
@@ -165,14 +167,12 @@ export default function Medien() {
 
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1>Medien</h1>
-          <span className="sub">{status ? `Dropbox${status.konto ? ` · ${status.konto}` : ''}` : 'Lade …'}</span>
+      <ProduktionKopf unter={status ? `Dropbox${status.konto ? ` · ${status.konto}` : ''}` : 'Dropbox'} />
+      {pfad && (
+        <div className="m-extern">
+          <a className="n-mehr-link" href={dropboxWebLink(pfad)} target="_blank" rel="noopener noreferrer">In Dropbox öffnen</a>
         </div>
-        <div className="spacer" />
-        {pfad && <a className="heute-tun medien-extern" href={dropboxWebLink(pfad)} target="_blank" rel="noopener noreferrer">Dropbox ↗</a>}
-      </div>
+      )}
 
       <div className="medien-kunden" ref={chipLeiste}>
         {kunden.flatMap((k) => k.ordner.map((o) => (
@@ -228,20 +228,18 @@ export default function Medien() {
 
       {/* Ordner als ruhige Liste wie auf der Startseite, Dateien als Galerie. */}
       {anzeige.some((e) => e.ordner) && (
-        <section className="heute-block">
-          <div className="heute-liste">
-            {anzeige.filter((e) => e.ordner).map((e) => (
-              <button key={e.pfad} className="heute-zeile medien-ordner" onClick={() => oeffnen(e)}>
-                <span className="heute-ic" aria-hidden>📁</span>
-                <span className="heute-text">
-                  <span className="heute-titel">{e.name}</span>
-                  {treffer && <span className="heute-meta"><span className="heute-grund">{relativ(start ?? BASIS, e.pfad.split('/').slice(0, -1).join('/'))}</span></span>}
-                </span>
-                <span className="heute-pfeil" aria-hidden>›</span>
-              </button>
-            ))}
-          </div>
-        </section>
+        <div className="n-gruppe" style={{ marginBottom: 18 }}>
+          {anzeige.filter((e) => e.ordner).map((e) => (
+            <button key={e.pfad} className="n-zeile" onClick={() => oeffnen(e)}>
+              <span className="n-ic blau"><Folder strokeWidth={2.2} /></span>
+              <span className="n-text">
+                <span className="n-titel">{e.name}</span>
+                {treffer && <span className="n-unter">{relativ(start ?? BASIS, e.pfad.split('/').slice(0, -1).join('/'))}</span>}
+              </span>
+              <ChevronRight className="n-chevron" />
+            </button>
+          ))}
+        </div>
       )}
 
       <div className="medien-raster">

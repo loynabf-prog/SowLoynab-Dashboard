@@ -56,7 +56,8 @@ export default function App() {
       <Route path="/client/:id" element={<ProtectedRoute><ClientPage /></ProtectedRoute>} />
       <Route path="/leads" element={<ProtectedRoute><Leads /></ProtectedRoute>} />
       <Route path="/aufgaben" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
-      <Route path="/posting" element={<ProtectedRoute><Posting /></ProtectedRoute>} />
+      <Route path="/plan" element={<ProtectedRoute><Posting /></ProtectedRoute>} />
+      <Route path="/posting" element={<Navigate to="/plan" replace />} />
       <Route path="/produktion" element={<ProtectedRoute><Produktion /></ProtectedRoute>} />
       <Route path="/medien" element={<ProtectedRoute><Medien /></ProtectedRoute>} />
       <Route path="/kalender" element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
