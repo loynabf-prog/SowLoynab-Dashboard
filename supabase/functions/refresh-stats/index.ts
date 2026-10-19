@@ -3,6 +3,9 @@
 // Liest für jedes Video mit hinterlegtem TikTok-/Instagram-Link automatisch
 // die aktuellen Zahlen (Views/Likes/Kommentare/Shares) über Apify aus und
 // schreibt sie ins Video + als Tages-Schnappschuss in video_stats.
+// Seit 0044 zusaetzlich alles, was dieselbe Antwort mitliefert (Uhrzeit,
+// Caption, Hashtags, Sound, Vorschaubild, IG-Typ/Ort/Kommentare, TikTok-
+// Follower) -- ohne zusaetzlichen Abruf.
 //
 // Prüf-Rhythmus pro Video (ab dem Post-Datum, spart unnötige Apify-Kosten):
 //   Tag 0–7   -> jeden Tag       (Zahlen bewegen sich frisch am meisten)
@@ -21,6 +24,7 @@
 // Beim Deploy: "Enforce JWT" für diese Funktion AUSschalten (Cron ruft sie).
 
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { tiktokMeta, instagramMeta, ohneLeere, coverSichern, tiktokFollowerSchreiben } from '../_shared/plattformMeta.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -53,7 +57,9 @@ async function apifyRun(actor: string, input: unknown, token: string): Promise<a
   return Array.isArray(data) ? data : []
 }
 
-interface Stats { views: number | null; likes: number | null; comments: number | null; shares: number | null; saves: number | null; duration: number | null }
+// roh: die komplette Antwort des Actors -- daraus kommen Uhrzeit, Caption,
+// Sound, Vorschaubild usw. (_shared/plattformMeta.ts), ohne Zusatzabruf.
+interface Stats { views: number | null; likes: number | null; comments: number | null; shares: number | null; saves: number | null; duration: number | null; roh: any }
 
 async function tiktokStats(urlStr: string, actor: string, token: string): Promise<Stats | null> {
   const items = await apifyRun(actor, { postURLs: [urlStr], resultsPerPage: 1, shouldDownloadVideos: false, shouldDownloadCovers: false }, token)
@@ -66,6 +72,7 @@ async function tiktokStats(urlStr: string, actor: string, token: string): Promis
     shares: pick(it, ['shareCount', 'shares']),
     saves: pick(it, ['collectCount', 'saves']),
     duration: pick(it, ['videoMeta.duration', 'duration']) ?? pick(it?.videoMeta ?? {}, ['duration']),
+    roh: it,
   }
 }
 
@@ -80,6 +87,7 @@ async function instagramStats(urlStr: string, actor: string, token: string): Pro
     shares: pick(it, ['sharesCount', 'shares', 'reshareCount']),
     saves: pick(it, ['savesCount', 'saves']),
     duration: pick(it, ['videoDuration', 'duration']),
+    roh: it,
   }
 }
 
@@ -115,7 +123,7 @@ Deno.serve(async (req) => {
     // unten anhand des Post-Datums.
     const { data: vids, error } = await supa
       .from('videos')
-      .select('id, tiktok_url, instagram_url, posted_at')
+      .select('id, client_id, tiktok_url, instagram_url, posted_at, tiktok_cover, ig_cover')
       .eq('status', 'posted')
       .is('deleted_at', null)
       .not('posted_at', 'is', null)
@@ -158,7 +166,26 @@ Deno.serve(async (req) => {
 
       const videoPatch: Record<string, unknown> = { ...merged, ...perPlatform, reach, stats_updated_at: new Date().toISOString() }
       if (duration != null) videoPatch.duration_seconds = duration
-      await supa.from('videos').update(videoPatch).eq('id', v.id)
+
+      // Alles Weitere aus derselben Antwort mitnehmen (Migration 0044).
+      const ttMeta = tt ? tiktokMeta(tt.roh) : null
+      const igMeta = ig ? instagramMeta(ig.roh) : null
+      Object.assign(videoPatch, ohneLeere({ ...(ttMeta?.patch ?? {}), ...(igMeta?.patch ?? {}) }))
+      if (ttMeta || igMeta) videoPatch.meta_updated_at = new Date().toISOString()
+      // Vorschaubild nur einmal sichern -- es aendert sich nicht.
+      if (ttMeta && !v.tiktok_cover) { const c = await coverSichern(supa, v.id, 'tiktok', ttMeta.coverQuelle); if (c) videoPatch.tiktok_cover = c }
+      if (igMeta && !v.ig_cover) { const c = await coverSichern(supa, v.id, 'ig', igMeta.coverQuelle); if (c) videoPatch.ig_cover = c }
+      // TikTok-Follower stehen in jeder Antwort mit drin.
+      if (tt?.roh && v.client_id) { try { await tiktokFollowerSchreiben(supa, v.client_id, tt.roh) } catch { /* Zugabe */ } }
+
+      let { error: upErr } = await supa.from('videos').update(videoPatch).eq('id', v.id)
+      if (upErr) {
+        // Fehlen die neuen Spalten (0044 nicht eingespielt): ohne sie speichern.
+        const nurZahlen: Record<string, unknown> = { ...merged, ...perPlatform, reach, stats_updated_at: videoPatch.stats_updated_at }
+        if (duration != null) nurZahlen.duration_seconds = duration
+        ;({ error: upErr } = await supa.from('videos').update(nurZahlen).eq('id', v.id))
+        if (upErr) errors.push(`upd ${v.id}: ${upErr.message}`)
+      }
       // Tages-Schnappschuss (heutigen Eintrag ersetzen, damit die Kurve sauber bleibt)
       await supa.from('video_stats').delete().eq('video_id', v.id).eq('captured_on', today)
       await supa.from('video_stats').insert({ video_id: v.id, captured_on: today, ...merged, reach })

@@ -31,6 +31,7 @@
 // Beim Deploy: "Enforce JWT" AUSschalten (der Cron ruft sie).
 
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { tiktokMeta, instagramMeta, ohneLeere, coverSichern, tiktokFollowerSchreiben } from '../_shared/plattformMeta.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -62,10 +63,7 @@ interface Zahlen {
   views: number | null; likes: number | null; comments: number | null
   shares: number | null; saves: number | null; duration: number | null
 }
-interface Konto { followers: number | null; following: number | null; posts: number | null }
-// konto: Follower-Stand des Accounts. Liefert der TikTok-Abruf ohnehin mit
-// (authorMeta) -- kostet also nichts extra. Instagram-Posts enthalten ihn nicht.
-interface Posting { url: string; zeit: string | null; zahlen: Zahlen; konto?: Konto | null }
+interface Posting { url: string; zeit: string | null; zahlen: Zahlen; roh?: any }
 
 // Dieselben Feldnamen wie in refresh-stats -- die Zahlen muessen aus beiden
 // Wegen identisch herauskommen, sonst springen sie beim naechtlichen Lauf.
@@ -123,14 +121,8 @@ async function neuestesTiktok(handle: string, actor: string, token: string): Pro
     profiles: [handle], resultsPerPage: 3,
     shouldDownloadVideos: false, shouldDownloadCovers: false,
   }, token)
-  const autor = items.find((it) => it?.authorMeta)?.authorMeta ?? null
-  const konto: Konto | null = autor ? {
-    followers: pick(autor, ['fans', 'followerCount', 'followers']),
-    following: pick(autor, ['following', 'followingCount']),
-    posts: pick(autor, ['video', 'videoCount']),
-  } : null
   const mit = items
-    .map((it) => ({ url: String(it?.webVideoUrl ?? it?.postPage ?? ''), zeit: zeitAus(it), zahlen: tiktokZahlen(it), konto }))
+    .map((it) => ({ url: String(it?.webVideoUrl ?? it?.postPage ?? ''), zeit: zeitAus(it), zahlen: tiktokZahlen(it), roh: it }))
     .filter((p) => p.url.startsWith('http'))
   return sortiere(mit)[0] ?? null
 }
@@ -141,7 +133,7 @@ async function neuestesInstagram(handle: string, actor: string, token: string): 
     resultsType: 'posts', resultsLimit: 3,
   }, token)
   const mit = items
-    .map((it) => ({ url: String(it?.url ?? ''), zeit: zeitAus(it), zahlen: instagramZahlen(it) }))
+    .map((it) => ({ url: String(it?.url ?? ''), zeit: zeitAus(it), zahlen: instagramZahlen(it), roh: it }))
     .filter((p) => p.url.startsWith('http'))
   return sortiere(mit)[0] ?? null
 }
@@ -244,8 +236,8 @@ const bedienen = async (req: Request): Promise<Response> => {
             : await neuestesInstagram(handle, igActor, token)
           // Follower gleich mitnehmen, auch wenn das Posting selbst noch
           // nicht passt -- die Zahl stimmt trotzdem.
-          if (p?.konto && platform === 'tiktok') {
-            try { await followerSchreiben(supa, v.client_id, passend[0].id ?? null, p.konto) } catch { /* Zugabe */ }
+          if (p?.roh && platform === 'tiktok') {
+            try { await tiktokFollowerSchreiben(supa, v.client_id, p.roh) } catch { /* Zugabe */ }
           }
           if (!p) { notizen.push(`${platform}: kein Posting gefunden`); continue }
           if (zuAlt(p)) { notizen.push(`${platform}: neuestes Posting ist älter als ${MAX_ALTER_STUNDEN} h`); continue }
@@ -259,6 +251,12 @@ const bedienen = async (req: Request): Promise<Response> => {
             continue
           }
           patch[feld] = p.url
+          // Uhrzeit, Caption, Sound, Vorschaubild ... aus derselben Antwort (0044)
+          const meta = platform === 'tiktok' ? tiktokMeta(p.roh) : instagramMeta(p.roh)
+          Object.assign(patch, ohneLeere(meta.patch))
+          patch.meta_updated_at = new Date().toISOString()
+          const cover = await coverSichern(supa, v.id, platform === 'tiktok' ? 'tiktok' : 'ig', meta.coverQuelle)
+          if (cover) patch[platform === 'tiktok' ? 'tiktok_cover' : 'ig_cover'] = cover
           // Der Abruf hat die Zahlen ohnehin geliefert -- mitnehmen, statt sie
           // wegzuwerfen und spaeter ein zweites Mal dafuer zu bezahlen.
           frisch[platform] = p.zahlen
@@ -327,7 +325,7 @@ const bedienen = async (req: Request): Promise<Response> => {
           views_ig: igV, likes_ig: igL, comments_ig: igK, shares_ig: igS, saves_ig: igB,
         })
         const dauer = tt?.duration ?? ig?.duration ?? null
-        if (dauer != null) patch.duration_seconds = dauer
+        if (dauer != null) patch.duration_seconds = Math.round(dauer)
 
         // Tages-Schnappschuss fuer die Kurve, heutigen Eintrag ersetzen
         const heute = new Date().toISOString().slice(0, 10)
@@ -377,24 +375,6 @@ const bedienen = async (req: Request): Promise<Response> => {
 // Server starten.
 if (typeof Deno !== 'undefined') Deno.serve(bedienen)
 
-/**
- * TikTok-Follower in client_stats fuer heute eintragen: in die Zeile des
- * Accounts und in die Gesamtzeile des Kunden. Nur die TikTok-Spalten --
- * Instagram-Werte derselben Zeile bleiben unberuehrt. Da wir hier nur bei
- * genau einem TikTok-Account abrufen, ist dessen Stand auch die Summe.
- */
-async function followerSchreiben(supa: any, clientId: string, accountId: string | null, k: Konto) {
-  if (k.followers == null) return
-  const patch = { followers_tiktok: k.followers, following_tiktok: k.following, posts_tiktok: k.posts }
-  const tag = new Date().toISOString().slice(0, 10)
-  for (const acc of accountId ? [accountId, null] : [null]) {
-    let q = supa.from('client_stats').select('id').eq('client_id', clientId).eq('captured_on', tag)
-    q = acc ? q.eq('account_id', acc) : q.is('account_id', null)
-    const { data: da } = await q.maybeSingle()
-    if (da) await supa.from('client_stats').update(patch).eq('id', da.id)
-    else await supa.from('client_stats').insert({ client_id: clientId, captured_on: tag, ...(acc ? { account_id: acc } : {}), ...patch })
-  }
-}
 
 function json(obj: unknown, status = 200): Response {
   return new Response(JSON.stringify(obj), { status, headers: { ...CORS, 'content-type': 'application/json' } })

@@ -69,7 +69,15 @@ async function apifyRun(actor: string, input: unknown, token: string): Promise<a
   return Array.isArray(data) ? data : []
 }
 
-interface AccountStats { followers: number | null; following: number | null; posts: number | null }
+interface AccountStats {
+  followers: number | null; following: number | null; posts: number | null
+  likesGesamt?: number | null
+  // Profil-Angaben, die der Abruf ohnehin liefert (0044) -- landen am Account
+  profil?: { bio: string | null; kategorie: string | null; external_url: string | null; verifiziert: boolean | null }
+}
+
+function txt(v: unknown): string | null { return typeof v === 'string' && v.trim() ? v.trim() : null }
+function bol(v: unknown): boolean | null { return typeof v === 'boolean' ? v : null }
 
 async function tiktokAccount(handle: string, actor: string, token: string): Promise<AccountStats | null> {
   const items = await apifyRun(actor, { profiles: [handle], resultsPerPage: 1, shouldDownloadVideos: false, shouldDownloadCovers: false }, token)
@@ -80,6 +88,8 @@ async function tiktokAccount(handle: string, actor: string, token: string): Prom
     followers: pick(author, ['fans', 'followerCount', 'followers']),
     following: pick(author, ['following', 'followingCount']),
     posts: pick(author, ['video', 'videoCount', 'postsCount']),
+    likesGesamt: pick(author, ['heart', 'heartCount']),
+    profil: { bio: txt(author.signature), kategorie: null, external_url: txt(author.bioLink?.link), verifiziert: bol(author.verified) },
   }
 }
 
@@ -91,6 +101,7 @@ async function instagramAccount(handle: string, actor: string, token: string): P
     followers: pick(it, ['followersCount', 'followers']),
     following: pick(it, ['followsCount', 'followingCount', 'following']),
     posts: pick(it, ['postsCount', 'posts']),
+    profil: { bio: txt(it.biography), kategorie: txt(it.businessCategoryName), external_url: txt(it.externalUrl), verifiziert: bol(it.verified) },
   }
 }
 
@@ -102,10 +113,10 @@ interface Ziel { client_id: string; account_id: string | null; platform: 'instag
 function spalten(platform: 'instagram' | 'tiktok', s: AccountStats) {
   return platform === 'instagram'
     ? { followers_ig: s.followers, following_ig: s.following, posts_ig: s.posts, followers_tiktok: null, following_tiktok: null, posts_tiktok: null }
-    : { followers_tiktok: s.followers, following_tiktok: s.following, posts_tiktok: s.posts, followers_ig: null, following_ig: null, posts_ig: null }
+    : { followers_tiktok: s.followers, following_tiktok: s.following, posts_tiktok: s.posts, likes_total_tiktok: s.likesGesamt ?? null, followers_ig: null, following_ig: null, posts_ig: null }
 }
 
-const FELDER = ['followers_ig', 'followers_tiktok', 'following_ig', 'following_tiktok', 'posts_ig', 'posts_tiktok'] as const
+const FELDER = ['followers_ig', 'followers_tiktok', 'following_ig', 'following_tiktok', 'posts_ig', 'posts_tiktok', 'likes_total_tiktok'] as const
 
 /** Mehrere Account-Ergebnisse zu einer Gesamtzeile addieren. */
 function summe(teile: Record<string, number | null>[]): Record<string, number | null> {
@@ -187,6 +198,10 @@ Deno.serve(async (req) => {
       // Zeile fuer genau diesen Account -- nur wenn wir die neue Tabelle
       // haben. Sonst gibt es nur die Gesamtzeile wie bisher.
       if (z.account_id) await schreibe(supa, z.client_id, today, z.account_id, patch)
+      if (z.account_id && s.profil) {
+        const p = Object.fromEntries(Object.entries(s.profil).filter(([, w]) => w != null))
+        try { await supa.from('client_accounts').update({ ...p, profil_updated_at: new Date().toISOString() }).eq('id', z.account_id) } catch { /* Zugabe */ }
+      }
     }
 
     // Gesamtzeile je Kunde: alle Accounts addiert. Zwei Instagram-Accounts
