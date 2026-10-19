@@ -24,7 +24,7 @@ import { celebrate } from '../lib/confetti'
 import NudgeModal from '../components/NudgeModal'
 import { insertRows, tableMissing, updateRow } from '../lib/db'
 import { statusFolgen } from '../lib/statusSync'
-import { postenPatch } from '../lib/videoAktionen'
+import { linksJetztHolen, postenPatch } from '../lib/videoAktionen'
 
 /**
  * channel_id nur mitschicken, wenn wirklich ein Kanal gesetzt ist.
@@ -58,6 +58,7 @@ import {
 } from '../lib/channels'
 import {
   ladeAccounts, speichereAccounts, zuEntwuerfen, profilUrl, accountName,
+  altHandlesAlsEntwuerfe, profilQuelle, holeProfilbild,
   nurGesamt, nurAccounts, plattformInfo,
   type AccountEntwurf, type ClientAccount,
 } from '../lib/accounts'
@@ -302,8 +303,8 @@ export default function ClientPage() {
       p = { ...statusFolgen(patch.status, before), ...p }
     }
     if (patch.status === 'posted' && before && before.status !== 'posted') {
-      // Wie "Gepostet" auf der Startseite: Zeitpunkt plus automatische
-      // Link-Abholung in ein paar Minuten.
+      // Wie "Gepostet" auf der Startseite: Zeitpunkt plus sofortige
+      // automatische Link-Abholung.
       p = { ...(postenPatch({ ...before, posted_at: null }) as Partial<Video>), ...p }
       celebrate()
       toast('Gepostet — stark! 🎉')
@@ -315,11 +316,11 @@ export default function ClientPage() {
       loadVideos()
       return
     }
-    // Frisch gepostet und noch kein Posting-Link hinterlegt? Dann jetzt danach
-    // fragen. Ohne Link laeuft die naechtliche Abfrage an diesem Video vorbei
-    // und die Zahlen bleiben fuer immer leer.
-    if (p.status === 'posted' && before && before.status !== 'posted' && !before.tiktok_url && !before.instagram_url) {
-      setAskLinks({ ...before, ...p } as Video)
+    // Frisch gepostet und Links fehlen? Nicht mehr fragen, sondern direkt
+    // holen: das neueste Posting des Kunden ist in dem Moment unseres.
+    // Klappt das nicht, steht das Video spaeter unter "Links fehlen".
+    if (p.status === 'posted' && before && before.status !== 'posted' && 'link_fetch_at' in p) {
+      linksJetztHolen(videoId)
       return
     }
 
@@ -1502,7 +1503,9 @@ function EditClientModal({
     ladeAccounts(client.id).then(({ da, accounts }) => {
       setAccountsDa(da)
       setAccVorher(accounts)
-      setAccEntwuerfe(zuEntwuerfen(accounts))
+      // Kein Account angelegt, aber Handles am Kunden? Dann die vorbelegen --
+      // sonst stehen die Felder leer da und beim Speichern ginge alles verloren.
+      setAccEntwuerfe(accounts.length ? zuEntwuerfen(accounts) : altHandlesAlsEntwuerfe(client))
     }).catch(() => setAccountsDa(false))
     ladeKanaele(client.id).then(({ da, kanaele }) => {
       setKanaeleDa(da)
@@ -1522,6 +1525,21 @@ function EditClientModal({
     if (menge != null) setQuota(String(menge))
   }
 
+  const [bildLaedt, setBildLaedt] = useState(false)
+  const [geholtUrl, setGeholtUrl] = useState<string | null>(null)
+  async function profilbildJetzt() {
+    const quelle = profilQuelle(accountsDa ? accEntwuerfe : [
+      { platform: 'instagram', handle: ig }, { platform: 'tiktok', handle: tiktok },
+    ])
+    if (!quelle) return
+    setBildLaedt(true)
+    setError(null)
+    const r = await holeProfilbild(client.id, quelle.platform, quelle.handle)
+    setBildLaedt(false)
+    if (r.ok) { setLogoPreview(r.url); setGeholtUrl(r.url); setLogoFile(null) }
+    else setError(r.fehler)
+  }
+
   function onPickLogo(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -1535,7 +1553,7 @@ function EditClientModal({
     setBusy(true)
     setError(null)
     try {
-      let logo_url = client.logo_url
+      let logo_url = geholtUrl ?? client.logo_url
       if (logoFile) logo_url = await uploadLogo(logoFile)
       const { error } = await updateRow('clients', {
         name: name.trim(),
@@ -1566,6 +1584,17 @@ function EditClientModal({
       // Erst die Kanäle -- die Accounts brauchen deren frische Ids.
       const kanaele = kanaeleDa ? await speichereKanaele(client.id, kanVorher, kanEntwuerfe) : []
       if (accountsDa) await speichereAccounts(client.id, accVorher, accEntwuerfe, kanaele)
+      // Noch kein Logo? Dann das Profilbild vom Account holen -- im
+      // Hintergrund, das Speichern soll darauf nicht warten.
+      if (!logo_url) {
+        const quelle = profilQuelle(accountsDa ? accEntwuerfe : [
+          { platform: 'instagram', handle: ig }, { platform: 'tiktok', handle: tiktok },
+        ])
+        if (quelle) {
+          holeProfilbild(client.id, quelle.platform, quelle.handle)
+            .then((r) => { if (r.ok) onSaved() })
+        }
+      }
       onSaved()
     } catch (err: any) {
       setError(err.message ?? 'Fehler beim Speichern')
@@ -1588,6 +1617,12 @@ function EditClientModal({
               Logo waehlen
               <input type="file" accept="image/*" onChange={onPickLogo} style={{ display: 'none' }} />
             </label>
+            {profilQuelle(accountsDa ? accEntwuerfe : [{ platform: 'instagram', handle: ig }, { platform: 'tiktok', handle: tiktok }]) && (
+              <button type="button" className="btn btn-sm" disabled={bildLaedt} onClick={profilbildJetzt}
+                style={{ margin: 0, textTransform: 'none', letterSpacing: 0 }}>
+                {bildLaedt ? 'Hole Profilbild …' : 'Profilbild vom Account'}
+              </button>
+            )}
           </div>
         </div>
 

@@ -8,8 +8,9 @@
 // greifen uns das oberste.
 //
 // Ablauf:
-//   "Gepostet" gedrückt  -> videos.link_fetch_at = jetzt + ein paar Minuten
-//   dieser Lauf (alle 5 Min)
+//   "Gepostet" gedrückt  -> videos.link_fetch_at = jetzt, und die App ruft
+//                           diese Funktion sofort mit { video_id } auf
+//   dieser Lauf (zusaetzlich alle 5 Min als Absicherung)
 //     -> fällige Videos holen
 //     -> je Plattform das neueste Posting des Kunden abrufen
 //     -> hängt die Adresse schon an einem anderen Video? Dann NICHT setzen,
@@ -166,7 +167,11 @@ const bedienen = async (req: Request): Promise<Response> => {
     const ttActor = Deno.env.get('APIFY_TIKTOK_ACTOR') || 'clockworks~tiktok-scraper'
     const igActor = Deno.env.get('APIFY_INSTAGRAM_ACTOR') || 'apify~instagram-scraper'
 
-    const { data: faellig, error } = await supa
+    // Sofort-Abruf aus der App: nur dieses eine Video, sonst alle faelligen.
+    const body = await req.json().catch(() => ({}))
+    const nurVideo = typeof body?.video_id === 'string' ? body.video_id : null
+
+    let abfrage = supa
       .from('videos')
       .select('id, client_id, title, tiktok_url, instagram_url, link_fetch_tries, ' +
               'views_ig, likes_ig, comments_ig, shares_ig, saves_ig, ' +
@@ -176,7 +181,8 @@ const bedienen = async (req: Request): Promise<Response> => {
       .not('link_fetch_at', 'is', null)
       .lte('link_fetch_at', new Date().toISOString())
       .lt('link_fetch_tries', MAX_VERSUCHE)
-      .limit(20)
+    if (nurVideo) abfrage = abfrage.eq('id', nurVideo)
+    const { data: faellig, error } = await abfrage.limit(20)
     if (error) return json({ error: error.message }, 500)
     if (!faellig?.length) return json({ geprueft: 0 })
 
@@ -205,6 +211,11 @@ const bedienen = async (req: Request): Promise<Response> => {
           (c as any)?.handle_tiktok && { platform: 'tiktok', handle: (c as any).handle_tiktok },
         ].filter(Boolean) as any[]
       }
+
+      // Der erste Anlauf kommt jetzt direkt nach dem Tippen -- da ist das Video
+      // manchmal noch nicht ueber die Schnittstelle sichtbar. Deshalb der
+      // naechste Versuch schon nach 5 Minuten, danach alle 20.
+      const naechster = new Date(Date.now() + (versuch <= 1 ? 5 : 20) * 60_000).toISOString()
 
       const notizen: string[] = []
       for (const feld of ['tiktok_url', 'instagram_url'] as const) {
@@ -261,11 +272,11 @@ const bedienen = async (req: Request): Promise<Response> => {
         // ein frisches Reel über die Schnittstelle auftaucht.
         patch.link_fetch_at = versuch >= MAX_VERSUCHE
           ? null
-          : new Date(Date.now() + 20 * 60_000).toISOString()
+          : naechster
         if (versuch >= MAX_VERSUCHE) patch.link_fetch_state = 'fehlgeschlagen'
         unklar++
       } else {
-        patch.link_fetch_at = new Date(Date.now() + 20 * 60_000).toISOString()
+        patch.link_fetch_at = naechster
         patch.link_fetch_state = 'offen'
       }
 

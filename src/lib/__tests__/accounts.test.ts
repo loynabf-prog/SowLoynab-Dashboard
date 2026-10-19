@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   normHandle, profilUrl, accountName, planeAbgleich,
-  nurGesamt, nurAccounts, letzterStandJeAccount,
+  nurGesamt, nurAccounts, letzterStandJeAccount, altHandlesAlsEntwuerfe, profilQuelle,
   type ClientAccount, type AccountEntwurf,
 } from '../accounts'
 
@@ -135,5 +135,29 @@ describe('letzterStandJeAccount', () => {
   it('ueberspringt Gesamtzeilen', () => {
     const m = letzterStandJeAccount([{ account_id: null, followers_ig: 999 }])
     expect(m.size).toBe(0)
+  })
+})
+
+describe('altHandlesAlsEntwuerfe', () => {
+  it('macht aus beiden alten Spalten neue Account-Entwuerfe', () => {
+    expect(altHandlesAlsEntwuerfe({ handle_ig: '@KebabKumpels', handle_tiktok: 'kebabkumpels' })).toEqual([
+      { id: null, platform: 'instagram', handle: 'kebabkumpels', label: '' },
+      { id: null, platform: 'tiktok', handle: 'kebabkumpels', label: '' },
+    ])
+  })
+  it('laesst leere Spalten weg', () => {
+    expect(altHandlesAlsEntwuerfe({ handle_ig: null, handle_tiktok: '  ' })).toEqual([])
+  })
+})
+
+describe('profilQuelle', () => {
+  it('nimmt Instagram vor TikTok', () => {
+    expect(profilQuelle([{ platform: 'tiktok', handle: 'a' }, { platform: 'instagram', handle: '@b' }]))
+      .toEqual({ platform: 'instagram', handle: 'b' })
+  })
+  it('faellt auf TikTok zurueck und ignoriert leere Handles', () => {
+    expect(profilQuelle([{ platform: 'instagram', handle: '' }, { platform: 'tiktok', handle: 'x' }]))
+      .toEqual({ platform: 'tiktok', handle: 'x' })
+    expect(profilQuelle([])).toBeNull()
   })
 })

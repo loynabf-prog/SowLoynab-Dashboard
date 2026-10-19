@@ -101,6 +101,50 @@ export function zuEntwuerfen(accounts: ClientAccount[]): AccountEntwurf[] {
   return accounts.map((a) => ({ id: a.id, platform: a.platform, handle: a.handle, label: a.label ?? '' }))
 }
 
+/**
+ * Handles aus den alten Spalten am Kunden als Formular-Entwuerfe -- fuer
+ * Kunden, die (noch) keinen Eintrag in client_accounts haben. Ohne Id, also
+ * legt das Speichern sie als neue Accounts an.
+ */
+export function altHandlesAlsEntwuerfe(c: { handle_ig?: string | null; handle_tiktok?: string | null }): AccountEntwurf[] {
+  const out: AccountEntwurf[] = []
+  if (c.handle_ig && normHandle(c.handle_ig)) out.push({ id: null, platform: 'instagram', handle: normHandle(c.handle_ig), label: '' })
+  if (c.handle_tiktok && normHandle(c.handle_tiktok)) out.push({ id: null, platform: 'tiktok', handle: normHandle(c.handle_tiktok), label: '' })
+  return out
+}
+
+/**
+ * Von welchem Account das Profilbild kommen soll: Instagram zuerst (dort ist
+ * es meist das Logo), sonst TikTok. null, wenn kein Handle da ist.
+ */
+export function profilQuelle(
+  accs: { platform: string; handle: string }[],
+): { platform: Plattform; handle: string } | null {
+  for (const p of ['instagram', 'tiktok'] as Plattform[]) {
+    const a = accs.find((x) => x.platform === p && normHandle(x.handle))
+    if (a) return { platform: p, handle: normHandle(a.handle) }
+  }
+  return null
+}
+
+/** Profilbild ueber apify-profile holen und als Kundenlogo speichern. */
+export async function holeProfilbild(
+  clientId: string, platform: Plattform, handle: string,
+): Promise<{ ok: true; url: string } | { ok: false; fehler: string }> {
+  try {
+    const { data, error } = await supabase.functions.invoke('apify-profile', {
+      body: { platform, handle, client_id: clientId },
+    })
+    if (error) return { ok: false, fehler: error.message }
+    const d = data as { logo_url?: string | null; error?: string; warnung?: string }
+    if (d?.error) return { ok: false, fehler: d.error }
+    if (!d?.logo_url) return { ok: false, fehler: d?.warnung ?? `Für @${handle} kam kein Profilbild zurück` }
+    return { ok: true, url: d.logo_url }
+  } catch (e) {
+    return { ok: false, fehler: (e as Error).message }
+  }
+}
+
 /** Alle Accounts aller Kunden -- fuer die Zuordnung eines Links zum Kunden. */
 export async function ladeAlleAccounts(): Promise<ClientAccount[]> {
   const { data, error } = await supabase

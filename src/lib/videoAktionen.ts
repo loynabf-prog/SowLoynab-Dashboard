@@ -11,8 +11,8 @@ export type LinkFeld = 'tiktok_url' | 'instagram_url'
 
 /**
  * Was beim Posten zusaetzlich gesetzt wird: Zeitpunkt, alle Haekchen, und
- * ein Termin ein paar Minuten spaeter fuer die automatische Link-Abholung --
- * dann ist das Video online und zuverlaessig das neueste Posting des Kunden.
+ * der Auftrag fuer die automatische Link-Abholung, sofort faellig -- das
+ * neueste Posting des Kunden ist in dem Moment unseres.
  * Sind die Links schon da, gibt es nichts abzuholen.
  */
 export function postenPatch(
@@ -25,7 +25,9 @@ export function postenPatch(
     prep_shot: true, prep_edited: true, prep_scheduled: true,
   }
   if (!(v.tiktok_url ?? '').trim() || !(v.instagram_url ?? '').trim()) {
-    p.link_fetch_at = new Date(jetzt.getTime() + 5 * 60_000).toISOString()
+    // Sofort faellig: die App stoesst den Abruf direkt an (linksJetztHolen),
+    // der Cron alle 5 Minuten ist nur noch die Absicherung.
+    p.link_fetch_at = jetzt.toISOString()
     p.link_fetch_state = 'offen'
     p.link_fetch_tries = 0
   }
@@ -39,11 +41,24 @@ export async function alsGepostet(
 ): Promise<string | null> {
   const voll = postenPatch({ ...v, posted_at: null }, jetzt)
   const { error } = await supabase.from('videos').update(voll).eq('id', v.id)
-  if (!error) return null
+  if (!error) {
+    if ('link_fetch_at' in voll) linksJetztHolen(v.id)
+    return null
+  }
   // Fehlen die neueren Spalten noch (Skript 0031/0033), reicht das Noetige.
   const { error: e2 } = await supabase.from('videos')
     .update({ status: 'posted', posted_at: voll.posted_at }).eq('id', v.id)
   return e2 ? e2.message : null
+}
+
+/**
+ * Direkt nach "Gepostet" die Links und ersten Zahlen holen: das neueste
+ * Posting des Kunden ist in dem Moment unseres. Laeuft im Hintergrund
+ * (Apify braucht bis zu einer Minute); das Ergebnis kommt ueber den
+ * Live-Abgleich in die Ansicht. Klappt es nicht, faengt der Cron es auf.
+ */
+export function linksJetztHolen(videoId: string): void {
+  supabase.functions.invoke('fetch-post-links', { body: { video_id: videoId } }).catch(() => {})
 }
 
 /**
