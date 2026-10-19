@@ -9,7 +9,8 @@
 --   1. DEIN-PROJEKT-REF  -> dein Supabase-Projekt-Ref (z. B. kxrbeyecsdvejhvxtrin)
 --   2. DEIN-ANON-KEY     -> dein anon key (Project Settings -> API)
 --
--- Feuert jeden Tag um 07:00 UTC (= 08:00 bzw. 09:00 deutsche Zeit).
+-- STAND: eingerichtet am 19.10.2026 mit '0 6 * * *' (06:00 UTC = 08:00
+-- Sommerzeit bzw. 07:00 Winterzeit). Diese Datei nur fuer eine Neueinrichtung.
 -- =============================================================================
 
 create extension if not exists pg_cron;
@@ -22,7 +23,7 @@ select cron.unschedule('daily-reminders') where exists (
 
 select cron.schedule(
   'daily-reminders',
-  '0 7 * * *',
+  '0 6 * * *',
   $$
   select net.http_post(
     url     := 'https://DEIN-PROJEKT-REF.supabase.co/functions/v1/daily-reminders',

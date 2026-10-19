@@ -7,12 +7,11 @@
 // Die Fristen sind dieselben wie in src/lib/fristen.ts: gedreht 21 Tage,
 // geschnitten 3 Tage, eingeplant 1 Tag vor dem Posting-Tag.
 //
-// Gedacht für einen täglichen Cron-Aufruf (siehe Anleitung unten). Nutzt die
-// vorhandenen VAPID-Secrets + Service-Role (automatisch verfügbar).
+// Laeuft taeglich per Cron (Job "daily-reminders", 06:00 UTC = 08:00 bzw.
+// 07:00 deutsche Zeit im Winter). Der Cron schickt den anon key als Bearer mit, deshalb
+// kann "Enforce JWT" an bleiben. Nutzt die VAPID-Secrets + Service-Role.
 //
-// Beim Deploy WICHTIG: "Enforce JWT" für diese Funktion ausschalten
-// (Supabase -> Edge Functions -> daily-reminders -> Settings), damit der
-// Cron-Job sie aufrufen darf.
+// Probelauf ohne Versand: POST { "probe": true }.
 
 import webpush from 'npm:web-push@3.6.7'
 import { createClient } from 'npm:@supabase/supabase-js@2'
@@ -32,6 +31,8 @@ function todayIso(): string {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
   try {
+    // Probelauf: { "probe": true } zaehlt nur und schickt nichts raus.
+    const probe = !!(await req.json().catch(() => ({})))?.probe
     const pub = Deno.env.get('VAPID_PUBLIC_KEY')
     const priv = Deno.env.get('VAPID_PRIVATE_KEY')
     const subject = Deno.env.get('VAPID_SUBJECT') || 'mailto:info@sowloynab.de'
@@ -80,6 +81,10 @@ Deno.serve(async (req) => {
       body: `Heute fällig: ${parts.join(' · ')}`,
       link: nBrennt ? '/posting' : '/',
     })
+
+    if (probe) {
+      return json({ probe: true, heute: today, posts: nPosts, aufgaben: nTasks, followups: nFollow, brennt: nBrennt, geraete: subs.data?.length ?? 0, text: payload })
+    }
 
     let sent = 0
     for (const s of subs.data ?? []) {
