@@ -3774,41 +3774,65 @@ html { scroll-behavior: smooth; }
 .bereich-row { display: flex; flex-direction: column; gap: 8px; padding: 10px 2px; border-bottom: 1px solid var(--border); }
 .bereich-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 
-/* ---- Medien (Dropbox) ---- */
-.medien-kunden { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 12px; }
-.medien-leiste input { width: 100%; margin: 0 0 10px; }
+/* ---- Medien (Dropbox) ----
+   Gleiche Sprache wie die Startseite: Ordner als ruhige Liste, Dateien als
+   Galerie. Kunden als eine wischbare Reihe statt drei Zeilen Knoepfe. */
+.medien-extern { text-decoration: none; }
+.medien-kunden {
+  display: flex; gap: 6px; margin: 0 -16px 12px; padding: 2px 16px 4px;
+  overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+}
+.medien-kunden::-webkit-scrollbar { display: none; }
+.medien-chip {
+  flex: none;
+  padding: 7px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font: inherit; font-size: 13px; font-weight: 600; white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease;
+}
+.medien-chip:hover { color: var(--text); }
+.medien-chip.on { background: var(--brand); border-color: transparent; color: #fff; }
+.medien-leiste input { width: 100%; margin: 0 0 12px; height: 40px; border-radius: var(--radius-sm); }
 .medien-krumen { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; font-size: 13px; margin: 0 0 12px; }
-.medien-krume { background: none; border: none; padding: 2px 4px; color: var(--brand); cursor: pointer; font-weight: 600; }
+.medien-krume { background: none; border: none; padding: 2px 4px; color: var(--brand); cursor: pointer; font-weight: 600; font: inherit; font-size: 13px; }
 .medien-krume:disabled { color: var(--text); cursor: default; }
 .medien-trenner { color: var(--text-dim); margin: 0 2px; }
 .medien-auswahl {
   position: sticky; top: 8px; z-index: 5; display: flex; align-items: center; gap: 8px;
-  padding: 8px 12px; margin: 0 0 12px; border-radius: var(--radius-sm);
+  padding: 8px 10px 8px 14px; margin: 0 0 12px; border-radius: 999px;
   background: var(--bg-elev); border: 1px solid var(--border); box-shadow: var(--shadow-sm);
+  font-size: 13.5px;
 }
-.medien-raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; }
-@media (max-width: 760px) { .medien-raster { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; } }
+.medien-raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 14px 12px; }
+@media (max-width: 560px) { .medien-raster { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 8px; } }
 .medien-kachel { position: relative; min-width: 0; }
 .medien-bild {
   position: relative; display: flex; align-items: center; justify-content: center; width: 100%;
-  aspect-ratio: 9 / 16; border-radius: var(--radius-sm); overflow: hidden; cursor: pointer;
+  aspect-ratio: 3 / 4; border-radius: var(--radius-sm); overflow: hidden; cursor: pointer;
   background: var(--bg-sunken); border: 1px solid var(--border); padding: 0;
 }
-.medien-kachel.ordner .medien-bild { aspect-ratio: 4 / 3; }
+.medien-kachel.video .medien-bild { aspect-ratio: 9 / 16; }
 .medien-bild img { width: 100%; height: 100%; object-fit: cover; }
-.medien-icon { font-size: 30px; }
+.medien-icon { font-size: 28px; opacity: 0.75; }
 .medien-play {
-  position: absolute; inset: auto auto 8px 8px; width: 26px; height: 26px; border-radius: 50%;
-  display: grid; place-items: center; font-size: 11px; color: #fff; background: rgba(0,0,0,.55);
+  position: absolute; left: 7px; bottom: 7px; width: 24px; height: 24px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 10px; color: #fff; background: rgba(0,0,0,.5);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
 }
 .medien-kachel.gewaehlt .medien-bild { outline: 3px solid var(--brand); outline-offset: -3px; }
-.medien-name { font-size: 12.5px; font-weight: 600; margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.medien-meta { font-size: 11px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.medien-name { font-size: 12.5px; font-weight: 600; margin-top: 6px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.medien-meta { font-size: 11px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
 .medien-haken {
-  position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; border-radius: 50%;
-  border: 2px solid #fff; background: rgba(0,0,0,.3); color: #fff; font-size: 13px; font-weight: 800;
+  position: absolute; top: 6px; right: 6px; width: 22px; height: 22px; border-radius: 50%;
+  border: 1.5px solid rgba(255,255,255,.9); background: rgba(0,0,0,.25); color: #fff; font-size: 12px; font-weight: 800;
   cursor: pointer; display: grid; place-items: center; padding: 0;
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
 }
+.medien-kachel:not(.video):not(.bild) .medien-haken { border-color: var(--border-strong); background: var(--bg-card); }
 .medien-haken.on { background: var(--brand); border-color: var(--brand); }
 .medien-player { display: block; width: 100%; max-height: 70vh; border-radius: var(--radius-sm); background: #000; object-fit: contain; }
 .medien-ordnerliste { display: flex; flex-direction: column; max-height: 55vh; overflow: auto; }
@@ -3822,9 +3846,6 @@ html { scroll-behavior: smooth; }
 .medien-setup code { font-size: 12px; background: var(--bg-sunken); padding: 1px 5px; border-radius: 4px; }
 .medien-verbinden { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 .medien-verbinden input { flex: 1 1 180px; margin: 0; }
-.ps-termin { margin-top: 8px; }
-.ps-termin-knopf { background: none; border: none; padding: 2px 0; font-size: 12px; font-weight: 600; color: var(--text-dim); cursor: pointer; }
-.ps-termin-knopf:hover { color: var(--brand); }
 
 /* ============================================================================
    HEUTE — die Startseite. Drei Blöcke: Brennt, Heute, Vorarbeiten.
@@ -4086,3 +4107,117 @@ html { scroll-behavior: smooth; }
   .heute-zeit { margin-top: 1px; }
   .heute-ruhig { padding: 15px 16px; border-radius: var(--radius-sm); }
 }
+
+/* ============================================================================
+   POSTING & PRODUKTION — gleiche Sprache wie die Startseite (.heute-*).
+   Zeilen ruhig, ein Knopf rechts, Details erst beim Antippen.
+   ========================================================================== */
+
+.pz + .pz, .pz-tag + .pz-tag { border-top: 1px solid var(--border); }
+.pz .heute-zeile { border-top: none; }
+.pz.auf .heute-zeile { background: var(--bg-card-hover); }
+.pz-pfeil { transition: transform 0.18s ease; }
+.pz-pfeil.auf { transform: rotate(90deg); }
+.pz-datum { font-weight: 600; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+.pz-details {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 18px 14px 60px;
+  background: var(--bg-card-hover);
+  animation: pzAuf 0.18s ease;
+}
+@keyframes pzAuf { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.pz-reihe { display: flex; flex-direction: column; gap: 6px; }
+.pz-label {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.055em; text-transform: uppercase; color: var(--text-dim);
+}
+.pz-schritte { display: flex; gap: 6px; flex-wrap: wrap; }
+.pz-schritt {
+  padding: 6px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-elev);
+  color: var(--text-muted);
+  font: inherit; font-size: 12.5px; font-weight: 600;
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease;
+}
+.pz-schritt.on {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--posted) 16%, transparent);
+  color: color-mix(in srgb, var(--posted) 75%, var(--text));
+}
+.pz-feld { display: flex; align-items: center; gap: 8px; }
+.pz-feld input { flex: 1 1 auto; min-width: 0; margin: 0; height: 36px; padding: 0 10px; font-size: 14px; }
+.pz-linkic { flex: none; font-size: 15px; }
+.pz-akte {
+  align-self: flex-start;
+  padding: 0; border: none; background: none;
+  color: var(--brand); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.heute-tun:disabled { opacity: 0.45; cursor: default; }
+
+.pz-tag-kopf {
+  padding: 9px 18px 4px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.055em; text-transform: uppercase;
+  color: var(--text-dim);
+  border-top: 1px solid var(--border);
+}
+.pz-tag:first-child .pz-tag-kopf { border-top: none; }
+.pz-tag .pz .heute-zeile { min-height: 52px; }
+.pz-leer { padding: 6px 18px 16px; font-size: 13px; color: var(--text-dim); }
+
+/* Drei Zahlen oben: was brennt, was bald faellig ist, was im Plan liegt. */
+.pz-zahlen { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 0 0 10px; }
+.pz-kachel {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-sm);
+}
+.pz-kachel strong { font-family: var(--font-head); font-size: 24px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.pz-kachel span { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+.pz-kachel.rot strong { color: var(--danger); }
+.pz-kachel.gelb strong { color: var(--ready); }
+.pz-kachel.gruen strong { color: var(--posted); }
+.pz-kachel.null strong { color: var(--text-dim); }
+.pz-regel { margin: 0 2px 20px; font-size: 12.5px; color: var(--text-dim); line-height: 1.45; }
+.pz-regel strong { color: var(--text-muted); }
+
+/* Produktion: drei Schritte als Reiter, die nie umbrechen. */
+.pz-reiter {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px;
+  padding: 4px; margin: 0 0 14px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+}
+.pz-reiter button {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 8px 6px;
+  border: none; border-radius: calc(var(--radius-sm) - 3px);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit; font-size: 13.5px; font-weight: 600; white-space: nowrap;
+  cursor: pointer;
+}
+.pz-reiter button.on { background: var(--bg-elev); color: var(--text); box-shadow: var(--shadow-sm); }
+.pz-reiter .heute-zahl { font-size: 11px; padding: 0 6px; min-width: 18px; }
+
+@media (max-width: 560px) {
+  .pz-details { padding: 2px 12px 12px 49px; }
+  .pz-tag-kopf { padding: 8px 15px 3px; }
+  .pz-leer { padding: 4px 15px 14px; }
+  .pz-zahlen { gap: 8px; }
+  .pz-kachel { padding: 10px 11px; }
+  .pz-kachel strong { font-size: 21px; }
+  .pz-kachel span { font-size: 11.5px; }
+  .pz-reiter button { font-size: 13px; gap: 5px; }
+}
+.ps-termin { margin-top: 8px; }
+.ps-termin-knopf { background: none; border: none; padding: 2px 0; font-size: 12px; font-weight: 600; color: var(--text-dim); cursor: pointer; }
+.ps-termin-knopf:hover { color: var(--brand); }
+.heute-zeile.medien-ordner { align-items: center; min-height: 50px; }

@@ -17,10 +17,12 @@ import { supabase } from '../lib/supabase'
 import { useToast } from '../context/ToastContext'
 import { heute } from '../lib/datum'
 import { fristInfo, nachDringlichkeit, stand, type Schritt } from '../lib/fristen'
-import { vorarbeitSetzen, type VorarbeitKey } from '../lib/videoAktionen'
-import type { Video } from '../lib/types'
+import { linkSetzen, terminSetzen, vorarbeitSetzen, type VorarbeitKey } from '../lib/videoAktionen'
+import { mitPlattformen } from '../lib/postschritte'
+import PostZeile from '../components/PostZeile'
+import type { TagVideo } from '../components/PostSchritt'
 
-type ProdVideo = Video & { clients?: { name: string } | null; drehtag?: string | null }
+type ProdVideo = TagVideo
 
 interface Drehtag {
   id: string
@@ -78,7 +80,7 @@ export default function Produktion() {
         .limit(6),
     ])
     if (vRes.error) toast('Konnte Videos nicht laden: ' + vRes.error.message)
-    const liste = (vRes.data ?? []) as unknown as ProdVideo[]
+    const liste = mitPlattformen((vRes.data ?? []) as unknown as ProdVideo[])
     const ids = [...new Set(liste.map((v) => v.shoot_event_id).filter(Boolean))] as string[]
     if (ids.length) {
       const { data: ev } = await supabase.from('events').select('id, starts_on').in('id', ids)
@@ -120,6 +122,20 @@ export default function Produktion() {
     })
   }
 
+  async function vorarbeit(v: ProdVideo, key: VorarbeitKey, wert: boolean) {
+    if (wert) { abhaken(v, key); return }
+    const { patch, fehler } = await vorarbeitSetzen(v, key, false)
+    if (fehler) { toast('Konnte nicht speichern: ' + fehler); laden(); return }
+    setVideos((prev) => prev.map((x) => (x.id === v.id ? { ...x, ...patch } : x)))
+  }
+
+  async function verschieben(v: ProdVideo, datum: string) {
+    const fehler = await terminSetzen(v.id, datum)
+    if (fehler) { toast('Konnte nicht verschieben: ' + fehler); return }
+    setVideos((prev) => prev.map((x) => (x.id === v.id ? { ...x, scheduled_date: datum } : x)))
+    toast('Verschoben ✓')
+  }
+
   const aktiv = SPALTEN.find((s) => s.key === spalte)!
   const liste = proSpalte[spalte]
 
@@ -132,70 +148,66 @@ export default function Produktion() {
         </div>
       </div>
 
-      <div className="section-block">
-        <h2 className="section-title">Nächste Drehtage</h2>
-        {drehtage.length === 0 ? (
-          <div className="col-empty">{loading ? 'Lade …' : 'Kein Drehtag geplant. Im Kalender als „Drehtag“ anlegen.'}</div>
-        ) : (
-          <div className="prod-drehtage">
-            {drehtage.map((d) => {
-              const dran = videosAmDrehtag(d.id)
-              const soll = d.planned_videos ?? 0
-              return (
-                <button key={d.id} className="prod-drehtag" onClick={() => d.client_id && navigate(`/client/${d.client_id}`)}>
-                  <span className="prod-drehtag-datum">{kurzDatum(d.starts_on)}</span>
-                  <span className="prod-drehtag-titel">{d.clients?.name ?? d.title}</span>
-                  <span className={`prod-drehtag-zahl ${soll && dran < soll ? 'luecke' : ''}`}>
-                    {dran}{soll ? `/${soll}` : ''} Videos
+      <section className="heute-block">
+        <header className="heute-kopf">
+          <h2>Nächste Drehtage</h2>
+          {drehtage.length > 0 && <span className="heute-zahl">{drehtage.length}</span>}
+        </header>
+        <div className="heute-liste">
+          {drehtage.length === 0 ? (
+            <div className="pz-leer">{loading ? 'Lade …' : 'Kein Drehtag geplant — im Kalender als „Drehtag“ anlegen.'}</div>
+          ) : drehtage.map((d) => {
+            const dran = videosAmDrehtag(d.id)
+            const soll = d.planned_videos ?? 0
+            const luecke = soll > 0 && dran < soll
+            return (
+              <button key={d.id} className={`heute-zeile ${luecke ? 'gelb' : ''}`} onClick={() => d.client_id && navigate(`/client/${d.client_id}`)}>
+                <span className="heute-ic" aria-hidden>🎥</span>
+                <span className="heute-text">
+                  <span className="heute-titel">{d.clients?.name ?? d.title}</span>
+                  <span className="heute-meta">
+                    <span className="pz-datum">{kurzDatum(d.starts_on)}</span>
+                    <span className="heute-grund">
+                      {dran}{soll ? ` von ${soll}` : ''} Videos zugeordnet{luecke ? ` — ${soll - dran} fehlen noch` : ''}
+                    </span>
                   </span>
-                </button>
-              )
-            })}
-          </div>
-        )}
-      </div>
+                </span>
+                <span className="heute-pfeil" aria-hidden>›</span>
+              </button>
+            )
+          })}
+        </div>
+      </section>
 
-      <div className="seg prod-seg">
-        {SPALTEN.map((s) => (
-          <button key={s.key} className={`seg-btn ${spalte === s.key ? 'on' : ''}`} onClick={() => setSpalte(s.key)}>
-            {s.label} <span className="prod-zahl">{proSpalte[s.key].length}</span>
+      <div className="pz-reiter" role="tablist">
+        {SPALTEN.map((sp) => (
+          <button key={sp.key} role="tab" aria-selected={spalte === sp.key} className={spalte === sp.key ? 'on' : ''} onClick={() => setSpalte(sp.key)}>
+            {sp.label}<span className="heute-zahl">{proSpalte[sp.key].length}</span>
           </button>
         ))}
       </div>
 
-      <div className="section-block">
-        {liste.length === 0 ? (
-          <div className="col-empty" style={{ padding: 20 }}>
-            {loading ? 'Lade …' : `Nichts zu ${aktiv.label.toLowerCase()}. 🎉`}
-          </div>
-        ) : (
-          <div className="jetzt-liste">
-            {liste.map((v) => {
-              const f = fristInfo(v, heuteIso)
-              return (
-                <div key={v.id} className="ps-karte">
-                  <div className="ps-kopf">
-                    <span className="ps-ic">🎬</span>
-                    <button className="ps-main" onClick={() => navigate(`/client/${v.client_id}`)}>
-                      <span className="ps-titel">{v.title}</span>
-                      <span className="ps-meta">
-                        {v.clients?.name && <span className="chip">{v.clients.name}</span>}
-                        {v.scheduled_date
-                          ? <span className="ps-stand">Post {kurzDatum(v.scheduled_date)}</span>
-                          : <span className="ps-stand">ohne Posting-Tag</span>}
-                        {f.ampel !== 'ohne-termin' && f.ampel !== 'erledigt' && (
-                          <span className={`ampel ampel-${f.ampel}`}>{f.text}</span>
-                        )}
-                      </span>
-                    </button>
-                    <button className="btn btn-sm" onClick={() => abhaken(v, aktiv.feld)}>{aktiv.aktion}</button>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
+      <section className="heute-block">
+        <div className="heute-liste">
+          {liste.length === 0 ? (
+            <div className="heute-leer">{loading ? 'Lade …' : `Nichts zu ${aktiv.label.toLowerCase()}. 🎉`}</div>
+          ) : liste.map((v) => (
+            <PostZeile
+              key={v.id}
+              video={v}
+              frist={fristInfo(v, heuteIso)}
+              heuteIso={heuteIso}
+              zeigeDatum
+              nurSchritt={aktiv.feld}
+              onOeffnen={() => navigate(`/client/${v.client_id}`)}
+              onPosten={() => {}}
+              onLink={async (feld, url) => { await linkSetzen(v.id, feld, url); laden() }}
+              onVorarbeit={(key, wert) => vorarbeit(v, key, wert)}
+              onTermin={(d) => verschieben(v, d)}
+            />
+          ))}
+        </div>
+      </section>
     </>
   )
 }

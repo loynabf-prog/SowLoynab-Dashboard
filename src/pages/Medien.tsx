@@ -71,6 +71,13 @@ export default function Medien() {
     else setParams({}, { replace: true })
   }
 
+  // Der gewaehlte Kunde soll in der wischbaren Leiste sichtbar sein.
+  const chipLeiste = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    const on = chipLeiste.current?.querySelector('.medien-chip.on') as HTMLElement | null
+    on?.scrollIntoView({ block: 'nearest', inline: 'center' })
+  }, [start, kunden.length])
+
   // ---- Ordner laden --------------------------------------------------------
   const vorschauGeholt = useRef(new Set<string>())
 
@@ -164,20 +171,20 @@ export default function Medien() {
           <span className="sub">{status ? `Dropbox${status.konto ? ` · ${status.konto}` : ''}` : 'Lade …'}</span>
         </div>
         <div className="spacer" />
-        {pfad && <a className="btn btn-sm" href={dropboxWebLink(pfad)} target="_blank" rel="noopener noreferrer">In Dropbox öffnen ↗</a>}
+        {pfad && <a className="heute-tun medien-extern" href={dropboxWebLink(pfad)} target="_blank" rel="noopener noreferrer">Dropbox ↗</a>}
       </div>
 
-      <div className="medien-kunden">
+      <div className="medien-kunden" ref={chipLeiste}>
         {kunden.flatMap((k) => k.ordner.map((o) => (
           <button
             key={o}
-            className={`ps-schritt ${start?.toLowerCase() === o.toLowerCase() ? 'on' : ''}`}
+            className={`medien-chip ${start?.toLowerCase() === o.toLowerCase() ? 'on' : ''}`}
             onClick={() => waehleOrdner(k, o)}
           >
             {k.ordner.length > 1 ? o.split('/').pop() : k.name}
           </button>
         )))}
-        <button className={`ps-schritt ${start === BASIS ? 'on' : ''}`} onClick={() => waehleOrdner(null, BASIS)}>
+        <button className={`medien-chip ${start === BASIS ? 'on' : ''}`} onClick={() => waehleOrdner(null, BASIS)}>
           Alles
         </button>
       </div>
@@ -219,28 +226,44 @@ export default function Medien() {
         <div className="col-empty" style={{ padding: 20 }}>{treffer ? 'Nichts gefunden.' : 'Dieser Ordner ist leer.'}</div>
       )}
 
+      {/* Ordner als ruhige Liste wie auf der Startseite, Dateien als Galerie. */}
+      {anzeige.some((e) => e.ordner) && (
+        <section className="heute-block">
+          <div className="heute-liste">
+            {anzeige.filter((e) => e.ordner).map((e) => (
+              <button key={e.pfad} className="heute-zeile medien-ordner" onClick={() => oeffnen(e)}>
+                <span className="heute-ic" aria-hidden>📁</span>
+                <span className="heute-text">
+                  <span className="heute-titel">{e.name}</span>
+                  {treffer && <span className="heute-meta"><span className="heute-grund">{relativ(start ?? BASIS, e.pfad.split('/').slice(0, -1).join('/'))}</span></span>}
+                </span>
+                <span className="heute-pfeil" aria-hidden>›</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
       <div className="medien-raster">
-        {anzeige.map((e) => {
+        {anzeige.filter((e) => !e.ordner).map((e) => {
           const bild = vorschau[e.pfad]
           const gewaehlt = auswahl.has(e.pfad)
           return (
-            <div key={e.pfad} className={`medien-kachel ${e.ordner ? 'ordner' : ''} ${gewaehlt ? 'gewaehlt' : ''}`}>
-              <button className="medien-bild" onClick={() => (auswahl.size && !e.ordner ? umschalten(e.pfad) : oeffnen(e))}>
+            <div key={e.pfad} className={`medien-kachel ${e.art} ${gewaehlt ? 'gewaehlt' : ''}`}>
+              <button className="medien-bild" onClick={() => (auswahl.size ? umschalten(e.pfad) : oeffnen(e))}>
                 {bild ? <img src={bild} alt="" loading="lazy" /> : <span className="medien-icon">{ICON[e.art]}</span>}
-                {e.art === 'video' && bild && <span className="medien-play">▶</span>}
+                {e.art === 'video' && <span className="medien-play" aria-hidden>▶</span>}
               </button>
               <div className="medien-name" title={e.name}>{e.name}</div>
               <div className="medien-meta">
                 {treffer ? relativ(start ?? BASIS, e.pfad.split('/').slice(0, -1).join('/')) : groesse(e.groesse)}
               </div>
-              {!e.ordner && (
-                <button
-                  className={`medien-haken ${gewaehlt ? 'on' : ''}`}
-                  onClick={() => umschalten(e.pfad)}
-                  aria-label={gewaehlt ? 'Abwählen' : 'Auswählen'}
-                  aria-pressed={gewaehlt}
-                >{gewaehlt ? '✓' : ''}</button>
-              )}
+              <button
+                className={`medien-haken ${gewaehlt ? 'on' : ''}`}
+                onClick={() => umschalten(e.pfad)}
+                aria-label={gewaehlt ? 'Abwählen' : 'Auswählen'}
+                aria-pressed={gewaehlt}
+              >{gewaehlt ? '✓' : ''}</button>
             </div>
           )
         })}

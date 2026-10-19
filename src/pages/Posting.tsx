@@ -20,9 +20,10 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { celebrate } from '../lib/confetti'
 import { useToast } from '../context/ToastContext'
-import PostSchritt, { type TagVideo } from '../components/PostSchritt'
+import { type TagVideo } from '../components/PostSchritt'
+import PostZeile from '../components/PostZeile'
 import { heute, datumPlus } from '../lib/datum'
-import { fristInfo, nachDringlichkeit, jetztUhrzeit, FRISTEN, type FristInfo } from '../lib/fristen'
+import { fristInfo, nachDringlichkeit, jetztUhrzeit, FRISTEN } from '../lib/fristen'
 import { fehlendeLinks, mitKundeLaden, mitPlattformen, postPhase } from '../lib/postschritte'
 import {
   alsGepostet, linkSetzen, postenPatch, terminSetzen, vorarbeitSetzen,
@@ -33,11 +34,6 @@ import {
 const VORAUS_TAGE = 28
 /** Wie weit zurueck verpasste oder unvollstaendige Posts noch auftauchen. */
 const RUECKBLICK_TAGE = 60
-
-function AmpelChip({ f }: { f: FristInfo }) {
-  if (f.ampel === 'erledigt' || f.ampel === 'ohne-termin') return null
-  return <span className={`ampel ampel-${f.ampel}`}>{f.text}</span>
-}
 
 function wochentag(iso: string): string {
   return new Date(iso + 'T12:00:00').toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' })
@@ -129,15 +125,18 @@ export default function Posting() {
       .sort((a, b) => (b.scheduled_date ?? '').localeCompare(a.scheduled_date ?? ''))
       .slice(0, 15)
 
-    const heuteListe = kommend.filter((v) => v.scheduled_date === heuteIso)
-    const morgenListe = kommend.filter((v) => v.scheduled_date === morgenIso)
-    const spaeter = kommend.filter((v) => (v.scheduled_date ?? '') > morgenIso)
-    const spaeterRot = spaeter.filter((v) => v.status !== 'posted' && f(v).ampel === 'rot')
-    const spaeterRest = spaeter.filter((v) => !spaeterRot.includes(v))
+    // Alles Rote steht oben unter "Brennt" -- auch wenn es heute oder morgen
+    // dran ist. So zaehlt die Kachel oben genau das, was der Block zeigt.
+    const istRot = (v: TagVideo) => v.status !== 'posted' && f(v).ampel === 'rot'
+    const kommendRot = kommend.filter(istRot)
+    const kommendRest = kommend.filter((v) => !istRot(v))
+    const heuteListe = kommendRest.filter((v) => v.scheduled_date === heuteIso)
+    const morgenListe = kommendRest.filter((v) => v.scheduled_date === morgenIso)
+    const spaeterRest = kommendRest.filter((v) => (v.scheduled_date ?? '') > morgenIso)
 
     const brennt = [
       ...nachDringlichkeit(verpasst, heuteIso, jetzt.zeit),
-      ...nachDringlichkeit(spaeterRot, heuteIso, jetzt.zeit),
+      ...nachDringlichkeit(kommendRot, heuteIso, jetzt.zeit),
     ]
 
     const nachTag = new Map<string, TagVideo[]>()
@@ -180,92 +179,112 @@ export default function Posting() {
     toast(`Verschoben auf ${wochentag(datum)} ✓`)
   }
 
-  function karte(v: TagVideo, modus: 'heute' | 'vorher') {
+  function zeile(v: TagVideo, zeigeDatum = false) {
     return (
-      <PostSchritt
+      <PostZeile
         key={v.id}
         video={v}
-        modus={modus}
-        zeit={v.scheduled_time ? v.scheduled_time.slice(0, 5) : null}
+        frist={f(v)}
+        heuteIso={heuteIso}
+        zeigeDatum={zeigeDatum}
         onOeffnen={() => navigate(`/client/${v.client_id}`)}
         onPosten={() => posten(v)}
         onLink={(feld, url) => link(v, feld, url)}
         onVorarbeit={(key, wert) => vorarbeit(v, key, wert)}
         onTermin={(d) => verschieben(v, d)}
-        hinweis={<AmpelChip f={f(v)} />}
       />
     )
   }
 
-  // Verpasst = Posting-Tag vorbei: hier geht es ums Nachholen (posten oder
-  // verschieben), nicht mehr um Vorarbeit.
-  const modusFuer = (v: TagVideo): 'heute' | 'vorher' => ((v.scheduled_date ?? '') < heuteIso ? 'heute' : 'vorher')
-
   const { brennt, heuteListe, morgenListe, linksFehlen, nachTag, zahl } = einteilung
+  const spaeterAnzahl = nachTag.reduce((n, [, l]) => n + l.length, 0)
 
   return (
     <>
       <div className="page-head">
         <div>
           <h1>Posting</h1>
-          <span className="sub">
-            {loading ? 'Lade …' : `Gedreht ${FRISTEN.dreh} Tage · geschnitten ${FRISTEN.schnitt} Tage · eingeplant ${FRISTEN.planung} Tag vorher`}
-          </span>
+          <span className="sub">Was rausgeht — und ob es rechtzeitig fertig wird</span>
         </div>
       </div>
 
-      {!loading && (
-        <div className="today-strip">
-          <span className="hot"><strong>{zahl('rot')}</strong> brennt</span>
-          <span className="warn"><strong>{zahl('gelb')}</strong> bald fällig</span>
-          <span className="good"><strong>{zahl('gruen')}</strong> im Plan</span>
-          {linksFehlen.length > 0 && <span><strong>{linksFehlen.length}</strong> ohne Link</span>}
-          {ohneTermin > 0 && <span><strong>{ohneTermin}</strong> ohne Posting-Tag</span>}
-        </div>
-      )}
-
-      {brennt.length > 0 && (
-        <div className="section-block">
-          <h2 className="section-title">🔥 Brennt</h2>
-          <div className="jetzt-liste">{brennt.map((v) => karte(v, modusFuer(v)))}</div>
-        </div>
-      )}
-
-      <div className="section-block">
-        <h2 className="section-title">Heute</h2>
-        {heuteListe.length === 0
-          ? <div className="col-empty">{loading ? 'Lade …' : 'Heute steht kein Post an.'}</div>
-          : <div className="jetzt-liste">{heuteListe.map((v) => karte(v, 'heute'))}</div>}
-      </div>
-
-      <div className="section-block">
-        <h2 className="section-title">Morgen</h2>
-        {morgenListe.length === 0
-          ? <div className="col-empty">{loading ? 'Lade …' : 'Morgen steht kein Post an.'}</div>
-          : <div className="jetzt-liste">{morgenListe.map((v) => karte(v, 'vorher'))}</div>}
-      </div>
-
-      <div className="section-block">
-        <h2 className="section-title">Nächste {Math.round(VORAUS_TAGE / 7)} Wochen</h2>
-        {nachTag.length === 0 ? (
-          <div className="col-empty">{loading ? 'Lade …' : 'Noch nichts geplant.'}</div>
-        ) : (
-          nachTag.map(([tag, liste]) => (
-            <div key={tag} className="posting-tag">
-              <div className="posting-tag-kopf">{wochentag(tag)}</div>
-              <div className="jetzt-liste">{liste.map((v) => karte(v, 'vorher'))}</div>
+      {loading ? (
+        <div className="heute-leer">Lade …</div>
+      ) : (
+        <>
+          <div className="pz-zahlen" role="list">
+            <div className={`pz-kachel rot ${zahl('rot') ? '' : 'null'}`} role="listitem">
+              <strong>{zahl('rot')}</strong><span>brennt</span>
             </div>
-          ))
-        )}
-      </div>
+            <div className={`pz-kachel gelb ${zahl('gelb') ? '' : 'null'}`} role="listitem">
+              <strong>{zahl('gelb')}</strong><span>bald fällig</span>
+            </div>
+            <div className="pz-kachel gruen" role="listitem">
+              <strong>{zahl('gruen')}</strong><span>im Plan</span>
+            </div>
+          </div>
+          <p className="pz-regel">
+            Vorlauf vor dem Posting-Tag: gedreht {FRISTEN.dreh} Tage · geschnitten {FRISTEN.schnitt} Tage · eingeplant {FRISTEN.planung} Tag
+            {ohneTermin > 0 && <> · <strong>{ohneTermin}</strong> ohne Posting-Tag</>}
+          </p>
 
-      {linksFehlen.length > 0 && (
-        <div className="section-block">
-          <h2 className="section-title">🔗 Links fehlen</h2>
-          <p className="muted" style={{ fontSize: 13, marginTop: -6 }}>Gepostet, aber ohne Link — dafür kommen nie Zahlen.</p>
-          <div className="jetzt-liste">{linksFehlen.map((v) => karte(v, 'heute'))}</div>
-        </div>
+          {brennt.length > 0 && (
+            <Block titel="Brennt" ton="rot" hinweis="Frist gerissen oder Posting verpasst — das zuerst." anzahl={brennt.length}>
+              {brennt.map((v) => zeile(v, true))}
+            </Block>
+          )}
+
+          <Block titel="Heute" ton="normal" anzahl={heuteListe.length}>
+            {heuteListe.length === 0
+              ? <div className="pz-leer">Heute steht kein Post an.</div>
+              : heuteListe.map((v) => zeile(v))}
+          </Block>
+
+          <Block titel="Morgen" ton="normal" anzahl={morgenListe.length}>
+            {morgenListe.length === 0
+              ? <div className="pz-leer">Morgen steht kein Post an.</div>
+              : morgenListe.map((v) => zeile(v))}
+          </Block>
+
+          <Block titel={`Nächste ${Math.round(VORAUS_TAGE / 7)} Wochen`} ton="normal" anzahl={spaeterAnzahl}>
+            {nachTag.length === 0 ? (
+              <div className="pz-leer">Noch nichts geplant.</div>
+            ) : (
+              nachTag.map(([tag, liste]) => (
+                <div key={tag} className="pz-tag">
+                  <div className="pz-tag-kopf">{wochentag(tag)}</div>
+                  {liste.map((v) => zeile(v))}
+                </div>
+              ))
+            )}
+          </Block>
+
+          {linksFehlen.length > 0 && (
+            <Block titel="Links fehlen" ton="leise" hinweis="Gepostet, aber ohne Link — dafür kommen nie Zahlen." anzahl={linksFehlen.length}>
+              {linksFehlen.map((v) => zeile(v, true))}
+            </Block>
+          )}
+        </>
       )}
     </>
+  )
+}
+
+function Block({ titel, ton, hinweis, anzahl, children }: {
+  titel: string
+  ton: 'rot' | 'normal' | 'leise'
+  hinweis?: string
+  anzahl: number
+  children: React.ReactNode
+}) {
+  return (
+    <section className={`heute-block ${ton}`}>
+      <header className="heute-kopf">
+        <h2>{titel}</h2>
+        {anzahl > 0 && <span className="heute-zahl">{anzahl}</span>}
+        {hinweis && <span className="heute-hinweis">{hinweis}</span>}
+      </header>
+      <div className="heute-liste">{children}</div>
+    </section>
   )
 }
