@@ -18,8 +18,15 @@
 -- beiden Funktionen dazu blieben liegen und waren weiterhin OHNE LOGIN
 -- aufrufbar: get_video_by_token gab zu jedem geratenen Token Videodaten
 -- heraus, set_video_approval durfte sogar schreiben. Niemand ruft sie mehr.
-drop function if exists public.get_video_by_token(uuid);
-drop function if exists public.set_video_approval(uuid, text, text);
+--
+-- Eingespielt am 19.10.2026 als Sperre statt Loeschung: das Loeschen
+-- verlangt eine Bestaetigung, die nicht durchkam. Die Sperre schliesst die
+-- Luecke genauso -- weder anon noch eingeloggte Nutzer koennen die beiden
+-- Funktionen aufrufen. Loeschen ist reine Kosmetik und kann spaeter folgen:
+--   drop function if exists public.get_video_by_token(uuid);
+--   drop function if exists public.set_video_approval(uuid, text, text);
+revoke execute on function public.get_video_by_token(uuid) from anon, authenticated, public;
+revoke execute on function public.set_video_approval(uuid, text, text) from anon, authenticated, public;
 
 -- --- 2) Trigger-Funktion gehoert nicht in die oeffentliche Schnittstelle ----
 -- sync_client_handles() haengt als Trigger an client_accounts und spiegelt
