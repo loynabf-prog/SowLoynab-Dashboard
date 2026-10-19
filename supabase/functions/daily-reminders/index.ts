@@ -15,7 +15,7 @@
 
 import webpush from 'npm:web-push@3.6.7'
 import { createClient } from 'npm:@supabase/supabase-js@2'
-import { brennt, plusTage } from './brennt.ts'
+import { brennt, plusTage, proKunde } from './brennt.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
       supa.from('leads').select('id').is('deleted_at', null).not('next_followup', 'is', null).lte('next_followup', today),
       supa.from('push_subscriptions').select('*'),
       supa.from('videos')
-        .select('status, scheduled_date, prep_shot, prep_edited, prep_scheduled, shoot_event_id')
+        .select('status, scheduled_date, prep_shot, prep_edited, prep_scheduled, shoot_event_id, clients(name)')
         .neq('status', 'posted').is('deleted_at', null)
         .gte('scheduled_date', plusTage(today, -60)).lte('scheduled_date', plusTage(today, 28)),
     ])
@@ -62,7 +62,9 @@ Deno.serve(async (req) => {
       for (const v of planListe) v.drehtag = datum.get(v.shoot_event_id) ?? null
     }
     // Heute steht schon als "Post" in der Nachricht -- hier nur der Rest.
-    const nBrennt = planListe.filter((v) => v.scheduled_date !== today && brennt(v, today)).length
+    const brennen = planListe.filter((v) => v.scheduled_date !== today && brennt(v, today))
+    const nBrennt = brennen.length
+    const wer = proKunde(brennen.map((v) => v.clients?.name))
 
     const nPosts = posts.data?.length ?? 0
     const nTasks = tasks.data?.length ?? 0
@@ -75,15 +77,17 @@ Deno.serve(async (req) => {
     if (nPosts) parts.push(`${nPosts} Post${nPosts > 1 ? 's' : ''}`)
     if (nTasks) parts.push(`${nTasks} Aufgabe${nTasks > 1 ? 'n' : ''}`)
     if (nFollow) parts.push(`${nFollow} Follow-up${nFollow > 1 ? 's' : ''}`)
-    if (nBrennt) parts.unshift(`🔥 ${nBrennt} im Posting-Plan brennt`)
     const payload = JSON.stringify({
       title: '☀️ Dein Tag bei Sow & Loynab',
-      body: `Heute fällig: ${parts.join(' · ')}`,
+      body: [
+        nBrennt ? `🔥 Brennt: ${wer}` : '',
+        parts.length ? `Heute: ${parts.join(' · ')}` : '',
+      ].filter(Boolean).join('\n'),
       link: nBrennt ? '/posting' : '/',
     })
 
     if (probe) {
-      return json({ probe: true, heute: today, posts: nPosts, aufgaben: nTasks, followups: nFollow, brennt: nBrennt, geraete: subs.data?.length ?? 0, text: payload })
+      return json({ probe: true, heute: today, posts: nPosts, aufgaben: nTasks, followups: nFollow, brennt: nBrennt, proKunde: wer, geraete: subs.data?.length ?? 0, text: payload })
     }
 
     let sent = 0

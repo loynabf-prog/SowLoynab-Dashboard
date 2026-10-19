@@ -29,3 +29,20 @@ export function brennt(v: {
   if (!geschnitten) return plusTage(v.scheduled_date, -FRISTEN.schnitt) <= heute
   return plusTage(v.scheduled_date, -FRISTEN.planung) <= heute
 }
+
+/**
+ * Brennende Videos pro Kunde zusammengefasst, die meisten zuerst:
+ * "Kebab Kumpels 5 · Hajo 4 · Michel 4 +2 weitere". So sieht man schon auf
+ * dem Sperrbildschirm, bei wem es klemmt -- statt nur einer Gesamtzahl.
+ */
+export function proKunde(namen: (string | null | undefined)[], max = 3): string {
+  const zahl = new Map<string, number>()
+  for (const n of namen) {
+    const k = (n ?? '').trim() || 'Ohne Kunde'
+    zahl.set(k, (zahl.get(k) ?? 0) + 1)
+  }
+  const reihe = [...zahl.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+  const vorne = reihe.slice(0, max).map(([k, n]) => `${k} ${n}`)
+  const rest = reihe.length - max
+  return vorne.join(' · ') + (rest > 0 ? ` +${rest} weitere` : '')
+}

@@ -134,3 +134,48 @@ describe('lageSatz', () => {
     expect(lageSatz(l({}))).toBe('Alles sauber. Nichts offen.')
   })
 })
+
+import { buendeln, anzahl, proKundeSatz, nachKunde } from '../tageslage'
+import { proKunde } from '../../../supabase/functions/daily-reminders/brennt'
+import type { Punkt } from '../tageslage'
+
+describe('buendeln', () => {
+  const pk = (id: string, art: Punkt['art'], kunde: string | null, extra: Partial<Punkt> = {}): Punkt => ({
+    key: 'v-' + id, id, art, titel: id, kunde, zeit: null, text: 'Frist ' + id, ampel: 'rot', ziel: '/produktion',
+    clientId: kunde ? 'c-' + kunde : null, ...extra,
+  })
+  it('macht aus mehreren Dreh-Videos eines Kunden eine Zeile mit Anzahl', () => {
+    const r = buendeln([pk('1', 'dreh', 'Kebab Kumpels'), pk('2', 'dreh', 'Kebab Kumpels'), pk('3', 'dreh', 'Hajo')])
+    expect(r).toHaveLength(2)
+    expect(r[0].titel).toBe('Kebab Kumpels: 2 Videos noch zu drehen')
+    expect(r[0].gruppe).toHaveLength(2)
+    expect(r[1].gruppe).toBeUndefined()
+    expect(anzahl(r)).toBe(3)
+  })
+  it('trennt nach Schritt und laesst Posts einzeln', () => {
+    const r = buendeln([pk('1', 'dreh', 'A'), pk('2', 'schnitt', 'A'), pk('3', 'posten', 'A'), pk('4', 'posten', 'A')])
+    expect(r).toHaveLength(4)
+  })
+  it('dringendstes Video zuerst, Ampel uebernimmt das Schlimmste', () => {
+    const r = buendeln([pk('1', 'schnitt', 'A', { ampel: 'gelb', frist: '2026-10-30' }), pk('2', 'schnitt', 'A', { ampel: 'rot', frist: '2026-10-25' })])
+    expect(r[0].ampel).toBe('rot')
+    expect(r[0].gruppe![0].id).toBe('2')
+    expect(r[0].titel).toBe('A: 2 Videos noch zu schneiden')
+  })
+  it('alle am selben Drehtag: sagt das Datum', () => {
+    const r = buendeln([pk('1', 'dreh', 'A', { drehtag: '2026-10-22' }), pk('2', 'dreh', 'A', { drehtag: '2026-10-22' })])
+    expect(r[0].text).toBe('Drehtag am 22.10.')
+    expect(r[0].drehtag).toBe('2026-10-22')
+  })
+})
+
+describe('pro Kunde', () => {
+  const namen = ['A', 'B', 'A', 'C', 'A', 'B', 'D', null]
+  it('App und Morgen-Push sagen dasselbe', () => {
+    expect(proKundeSatz(namen)).toBe(proKunde(namen))
+    expect(proKundeSatz(namen)).toBe('A 3 · B 2 · C 1 +2 weitere')
+  })
+  it('nachKunde: groesste Gruppe zuerst', () => {
+    expect(nachKunde(namen, (x) => x).map((g) => g.kunde)).toEqual(['A', 'B', 'C', 'D', 'Ohne Kunde'])
+  })
+})

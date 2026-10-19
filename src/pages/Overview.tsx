@@ -10,20 +10,21 @@
 //
 // Die Einstufung kommt aus tageslage.ts, die Fristen aus fristen.ts.
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Send, Video, Scissors, CalendarClock, CheckCircle2, MapPin, Camera,
-  Clock, ArrowUpRight, Flame, Check, ChevronRight, Coffee,
+  Clock, ArrowUpRight, Flame, Check, ChevronRight, ChevronDown, Coffee, X,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../context/ToastContext'
 import { useIdentity } from '../context/IdentityContext'
 import { useTeam } from '../context/TeamContext'
+import { useAuth } from '../context/AuthContext'
 import { celebrate } from '../lib/confetti'
 import { alsGepostet, vorarbeitSetzen, type VorarbeitKey } from '../lib/videoAktionen'
-import { heute as heuteIso } from '../lib/datum'
+import { heute as heuteIso, datumPlus } from '../lib/datum'
 import { jetztUhrzeit } from '../lib/fristen'
 import { tagesLage, type LageAufgabe, type LageTermin, type LageVideo, type Punkt } from '../lib/tageslage'
 import { gehoertMir, machTag, ringSatz } from '../lib/fokus'
@@ -88,6 +89,11 @@ export default function Overview() {
   const [spaeter, setSpaeter] = useState<string[]>([])
   const [alle, setAlle] = useState(false)
   const [laedt, setLaedt] = useState(true)
+  // Gebuendelte Zeilen, die aufgeklappt sind
+  const [offen, setOffen] = useState<string[]>([])
+  // Fuer welche Gruppe gerade ein Drehtag geplant wird
+  const [planen, setPlanen] = useState<Punkt | null>(null)
+  const { user } = useAuth()
 
   const tag = heuteIso()
 
@@ -150,7 +156,37 @@ export default function Overview() {
   const satz = ringSatz(tagPlan)
 
   // --- Aktionen -------------------------------------------------------------
+  function aufklappen(p: Punkt) {
+    setOffen((o) => (o.includes(p.key) ? o.filter((k) => k !== p.key) : [...o, p.key]))
+  }
+
+  async function drehtagAnlegen(p: Punkt, datum: string) {
+    const ohne = (p.gruppe ?? [p]).filter((x) => !x.drehtag)
+    const { data, error } = await supabase.from('events').insert({
+      title: `Dreh ${p.kunde ?? ''}`.trim(),
+      kind: 'dreh',
+      starts_on: datum,
+      client_id: p.clientId ?? null,
+      planned_videos: ohne.length,
+      member_ids: [],
+      created_by: user?.id ?? null,
+    }).select('id').single()
+    if (error || !data) { toast('Konnte Drehtag nicht anlegen: ' + (error?.message ?? '')); return }
+    const { error: e2 } = await supabase.from('videos')
+      .update({ shoot_event_id: (data as { id: string }).id })
+      .in('id', ohne.map((x) => x.id))
+    if (e2) { toast('Drehtag angelegt, Videos nicht verknüpft: ' + e2.message); laden(); return }
+    setPlanen(null)
+    toast(`Drehtag am ${new Date(datum + 'T12:00:00').toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric' })} · ${ohne.length} Videos dran ✓`)
+    window.dispatchEvent(new Event('daten-geaendert'))
+  }
+
   async function tun(p: Punkt) {
+    if (p.gruppe) {
+      if (brauchtDrehtag(p)) setPlanen(p)
+      else aufklappen(p)
+      return
+    }
     const was = TUN[p.art]
     if (p.art === 'termin' || p.art === 'drehtag') { navigate(p.ziel); return }
 
@@ -190,6 +226,27 @@ export default function Overview() {
   }
 
   // --- Darstellung ----------------------------------------------------------
+  function zeile(p: Punkt) {
+    const auf = offen.includes(p.key)
+    return (
+      <Fragment key={p.key}>
+        <Zeile
+          p={p}
+          auf={auf}
+          onTun={() => tun(p)}
+          onOeffnen={() => (p.gruppe ? aufklappen(p) : navigate(p.ziel))}
+        />
+        {p.gruppe && auf && (
+          <div className="n-unterliste">
+            {p.gruppe.map((u) => (
+              <Zeile key={u.key} p={u} onTun={() => tun(u)} onOeffnen={() => navigate(u.ziel)} />
+            ))}
+          </div>
+        )}
+      </Fragment>
+    )
+  }
+
   const name = ((memberId ? byId(memberId)?.name : '') ?? '').trim().split(' ')[0]
   const datum = new Date(tag + 'T12:00:00').toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })
   const anteil = Math.min(1, tagPlan.geschafft / tagPlan.ziel)
@@ -225,10 +282,13 @@ export default function Overview() {
           {f ? (
             <Fokus
               p={f}
+              auf={offen.includes(f.key)}
+              unter={(u) => <Zeile key={u.key} p={u} onTun={() => tun(u)} onOeffnen={() => navigate(u.ziel)} />}
+              onAufklappen={() => aufklappen(f)}
               ruhig={tagPlan.ruhig}
               onTun={() => tun(f)}
               onSpaeter={tagPlan.danach.length > 0 ? () => spaeterMachen(f) : undefined}
-              onOeffnen={() => navigate(f.ziel)}
+              onOeffnen={() => (f.gruppe ? aufklappen(f) : navigate(f.ziel))}
             />
           ) : (
             <div className="h-ruhig">
@@ -242,7 +302,7 @@ export default function Overview() {
             <>
               <div className="n-abschnitt"><h2>Danach</h2></div>
               <div className="n-gruppe">
-                {tagPlan.danach.map((p) => <Zeile key={p.key} p={p} onTun={() => tun(p)} onOeffnen={() => navigate(p.ziel)} />)}
+                {tagPlan.danach.map((p) => zeile(p))}
               </div>
             </>
           )}
@@ -256,19 +316,73 @@ export default function Overview() {
               </div>
               {alle && (
                 <div className="n-gruppe">
-                  {tagPlan.rest.map((p) => <Zeile key={p.key} p={p} onTun={() => tun(p)} onOeffnen={() => navigate(p.ziel)} />)}
+                  {tagPlan.rest.map((p) => zeile(p))}
                 </div>
               )}
             </>
           )}
         </>
       )}
+      {planen && (
+        <DrehtagPlanen
+          p={planen}
+          heute={tag}
+          onAbbrechen={() => setPlanen(null)}
+          onAnlegen={(d) => drehtagAnlegen(planen, d)}
+        />
+      )}
     </>
   )
 }
 
-function Fokus({ p, ruhig, onTun, onSpaeter, onOeffnen }: {
+/** Gruppe mit ungedrehten Videos ohne Drehtag: dann ist "Drehtag planen" der Knopf. */
+function brauchtDrehtag(p: Punkt): boolean {
+  return p.art === 'dreh' && !!p.clientId && (p.gruppe ?? [p]).some((x) => !x.drehtag)
+}
+
+/** Vorschlag: spaetestens zur ersten Drehfrist, aber nicht vor morgen. */
+function vorschlagDatum(p: Punkt, heute: string): string {
+  const morgen = datumPlus(heute, 1)
+  const fristen = (p.gruppe ?? [p]).map((x) => x.frist).filter(Boolean) as string[]
+  const erste = fristen.sort()[0]
+  return erste && erste > morgen ? erste : morgen
+}
+
+function DrehtagPlanen({ p, heute, onAbbrechen, onAnlegen }: {
   p: Punkt
+  heute: string
+  onAbbrechen: () => void
+  onAnlegen: (datum: string) => Promise<void>
+}) {
+  const [datum, setDatum] = useState(() => vorschlagDatum(p, heute))
+  const [laeuft, setLaeuft] = useState(false)
+  const n = (p.gruppe ?? [p]).filter((x) => !x.drehtag).length
+  return (
+    <div className="n-sheet-hinter" onClick={onAbbrechen}>
+      <div className="n-sheet" role="dialog" aria-label="Drehtag planen" onClick={(e) => e.stopPropagation()}>
+        <div className="n-sheet-kopf">
+          <strong>Drehtag {p.kunde}</strong>
+          <button className="n-sheet-zu" onClick={onAbbrechen} aria-label="Schließen"><X strokeWidth={2.2} /></button>
+        </div>
+        <p className="n-sheet-text">{n} {n === 1 ? 'Video wird' : 'Videos werden'} an diesen Drehtag gehängt. Danach brennt hier nichts mehr.</p>
+        <input className="n-sheet-datum" type="date" value={datum} min={heute} onChange={(e) => setDatum(e.target.value)} />
+        <button
+          className="n-tun stark n-sheet-los"
+          disabled={!datum || laeuft}
+          onClick={async () => { setLaeuft(true); await onAnlegen(datum); setLaeuft(false) }}
+        >
+          {laeuft ? 'Lege an …' : 'Drehtag anlegen'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function Fokus({ p, auf, unter, onAufklappen, ruhig, onTun, onSpaeter, onOeffnen }: {
+  p: Punkt
+  auf: boolean
+  unter: (u: Punkt) => ReactNode
+  onAufklappen: () => void
   ruhig: boolean
   onTun: () => void
   onSpaeter?: () => void
@@ -276,6 +390,7 @@ function Fokus({ p, ruhig, onTun, onSpaeter, onOeffnen }: {
 }) {
   const was = TUN[p.art]
   const I = SYMBOL[p.art].icon
+  const label = p.gruppe ? (brauchtDrehtag(p) ? 'Drehtag planen' : auf ? 'Zuklappen' : 'Videos zeigen') : was.label
   return (
     <section className="h-fokus" key={p.key} aria-label="Jetzt dran">
       <div className="h-fokus-oben">
@@ -289,25 +404,29 @@ function Fokus({ p, ruhig, onTun, onSpaeter, onOeffnen }: {
       <div className="h-fokus-wer">{p.kunde ?? ' '}</div>
       <div className="h-fokus-knoepfe">
         <button className="h-fokus-haupt" onClick={onTun}>
-          {was.haken || p.art === 'posten' || p.art === 'aufgabe' ? <Check strokeWidth={2.6} /> : <ArrowUpRight strokeWidth={2.4} />}
-          {was.label}
+          {p.gruppe ? (brauchtDrehtag(p) ? <Camera strokeWidth={2.4} /> : <ChevronDown strokeWidth={2.4} />)
+            : was.haken || p.art === 'posten' || p.art === 'aufgabe' ? <Check strokeWidth={2.6} /> : <ArrowUpRight strokeWidth={2.4} />}
+          {label}
         </button>
         {onSpaeter && (
           <button className="h-fokus-neben" onClick={onSpaeter} aria-label="Später" title="Später — die nächste Sache zuerst">
             <Clock strokeWidth={2.2} />
           </button>
         )}
-        <button className="h-fokus-neben" onClick={onOeffnen} aria-label="Öffnen" title="Öffnen">
-          <ArrowUpRight strokeWidth={2.2} />
+        <button className="h-fokus-neben" onClick={p.gruppe ? onAufklappen : onOeffnen} aria-label={p.gruppe ? 'Videos zeigen' : 'Öffnen'} title={p.gruppe ? 'Videos zeigen' : 'Öffnen'}>
+          {p.gruppe ? <ChevronDown strokeWidth={2.2} /> : <ArrowUpRight strokeWidth={2.2} />}
         </button>
       </div>
+      {p.gruppe && auf && <div className="n-gruppe h-fokus-liste">{p.gruppe.map(unter)}</div>}
     </section>
   )
 }
 
-function Zeile({ p, onTun, onOeffnen }: { p: Punkt; onTun: () => void; onOeffnen: () => void }) {
+function Zeile({ p, auf, onTun, onOeffnen }: { p: Punkt; auf?: boolean; onTun: () => void; onOeffnen: () => void }) {
   const s = SYMBOL[p.art]
-  const was = TUN[p.art]
+  const was = p.gruppe
+    ? { label: brauchtDrehtag(p) ? 'Drehtag planen' : auf ? 'Zuklappen' : 'Zeigen' }
+    : TUN[p.art]
   const nurOeffnen = p.art === 'termin' || p.art === 'drehtag'
   return (
     <div className="n-zeile-wrap" style={{ position: 'relative' }}>
@@ -316,7 +435,7 @@ function Zeile({ p, onTun, onOeffnen }: { p: Punkt; onTun: () => void; onOeffnen
           <span className={`n-ic ${s.farbe}`}><s.icon strokeWidth={2.2} /></span>
           <span className="n-text">
             <span className="n-titel">{p.titel}</span>
-            {p.kunde && <span className="n-unter">{p.kunde}</span>}
+            {p.kunde && !p.gruppe && <span className="n-unter">{p.kunde}</span>}
             <span className={`n-grund ${p.ampel === 'rot' ? 'rot' : p.ampel === 'gelb' ? 'gelb' : ''}`}>{p.text}</span>
           </span>
           {p.zeit && <span className="n-zeit">{p.zeit}</span>}

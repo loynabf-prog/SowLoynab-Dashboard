@@ -68,6 +68,13 @@ export interface Punkt {
   ampel: Ampel
   /** Wohin der Klick fuehrt. */
   ziel: string
+  clientId?: string | null
+  /** Frist dieses Schritts ("YYYY-MM-DD"), fuer die Reihenfolge in Gruppen. */
+  frist?: string | null
+  /** Nur bei Dreh: haengt das Video schon an einem Drehtag? */
+  drehtag?: string | null
+  /** Gebuendelt: die einzelnen Videos dahinter (mind. 2). */
+  gruppe?: Punkt[]
 }
 
 export interface Lage {
@@ -127,6 +134,9 @@ function videoPunkt(v: LageVideo, heuteIso: string, jetztZeit: string): Punkt {
     text: f.text,
     ampel: f.ampel,
     ziel: f.schritt === 'posten' ? '/plan' : '/produktion',
+    clientId: v.client_id ?? null,
+    frist: f.frist,
+    drehtag: v.drehtag ?? null,
   }
 }
 
@@ -215,23 +225,102 @@ export function tagesLage(e: LageEingang, heuteIso: string, jetztZeit: string): 
   })
 
   return {
-    brennt: nachZeit(brennt),
-    heute: nachZeit(heute),
-    vorarbeit,
+    brennt: nachZeit(buendeln(brennt)),
+    heute: nachZeit(buendeln(heute)),
+    vorarbeit: buendeln(vorarbeit),
     ruhig: brennt.length === 0 && heute.length === 0,
   }
+}
+
+// --- Buendeln -------------------------------------------------------------
+// Acht ungedrehte Videos bei einem Kunden sind EINE Sache ("Drehtag
+// klaeren"), nicht acht. Gleicher Kunde + gleicher Schritt (drehen,
+// schneiden, einplanen) wird zu einer Zeile mit Anzahl. Posts bleiben
+// einzeln -- jeder hat seine eigene Uhrzeit.
+
+const BUENDELBAR: Art[] = ['dreh', 'schnitt', 'planung']
+const VERB: Record<string, string> = { dreh: 'zu drehen', schnitt: 'zu schneiden', planung: 'einzuplanen' }
+const AMPELRANG: Record<string, number> = { rot: 0, gelb: 1, gruen: 2 }
+
+const kurzDatum = (iso: string) => `${iso.slice(8, 10)}.${iso.slice(5, 7)}.`
+
+export function buendeln(punkte: Punkt[]): Punkt[] {
+  const gruppen = new Map<string, Punkt[]>()
+  const aus: (Punkt | string)[] = []
+  for (const p of punkte) {
+    if (!BUENDELBAR.includes(p.art) || !p.kunde) { aus.push(p); continue }
+    const k = `${p.art}|${p.clientId ?? p.kunde}`
+    if (!gruppen.has(k)) { gruppen.set(k, []); aus.push(k) }
+    gruppen.get(k)!.push(p)
+  }
+  return aus.map((x) => {
+    if (typeof x !== 'string') return x
+    const g = gruppen.get(x)!
+    if (g.length === 1) return g[0]
+    const sortiert = [...g].sort((a, b) =>
+      (AMPELRANG[a.ampel] ?? 3) - (AMPELRANG[b.ampel] ?? 3)
+      || (a.frist ?? '9999').localeCompare(b.frist ?? '9999'))
+    const erste = sortiert[0]
+    const ohne = g.filter((p) => !p.drehtag).length
+    const drehtage = [...new Set(g.map((p) => p.drehtag).filter(Boolean))] as string[]
+    let text = erste.text
+    if (erste.art === 'dreh' && ohne === 0 && drehtage.length === 1) text = `Drehtag am ${kurzDatum(drehtage[0])}`
+    else if (erste.art === 'dreh' && ohne > 0 && ohne < g.length) text = `${erste.text} · ${ohne} ohne Drehtag`
+    return {
+      ...erste,
+      key: `g-${x}`,
+      titel: `${erste.kunde}: ${g.length} Videos noch ${VERB[erste.art]}`,
+      zeit: null,
+      text,
+      drehtag: ohne === 0 ? drehtage[0] ?? null : null,
+      gruppe: sortiert,
+    }
+  })
+}
+
+/** Wie viele einzelne Sachen stecken in den Punkten? */
+export function anzahl(p: Punkt[]): number {
+  return p.reduce((n, x) => n + (x.gruppe?.length ?? 1), 0)
 }
 
 /** Kurzfassung fuer die Zeile unter der Begruessung. */
 export function lageSatz(l: Lage): string {
   if (l.brennt.length > 0) {
-    const n = l.brennt.length
+    const n = anzahl(l.brennt)
     return n === 1 ? '1 Sache brennt' : `${n} Sachen brennen`
   }
   if (l.heute.length > 0) {
-    const n = l.heute.length
+    const n = anzahl(l.heute)
     return `${n} ${n === 1 ? 'Punkt' : 'Punkte'} für heute`
   }
   if (l.vorarbeit.length > 0) return 'Heute nichts Dringendes — Zeit zum Vorarbeiten'
   return 'Alles sauber. Nichts offen.'
+}
+
+/**
+ * Namen zu "Kebab Kumpels 5 · Hajo 4 +2 weitere" -- die meisten zuerst.
+ * Gleiche Regel wie proKunde() im Morgen-Push (daily-reminders/brennt.ts).
+ */
+export function proKundeSatz(namen: (string | null | undefined)[], max = 3): string {
+  const zahl = new Map<string, number>()
+  for (const n of namen) {
+    const k = (n ?? '').trim() || 'Ohne Kunde'
+    zahl.set(k, (zahl.get(k) ?? 0) + 1)
+  }
+  const reihe = [...zahl.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+  const rest = reihe.length - max
+  return reihe.slice(0, max).map(([k, n]) => `${k} ${n}`).join(' · ') + (rest > 0 ? ` +${rest} weitere` : '')
+}
+
+/** Nach Kunde gruppiert, groesste Gruppe zuerst; Reihenfolge innerhalb bleibt. */
+export function nachKunde<T>(liste: T[], name: (x: T) => string | null | undefined): { kunde: string; eintraege: T[] }[] {
+  const m = new Map<string, T[]>()
+  for (const x of liste) {
+    const k = (name(x) ?? '').trim() || 'Ohne Kunde'
+    if (!m.has(k)) m.set(k, [])
+    m.get(k)!.push(x)
+  }
+  return [...m.entries()]
+    .sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]))
+    .map(([kunde, eintraege]) => ({ kunde, eintraege }))
 }

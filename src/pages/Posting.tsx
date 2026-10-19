@@ -17,6 +17,7 @@ import { useToast } from '../context/ToastContext'
 import { type TagVideo } from '../components/PostSchritt'
 import PostZeile from '../components/PostZeile'
 import { heute, datumPlus } from '../lib/datum'
+import { nachKunde, proKundeSatz } from '../lib/tageslage'
 import { fristInfo, nachDringlichkeit, jetztUhrzeit, FRISTEN } from '../lib/fristen'
 import { fehlendeLinks, mitKundeLaden, mitPlattformen, postPhase } from '../lib/postschritte'
 import {
@@ -247,11 +248,16 @@ export default function Posting() {
                 <span className="n-ic rot"><Flame strokeWidth={2.2} /></span>
                 <span className="n-text">
                   <strong>{brennt.length} {brennt.length === 1 ? 'Post hängt' : 'Posts hängen'} hinterher</strong>
-                  <span>Frist gerissen oder verpasst</span>
+                  <span>{proKundeSatz(brennt.map((v) => v.clients?.name))}</span>
                 </span>
                 <ChevronDown className="n-chevron" style={{ transform: band === 'brennt' ? 'rotate(180deg)' : undefined }} />
               </button>
-              {band === 'brennt' && <div className="n-gruppe" style={{ marginBottom: 10 }}>{brennt.map((v) => zeile(v, true))}</div>}
+              {band === 'brennt' && nachKunde(brennt, (v) => v.clients?.name).map((g) => (
+                <div key={g.kunde} style={{ marginBottom: 10 }}>
+                  <div className="n-zwischen">{g.kunde} · {g.eintraege.length}</div>
+                  <div className="n-gruppe">{g.eintraege.map((v) => zeile(v, true))}</div>
+                </div>
+              ))}
             </>
           )}
 

@@ -569,3 +569,31 @@ input, select, textarea { border-radius: 12px; }
 a.n-zeile { text-decoration: none; }
 .a-logo { flex: none; width: 34px !important; height: 34px !important; border-radius: 10px !important; font-size: 12px !important; }
 .a-logo * { font-size: 12px !important; }
+
+/* Gebuendelte Zeile aufgeklappt: die einzelnen Videos eingerueckt darunter */
+.n-unterliste { background: var(--bg-sunken); padding-left: 20px; }
+.n-unterliste > * + * > .n-zeile::before {
+  content: ''; position: absolute; top: 0; right: 0; left: 58px; border-top: 0.5px solid var(--sep);
+}
+.h-fokus-liste { margin-top: 16px; }
+
+/* Drehtag planen: kleines Blatt von unten */
+.n-sheet-hinter {
+  position: fixed; inset: 0; z-index: 60; background: rgba(0, 0, 0, 0.45);
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.n-sheet {
+  width: 100%; max-width: 480px; background: var(--bg-card); color: var(--text);
+  border-radius: 18px 18px 0 0; padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
+  display: flex; flex-direction: column; gap: 12px;
+}
+.n-sheet-kopf { display: flex; align-items: center; justify-content: space-between; font-size: 18px; }
+.n-sheet-zu { border: none; background: var(--bg-sunken); color: var(--text); width: 32px; height: 32px; border-radius: 999px; display: grid; place-items: center; cursor: pointer; }
+.n-sheet-zu svg { width: 18px; height: 18px; }
+.n-sheet-text { margin: 0; font-size: 14.5px; color: var(--text-muted); }
+.n-sheet-datum {
+  font: inherit; font-size: 17px; padding: 12px 14px; border-radius: 12px;
+  border: 1px solid var(--sep); background: var(--bg-sunken); color: var(--text);
+}
+.n-sheet-los { padding: 13px 16px; font-size: 16px; }
+.n-zwischen { font-size: 13px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin: 4px 4px 6px; }
