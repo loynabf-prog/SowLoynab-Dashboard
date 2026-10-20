@@ -52,7 +52,7 @@ const MAX_ALTER_STUNDEN = 24
 
 async function apifyRun(actor: string, input: unknown, token: string): Promise<any[]> {
   // Instagram braucht oft laenger als 90 s -- dann lief der Abruf ins Leere.
-  const url = `https://api.apify.com/v2/acts/${actor}/run-sync-get-dataset-items?token=${token}&timeout=140`
+  const url = `https://api.apify.com/v2/acts/${actor}/run-sync-get-dataset-items?token=${token}&timeout=110`
   const resp = await fetch(url, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -222,6 +222,12 @@ const bedienen = async (req: Request): Promise<Response> => {
       // manchmal noch nicht ueber die Schnittstelle sichtbar. Deshalb der
       // naechste Versuch schon nach 5 Minuten, danach alle 20.
       const naechster = new Date(Date.now() + (versuch <= 1 ? 5 : 20) * 60_000).toISOString()
+
+      // Erst "reservieren", dann abrufen: Wird die Funktion mitten im Abruf
+      // beendet (Zeitlimit), zaehlt der Versuch trotzdem -- sonst wuerde jeder
+      // Cron-Lauf denselben teuren Abruf neu starten. Gleichzeitig verhindert
+      // das, dass zwei Laeufe dasselbe Video parallel holen.
+      await supa.from('videos').update({ link_fetch_tries: versuch, link_fetch_at: naechster }).eq('id', v.id)
 
       // Beide Plattformen GLEICHZEITIG abrufen -- Instagram allein braucht
       // manchmal ueber eine Minute, nacheinander wuerde die Funktion abbrechen.
