@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { instagramZahlen, linksKomplett, summe, tiktokZahlen } from '../../../supabase/functions/fetch-post-links/index'
+import { instagramZahlen, linksKomplett, summe, tiktokZahlen, zuAlt } from '../../../supabase/functions/fetch-post-links/index'
 
 // Die Zahlen werden an ZWEI Stellen aus den Apify-Antworten gelesen: beim
 // automatischen Abholen direkt nach dem Posten und beim naechtlichen Lauf
@@ -65,5 +65,14 @@ describe('linksKomplett', () => {
   })
   it('ohne Accounts verlangen wir beide', () => {
     expect(linksKomplett([], 'https://t', null)).toBe(false)
+  })
+})
+
+describe('zuAlt (am Tipp auf Gepostet gemessen)', () => {
+  it('nachts nachgetragen: Posting vom Nachmittag zaehlt noch', () => {
+    expect(zuAlt({ zeit: '2026-10-19T14:00:00Z' }, '2026-10-19T23:04:00Z', Date.parse('2026-10-20T12:00:00Z'))).toBe(false)
+  })
+  it('Posting von vorgestern zaehlt nicht', () => {
+    expect(zuAlt({ zeit: '2026-10-17T14:00:00Z' }, '2026-10-19T23:04:00Z')).toBe(true)
   })
 })

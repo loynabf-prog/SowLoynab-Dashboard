@@ -11,6 +11,7 @@ import type { TagVideo } from './PostSchritt'
 import type { FristInfo } from '../lib/fristen'
 import { fehlendeLinks, postPhase, vorarbeit } from '../lib/postschritte'
 import { NUR_POSTEN } from '../lib/fristen'
+import { linksErneutHolen } from '../lib/videoAktionen'
 import type { LinkFeld, VorarbeitKey } from '../lib/videoAktionen'
 
 const SYMBOL: Record<string, { icon: LucideIcon; farbe: string }> = {
@@ -116,6 +117,10 @@ export default function PostZeile({
             </div>
           )}
 
+          {phase === 'gepostet' && (
+            <AutoHolen video={video} />
+          )}
+
           {phase === 'gepostet' && fehlt.map((p) => (
             <LinkFeld
               key={p}
@@ -173,6 +178,29 @@ function LinkFeld({ label, onSave }: { label: string; onSave: (url: string) => P
         placeholder={label} aria-label={label}
       />
       <button className="n-tun stark" onClick={los} disabled={busy || !wert.trim()}>{busy ? '…' : 'Sichern'}</button>
+    </div>
+  )
+}
+
+/** Stand der automatischen Link-Abholung -- und neu anstossen. */
+function AutoHolen({ video }: { video: TagVideo }) {
+  const v = video as TagVideo & { link_fetch_state?: string | null; link_fetch_note?: string | null }
+  const [laeuft, setLaeuft] = useState(false)
+  const [meldung, setMeldung] = useState<string | null>(null)
+  const zustand = laeuft ? 'Wird geholt – dauert bis zu 2 Minuten …'
+    : v.link_fetch_state === 'offen' ? 'Wird automatisch geholt …'
+    : v.link_fetch_state === 'fehlgeschlagen' || v.link_fetch_state === 'unklar' ? 'Automatisch nicht gefunden.'
+    : null
+  return (
+    <div>
+      {zustand && <div className="z-label">{zustand}</div>}
+      {meldung && <div className="z-label">{meldung}</div>}
+      <button className="z-link" disabled={laeuft} onClick={async () => {
+        setLaeuft(true); setMeldung(null)
+        const f = await linksErneutHolen(v.id)
+        if (f) { setMeldung('Fehler: ' + f); setLaeuft(false) }
+        else setTimeout(() => setLaeuft(false), 120_000)
+      }}>Links automatisch neu holen</button>
     </div>
   )
 }

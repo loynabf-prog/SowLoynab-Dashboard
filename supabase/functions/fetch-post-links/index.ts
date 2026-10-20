@@ -45,10 +45,14 @@ const MAX_VERSUCHE = 4
 // Wie alt darf ein gefundenes Posting höchstens sein, um als "das gerade
 // gepostete" zu gelten? Großzügig genug für einen späten Upload, eng genug,
 // um nicht das Video von vorgestern zu greifen.
-const MAX_ALTER_STUNDEN = 8
+// Gemessen am Tipp auf "Gepostet" (posted_at), nicht an jetzt: wer erst
+// nachts nachtraegt, was nachmittags rausging, soll trotzdem den Link
+// bekommen. Das Posting darf bis zu so viele Stunden VOR dem Tipp liegen.
+const MAX_ALTER_STUNDEN = 24
 
 async function apifyRun(actor: string, input: unknown, token: string): Promise<any[]> {
-  const url = `https://api.apify.com/v2/acts/${actor}/run-sync-get-dataset-items?token=${token}&timeout=90`
+  // Instagram braucht oft laenger als 90 s -- dann lief der Abruf ins Leere.
+  const url = `https://api.apify.com/v2/acts/${actor}/run-sync-get-dataset-items?token=${token}&timeout=140`
   const resp = await fetch(url, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -152,9 +156,10 @@ export function linksKomplett(plattformen: string[], tiktok: unknown, instagram:
   return true
 }
 
-function zuAlt(p: Posting): boolean {
+export function zuAlt(p: { zeit: string | null }, gepostetAm: string | null, jetzt = Date.now()): boolean {
   if (!p.zeit) return false // ohne Zeitstempel nicht ausschliessen
-  return Date.now() - Date.parse(p.zeit) > MAX_ALTER_STUNDEN * 3600_000
+  const bezug = gepostetAm ? Date.parse(gepostetAm) : jetzt
+  return bezug - Date.parse(p.zeit) > MAX_ALTER_STUNDEN * 3600_000
 }
 
 const bedienen = async (req: Request): Promise<Response> => {
@@ -174,7 +179,7 @@ const bedienen = async (req: Request): Promise<Response> => {
 
     let abfrage = supa
       .from('videos')
-      .select('id, client_id, title, tiktok_url, instagram_url, link_fetch_tries, ' +
+      .select('id, client_id, title, posted_at, tiktok_url, instagram_url, link_fetch_tries, ' +
               'views_ig, likes_ig, comments_ig, shares_ig, saves_ig, ' +
               'views_tiktok, likes_tiktok, comments_tiktok, shares_tiktok, saves_tiktok')
       .is('deleted_at', null)
@@ -218,6 +223,19 @@ const bedienen = async (req: Request): Promise<Response> => {
       // naechste Versuch schon nach 5 Minuten, danach alle 20.
       const naechster = new Date(Date.now() + (versuch <= 1 ? 5 : 20) * 60_000).toISOString()
 
+      // Beide Plattformen GLEICHZEITIG abrufen -- Instagram allein braucht
+      // manchmal ueber eine Minute, nacheinander wuerde die Funktion abbrechen.
+      const abrufe: Record<string, Promise<Posting | null>> = {}
+      for (const feld of ['tiktok_url', 'instagram_url'] as const) {
+        if (v[feld]) continue
+        const platform = feld === 'tiktok_url' ? 'tiktok' : 'instagram'
+        const passend = handles.filter((h) => h.platform === platform && h.handle)
+        if (passend.length !== 1) continue
+        const h = passend[0].handle.replace(/^@/, '').trim()
+        abrufe[platform] = platform === 'tiktok' ? neuestesTiktok(h, ttActor, token) : neuestesInstagram(h, igActor, token)
+        abrufe[platform].catch(() => {}) // Fehler wird unten beim await behandelt
+      }
+
       const notizen: string[] = []
       for (const feld of ['tiktok_url', 'instagram_url'] as const) {
         if (v[feld]) continue
@@ -228,19 +246,16 @@ const bedienen = async (req: Request): Promise<Response> => {
           notizen.push(`${platform}: mehrere Accounts hinterlegt — bitte von Hand zuordnen`)
           continue
         }
-        const handle = passend[0].handle.replace(/^@/, '').trim()
 
         try {
-          const p = platform === 'tiktok'
-            ? await neuestesTiktok(handle, ttActor, token)
-            : await neuestesInstagram(handle, igActor, token)
+          const p = await abrufe[platform]
           // Follower gleich mitnehmen, auch wenn das Posting selbst noch
           // nicht passt -- die Zahl stimmt trotzdem.
           if (p?.roh && platform === 'tiktok') {
             try { await tiktokFollowerSchreiben(supa, v.client_id, p.roh) } catch { /* Zugabe */ }
           }
           if (!p) { notizen.push(`${platform}: kein Posting gefunden`); continue }
-          if (zuAlt(p)) { notizen.push(`${platform}: neuestes Posting ist älter als ${MAX_ALTER_STUNDEN} h`); continue }
+          if (zuAlt(p, v.posted_at)) { notizen.push(`${platform}: neuestes Posting liegt mehr als ${MAX_ALTER_STUNDEN} h vor „Gepostet“`); continue }
 
           // Haengt die Adresse schon an einem anderen Video? Dann haben wir
           // vermutlich dasselbe Posting zweimal gegriffen -- nicht setzen.

@@ -57,6 +57,16 @@ export async function alsGepostet(
  * (Apify braucht bis zu einer Minute); das Ergebnis kommt ueber den
  * Live-Abgleich in die Ansicht. Klappt es nicht, faengt der Cron es auf.
  */
+/** Abholung neu starten (z. B. nach "fehlgeschlagen") und sofort ausloesen. */
+export async function linksErneutHolen(videoId: string): Promise<string | null> {
+  const { error } = await supabase.from('videos')
+    .update({ link_fetch_at: new Date().toISOString(), link_fetch_state: 'offen', link_fetch_tries: 0, link_fetch_note: null })
+    .eq('id', videoId)
+  if (error) return error.message
+  linksJetztHolen(videoId)
+  return null
+}
+
 export function linksJetztHolen(videoId: string): void {
   supabase.functions.invoke('fetch-post-links', { body: { video_id: videoId } }).catch(() => {})
 }
