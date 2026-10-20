@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
       supa.from('leads').select('id').is('deleted_at', null).not('next_followup', 'is', null).lte('next_followup', today),
       supa.from('push_subscriptions').select('*'),
       supa.from('videos')
-        .select('status, scheduled_date, prep_shot, prep_edited, prep_scheduled, shoot_event_id, clients(name, pausiert_seit)')
+        .select('status, scheduled_date, prep_shot, prep_edited, prep_scheduled, shoot_event_id, clients(name, pausiert_seit, client_type)')
         .neq('status', 'posted').is('deleted_at', null)
         .gte('scheduled_date', plusTage(today, -60)).lte('scheduled_date', plusTage(today, 28)),
     ])
@@ -57,7 +57,9 @@ Deno.serve(async (req) => {
     const laeuft = (r: any) => !r?.clients?.pausiert_seit
     const planListe = ((plan.data ?? []) as any[]).filter(laeuft)
     // Heute steht schon als "Post" in der Nachricht -- hier nur der Rest.
-    const brennen = planListe.filter((v) => v.scheduled_date !== today && brennt(v, today))
+    // Ohne Vertrag (Ehrenamt/Referenz) brennt nichts -- wie in fristen.ts.
+    const mitVertrag = (r: any) => !['referenz', 'passiv'].includes(r?.clients?.client_type)
+    const brennen = planListe.filter((v) => v.scheduled_date !== today && mitVertrag(v) && brennt(v, today))
     const nBrennt = brennen.length
     const wer = proKunde(brennen.map((v) => v.clients?.name))
 

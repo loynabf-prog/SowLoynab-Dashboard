@@ -109,3 +109,14 @@ describe('Post-Uhrzeit heute', () => {
     expect(jetztUhrzeit(new Date('2026-11-18T10:07:00Z'))).toBe('11:07')
   })
 })
+
+describe('ohne Vertrag', () => {
+  it('Ehrenamt/Referenz wird nie rot, sondern gelb', () => {
+    const f = fristInfo({ status: 'todo', scheduled_date: '2026-10-10', clients: { client_type: 'referenz' } } as any, '2026-10-17')
+    expect(f.ampel).toBe('gelb')
+    expect(f.text).toContain('verpasst')
+  })
+  it('zahlende Kunden bleiben rot', () => {
+    expect(fristInfo({ status: 'todo', scheduled_date: '2026-10-10', clients: { client_type: 'zahlend' } } as any, '2026-10-17').ampel).toBe('rot')
+  })
+})

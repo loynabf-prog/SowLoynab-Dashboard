@@ -30,7 +30,7 @@ export interface LageVideo {
   prep_edited?: boolean
   prep_scheduled?: boolean
   client_id?: string | null
-  clients?: { name: string } | null
+  clients?: { name: string; client_type?: string | null } | null
   drehtag?: string | null
 }
 

@@ -104,7 +104,7 @@ export default function Overview() {
     // machen, entscheidet die Frist, nicht der Posting-Tag.
     const [v, e, a, gp, ge] = await Promise.all([
       supabase.from('videos')
-        .select('id, title, status, scheduled_date, scheduled_time, prep_shot, prep_edited, prep_scheduled, client_id, shoot_event_id, assignee_ids, clients(name, pausiert_seit)')
+        .select('id, title, status, scheduled_date, scheduled_time, prep_shot, prep_edited, prep_scheduled, client_id, shoot_event_id, assignee_ids, clients(name, pausiert_seit, client_type)')
         .is('deleted_at', null).neq('status', 'posted').limit(500),
       supabase.from('events')
         .select('id, title, kind, starts_on, starts_at, planned_videos, client_id, member_ids, clients(name, pausiert_seit)')

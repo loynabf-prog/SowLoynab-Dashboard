@@ -56,7 +56,7 @@ export default function Produktion() {
     const [vRes, pRes] = await Promise.all([
       supabase
         .from('videos')
-        .select('*, clients(name, pausiert_seit, pause_grund)')
+        .select('*, clients(name, pausiert_seit, pause_grund, client_type)')
         .is('deleted_at', null)
         .neq('status', 'posted')
         .order('scheduled_date', { ascending: true, nullsFirst: false }),

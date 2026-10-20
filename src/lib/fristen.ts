@@ -39,7 +39,18 @@ type FristVideo = Pick<Video, 'status' | 'scheduled_date'> &
   Partial<Pick<Video, 'prep_shot' | 'prep_edited' | 'prep_scheduled' | 'scheduled_time'>> & {
     /** Datum des verknuepften Drehtags (events.starts_on), falls vorhanden. */
     drehtag?: string | null
+    /** Kunde, mitgeladen als clients(client_type) -- fuer "ohne Vertrag". */
+    clients?: { name?: string; client_type?: string | null } | null
   }
+
+/**
+ * Ohne Vertrag (Ehrenamt, Referenz) wird nichts rot: Verpasstes ist dort
+ * gelb. Rot ist Stress -- und der muss vertraglich gerechtfertigt sein.
+ */
+export function ohneVertrag(v: { clients?: { client_type?: string | null } | null }): boolean {
+  const t = v.clients?.client_type
+  return t === 'referenz' || t === 'passiv'
+}
 
 /**
  * Was ist wirklich schon getan? Spaetere Schritte schliessen fruehere ein:
@@ -84,6 +95,11 @@ function kurz(iso: string): string {
  *                   ein noch nicht gepostetes Video rot.
  */
 export function fristInfo(v: FristVideo, heuteIso: string, jetztZeit?: string): FristInfo {
+  const f = fristRoh(v, heuteIso, jetztZeit)
+  return f.ampel === 'rot' && ohneVertrag(v) ? { ...f, ampel: 'gelb' } : f
+}
+
+function fristRoh(v: FristVideo, heuteIso: string, jetztZeit?: string): FristInfo {
   const s = stand(v, heuteIso)
   if (s.gepostet) return { ampel: 'erledigt', schritt: null, frist: null, tageBisFrist: null, text: 'Gepostet' }
   if (!v.scheduled_date) {
