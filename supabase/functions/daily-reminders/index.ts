@@ -43,18 +43,20 @@ Deno.serve(async (req) => {
     const today = todayIso()
 
     const [posts, tasks, follows, subs, plan] = await Promise.all([
-      supa.from('videos').select('id').neq('status', 'posted').is('deleted_at', null).eq('scheduled_date', today),
-      supa.from('tasks').select('id').eq('done', false).is('deleted_at', null).not('due_date', 'is', null).lte('due_date', today),
+      supa.from('videos').select('id, clients(pausiert_seit)').neq('status', 'posted').is('deleted_at', null).eq('scheduled_date', today),
+      supa.from('tasks').select('id, clients(pausiert_seit)').eq('done', false).is('deleted_at', null).not('due_date', 'is', null).lte('due_date', today),
       supa.from('leads').select('id').is('deleted_at', null).not('next_followup', 'is', null).lte('next_followup', today),
       supa.from('push_subscriptions').select('*'),
       supa.from('videos')
-        .select('status, scheduled_date, prep_shot, prep_edited, prep_scheduled, shoot_event_id, clients(name)')
+        .select('status, scheduled_date, prep_shot, prep_edited, prep_scheduled, shoot_event_id, clients(name, pausiert_seit)')
         .neq('status', 'posted').is('deleted_at', null)
         .gte('scheduled_date', plusTage(today, -60)).lte('scheduled_date', plusTage(today, 28)),
     ])
 
     // Drehtage nachschlagen: ein vergangener Drehtag heisst "gedreht".
-    const planListe = (plan.data ?? []) as any[]
+    // Pausierte Kunden (0045) gehoeren nicht in die Morgen-Nachricht.
+    const laeuft = (r: any) => !r?.clients?.pausiert_seit
+    const planListe = ((plan.data ?? []) as any[]).filter(laeuft)
     const evIds = [...new Set(planListe.map((v) => v.shoot_event_id).filter(Boolean))]
     if (evIds.length) {
       const { data: ev } = await supa.from('events').select('id, starts_on').in('id', evIds)
@@ -66,8 +68,8 @@ Deno.serve(async (req) => {
     const nBrennt = brennen.length
     const wer = proKunde(brennen.map((v) => v.clients?.name))
 
-    const nPosts = posts.data?.length ?? 0
-    const nTasks = tasks.data?.length ?? 0
+    const nPosts = ((posts.data ?? []) as any[]).filter(laeuft).length
+    const nTasks = ((tasks.data ?? []) as any[]).filter(laeuft).length
     const nFollow = follows.data?.length ?? 0
 
     // Nichts zu tun -> keine Push (kein Spam)

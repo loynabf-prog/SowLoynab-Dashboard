@@ -12,6 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Flame, Link2, ChevronDown } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { nachPause, type MitPause } from '../lib/pause'
 import { celebrate } from '../lib/confetti'
 import { useToast } from '../context/ToastContext'
 import { type TagVideo } from '../components/PostSchritt'
@@ -39,6 +40,8 @@ export default function Posting() {
   const { toast } = useToast()
   const [videos, setVideos] = useState<TagVideo[]>([])
   const [ohneTermin, setOhneTermin] = useState(0)
+  // Pausierte Kunden (0045) stehen nicht im Plan -- nur ein Hinweis darauf.
+  const [pausiert, setPausiert] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   // Datum und Uhrzeit laufen mit: wer die Seite ueber Mitternacht oder
   // ueber die Post-Uhrzeit offen hat, sieht trotzdem den richtigen Stand.
@@ -73,7 +76,9 @@ export default function Posting() {
       const datum = new Map((ev ?? []).map((e: { id: string; starts_on: string }) => [e.id, e.starts_on]))
       for (const v of liste) if (v.shoot_event_id) v.drehtag = datum.get(v.shoot_event_id) ?? null
     }
-    setVideos(liste)
+    const { laufend, pausiert: weg } = nachPause(liste as (TagVideo & { clients?: MitPause | null })[])
+    setVideos(laufend as TagVideo[])
+    setPausiert([...new Set(weg.map((v) => (v.clients as { name?: string } | null)?.name).filter(Boolean))] as string[])
     setOhneTermin(offen.count ?? 0)
     setLoading(false)
   }, [toast])
@@ -285,6 +290,9 @@ export default function Posting() {
               : tagListe.map((v) => zeile(v))}
           </div>
 
+          {pausiert.length > 0 && (
+            <p className="p-fuss">Pausiert und hier ausgeblendet: {pausiert.join(', ')}.</p>
+          )}
           {ohneTermin > 0 && (
             <p className="p-fuss">{ohneTermin} {ohneTermin === 1 ? 'Video hat' : 'Videos haben'} noch keinen Posting-Tag.</p>
           )}

@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { ohnePausierte, type MitPause } from '../lib/pause'
 import { useToast } from '../context/ToastContext'
 import { useIdentity } from '../context/IdentityContext'
 import { useTeam } from '../context/TeamContext'
@@ -103,13 +104,13 @@ export default function Overview() {
     // machen, entscheidet die Frist, nicht der Posting-Tag.
     const [v, e, a, gp, ge] = await Promise.all([
       supabase.from('videos')
-        .select('id, title, status, scheduled_date, scheduled_time, prep_shot, prep_edited, prep_scheduled, client_id, shoot_event_id, assignee_ids, clients(name)')
+        .select('id, title, status, scheduled_date, scheduled_time, prep_shot, prep_edited, prep_scheduled, client_id, shoot_event_id, assignee_ids, clients(name, pausiert_seit)')
         .is('deleted_at', null).neq('status', 'posted').limit(500),
       supabase.from('events')
-        .select('id, title, kind, starts_on, starts_at, planned_videos, client_id, member_ids, clients(name)')
+        .select('id, title, kind, starts_on, starts_at, planned_videos, client_id, member_ids, clients(name, pausiert_seit)')
         .is('deleted_at', null).eq('starts_on', tag),
       supabase.from('tasks')
-        .select('id, title, due_date, due_time, priority, assignee_ids, clients(name), leads(name)')
+        .select('id, title, due_date, due_time, priority, assignee_ids, clients(name, pausiert_seit), leads(name)')
         .eq('done', false).is('deleted_at', null)
         .not('due_date', 'is', null).lte('due_date', tag),
       supabase.from('videos').select('id, assignee_ids')
@@ -119,7 +120,8 @@ export default function Overview() {
     ])
     // Haengt ein Video an einem Drehtag, zaehlt dessen Datum: dann ist
     // "noch nicht gedreht" kein Versaeumnis, sondern ein Plan.
-    const roh = (v.data ?? []) as unknown as MeinVideo[]
+    // Pausierte Kunden (0045) gehoeren nicht auf Heute -- da warten wir.
+    const roh = ohnePausierte((v.data ?? []) as unknown as (MeinVideo & { clients?: MitPause | null })[]) as MeinVideo[]
     const drehIds = [...new Set(roh.map((x) => x.shoot_event_id).filter(Boolean))] as string[]
     let drehTage: Record<string, string> = {}
     if (drehIds.length > 0) {
@@ -127,8 +129,8 @@ export default function Overview() {
       drehTage = Object.fromEntries(((d ?? []) as { id: string; starts_on: string }[]).map((x) => [x.id, x.starts_on]))
     }
     setVideos(roh.map((x) => ({ ...x, drehtag: x.shoot_event_id ? drehTage[x.shoot_event_id] ?? null : null })))
-    setTermine((e.data ?? []) as unknown as MeinTermin[])
-    setAufgaben((a.data ?? []) as unknown as MeineAufgabe[])
+    setTermine(ohnePausierte((e.data ?? []) as unknown as (MeinTermin & { clients?: MitPause | null })[]) as MeinTermin[])
+    setAufgaben(ohnePausierte((a.data ?? []) as unknown as (MeineAufgabe & { clients?: MitPause | null })[]) as MeineAufgabe[])
     const mein = (r: { assignee_ids?: string[] | null }) => gehoertMir(r.assignee_ids, memberId)
     setErledigtDb(((gp.data ?? []) as { assignee_ids?: string[] | null }[]).filter(mein).length
       + ((ge.data ?? []) as { assignee_ids?: string[] | null }[]).filter(mein).length)

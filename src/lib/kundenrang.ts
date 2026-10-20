@@ -1,5 +1,6 @@
 import { monatsplan } from './monatsplan'
 import type { Client, Video } from './types'
+import { istPausiert, pauseText } from './pause'
 
 // In welchen Topf gehoert ein Kunde gerade?
 //
@@ -49,6 +50,11 @@ export function kundenlage(client: Client, videos: Video[], heute: string, tageV
   if (zuTun > 0) gruende.push(`${zuTun} zu drehen`)
   if (plan.ohneIdee > 0) gruende.push(`${plan.ohneIdee} ohne Idee`)
   if (ohneLink > 0) gruende.push(`${ohneLink} ohne Link`)
+
+  // Pausiert: wir warten auf den Kunden -- dann ist nichts "akut".
+  if (istPausiert(client)) {
+    return { rang: 'ruhend', zuTun, ohneIdee: plan.ohneIdee, ohneLink, wartet: 0, grund: pauseText(client) }
+  }
 
   let rang: Rang
   if (client.active === false) {

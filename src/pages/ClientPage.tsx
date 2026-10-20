@@ -17,6 +17,7 @@ import VideoCard from '../components/VideoCard'
 import LogoFrame from '../components/LogoFrame'
 import LogoCropper from '../components/LogoCropper'
 import Modal from '../components/Modal'
+import { istPausiert, pauseText } from '../lib/pause'
 import ActivityLog from '../components/ActivityLog'
 import Spinner from '../components/Spinner'
 import { generateIdeas } from '../lib/ideas'
@@ -87,6 +88,7 @@ export default function ClientPage() {
   // Pro Spalte werden nur die naechsten 3 gezeigt; aufgeklappt alle.
   const [openCols, setOpenCols] = useState<Record<string, boolean>>({})
   const [editClient, setEditClient] = useState(false)
+  const [pauseOffen, setPauseOffen] = useState(false)
   const [creating, setCreating] = useState(false)
   const [info, setInfo] = useState<string | null>(null)
   const [tab, setTab] = useState<ClientTab>('board')
@@ -582,6 +584,20 @@ export default function ClientPage() {
         <button className="btn btn-sm btn-ghost" onClick={() => setEditClient(true)}>
           Kunde bearbeiten
         </button>
+        {istPausiert(client) ? (
+          <button className="btn btn-sm" onClick={async () => {
+            const { error } = await updateRow('clients', { pausiert_seit: null, pause_grund: null }, 'id', client.id)
+            if (error) { setError(error.message); return }
+            toast('Läuft wieder – erscheint wieder auf Heute und im Plan')
+            loadClient()
+          }}>
+            Fortsetzen
+          </button>
+        ) : (
+          <button className="btn btn-sm btn-ghost" onClick={() => setPauseOffen(true)}>
+            Pausieren
+          </button>
+        )}
         <button className="btn btn-sm" onClick={() => setPlanOffen(true)}>
           Monatsplan
         </button>
@@ -589,6 +605,13 @@ export default function ClientPage() {
           + Idee
         </button>
       </div>
+
+      {istPausiert(client) && (
+        <div className="pause-band">
+          <strong>{pauseText(client)}</strong>
+          <span>Videos und Drehtage stehen nicht auf Heute, im Plan oder in der Morgen-Nachricht. In der Produktion bleiben sie unter „Pausiert“.</span>
+        </div>
+      )}
 
       <ClientCockpit
         client={client}
@@ -995,6 +1018,19 @@ export default function ClientPage() {
         />
       )}
 
+
+      {pauseOffen && (
+        <PauseModal
+          onClose={() => setPauseOffen(false)}
+          onSave={async (grund) => {
+            const { error } = await updateRow('clients', { pausiert_seit: heute(), pause_grund: grund || null }, 'id', client.id)
+            if (error) { setError(error.message); return }
+            setPauseOffen(false)
+            toast('Pausiert – taucht nicht mehr auf Heute und im Plan auf')
+            loadClient()
+          }}
+        />
+      )}
 
       {editClient && (
         <EditClientModal
@@ -2435,6 +2471,37 @@ function GrowthModal({ clientId, onClose, onSaved }: { clientId: string; onClose
           <button type="button" className="btn btn-primary" onClick={save} disabled={busy}>{busy ? 'Speichere …' : 'Speichern'}</button>
         </div>
       </div>
+    </Modal>
+  )
+}
+
+// ============================ Pausieren ============================
+const PAUSE_GRUENDE = ['Warten auf Rückmeldung vom Kunden', 'Kein Drehtermin möglich', 'Kunde macht Pause']
+
+function PauseModal({ onClose, onSave }: { onClose: () => void; onSave: (grund: string) => void }) {
+  const [grund, setGrund] = useState(PAUSE_GRUENDE[0])
+  const [busy, setBusy] = useState(false)
+  return (
+    <Modal title="Kunde pausieren" onClose={onClose}>
+      <form className="stack" onSubmit={(e) => { e.preventDefault(); setBusy(true); onSave(grund.trim()) }}>
+        <p className="muted" style={{ margin: 0 }}>
+          Videos und Drehtage verschwinden von Heute, aus dem Plan und aus der Morgen-Nachricht.
+          In der Produktion und hier bleibt alles erhalten. Fortsetzen geht jederzeit mit einem Tipp.
+        </p>
+        <div>
+          <label htmlFor="pgrund">Grund</label>
+          <div className="n-chips" style={{ margin: '0 0 8px', flexWrap: 'wrap' }}>
+            {PAUSE_GRUENDE.map((g) => (
+              <button type="button" key={g} className={grund === g ? 'on' : ''} onClick={() => setGrund(g)}>{g}</button>
+            ))}
+          </div>
+          <input id="pgrund" value={grund} onChange={(e) => setGrund(e.target.value)} placeholder="z. B. warten auf den Chef" />
+        </div>
+        <div className="row" style={{ justifyContent: 'flex-end', gap: 8 }}>
+          <button type="button" className="btn" onClick={onClose}>Abbrechen</button>
+          <button type="submit" className="btn btn-primary" disabled={busy}>Pausieren</button>
+        </div>
+      </form>
     </Modal>
   )
 }

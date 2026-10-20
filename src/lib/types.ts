@@ -22,6 +22,9 @@ export interface Client {
   health: string | null
   monthly_quota: number | null
   contract_end: string | null
+  /** Gesetzt = pausiert (0045): nicht auf Heute, im Plan, im Morgen-Push. */
+  pausiert_seit?: string | null
+  pause_grund?: string | null
   created_by: string | null
   created_at: string
   updated_at: string

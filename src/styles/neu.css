@@ -567,3 +567,13 @@ a.n-zeile { text-decoration: none; }
 }
 .n-sheet-los { padding: 13px 16px; font-size: 16px; }
 .n-zwischen { font-size: 13px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin: 4px 4px 6px; }
+
+/* Pausierter Kunde (0045) */
+.pause-band {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 12px 14px; margin: 0 0 16px; border-radius: var(--radius);
+  background: var(--bg-sunken);
+}
+.pause-band strong { font-size: 15px; }
+.pause-band span { font-size: 13.5px; color: var(--text-muted); }
+.modal .n-chips > button:not(.on), .modal-card .n-chips > button:not(.on) { background: var(--bg-sunken); }
