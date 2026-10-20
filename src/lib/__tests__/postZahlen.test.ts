@@ -76,3 +76,12 @@ describe('zuAlt (am Tipp auf Gepostet gemessen)', () => {
     expect(zuAlt({ zeit: '2026-10-17T14:00:00Z' }, '2026-10-19T23:04:00Z')).toBe(true)
   })
 })
+
+import { titelAusCaption } from '../../../supabase/functions/fetch-post-links/index'
+describe('titelAusCaption', () => {
+  it('nimmt die erste Zeile ohne Hashtags', () => {
+    expect(titelAusCaption('Bester Döner in Münster? 🔥 #kebab #muenster\nMehr Text')).toBe('Bester Döner in Münster? 🔥')
+    expect(titelAusCaption('#nur #tags')).toBeNull()
+    expect(titelAusCaption('x'.repeat(80))!.length).toBe(50)
+  })
+})

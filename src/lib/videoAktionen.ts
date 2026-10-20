@@ -57,6 +57,27 @@ export async function alsGepostet(
  * (Apify braucht bis zu einer Minute); das Ergebnis kommt ueber den
  * Live-Abgleich in die Ansicht. Klappt es nicht, faengt der Cron es auf.
  */
+/** Titel fuer ein Video, das erst nachtraeglich angelegt wird -- die Link-Abholung ersetzt ihn durch die Caption. */
+export const SCHNELL_TITEL = 'Gepostetes Video'
+
+/**
+ * "Video gepostet" ohne vorher angelegtes Video: legt es als gepostet an
+ * und holt sofort Link, Zahlen und Caption des neuesten Postings.
+ * Gibt die Fehlermeldung zurueck oder null.
+ */
+export async function schnellGepostet(clientId: string, jetzt = new Date()): Promise<string | null> {
+  const heute = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Berlin', year: 'numeric', month: '2-digit', day: '2-digit' }).format(jetzt)
+  const { data, error } = await supabase.from('videos').insert({
+    client_id: clientId, title: SCHNELL_TITEL, status: 'posted',
+    scheduled_date: heute, posted_at: jetzt.toISOString(),
+    prep_shot: true, prep_edited: true, prep_scheduled: true,
+    link_fetch_at: jetzt.toISOString(), link_fetch_state: 'offen', link_fetch_tries: 0,
+  }).select('id').single()
+  if (error) return error.message
+  linksJetztHolen((data as { id: string }).id)
+  return null
+}
+
 /** Abholung neu starten (z. B. nach "fehlgeschlagen") und sofort ausloesen. */
 export async function linksErneutHolen(videoId: string): Promise<string | null> {
   const { error } = await supabase.from('videos')

@@ -26,7 +26,7 @@ import { celebrate } from '../lib/confetti'
 import NudgeModal from '../components/NudgeModal'
 import { insertRows, tableMissing, updateRow } from '../lib/db'
 import { statusFolgen } from '../lib/statusSync'
-import { linksJetztHolen, postenPatch } from '../lib/videoAktionen'
+import { linksJetztHolen, postenPatch, schnellGepostet } from '../lib/videoAktionen'
 
 /**
  * channel_id nur mitschicken, wenn wirklich ein Kanal gesetzt ist.
@@ -613,6 +613,15 @@ export default function ClientPage() {
         )}
         <button className="btn btn-sm" onClick={() => setPlanOffen(true)}>
           Monatsplan
+        </button>
+        <button className="btn btn-sm" title="Video ist schon draußen, aber nicht angelegt? Dann hier tippen." onClick={async () => {
+          const f = await schnellGepostet(client.id)
+          if (f) { setError(f); return }
+          toast('Video gepostet – Link, Zahlen und Titel werden geholt (bis zu 2 Minuten)')
+          loadVideos()
+          setTimeout(() => loadVideos(), 100_000)
+        }}>
+          Video gepostet
         </button>
         <button className="btn btn-primary" onClick={() => setCreating(true)}>
           + Idee

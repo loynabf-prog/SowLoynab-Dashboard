@@ -42,6 +42,14 @@ const CORS = {
 // Nach so vielen vergeblichen Anläufen geben wir auf. Ein dauerhaft privates
 // Profil soll nicht endlos Guthaben verbrennen.
 const MAX_VERSUCHE = 4
+const SCHNELL_TITEL = 'Gepostetes Video' // wie in src/lib/videoAktionen.ts
+
+/** Erste Zeile der Caption ohne Hashtags, hoechstens 50 Zeichen. */
+export function titelAusCaption(c: string): string | null {
+  const z = c.split('\n')[0].replace(/#[\p{L}\p{N}_]+/gu, '').replace(/\s+/g, ' ').trim()
+  if (!z) return null
+  return z.length > 50 ? z.slice(0, 49).trimEnd() + '…' : z
+}
 // Wie alt darf ein gefundenes Posting höchstens sein, um als "das gerade
 // gepostete" zu gelten? Großzügig genug für einen späten Upload, eng genug,
 // um nicht das Video von vorgestern zu greifen.
@@ -276,6 +284,11 @@ const bedienen = async (req: Request): Promise<Response> => {
           const meta = platform === 'tiktok' ? tiktokMeta(p.roh) : instagramMeta(p.roh)
           Object.assign(patch, ohneLeere(meta.patch))
           patch.meta_updated_at = new Date().toISOString()
+          // Schnell nachgetragenes Video ("Video gepostet" ohne Anlegen): Titel aus der Caption.
+          if (v.title === SCHNELL_TITEL && !patch.title) {
+            const t = titelAusCaption(String(meta.patch.tiktok_caption ?? meta.patch.ig_caption ?? ''))
+            if (t) patch.title = t
+          }
           const cover = await coverSichern(supa, v.id, platform === 'tiktok' ? 'tiktok' : 'ig', meta.coverQuelle)
           if (cover) patch[platform === 'tiktok' ? 'tiktok_cover' : 'ig_cover'] = cover
           // Der Abruf hat die Zahlen ohnehin geliefert -- mitnehmen, statt sie
@@ -361,7 +374,7 @@ const bedienen = async (req: Request): Promise<Response> => {
       if (uErr) {
         // Fehlen die Zahlen-Spalten (Migration 0020), wenigstens die Adresse retten
         const nurLink: Record<string, unknown> = {}
-        for (const k of ['tiktok_url', 'instagram_url', 'link_fetch_at', 'link_fetch_state', 'link_fetch_note', 'link_fetch_tries']) {
+        for (const k of ['tiktok_url', 'instagram_url', 'link_fetch_at', 'link_fetch_state', 'link_fetch_note', 'link_fetch_tries', 'title']) {
           if (k in patch) nurLink[k] = patch[k]
         }
         const { error: zweit } = await supa.from('videos').update(nurLink).eq('id', v.id)

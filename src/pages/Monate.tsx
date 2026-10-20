@@ -15,6 +15,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Camera, Check, ChevronDown, ChevronUp, CircleDollarSign, Clapperboard, HelpCircle, ListChecks, Lock, Plus } from 'lucide-react'
 import LogoFrame from '../components/LogoFrame'
 import { useToast } from '../context/ToastContext'
+import { schnellGepostet } from '../lib/videoAktionen'
 import {
   ladeMonatsDaten, monatsZeilen, monatsSumme, monatPlus, monatName, monatsKeyVon, istAbgeschlossen,
   speichereEintrag, entferneEintrag, monatSetzen, euro, videoZeilen, videoSumme, geldZeilen,
@@ -247,6 +248,10 @@ export default function Monate() {
             <VideoZeileUI key={v.kunde.id} v={v} offen={offen === 'v' + v.kunde.id}
               onToggle={() => setOffen(offen === 'v' + v.kunde.id ? null : 'v' + v.kunde.id)}
               onPlanen={() => navigate(`/client/${v.kunde.id}?plan=${key}`)}
+              onGepostet={key === heuteKey ? async () => {
+                const ok = await ausfuehren(schnellGepostet(v.kunde.id), 'Video gepostet – Link, Zahlen und Titel werden geholt')
+                if (ok) setTimeout(() => laden(), 100_000)
+              } : undefined}
               onZiel={(ziel) => ausfuehren(speichereEintrag(v.eintrag
                 ? { ...v.eintrag, quota: ziel }
                 : {
@@ -528,12 +533,14 @@ function TodoZeile({ t, onAnlegen, onDrehtag, onKunde }: {
 }
 
 // ============================ Videos je Kunde ============================
-function VideoZeileUI({ v, offen, onToggle, onPlanen, onZiel }: {
+function VideoZeileUI({ v, offen, onToggle, onPlanen, onZiel, onGepostet }: {
   v: VideoZeile
   offen: boolean
   onToggle: () => void
   onPlanen: () => void
   onZiel: (ziel: number) => void
+  /** Nur im laufenden Monat: Video ist draussen, aber nicht angelegt. */
+  onGepostet?: () => void
 }) {
   const [ziel, setZiel] = useState(String(v.ziel || ''))
   useEffect(() => { setZiel(String(v.ziel || '')) }, [v.ziel])
@@ -571,7 +578,10 @@ function VideoZeileUI({ v, offen, onToggle, onPlanen, onZiel }: {
             </label>
             <button className="n-tun stark" onClick={() => onZiel(Math.max(0, Math.round(Number(ziel) || 0)))}>Speichern</button>
           </div>
-          {fehlt > 0 && <button className="n-tun" style={{ alignSelf: 'flex-start' }} onClick={onPlanen}>{fehlt} Posting-Tage planen</button>}
+          <div className="m-knoepfe">
+            {onGepostet && <button className="n-tun glut" onClick={onGepostet}>Video gepostet</button>}
+            {fehlt > 0 && <button className="n-tun" onClick={onPlanen}>{fehlt} Posting-Tage planen</button>}
+          </div>
           <div className="m-videos">
             {[...v.gepostet, ...v.geplant].map((x) => (
               <div key={x.id} className="m-video">
