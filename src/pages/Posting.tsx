@@ -19,7 +19,7 @@ import { type TagVideo } from '../components/PostSchritt'
 import PostZeile from '../components/PostZeile'
 import { heute, datumPlus } from '../lib/datum'
 import { nachKunde, proKundeSatz } from '../lib/tageslage'
-import { fristInfo, nachDringlichkeit, jetztUhrzeit, FRISTEN } from '../lib/fristen'
+import { fristInfo, nachDringlichkeit, jetztUhrzeit } from '../lib/fristen'
 import { fehlendeLinks, mitKundeLaden, mitPlattformen, postPhase } from '../lib/postschritte'
 import {
   alsGepostet, linkSetzen, postenPatch, terminSetzen, vorarbeitSetzen,
@@ -296,7 +296,7 @@ export default function Posting() {
           {ohneTermin > 0 && (
             <p className="p-fuss">{ohneTermin} {ohneTermin === 1 ? 'Video hat' : 'Videos haben'} noch keinen Posting-Tag.</p>
           )}
-          <p className="p-fuss">Vorlauf: gedreht und geschnitten {FRISTEN.schnitt} Tage, eingeplant {FRISTEN.planung} Tag vor dem Posting-Tag. Wann gedreht wird, entscheidet ihr – dafür gibt es keine Erinnerung.</p>
+          <p className="p-fuss">Die App verfolgt nur noch gepostet oder nicht gepostet. Drehen, Schneiden und Einplanen macht ihr selbst.</p>
         </>
       )}
     </>

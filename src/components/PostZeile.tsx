@@ -10,6 +10,7 @@ import type { LucideIcon } from 'lucide-react'
 import type { TagVideo } from './PostSchritt'
 import type { FristInfo } from '../lib/fristen'
 import { fehlendeLinks, postPhase, vorarbeit } from '../lib/postschritte'
+import { NUR_POSTEN } from '../lib/fristen'
 import type { LinkFeld, VorarbeitKey } from '../lib/videoAktionen'
 
 const SYMBOL: Record<string, { icon: LucideIcon; farbe: string }> = {
@@ -61,7 +62,10 @@ export default function PostZeile({
 
   let knopf: { text: string; stark?: boolean; tun: () => void } | null = null
   if (phase === 'gepostet') knopf = { text: 'Link', tun: () => setOffen(true) }
-  else if (phase === 'offen') {
+  else if (phase === 'offen' && NUR_POSTEN) {
+    // Nur noch gepostet / nicht gepostet: ein Knopf, immer "Gepostet".
+    knopf = { text: 'Gepostet', stark: faellig, tun: onPosten }
+  } else if (phase === 'offen') {
     if (nurSchritt) knopf = { text: KNOPF[nurSchritt], tun: () => onVorarbeit(nurSchritt, true) }
     else if (faellig) knopf = { text: 'Gepostet', stark: video.scheduled_date === heuteIso, tun: onPosten }
     else if (naechster) knopf = { text: KNOPF[naechster.key], tun: () => onVorarbeit(naechster.key, true) }
@@ -99,7 +103,7 @@ export default function PostZeile({
 
       {offen && (
         <div className="z-auf">
-          {phase === 'offen' && (
+          {phase === 'offen' && !NUR_POSTEN && (
             <div>
               <div className="z-label">Stand</div>
               <div className="z-schritte">

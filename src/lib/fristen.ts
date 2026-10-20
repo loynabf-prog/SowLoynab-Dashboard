@@ -22,6 +22,13 @@ export const FRISTEN = { dreh: 21, schnitt: 3, planung: 1 } as const
 /** Dreh-Frist und Dreh-Erinnerungen an? Seit Okt 2026 aus. */
 export const DREH_ERINNERUNG = false
 
+/**
+ * Nur noch gepostet / nicht gepostet (Fassie, 20.10.2026): Drehen,
+ * Schneiden und Einplanen verfolgt die App nicht mehr -- darum kuemmert sich
+ * das Team selbst. Einzige Frist ist der Posting-Tag.
+ */
+export const NUR_POSTEN = true
+
 /** Ab wie vielen Tagen vor der Frist wird es gelb? */
 export const VORWARNUNG = { dreh: 7, schnitt: 2, planung: 1 } as const
 
@@ -109,6 +116,9 @@ function fristRoh(v: FristVideo, heuteIso: string, jetztZeit?: string): FristInf
 
   let schritt: Schritt
   let frist: string
+  if (NUR_POSTEN) {
+    schritt = 'posten'; frist = tag
+  } else {
   // Keine Dreh-Frist mehr (Fassie, Okt 2026): wann gedreht wird, ist unsere
   // Sache. Ungedrehte Videos melden sich erst, wenn der Schnitt faellig
   // wird -- dann ist es ein echtes Problem, vorher nur Stress.
@@ -117,6 +127,7 @@ function fristRoh(v: FristVideo, heuteIso: string, jetztZeit?: string): FristInf
   else if (!s.geschnitten) { schritt = 'schnitt'; frist = datumPlus(tag, -FRISTEN.schnitt) }
   else if (!s.geplant) { schritt = 'planung'; frist = datumPlus(tag, -FRISTEN.planung) }
   else { schritt = 'posten'; frist = tag }
+  }
 
   const rest = tageZwischen(heuteIso, frist)
   const label = schritt === 'schnitt' && !s.gedreht ? 'Drehen & Schneiden' : SCHRITT_LABEL[schritt]
@@ -138,7 +149,9 @@ function fristRoh(v: FristVideo, heuteIso: string, jetztZeit?: string): FristInf
   if (schritt === 'posten') {
     return {
       ampel: 'gruen', schritt, frist, tageBisFrist: rest,
-      text: rest === 0 ? 'Bereit — heute posten' : 'Fertig eingeplant',
+      text: NUR_POSTEN
+        ? (rest === 0 ? 'Heute posten' : rest === 1 ? 'Morgen posten' : `Posting am ${kurz(tag)}`)
+        : rest === 0 ? 'Bereit — heute posten' : 'Fertig eingeplant',
     }
   }
 

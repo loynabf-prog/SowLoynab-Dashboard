@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { NUR_POSTEN } from '../fristen'
 import { fristInfo, stand, tageZwischen, nachDringlichkeit, jetztUhrzeit } from '../fristen'
 import type { Video } from '../types'
 
@@ -26,13 +27,13 @@ describe('stand', () => {
 })
 
 describe('fristInfo', () => {
-  it('keine Dreh-Frist mehr: ungedreht 13 Tage vorher ist gruen, Frist ist der Schnitt', () => {
+  it.skipIf(NUR_POSTEN)('keine Dreh-Frist mehr: ungedreht 13 Tage vorher ist gruen, Frist ist der Schnitt', () => {
     const f = fristInfo(v(), HEUTE)
     expect(f.ampel).toBe('gruen')
     expect(f.schritt).toBe('schnitt')
     expect(f.frist).toBe('2026-10-27')
   })
-  it('ungedreht und Schnitt-Frist gerissen = rot, Text nennt Drehen', () => {
+  it.skipIf(NUR_POSTEN)('ungedreht und Schnitt-Frist gerissen = rot, Text nennt Drehen', () => {
     const f = fristInfo(v({ scheduled_date: '2026-10-19' }), HEUTE)
     expect(f.ampel).toBe('rot')
     expect(f.text).toContain('Drehen & Schneiden')
@@ -43,12 +44,12 @@ describe('fristInfo', () => {
   it('ungedreht in 4 Wochen erzeugt keinen Druck', () => {
     expect(fristInfo(v({ scheduled_date: '2026-11-12' }), HEUTE).ampel).toBe('gruen')
   })
-  it('gedreht, Schnitt-Frist heute = rot', () => {
+  it.skipIf(NUR_POSTEN)('gedreht, Schnitt-Frist heute = rot', () => {
     const f = fristInfo(v({ prep_shot: true, scheduled_date: '2026-10-20' }), HEUTE)
     expect(f.schritt).toBe('schnitt')
     expect(f.ampel).toBe('rot')
   })
-  it('geschnitten, Planung morgen faellig = gelb', () => {
+  it.skipIf(NUR_POSTEN)('geschnitten, Planung morgen faellig = gelb', () => {
     const f = fristInfo(v({ prep_edited: true, scheduled_date: '2026-10-19' }), HEUTE)
     expect(f.schritt).toBe('planung')
     expect(f.ampel).toBe('gelb')
@@ -68,7 +69,7 @@ describe('fristInfo', () => {
 })
 
 describe('Drehtag', () => {
-  it('vergangener Drehtag zaehlt als gedreht', () => {
+  it.skipIf(NUR_POSTEN)('vergangener Drehtag zaehlt als gedreht', () => {
     const f = fristInfo(v({ drehtag: '2026-10-10' } as Partial<Video>), HEUTE)
     expect(f.schritt).toBe('schnitt')
   })
@@ -118,5 +119,18 @@ describe('ohne Vertrag', () => {
   })
   it('zahlende Kunden bleiben rot', () => {
     expect(fristInfo({ status: 'todo', scheduled_date: '2026-10-10', clients: { client_type: 'zahlend' } } as any, '2026-10-17').ampel).toBe('rot')
+  })
+})
+
+describe.runIf(NUR_POSTEN)('nur gepostet / nicht gepostet', () => {
+  it('einzige Frist ist der Posting-Tag', () => {
+    const f = fristInfo({ status: 'todo', scheduled_date: '2026-10-20' } as any, '2026-10-17')
+    expect(f.schritt).toBe('posten')
+    expect(f.ampel).toBe('gruen')
+    expect(f.text).toBe('Posting am 20.10.')
+  })
+  it('heute posten ist gruen, verpasst ist rot -- egal ob gedreht', () => {
+    expect(fristInfo({ status: 'todo', scheduled_date: '2026-10-17' } as any, '2026-10-17').text).toBe('Heute posten')
+    expect(fristInfo({ status: 'todo', scheduled_date: '2026-10-16' } as any, '2026-10-17').ampel).toBe('rot')
   })
 })

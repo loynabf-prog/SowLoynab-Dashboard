@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { NUR_POSTEN } from '../fristen'
 import { lageSatz, tagesLage, zeitAus, type LageAufgabe, type LageTermin, type LageVideo } from '../tageslage'
 
 const HEUTE = '2026-10-18'
@@ -45,14 +46,14 @@ describe('tagesLage — was ist heute', () => {
     expect(l.heute[0].art).toBe('drehtag')
     expect(l.heute[0].text).toContain('5 Videos')
   })
-  it('holt ein Video nach vorn, dessen Schnitt-Frist heute endet', () => {
+  it.skipIf(NUR_POSTEN)('holt ein Video nach vorn, dessen Schnitt-Frist heute endet', () => {
     // Posting in 3 Tagen, gedreht aber nicht geschnitten -> Schnitt-Frist ist heute
     const v = video({ scheduled_date: '2026-10-21', prep_shot: true })
     const l = tagesLage({ ...leer, videos: [v] }, HEUTE, JETZT)
     expect([...l.brennt, ...l.heute]).toHaveLength(1)
     expect([...l.brennt, ...l.heute][0].art).toBe('schnitt')
   })
-  it('das ist der Fall, den die alte Startseite verschluckt hat', () => {
+  it.skipIf(NUR_POSTEN)('das ist der Fall, den die alte Startseite verschluckt hat', () => {
     // Das Video wird NICHT heute gepostet -- es stand deshalb nirgends.
     const v = video({ scheduled_date: '2026-10-21', prep_shot: true })
     expect(v.scheduled_date).not.toBe(HEUTE)
@@ -62,7 +63,7 @@ describe('tagesLage — was ist heute', () => {
 })
 
 describe('tagesLage — Vorarbeit', () => {
-  it('schlaegt vor, was man schon schneiden koennte', () => {
+  it.skipIf(NUR_POSTEN)('schlaegt vor, was man schon schneiden koennte', () => {
     const v = video({ scheduled_date: '2026-11-20', prep_shot: true })
     const l = tagesLage({ ...leer, videos: [v] }, HEUTE, JETZT)
     expect(l.brennt).toHaveLength(0)
@@ -80,7 +81,7 @@ describe('tagesLage — Vorarbeit', () => {
     const l = tagesLage({ ...leer, videos: [video({ prep_shot: true })] }, HEUTE, JETZT)
     expect(l.brennt.length + l.heute.length + l.vorarbeit.length).toBe(0)
   })
-  it('stellt Schneiden vor Einplanen', () => {
+  it.skipIf(NUR_POSTEN)('stellt Schneiden vor Einplanen', () => {
     const videos = [
       video({ id: 'a', title: 'Einplanen', scheduled_date: '2026-11-20', prep_shot: true, prep_edited: true }),
       video({ id: 'b', title: 'Schneiden', scheduled_date: '2026-11-20', prep_shot: true }),

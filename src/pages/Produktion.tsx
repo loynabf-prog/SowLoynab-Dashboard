@@ -19,8 +19,8 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../context/ToastContext'
 import { heute } from '../lib/datum'
-import { fristInfo, nachDringlichkeit, stand, type Schritt } from '../lib/fristen'
-import { linkSetzen, terminSetzen, vorarbeitSetzen, type VorarbeitKey } from '../lib/videoAktionen'
+import { fristInfo, nachDringlichkeit, stand, NUR_POSTEN, type Schritt } from '../lib/fristen'
+import { alsGepostet, linkSetzen, terminSetzen, vorarbeitSetzen, type VorarbeitKey } from '../lib/videoAktionen'
 import { mitPlattformen } from '../lib/postschritte'
 import PostZeile from '../components/PostZeile'
 import type { TagVideo } from '../components/PostSchritt'
@@ -84,7 +84,7 @@ export default function Produktion() {
     const m = new Map<string, { id: string; name: string; text: string; offen: number }>()
     for (const c of pausiertListe) m.set(c.id, { id: c.id, name: c.name, text: pauseText(c), offen: 0 })
     for (const v of pausiert) {
-      if (!offenerSchritt(v, heuteIso)) continue
+      if (!NUR_POSTEN && !offenerSchritt(v, heuteIso)) continue
       const c = v.clients as (MitPause & { name?: string }) | null
       const e = m.get(v.client_id) ?? { id: v.client_id, name: c?.name ?? 'Kunde', text: c ? pauseText(c) : '', offen: 0 }
       e.offen++
@@ -134,7 +134,16 @@ export default function Produktion() {
   }
 
   const aktiv = SPALTEN.find((s) => s.key === spalte)!
-  const liste = proSpalte[spalte]
+  // Nur noch gepostet / nicht gepostet: eine Liste, dringendste oben.
+  const nichtGepostet = useMemo(() => nachDringlichkeit(laufend.filter((v) => v.status !== 'posted'), heuteIso), [laufend, heuteIso])
+  const liste = NUR_POSTEN ? nichtGepostet : proSpalte[spalte]
+
+  async function posten(v: ProdVideo) {
+    const fehler = await alsGepostet(v)
+    if (fehler) { toast('Konnte nicht speichern: ' + fehler); return }
+    setVideos((prev) => prev.filter((x) => x.id !== v.id))
+    toast('Gepostet – Links werden geholt')
+  }
 
   const [alle, setAlle] = useState(false)
   const GRENZE = 12
@@ -142,19 +151,19 @@ export default function Produktion() {
 
   return (
     <>
-      <ProduktionKopf unter="Drehen, schneiden, einplanen" />
+      <ProduktionKopf unter={NUR_POSTEN ? 'Alles, was noch nicht gepostet ist' : 'Drehen, schneiden, einplanen'} />
 
-      <div className="n-chips" role="tablist" aria-label="Schritt">
+      {!NUR_POSTEN && <div className="n-chips" role="tablist" aria-label="Schritt">
         {SPALTEN.map((sp) => (
           <button key={sp.key} role="tab" className={spalte === sp.key ? 'on' : ''} onClick={() => { setSpalte(sp.key); setAlle(false) }} aria-selected={spalte === sp.key}>
             {sp.label}<small>{proSpalte[sp.key].length}</small>
           </button>
         ))}
-      </div>
+      </div>}
 
       <div className="n-gruppe">
         {liste.length === 0 ? (
-          <div className="n-leer">{loading ? 'Lade …' : `Nichts zu ${aktiv.label.toLowerCase()}.`}</div>
+          <div className="n-leer">{loading ? 'Lade …' : NUR_POSTEN ? 'Alles gepostet.' : `Nichts zu ${aktiv.label.toLowerCase()}.`}</div>
         ) : sichtbar.map((v) => (
           <PostZeile
             key={v.id}
@@ -162,9 +171,9 @@ export default function Produktion() {
             frist={fristInfo(v, heuteIso)}
             heuteIso={heuteIso}
             zeigeDatum
-            nurSchritt={aktiv.feld}
+            nurSchritt={NUR_POSTEN ? undefined : aktiv.feld}
             onOeffnen={() => navigate(`/client/${v.client_id}`)}
-            onPosten={() => {}}
+            onPosten={() => posten(v)}
             onLink={async (feld, url) => { await linkSetzen(v.id, feld, url); laden() }}
             onVorarbeit={(key, wert) => vorarbeit(v, key, wert)}
             onTermin={(d) => verschieben(v, d)}

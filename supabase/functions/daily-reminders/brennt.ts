@@ -9,6 +9,7 @@ export function plusTage(iso: string, n: number): string {
 }
 
 const FRISTEN = { schnitt: 3, planung: 1 }
+const NUR_POSTEN = true
 
 /** Brennt dieses Video? Gleiche Regel wie fristInfo() in der App, ohne Uhrzeit. */
 export function brennt(v: {
@@ -18,6 +19,9 @@ export function brennt(v: {
 }, heute: string): boolean {
   if (v.status === 'posted') return false
   if (v.scheduled_date < heute) return true // verpasst
+  // Nur noch gepostet / nicht gepostet (wie NUR_POSTEN in fristen.ts):
+  // brennen kann nur ein verpasster Posting-Tag.
+  if (NUR_POSTEN) return false
   const geplant = !!v.prep_scheduled || v.status === 'planned'
   const geschnitten = geplant || !!v.prep_edited || v.status === 'ready'
   if (geplant) return false

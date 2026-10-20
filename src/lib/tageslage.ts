@@ -14,7 +14,7 @@
 // Punkt 3 ist der eigentliche Gewinn: ein ruhiger Tag soll nicht als "nichts
 // zu tun" erscheinen, sondern als Gelegenheit, den naechsten zu entlasten.
 
-import { fristInfo, stand, tageZwischen, type Ampel, type Schritt } from './fristen'
+import { fristInfo, stand, tageZwischen, NUR_POSTEN, type Ampel, type Schritt } from './fristen'
 import type { VideoStatus } from './types'
 import { datumPlus } from './datum'
 
@@ -206,7 +206,9 @@ export function tagesLage(e: LageEingang, heuteIso: string, jetztZeit: string): 
 
     // Heute posten, oder eine Frist, die heute bzw. morgen endet.
     const postetHeute = f.schritt === 'posten' && v.scheduled_date === heuteIso
-    const fristBaldFaellig = f.frist != null && f.frist <= morgen
+    // Im Nur-Posten-Modus ist die Frist der Posting-Tag selbst -- dann
+    // gehoert nur Heutiges auf Heute, nicht schon Morgiges.
+    const fristBaldFaellig = !NUR_POSTEN && f.frist != null && f.frist <= morgen
     if (postetHeute || fristBaldFaellig) { heute.push(p); continue }
 
     // Alles Weitere ist Vorarbeit: machbar, aber noch nicht noetig.
