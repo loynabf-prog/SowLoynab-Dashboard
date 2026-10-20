@@ -86,3 +86,35 @@ describe('monatsZeilen', () => {
     expect(s.videosSoll).toBe(16)
   })
 })
+
+import { monatsTodos, monatsKalender } from '../monate'
+
+describe('Monats-To-dos', () => {
+  const kunden = [k('kraft', { monthly_quota: 10, monthly_fee: 1500 }), k('michel')]
+  it('nennt fehlende Videos, fehlenden Drehtag, offene Zahlung und Unsicheres', () => {
+    const ein = [
+      e('kraft', '2026-11', { quota: 10, betrag: 1500, status: 'geplant' }),
+      e('michel', '2026-11', { quota: 12, betrag: 1000, status: 'unsicher', zahlstatus: 'bezahlt' }),
+    ]
+    const vids = [v('kraft', { scheduled_date: '2026-11-03' }), v('kraft', { scheduled_date: '2026-11-05' })]
+    const z = monatsZeilen('2026-11', '2026-10', kunden, ein, vids)
+    const t = monatsTodos('2026-11', z, [{ id: 'd1', title: 'Dreh', starts_on: '2026-10-28', client_id: 'michel', planned_videos: 12 }], [])
+    const texte = t.map((x) => x.text)
+    expect(texte).toContain('kraft: 8 Videos anlegen')
+    expect(texte).toContain('kraft: Drehtag eintragen')
+    expect(texte).not.toContain('michel: Drehtag eintragen') // Drehtag im Vormonat reicht
+    expect(texte).toContain('michel klären')
+    expect(texte.some((x) => x.startsWith('Rechnung an kraft'))).toBe(true)
+    expect(texte.some((x) => x.startsWith('Rechnung an michel'))).toBe(false) // schon bezahlt
+  })
+})
+
+describe('Monats-Kalender', () => {
+  it('beginnt am Montag und deckt den ganzen Monat ab', () => {
+    const w = monatsKalender('2026-11', [v('a', { scheduled_date: '2026-11-03' })], [])
+    expect(w[0][0].datum).toBe('2026-10-26') // 1.11.2026 ist ein Sonntag
+    expect(w[0][6].datum).toBe('2026-11-01')
+    expect(w.flat().find((t) => t.datum === '2026-11-03')!.posts.length).toBe(1)
+    expect(w[w.length - 1].some((t) => t.datum === '2026-11-30')).toBe(true)
+  })
+})

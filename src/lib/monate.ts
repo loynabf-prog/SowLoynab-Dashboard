@@ -29,7 +29,12 @@ export interface MonatsEintrag {
   zahlung_monat?: string | null
   /** false = bewusst nicht dabei (0047). */
   dabei?: boolean
+  /** Ist das Geld da? (0048) */
+  zahlstatus?: Zahlstatus
+  bezahlt_am?: string | null
 }
+
+export type Zahlstatus = 'offen' | 'rechnung' | 'bezahlt'
 
 export interface KundeFuerMonat {
   id: string
@@ -48,8 +53,25 @@ export interface MonatsVideo {
   title: string | null
   status: string
   scheduled_date: string | null
+  scheduled_time?: string | null
   posted_at: string | null
   abrechnungsmonat?: string | null
+}
+
+export interface MonatsDrehtag {
+  id: string
+  title: string
+  starts_on: string
+  client_id: string | null
+  planned_videos: number | null
+}
+
+export interface MonatsAufgabe {
+  id: string
+  title: string
+  due_date: string | null
+  done: boolean
+  client_id: string | null
 }
 
 export type Herkunft = 'eintrag' | 'vorschlag'
@@ -170,16 +192,21 @@ export interface MonatsSumme {
   videosAngelegt: number
   videosGepostet: number
   kunden: number
+  bezahlt: number       // Geld ist da
+  rechnung: number      // Rechnung ist raus, Geld noch nicht
 }
 
 export function monatsSumme(zeilen: MonatsZeile[]): MonatsSumme {
-  const s: MonatsSumme = { fest: 0, geplant: 0, unsicher: 0, vorschlag: 0, videosSoll: 0, videosAngelegt: 0, videosGepostet: 0, kunden: 0 }
+  const s: MonatsSumme = { fest: 0, geplant: 0, unsicher: 0, vorschlag: 0, videosSoll: 0, videosAngelegt: 0, videosGepostet: 0, kunden: 0, bezahlt: 0, rechnung: 0 }
   for (const z of zeilen) {
     if (z.nichtDabei) continue
     if (z.status === 'fest' || z.status === 'abgeschlossen') s.fest += z.betrag
     else if (z.status === 'geplant') s.geplant += z.betrag
     else if (z.status === 'unsicher') s.unsicher += z.betrag
     else s.vorschlag += z.betrag
+    const zs = z.eintrag?.zahlstatus
+    if (zs === 'bezahlt') s.bezahlt += z.betrag
+    else if (zs === 'rechnung') s.rechnung += z.betrag
     s.videosSoll += z.soll
     s.videosAngelegt += z.videos.length
     s.videosGepostet += z.gepostet
@@ -194,16 +221,24 @@ export function euro(n: number): string {
 
 // --------------------------------------------------------------- Speichern
 export async function ladeMonatsDaten(von: string, bis: string) {
-  const [k, e, v] = await Promise.all([
+  const [k, e, v, d, t] = await Promise.all([
     supabase.from('clients')
       .select('id, name, logo_url, monthly_quota, monthly_fee, active, client_type, pausiert_seit')
       .is('deleted_at', null).order('name'),
     supabase.from('client_month_plans')
-      .select('id, client_id, month_key, quota, betrag, status, notiz, zahlung_monat, dabei')
+      .select('id, client_id, month_key, quota, betrag, status, notiz, zahlung_monat, dabei, zahlstatus, bezahlt_am')
       .gte('month_key', von).lte('month_key', bis),
     supabase.from('videos')
-      .select('id, client_id, title, status, scheduled_date, posted_at, abrechnungsmonat')
+      .select('id, client_id, title, status, scheduled_date, scheduled_time, posted_at, abrechnungsmonat')
       .is('deleted_at', null),
+    supabase.from('events')
+      .select('id, title, starts_on, client_id, planned_videos')
+      .eq('kind', 'dreh').is('deleted_at', null)
+      .gte('starts_on', von + '-01').lte('starts_on', monatPlus(bis, 1) + '-01'),
+    supabase.from('tasks')
+      .select('id, title, due_date, done, client_id')
+      .is('deleted_at', null).eq('done', false)
+      .gte('due_date', von + '-01').lt('due_date', monatPlus(bis, 1) + '-01'),
   ])
   const fehler = k.error?.message ?? e.error?.message ?? v.error?.message ?? null
   return {
@@ -211,6 +246,8 @@ export async function ladeMonatsDaten(von: string, bis: string) {
     kunden: (k.data ?? []) as KundeFuerMonat[],
     eintraege: ((e.data ?? []) as any[]).map((r) => ({ ...r, quota: Number(r.quota), betrag: r.betrag == null ? null : Number(r.betrag) })) as MonatsEintrag[],
     videos: (v.data ?? []) as MonatsVideo[],
+    drehtage: (d.data ?? []) as MonatsDrehtag[],
+    aufgaben: (t.data ?? []) as MonatsAufgabe[],
   }
 }
 
@@ -219,6 +256,8 @@ export async function speichereEintrag(e: Omit<MonatsEintrag, 'id'>): Promise<st
     {
       client_id: e.client_id, month_key: e.month_key, quota: e.quota, betrag: e.betrag, status: e.status, notiz: e.notiz,
       zahlung_monat: e.zahlung_monat ?? null, dabei: e.dabei ?? true,
+      zahlstatus: e.zahlstatus ?? 'offen',
+      bezahlt_am: e.zahlstatus === 'bezahlt' ? (e.bezahlt_am ?? new Date().toISOString().slice(0, 10)) : null,
     },
     { onConflict: 'client_id,month_key' },
   )
@@ -242,6 +281,7 @@ export async function monatSetzen(key: string, zeilen: MonatsZeile[], status: Mo
       status: status === 'fest' && z.status === 'unsicher' ? 'unsicher' as MonatStatus : status,
       notiz: z.eintrag?.notiz ?? null,
       zahlung_monat: z.eintrag?.zahlung_monat ?? null, dabei: !z.nichtDabei,
+      zahlstatus: z.eintrag?.zahlstatus ?? 'offen', bezahlt_am: z.eintrag?.bezahlt_am ?? null,
     }))
   if (!rows.length) return null
   const { error } = await supabase.from('client_month_plans').upsert(rows, { onConflict: 'client_id,month_key' })
@@ -251,5 +291,106 @@ export async function monatSetzen(key: string, zeilen: MonatsZeile[], status: Mo
 /** Video einem anderen Monat zurechnen (null = wieder nach Posting-Tag). */
 export async function videoMonatSetzen(videoId: string, key: string | null): Promise<string | null> {
   const { error } = await supabase.from('videos').update({ abrechnungsmonat: key }).eq('id', videoId)
+  return error ? error.message : null
+}
+
+// ------------------------------------------------------------ To-dos
+export type TodoArt = 'anlegen' | 'drehtag' | 'zahlung' | 'klaeren' | 'aufgabe'
+
+export interface MonatsTodo {
+  key: string
+  art: TodoArt
+  text: string
+  unter?: string
+  client_id?: string | null
+}
+
+/**
+ * Was muss fuer diesen Monat noch passieren, damit wir alles einhalten?
+ * Bewusst ohne Ampel -- eine ruhige Liste, kein Alarm.
+ */
+export function monatsTodos(
+  key: string,
+  zeilen: MonatsZeile[],
+  drehtage: MonatsDrehtag[],
+  aufgaben: MonatsAufgabe[],
+): MonatsTodo[] {
+  const out: MonatsTodo[] = []
+  const dabei = zeilen.filter((z) => !z.nichtDabei && z.herkunft === 'eintrag')
+  for (const z of dabei) {
+    const fehlt = Math.max(0, z.soll - z.videos.length)
+    if (fehlt > 0) {
+      out.push({ key: 'a' + z.kunde.id, art: 'anlegen', client_id: z.kunde.id,
+        text: `${z.kunde.name}: ${fehlt} ${fehlt === 1 ? 'Video' : 'Videos'} anlegen`,
+        unter: `${z.videos.length} von ${z.soll} haben schon einen Posting-Tag` })
+    }
+  }
+  for (const z of dabei) {
+    if (z.soll <= 0) continue
+    const hat = drehtage.some((d) => d.client_id === z.kunde.id && (d.starts_on.slice(0, 7) === key || d.starts_on.slice(0, 7) === monatPlus(key, -1)))
+    if (!hat) {
+      out.push({ key: 'd' + z.kunde.id, art: 'drehtag', client_id: z.kunde.id,
+        text: `${z.kunde.name}: Drehtag eintragen`, unter: `noch keiner im ${monatName(monatPlus(key, -1), true)} oder ${monatName(key, true)}` })
+    }
+  }
+  for (const z of dabei) {
+    if (z.status === 'unsicher') {
+      out.push({ key: 'k' + z.kunde.id, art: 'klaeren', client_id: z.kunde.id,
+        text: `${z.kunde.name} klären`, unter: z.eintrag?.notiz ?? 'steht unter Vorbehalt' })
+    }
+  }
+  for (const z of dabei) {
+    if (z.betrag > 0 && (z.eintrag?.zahlstatus ?? 'offen') === 'offen') {
+      out.push({ key: 'z' + z.kunde.id, art: 'zahlung', client_id: z.kunde.id,
+        text: `Rechnung an ${z.kunde.name}: ${euro(z.betrag)}`,
+        unter: z.eintrag?.zahlung_monat && z.eintrag.zahlung_monat !== key ? `Geld kommt erst im ${monatName(z.eintrag.zahlung_monat, true)}` : 'noch nicht gestellt' })
+    }
+  }
+  for (const a of aufgaben) {
+    if (!a.due_date || a.due_date.slice(0, 7) !== key) continue
+    out.push({ key: 't' + a.id, art: 'aufgabe', client_id: a.client_id, text: a.title,
+      unter: new Date(a.due_date + 'T12:00:00').toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' }) })
+  }
+  return out
+}
+
+// ------------------------------------------------------------ Kalender
+export interface KalenderTag {
+  datum: string          // YYYY-MM-DD
+  imMonat: boolean
+  posts: MonatsVideo[]
+  drehtage: MonatsDrehtag[]
+}
+
+/** Wochen des Monats (Mo-So) mit Posts und Drehtagen je Tag. */
+export function monatsKalender(key: string, videos: MonatsVideo[], drehtage: MonatsDrehtag[]): KalenderTag[][] {
+  const [j, m] = key.split('-').map(Number)
+  const erster = new Date(j, m - 1, 1)
+  const start = new Date(erster)
+  start.setDate(1 - ((erster.getDay() + 6) % 7))
+  const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const wochen: KalenderTag[][] = []
+  const d = new Date(start)
+  while (true) {
+    const woche: KalenderTag[] = []
+    for (let i = 0; i < 7; i++) {
+      const t = iso(d)
+      woche.push({
+        datum: t, imMonat: t.slice(0, 7) === key,
+        posts: videos.filter((v) => v.scheduled_date === t),
+        drehtage: drehtage.filter((x) => x.starts_on === t),
+      })
+      d.setDate(d.getDate() + 1)
+    }
+    wochen.push(woche)
+    if (iso(d).slice(0, 7) !== key) break
+  }
+  return wochen
+}
+
+export async function drehtagEintragen(clientId: string, name: string, datum: string, videos: number | null): Promise<string | null> {
+  const { error } = await supabase.from('events').insert({
+    title: `Drehtag ${name}`, kind: 'dreh', starts_on: datum, client_id: clientId, planned_videos: videos,
+  })
   return error ? error.message : null
 }

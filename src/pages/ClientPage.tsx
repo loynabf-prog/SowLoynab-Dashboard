@@ -101,6 +101,8 @@ export default function ClientPage() {
   // Seltenes zugeklappt halten -- der Alltag ist das Board, nicht der Verlauf.
   const [mehrOffen, setMehrOffen] = useState(false)
   const [planOffen, setPlanOffen] = useState(false)
+  // Aus der Monatsuebersicht: ?plan=2026-11 oeffnet den Monatsplan fuer genau diesen Monat
+  const [planStart, setPlanStart] = useState<string | null>(null)
   const [nudging, setNudging] = useState<Video | null>(null)
   const [mengen, setMengen] = useState<Map<string, number>>(new Map())
   const [growthOpen, setGrowthOpen] = useState(false)
@@ -283,6 +285,17 @@ export default function ClientPage() {
     setSearchParams(searchParams, { replace: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams])
+
+  useEffect(() => {
+    if (loading || !client) return
+    const m = searchParams.get('plan')
+    if (!m || !/^\d{4}-\d{2}$/.test(m)) return
+    setPlanStart(m)
+    setPlanOffen(true)
+    searchParams.delete('plan')
+    setSearchParams(searchParams, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, client])
 
   // Onboarding (?onboard=1): direkt den Content-Plan-Schritt öffnen
   useEffect(() => {
@@ -987,7 +1000,7 @@ export default function ClientPage() {
 
       {planOffen && (
         <MonatsplanModal
-          startMonat={monatsKey()}
+          startMonat={planStart ?? monatsKey()}
           retainer={client.monthly_quota ?? 0}
           mengeImMonat={(k) => mengeFuer(client.monthly_quota, k, mengen)}
           belegteTage={(k) => videos
