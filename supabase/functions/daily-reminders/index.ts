@@ -53,16 +53,9 @@ Deno.serve(async (req) => {
         .gte('scheduled_date', plusTage(today, -60)).lte('scheduled_date', plusTage(today, 28)),
     ])
 
-    // Drehtage nachschlagen: ein vergangener Drehtag heisst "gedreht".
     // Pausierte Kunden (0045) gehoeren nicht in die Morgen-Nachricht.
     const laeuft = (r: any) => !r?.clients?.pausiert_seit
     const planListe = ((plan.data ?? []) as any[]).filter(laeuft)
-    const evIds = [...new Set(planListe.map((v) => v.shoot_event_id).filter(Boolean))]
-    if (evIds.length) {
-      const { data: ev } = await supa.from('events').select('id, starts_on').in('id', evIds)
-      const datum = new Map((ev ?? []).map((e: any) => [e.id, e.starts_on]))
-      for (const v of planListe) v.drehtag = datum.get(v.shoot_event_id) ?? null
-    }
     // Heute steht schon als "Post" in der Nachricht -- hier nur der Rest.
     const brennen = planListe.filter((v) => v.scheduled_date !== today && brennt(v, today))
     const nBrennt = brennen.length
@@ -85,7 +78,7 @@ Deno.serve(async (req) => {
         nBrennt ? `🔥 Brennt: ${wer}` : '',
         parts.length ? `Heute: ${parts.join(' · ')}` : '',
       ].filter(Boolean).join('\n'),
-      link: nBrennt ? '/posting' : '/',
+      link: nBrennt ? '/plan' : '/',
     })
 
     if (probe) {
