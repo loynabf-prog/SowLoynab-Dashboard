@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
     const payload = JSON.stringify({
       title: '☀️ Dein Tag bei Sow & Loynab',
       body: [
-        nBrennt ? `🔥 Brennt: ${wer}` : '',
+        nBrennt ? `🔥 Verpasst: ${wer}` : '',
         parts.length ? `Heute: ${parts.join(' · ')}` : '',
       ].filter(Boolean).join('\n'),
       link: nBrennt ? '/plan' : '/',
