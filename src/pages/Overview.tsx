@@ -10,8 +10,9 @@
 //
 // Die Einstufung kommt aus tageslage.ts, die Fristen aus fristen.ts.
 
-import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
+import LogoFrame from '../components/LogoFrame'
 import {
   Send, Video, Scissors, CalendarClock, CheckCircle2, MapPin, Camera,
   Clock, ArrowUpRight, Flame, Check, ChevronRight, ChevronDown, Coffee, X,
@@ -104,7 +105,7 @@ export default function Overview() {
     // machen, entscheidet die Frist, nicht der Posting-Tag.
     const [v, e, a, gp, ge] = await Promise.all([
       supabase.from('videos')
-        .select('id, title, status, scheduled_date, scheduled_time, prep_shot, prep_edited, prep_scheduled, client_id, shoot_event_id, assignee_ids, clients(name, pausiert_seit, client_type)')
+        .select('id, title, status, scheduled_date, scheduled_time, prep_shot, prep_edited, prep_scheduled, client_id, shoot_event_id, assignee_ids, clients(name, logo_url, pausiert_seit, client_type)')
         .is('deleted_at', null).neq('status', 'posted').limit(500),
       supabase.from('events')
         .select('id, title, kind, starts_on, starts_at, planned_videos, client_id, member_ids, clients(name, pausiert_seit)')
@@ -393,8 +394,22 @@ function Fokus({ p, auf, unter, onAufklappen, ruhig, onTun, onSpaeter, onOeffnen
   const was = TUN[p.art]
   const I = SYMBOL[p.art].icon
   const label = p.gruppe ? (brauchtDrehtag(p) ? 'Drehtag planen' : auf ? 'Zuklappen' : 'Videos zeigen') : was.label
+
+  // Wischen wie bei Tinder: nach links = erledigt, nach rechts = spaeter.
+  const wisch = useWischen({
+    links: p.gruppe ? undefined : onTun,
+    rechts: onSpaeter,
+  })
   return (
-    <section className="h-fokus" key={p.key} aria-label="Jetzt dran">
+    <section
+      className={`h-fokus ${wisch.dx ? 'zieht' : ''}`}
+      key={p.key}
+      aria-label="Jetzt dran"
+      {...wisch.handler}
+      style={{ transform: wisch.dx ? `translateX(${wisch.dx}px) rotate(${wisch.dx / 30}deg)` : undefined }}
+    >
+      {wisch.dx < -30 && !p.gruppe && <span className="h-wisch links" style={{ opacity: Math.min(1, -wisch.dx / 100) }}><Check strokeWidth={3} /> Erledigt</span>}
+      {wisch.dx > 30 && onSpaeter && <span className="h-wisch rechts" style={{ opacity: Math.min(1, wisch.dx / 100) }}><Clock strokeWidth={2.6} /> Später</span>}
       <div className="h-fokus-oben">
         <span className="h-fokus-marke">
           {p.ampel === 'rot' ? <Flame strokeWidth={2.4} /> : <I strokeWidth={2.4} />}
@@ -420,8 +435,44 @@ function Fokus({ p, auf, unter, onAufklappen, ruhig, onTun, onSpaeter, onOeffnen
         </button>
       </div>
       {p.gruppe && auf && <div className="n-gruppe h-fokus-liste">{p.gruppe.map(unter)}</div>}
+      {(onSpaeter || !p.gruppe) && <div className="h-wisch-hinweis">← erledigt · später →</div>}
     </section>
   )
+}
+
+/** Karte seitlich wegwischen. Vertikales Scrollen bleibt frei. */
+function useWischen({ links, rechts }: { links?: () => void; rechts?: () => void }) {
+  const [dx, setDx] = useState(0)
+  const start = useRef<{ x: number; y: number; aktiv: boolean | null } | null>(null)
+  const SCHWELLE = 90
+  const ende = () => {
+    const d = dx
+    start.current = null
+    if (d <= -SCHWELLE && links) { setDx(-500); setTimeout(() => { setDx(0); links() }, 160); return }
+    if (d >= SCHWELLE && rechts) { setDx(500); setTimeout(() => { setDx(0); rechts() }, 160); return }
+    setDx(0)
+  }
+  return {
+    dx,
+    handler: {
+      onPointerDown: (e: React.PointerEvent) => {
+        if ((e.target as HTMLElement).closest('button, a, input')) return
+        start.current = { x: e.clientX, y: e.clientY, aktiv: null }
+      },
+      onPointerMove: (e: React.PointerEvent) => {
+        const s = start.current
+        if (!s) return
+        const ddx = e.clientX - s.x, ddy = e.clientY - s.y
+        if (s.aktiv === null && (Math.abs(ddx) > 8 || Math.abs(ddy) > 8)) s.aktiv = Math.abs(ddx) > Math.abs(ddy)
+        if (!s.aktiv) return
+        // Richtung ohne Aktion nur leicht nachgeben
+        const frei = (ddx < 0 && links) || (ddx > 0 && rechts)
+        setDx(frei ? ddx : ddx / 5)
+      },
+      onPointerUp: ende,
+      onPointerCancel: () => { start.current = null; setDx(0) },
+    },
+  }
 }
 
 function Zeile({ p, auf, onTun, onOeffnen }: { p: Punkt; auf?: boolean; onTun: () => void; onOeffnen: () => void }) {
@@ -434,7 +485,12 @@ function Zeile({ p, auf, onTun, onOeffnen }: { p: Punkt; auf?: boolean; onTun: (
     <div className="n-zeile-wrap" style={{ position: 'relative' }}>
       <div className="n-zeile" role="group">
         <button className="n-zeile-klick" onClick={onOeffnen} aria-label={`${p.titel} öffnen`}>
-          <span className={`n-ic ${s.farbe}`}><s.icon strokeWidth={2.2} /></span>
+          {p.kunde && !p.gruppe ? (
+            <span className="z-logo">
+              <LogoFrame name={p.kunde} logoUrl={p.logo ?? null} className="a-logo" />
+              <span className={`z-logo-punkt ${p.ampel === 'rot' ? 'rot' : p.ampel === 'gelb' ? 'gelb' : s.farbe}`}><s.icon strokeWidth={2.6} /></span>
+            </span>
+          ) : <span className={`n-ic ${s.farbe}`}><s.icon strokeWidth={2.2} /></span>}
           <span className="n-text">
             <span className="n-titel">{p.titel}</span>
             {p.kunde && !p.gruppe && <span className="n-unter">{p.kunde}</span>}

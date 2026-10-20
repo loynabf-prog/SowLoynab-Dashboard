@@ -24,6 +24,7 @@ import {
   type MonatsDrehtag, type MonatsAufgabe, type MonatsTodo, type Zahlstatus, type VideoZeile,
 } from '../lib/monate'
 
+// Aktueller Monat ganz links, nach rechts die Zukunft. Vergangenes nur auf Wunsch.
 const VORHER = 3
 const NACHHER = 8
 
@@ -52,11 +53,12 @@ export default function Monate() {
   const [fehler, setFehler] = useState<string | null>(null)
   const [offen, setOffen] = useState<string | null>(null)
   const [dazuOffen, setDazuOffen] = useState(false)
+  const [frueher, setFrueher] = useState(false)
   const streifen = useRef<HTMLDivElement>(null)
   // Gewaehlten Monat in die Mitte des Streifens holen
   useEffect(() => {
     const el = streifen.current?.querySelector<HTMLElement>('.m-monat.on')
-    el?.scrollIntoView({ inline: 'center', block: 'nearest' })
+    if (el && streifen.current) streifen.current.scrollTo({ left: Math.max(0, el.offsetLeft - 20), behavior: 'smooth' })
   }, [key, laedt])
 
   const laden = useCallback(async () => {
@@ -74,10 +76,10 @@ export default function Monate() {
 
   const monate = useMemo(() => {
     const l: string[] = []
-    for (let i = -VORHER; i <= NACHHER; i++) l.push(monatPlus(heuteKey, i))
+    for (let i = frueher ? -VORHER : 0; i <= NACHHER; i++) l.push(monatPlus(heuteKey, i))
     if (!l.includes(key)) l.push(key)
     return l.sort()
-  }, [heuteKey, key])
+  }, [heuteKey, key, frueher])
 
   const proMonat = useMemo(() => new Map(monate.map((m) => {
     const z = monatsZeilen(m, heuteKey, kunden, eintraege, videos)
@@ -121,6 +123,11 @@ export default function Monate() {
 
       {/* Streifen */}
       <div className="m-streifen" role="tablist" aria-label="Monat" ref={streifen}>
+        {!frueher && (
+          <button className="m-monat m-frueher" onClick={() => setFrueher(true)} aria-label="Frühere Monate zeigen">
+            <span className="m-name">Früher</span><strong>‹</strong><small>zeigen</small>
+          </button>
+        )}
         {monate.map((m) => {
           const s = proMonat.get(m)!
           const gesamt = s.summe.fest + s.summe.geplant + s.summe.unsicher + s.summe.vorschlag
@@ -142,7 +149,7 @@ export default function Monate() {
       </div>
 
       <div className="m-label">Geld</div>
-      <div className="p-lage">
+      <div className="p-lage klickbar" role="button" tabIndex={0} onClick={() => setAnsicht('kunden')}>
         <div><strong>{euro(summe.fest + summe.geplant + summe.unsicher + summe.vorschlag)}</strong><span>Einnahmen</span></div>
         <div className={summe.bezahlt ? 'gruen' : 'null'}><strong>{euro(summe.bezahlt)}</strong><span>schon bezahlt</span></div>
         <div><strong>{euro(Math.max(0, summe.fest + summe.geplant + summe.unsicher + summe.vorschlag - summe.bezahlt))}</strong><span>noch nicht bezahlt</span></div>
@@ -159,7 +166,7 @@ export default function Monate() {
         </p>
       )}
       <div className="m-label">Videos</div>
-      <div className="p-lage">
+      <div className="p-lage klickbar" role="button" tabIndex={0} onClick={() => setAnsicht('videos')}>
         <div className={vs.gepostet ? 'gruen' : 'null'}><strong>{vs.gepostet}</strong><span>gepostet</span></div>
         <div><strong>{vs.geplant}</strong><span>mit Posting-Tag</span></div>
         <div><strong>{vs.ziel || '–'}</strong><span>vorgenommen</span></div>

@@ -1,3 +1,4 @@
+import { Sparkles } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -326,6 +327,10 @@ export default function QuickAdd() {
   return (
     <Modal title="Schnell erfassen" onClose={() => setOpen(false)}>
       <div className="stack">
+        <button type="button" className="qa-assistent" onClick={() => { setOpen(false); window.dispatchEvent(new Event('open-assistent')) }}>
+          <Sparkles size={18} strokeWidth={2.2} />
+          <span><b>Assistent fragen</b><small>Sag einfach, was passieren soll</small></span>
+        </button>
         <div className="seg voice-typeseg">
           {TABS.map((t) => (
             <button key={t.key} type="button" className={`seg-btn ${type === t.key ? 'on' : ''}`} onClick={() => setType(t.key)}>

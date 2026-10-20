@@ -30,7 +30,7 @@ export interface LageVideo {
   prep_edited?: boolean
   prep_scheduled?: boolean
   client_id?: string | null
-  clients?: { name: string; client_type?: string | null } | null
+  clients?: { name: string; client_type?: string | null; logo_url?: string | null } | null
   drehtag?: string | null
 }
 
@@ -61,6 +61,8 @@ export interface Punkt {
   art: Art
   titel: string
   kunde: string | null
+  /** Logo des Kunden fuer die Zeile (nur Videos). */
+  logo?: string | null
   /** "14:30" oder null */
   zeit: string | null
   /** Ein kurzer Satz, warum dieser Punkt hier steht. */
@@ -130,6 +132,7 @@ function videoPunkt(v: LageVideo, heuteIso: string, jetztZeit: string): Punkt {
     art: f.schritt ? ARTLABEL[f.schritt] : 'posten',
     titel: v.title,
     kunde: kundenName(v),
+    logo: v.clients?.logo_url ?? null,
     zeit: hhmm(v.scheduled_time),
     text: f.text,
     ampel: f.ampel,

@@ -9,7 +9,8 @@
 // Tag vor dem Posting-Tag. Live: aendert Lion etwas, sieht man es sofort.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Flame, Link2, ChevronDown } from 'lucide-react'
+import { Flame, Link2, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
+import { monatsKalender, monatPlus, monatName } from '../lib/monate'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { nachPause, type MitPause } from '../lib/pause'
@@ -27,7 +28,7 @@ import {
 } from '../lib/videoAktionen'
 
 /** Wie weit nach vorn wir schauen. Etwas mehr als die Dreh-Frist. */
-const VORAUS_TAGE = 28
+const VORAUS_TAGE = 70
 /** Wie weit zurueck verpasste oder unvollstaendige Posts noch auftauchen. */
 const RUECKBLICK_TAGE = 60
 
@@ -151,13 +152,15 @@ export default function Posting() {
     }
   }, [videos, heuteIso, jetzt.zeit, f])
 
-  // Streifen: eine Woche zurueck bis vier Wochen voraus.
-  const tage = useMemo(() => Array.from({ length: 7 + VORAUS_TAGE + 1 }, (_, i) => datumPlus(heuteIso, i - 7)), [heuteIso])
-  const streifen = useRef<HTMLDivElement | null>(null)
-  useEffect(() => {
-    const el = streifen.current?.querySelector('.p-tag.on') as HTMLElement | null
-    el?.scrollIntoView({ block: 'nearest', inline: 'center' })
-  }, [gewaehlt, loading])
+  // ---- Ansicht: Tag / 3 Tage / Woche / Monat -- immer ab heute, nie zurueck.
+  const [ansicht, setAnsichtRoh] = useState<'tag' | '3' | 'woche' | 'monat'>(() => {
+    try { const a = localStorage.getItem('sl-plan-ansicht'); if (a === 'tag' || a === '3' || a === 'woche' || a === 'monat') return a } catch { /* egal */ }
+    return '3'
+  })
+  const setAnsicht = (a: typeof ansicht) => { setAnsichtRoh(a); try { localStorage.setItem('sl-plan-ansicht', a) } catch { /* egal */ } }
+  const [monatKey, setMonatKey] = useState(() => heuteIso.slice(0, 7))
+  const zeigeTag = (t: string) => { setWahl(t); setAnsicht('tag'); window.scrollTo({ top: 0, behavior: 'smooth' }) }
+  const tageAb = (n: number) => Array.from({ length: n }, (_, i) => datumPlus(heuteIso, i))
 
   // ---- Aktionen ------------------------------------------------------------
   async function posten(v: TagVideo) {
@@ -206,7 +209,7 @@ export default function Posting() {
     )
   }
 
-  const { brennt, linksFehlen, proTag, ampelTag, zahl } = einteilung
+  const { brennt, linksFehlen, proTag, zahl } = einteilung
   const tagListe = proTag.get(gewaehlt) ?? []
   const monat = new Date(gewaehlt + 'T12:00:00').toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })
   const tagTitel = gewaehlt === heuteIso ? 'Heute' : gewaehlt === morgenIso ? 'Morgen'
@@ -222,29 +225,9 @@ export default function Posting() {
       ) : (
         <>
           <div className="p-lage" role="list">
-            <div className={zahl('rot') ? 'rot' : 'null'} role="listitem"><strong>{zahl('rot')}</strong><span>brennt</span></div>
-            <div className={zahl('gelb') ? 'gelb' : 'null'} role="listitem"><strong>{zahl('gelb')}</strong><span>bald fällig</span></div>
-            <div className="gruen" role="listitem"><strong>{zahl('gruen')}</strong><span>im Plan</span></div>
-          </div>
-
-          <div className="p-woche" ref={streifen} role="tablist" aria-label="Tage">
-            {tage.map((t) => {
-              const d = new Date(t + 'T12:00:00')
-              const a = ampelTag(t)
-              return (
-                <button
-                  key={t}
-                  role="tab"
-                  aria-selected={t === gewaehlt}
-                  className={`p-tag ${t === gewaehlt ? 'on' : ''} ${t === heuteIso ? 'heute' : ''}`}
-                  onClick={() => setWahl(t)}
-                >
-                  <small>{d.toLocaleDateString('de-DE', { weekday: 'short' }).replace('.', '')}</small>
-                  <strong>{d.getDate()}</strong>
-                  <i className={a ?? ''} />
-                </button>
-              )
-            })}
+            <button className={zahl('rot') ? 'rot' : 'null'} role="listitem" onClick={() => setBand(band === 'brennt' ? null : 'brennt')}><strong>{zahl('rot')}</strong><span>verpasst</span></button>
+            <button className={zahl('gelb') ? 'gelb' : 'null'} role="listitem" onClick={() => setAnsicht('3')}><strong>{zahl('gelb')}</strong><span>bald fällig</span></button>
+            <button className="gruen" role="listitem" onClick={() => setAnsicht('monat')}><strong>{zahl('gruen')}</strong><span>im Plan</span></button>
           </div>
 
           {brennt.length > 0 && (
@@ -280,15 +263,81 @@ export default function Posting() {
             </>
           )}
 
-          <div className="n-abschnitt">
-            <h2>{tagTitel}</h2>
-            {tagListe.length > 0 && <span>{tagListe.length} {tagListe.length === 1 ? 'Post' : 'Posts'}</span>}
+          <div className="n-segment" role="tablist" aria-label="Ansicht" style={{ marginTop: 6 }}>
+            <button className={ansicht === 'tag' ? 'on' : ''} onClick={() => setAnsicht('tag')}>Tag</button>
+            <button className={ansicht === '3' ? 'on' : ''} onClick={() => setAnsicht('3')}>3 Tage</button>
+            <button className={ansicht === 'woche' ? 'on' : ''} onClick={() => setAnsicht('woche')}>Woche</button>
+            <button className={ansicht === 'monat' ? 'on' : ''} onClick={() => setAnsicht('monat')}>Monat</button>
           </div>
-          <div className="n-gruppe">
-            {tagListe.length === 0
-              ? <div className="n-leer">An diesem Tag geht nichts raus.</div>
-              : tagListe.map((v) => zeile(v))}
-          </div>
+
+          {ansicht === 'tag' && (
+            <>
+              <div className="pl-tagkopf">
+                <button className="pl-pfeil" onClick={() => setWahl(datumPlus(gewaehlt, -1))} disabled={gewaehlt <= heuteIso} aria-label="Vorheriger Tag"><ChevronLeft /></button>
+                <div className="pl-tagtitel">
+                  <strong>{tagTitel}</strong>
+                  <span>{tagListe.length ? `${tagListe.length} ${tagListe.length === 1 ? 'Post' : 'Posts'}` : 'nichts geplant'}</span>
+                </div>
+                <button className="pl-pfeil" onClick={() => setWahl(datumPlus(gewaehlt, 1))} aria-label="Nächster Tag"><ChevronRight /></button>
+              </div>
+              <div className="n-gruppe">
+                {tagListe.length === 0
+                  ? <div className="n-leer">An diesem Tag geht nichts raus.</div>
+                  : tagListe.map((v) => zeile(v))}
+              </div>
+            </>
+          )}
+
+          {(ansicht === '3' || ansicht === 'woche') && tageAb(ansicht === '3' ? 3 : 7).map((t) => {
+            const l = proTag.get(t) ?? []
+            const d = new Date(t + 'T12:00:00')
+            const titel = t === heuteIso ? 'Heute' : t === morgenIso ? 'Morgen' : d.toLocaleDateString('de-DE', { weekday: 'long' })
+            return (
+              <div key={t} className="pl-tag">
+                <button className="pl-tag-kopf" onClick={() => zeigeTag(t)} aria-label={`${titel} groß ansehen`}>
+                  <strong>{titel}</strong>
+                  <span>{d.toLocaleDateString('de-DE', { day: 'numeric', month: 'long' })}</span>
+                  <em>{l.length ? `${l.length} ${l.length === 1 ? 'Post' : 'Posts'}` : 'frei'}</em>
+                  <ChevronRight className="n-chevron" />
+                </button>
+                {l.length > 0 && <div className="n-gruppe">{l.map((v) => zeile(v))}</div>}
+              </div>
+            )
+          })}
+
+          {ansicht === 'monat' && (() => {
+            const wochen = monatsKalender(monatKey, videos as never[], [])
+            const kurz = (n?: string | null) => (n ?? '?').split(/[\s&]+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase()
+            return (
+              <>
+                <div className="pl-tagkopf">
+                  <button className="pl-pfeil" onClick={() => setMonatKey(monatPlus(monatKey, -1))} disabled={monatKey <= heuteIso.slice(0, 7)} aria-label="Vorheriger Monat"><ChevronLeft /></button>
+                  <div className="pl-tagtitel"><strong>{monatName(monatKey)}</strong><span>Tag antippen zum Vergrößern</span></div>
+                  <button className="pl-pfeil" onClick={() => setMonatKey(monatPlus(monatKey, 1))} aria-label="Nächster Monat"><ChevronRight /></button>
+                </div>
+                <div className="m-kal">
+                  {['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map((w) => <span key={w} className="m-kal-kopf">{w}</span>)}
+                  {wochen.flat().map((tag) => {
+                    const vorbei = tag.datum < heuteIso
+                    const l = proTag.get(tag.datum) ?? []
+                    return (
+                      <button key={tag.datum} disabled={vorbei} onClick={() => zeigeTag(tag.datum)}
+                        className={`m-kal-tag ${tag.imMonat && !vorbei ? '' : 'aussen'} ${tag.datum === heuteIso ? 'heute' : ''}`}>
+                        <span className="m-kal-zahl">{Number(tag.datum.slice(8))}</span>
+                        <span className="m-kal-inhalt">
+                          {l.slice(0, 3).map((v) => {
+                            const a = v.status === 'posted' ? 'gepostet' : f(v).ampel === 'rot' ? 'rot' : ''
+                            return <i key={v.id} className={a}>{kurz(v.clients?.name)}</i>
+                          })}
+                          {l.length > 3 && <i className="mehr">+{l.length - 3}</i>}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </>
+            )
+          })()}
 
           {pausiert.length > 0 && (
             <p className="p-fuss">Pausiert und hier ausgeblendet: {pausiert.join(', ')}.</p>

@@ -30,7 +30,9 @@ interface Ziel { to: string; label: string; icon: LucideIcon; end?: boolean; auc
 const HAUPT: Ziel[] = [
   { to: '/', label: 'Heute', icon: Sun, end: true },
   { to: '/plan', label: 'Plan', icon: CalendarDays, auch: ['/posting'] },
-  { to: '/produktion', label: 'Produktion', icon: Clapperboard, auch: ['/medien'] },
+  // Monate statt Produktion (Fassie, 20.10.2026): der Monatsueberblick ist wichtiger.
+  // Produktion und Medien liegen jetzt im Profil-Blatt.
+  { to: '/monate', label: 'Monate', icon: CalendarRange },
   { to: '/kunden', label: 'Kunden', icon: Users, auch: ['/client'] },
 ]
 
@@ -39,16 +41,16 @@ const SYMBOL: Record<string, LucideIcon> = {
   '/kalender': Calendar, '/postfach': Mail, '/analyse': BarChart3, '/leistung': TrendingUp,
   '/leads': Target, '/aufgaben': ListChecks, '/rechnungen': ReceiptEuro, '/finanzen': Wallet,
   '/inspirationen': Bookmark, '/team': UserRound, '/einstellungen': Settings, '/papierkorb': Trash2,
-  '/medien': FolderOpen, '/monate': CalendarRange,
+  '/medien': FolderOpen, '/monate': CalendarRange, '/produktion': Clapperboard,
 }
-const HAUPT_PFADE = ['/', '/plan', '/posting', '/produktion', '/kunden', '/medien']
+const HAUPT_PFADE = ['/', '/plan', '/posting', '/monate', '/kunden']
 
 /** Farben fuer die Symbole im Profil-Blatt, wie in den iPhone-Einstellungen. */
 const FARBE: Record<string, string> = {
   '/kalender': 'rot', '/postfach': 'blau', '/analyse': 'blau', '/leistung': 'gruen',
   '/leads': 'glut', '/aufgaben': 'gelb', '/rechnungen': 'gruen', '/finanzen': 'gruen',
   '/inspirationen': 'lila', '/team': 'blau', '/einstellungen': 'grau', '/papierkorb': 'grau',
-  '/monate': 'glut',
+  '/monate': 'glut', '/produktion': 'lila', '/medien': 'blau',
 }
 
 function aktiv(z: Ziel, pfad: string): boolean {

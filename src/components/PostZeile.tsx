@@ -12,6 +12,7 @@ import type { FristInfo } from '../lib/fristen'
 import { fehlendeLinks, postPhase, vorarbeit } from '../lib/postschritte'
 import { NUR_POSTEN } from '../lib/fristen'
 import { linksErneutHolen } from '../lib/videoAktionen'
+import LogoFrame from './LogoFrame'
 import type { LinkFeld, VorarbeitKey } from '../lib/videoAktionen'
 
 const SYMBOL: Record<string, { icon: LucideIcon; farbe: string }> = {
@@ -75,7 +76,10 @@ export default function PostZeile({
   const sym = phase === 'fertig' ? SYMBOL.fertig
     : phase === 'gepostet' ? SYMBOL.links
     : frist.schritt ? SYMBOL[frist.schritt] : SYMBOL.ohne
-  const farbe = sym.farbe
+  // Farbe des Punkts = Dringlichkeit, nicht Arbeitsschritt
+  const farbe = phase === 'offen'
+    ? (frist.ampel === 'rot' ? 'rot' : frist.ampel === 'gelb' ? 'gelb' : sym.farbe)
+    : sym.farbe
 
   const grund = phase === 'gepostet'
     ? (fehlt.length === 2 ? 'Gepostet — beide Links fehlen' : `Gepostet — ${fehlt[0] === 'tiktok' ? 'TikTok' : 'Instagram'}-Link fehlt`)
@@ -89,7 +93,12 @@ export default function PostZeile({
     <div className="n-zeile-wrap">
       <div className="n-zeile" role="group">
         <button className="n-zeile-klick" onClick={() => setOffen((o) => !o)} aria-expanded={offen}>
-          <span className={`n-ic ${farbe}`}><sym.icon strokeWidth={2.2} /></span>
+          {/* Logo des Kunden statt eines Symbols -- so sieht nicht jede Zeile gleich aus.
+              Der kleine Punkt unten rechts zeigt den Stand. */}
+          <span className="z-logo">
+            <LogoFrame name={video.clients?.name ?? '?'} logoUrl={video.clients?.logo_url ?? null} className="a-logo" />
+            <span className={`z-logo-punkt ${farbe}`}><sym.icon strokeWidth={2.6} /></span>
+          </span>
           <span className="n-text">
             <span className="n-titel">{video.title}</span>
             {(video.clients?.name || datum) && (

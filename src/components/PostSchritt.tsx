@@ -13,7 +13,7 @@ import type { Video } from '../lib/types'
 import { fehlendeLinks, postPhase, vorarbeit, vorarbeitStand, type Plattform } from '../lib/postschritte'
 
 export type TagVideo = Video & {
-  clients?: { name: string; handle_ig?: string | null; handle_tiktok?: string | null; client_accounts?: { platform: string }[] | null } | null
+  clients?: { name: string; logo_url?: string | null; client_type?: string | null; handle_ig?: string | null; handle_tiktok?: string | null; client_accounts?: { platform: string }[] | null } | null
   /** Auf welchen Plattformen der Kunde postet (siehe plattformenVon). */
   plattformen?: Plattform[]
   /** Datum des verknuepften Drehtags, falls geladen. */

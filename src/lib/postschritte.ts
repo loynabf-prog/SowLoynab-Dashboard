@@ -47,7 +47,7 @@ export function plattformenVon(c: {
 }
 
 /** Was Supabase zum Kunden mitliefern soll, damit plattformenVon() rechnen kann. */
-export const KUNDE_SELECT = 'clients(name, handle_ig, handle_tiktok, pausiert_seit, client_type, client_accounts(platform))'
+export const KUNDE_SELECT = 'clients(name, logo_url, handle_ig, handle_tiktok, pausiert_seit, client_type, client_accounts(platform))'
 /** Rueckfall ohne Accounts-Tabelle (falls die Einbettung je scheitert). */
 export const KUNDE_SELECT_EINFACH = 'clients(name, handle_ig, handle_tiktok)'
 
