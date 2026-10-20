@@ -11,6 +11,7 @@ import Posting from './pages/Posting'
 import Produktion from './pages/Produktion'
 import Medien from './pages/Medien'
 import Finances from './pages/Finances'
+import Monate from './pages/Monate'
 import Team from './pages/Team'
 import Trash from './pages/Trash'
 import Performance from './pages/Performance'
@@ -64,6 +65,7 @@ export default function App() {
       <Route path="/leistung" element={<ProtectedRoute><Performance /></ProtectedRoute>} />
       <Route path="/analyse" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
       <Route path="/finanzen" element={<ProtectedRoute><Finances /></ProtectedRoute>} />
+      <Route path="/monate" element={<ProtectedRoute><Monate /></ProtectedRoute>} />
       <Route path="/rechnungen" element={<ProtectedRoute><Invoices /></ProtectedRoute>} />
       <Route path="/inspirationen" element={<ProtectedRoute><Inspirations /></ProtectedRoute>} />
       <Route path="/postfach" element={<ProtectedRoute><Postfach /></ProtectedRoute>} />

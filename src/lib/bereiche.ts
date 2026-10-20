@@ -29,7 +29,7 @@ export const BEREICHE: Bereich[] = [
   { key: 'produktion', label: 'Produktion', zweck: 'Drehen, schneiden, einplanen, Medien aus Dropbox', primaer: true,
     seiten: [{ to: '/produktion', label: 'Produktion', icon: '🎬' }, { to: '/medien', label: 'Medien', icon: '📁' }] },
   { key: 'kunden', label: 'Kunden', zweck: 'Kundenakten, Verträge, Material', primaer: true,
-    seiten: [{ to: '/kunden', label: 'Kunden', icon: '👥' }] },
+    seiten: [{ to: '/kunden', label: 'Kunden', icon: '👥' }, { to: '/monate', label: 'Monate', icon: '🗓' }] },
   { key: 'analyse', label: 'Analyse', zweck: 'Zahlen der geposteten Videos',
     seiten: [{ to: '/analyse', label: 'Gesamt-Analyse', icon: '📊' }, { to: '/leistung', label: 'Leistung', icon: '📈' }] },
   { key: 'vertrieb', label: 'Vertrieb', zweck: 'Leads und Aufgaben',

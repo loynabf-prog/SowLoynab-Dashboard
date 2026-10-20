@@ -33,6 +33,8 @@ export default function Dashboard() {
   const [videosByClient, setVideosByClient] = useState<Record<string, Video[]>>({})
   const [postedMonth, setPostedMonth] = useState<Record<string, number>>({})
   const [videoCount, setVideoCount] = useState<Record<string, number>>({})
+  // Videos laut Monatseintrag (0046) fuer den laufenden Monat
+  const [sollMonat, setSollMonat] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showAdd, setShowAdd] = useState(false)
@@ -78,6 +80,8 @@ export default function Dashboard() {
       if (v.posted_at && v.posted_at >= monthStart) month[v.client_id] = (month[v.client_id] ?? 0) + 1
       ;(proKunde[v.client_id] ??= []).push(v as Video)
     }
+    const { data: mp } = await supabase.from('client_month_plans').select('client_id, quota').eq('month_key', monthStart.slice(0, 7))
+    setSollMonat(Object.fromEntries(((mp ?? []) as { client_id: string; quota: number }[]).map((r) => [r.client_id, Number(r.quota)])))
     setVideoCount(total)
     setPostedMonth(month)
     setVideosByClient(proKunde)
@@ -104,7 +108,7 @@ export default function Dashboard() {
   const heuteIso = heute()
   const eingestuft: { c: Client; lage: Kundenlage }[] = clients
     .filter((c) => marke === 'alle' || markeVon(c.brand) === marke)
-    .map((c) => ({ c, lage: kundenlage(c, videosByClient[c.id] ?? [], heuteIso) }))
+    .map((c) => ({ c, lage: kundenlage(c, videosByClient[c.id] ?? [], heuteIso, 7, sollMonat[c.id]) }))
     .sort((a, b) => {
       const dringend = (x: Kundenlage) => (x.rang === 'akut' ? 0 : x.rang === 'laeuft' ? 1 : 2)
       const last = (x: Kundenlage) => x.zuTun + x.ohneIdee + x.ohneLink
@@ -120,6 +124,7 @@ export default function Dashboard() {
           <h1>Kunden</h1>
           <span className="sub">{loading ? 'Lade …' : `${clients.filter((c) => c.active !== false).length} aktiv`}</span>
         </div>
+        <Link className="btn btn-sm" to="/monate">Monate</Link>
         <button className="btn btn-primary btn-sm" onClick={() => setShowAdd(true)}><Plus size={16} strokeWidth={2.4} />Kunde</button>
       </div>
 
@@ -182,8 +187,8 @@ export default function Dashboard() {
                   <div className="tile-body">
                     <div className="tile-name">{c.name}</div>
                     <div className="tile-meta">
-                      {c.monthly_quota
-                        ? <span className={`quota-chip ${(postedMonth[c.id] ?? 0) >= c.monthly_quota ? 'done' : ''}`}>{postedMonth[c.id] ?? 0}/{c.monthly_quota} · Monat</span>
+                      {(sollMonat[c.id] ?? c.monthly_quota)
+                        ? <span className={`quota-chip ${(postedMonth[c.id] ?? 0) >= (sollMonat[c.id] ?? c.monthly_quota ?? 0) ? 'done' : ''}`}>{postedMonth[c.id] ?? 0}/{sollMonat[c.id] ?? c.monthly_quota} · Monat</span>
                         : <>{videoCount[c.id] ?? 0} {(videoCount[c.id] ?? 0) === 1 ? 'Video' : 'Videos'}</>}
                       {lage.rang === 'akut'
                         ? <span className="gap-chip">{lage.grund}</span>

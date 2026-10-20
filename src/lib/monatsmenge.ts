@@ -64,16 +64,9 @@ export async function setzeMonatsmenge(
   quota: number,
   retainer: number | null | undefined,
 ): Promise<{ error: string | null }> {
-  if (quota === (retainer ?? 0)) {
-    const { error } = await supabase
-      .from('client_month_plans')
-      .delete()
-      .eq('client_id', clientId)
-      .eq('month_key', monatsKey)
-    if (error && tableMissing(error) == null) return { error: error.message }
-    return { error: null }
-  }
-
+  // Seit 0046 sind Monatseintraege eigenstaendig (mit Betrag und Stand) --
+  // auch wenn die Menge dem Retainer entspricht, bleibt der Eintrag stehen.
+  void retainer
   const { error } = await supabase
     .from('client_month_plans')
     .upsert({ client_id: clientId, month_key: monatsKey, quota }, { onConflict: 'client_id,month_key' })

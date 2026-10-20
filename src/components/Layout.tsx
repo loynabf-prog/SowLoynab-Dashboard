@@ -12,8 +12,7 @@ import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
   Sun, CalendarDays, Clapperboard, Users, Plus, Search, Sparkles, ChevronRight,
   LogOut, Calendar, Mail, BarChart3, TrendingUp, Target, ListChecks,
-  ReceiptEuro, Wallet, Bookmark, UserRound, Settings, Trash2, FolderOpen,
-} from 'lucide-react'
+  ReceiptEuro, Wallet, Bookmark, UserRound, Settings, Trash2, FolderOpen, CalendarRange } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useIdentity } from '../context/IdentityContext'
@@ -40,7 +39,7 @@ const SYMBOL: Record<string, LucideIcon> = {
   '/kalender': Calendar, '/postfach': Mail, '/analyse': BarChart3, '/leistung': TrendingUp,
   '/leads': Target, '/aufgaben': ListChecks, '/rechnungen': ReceiptEuro, '/finanzen': Wallet,
   '/inspirationen': Bookmark, '/team': UserRound, '/einstellungen': Settings, '/papierkorb': Trash2,
-  '/medien': FolderOpen,
+  '/medien': FolderOpen, '/monate': CalendarRange,
 }
 const HAUPT_PFADE = ['/', '/plan', '/posting', '/produktion', '/kunden', '/medien']
 
@@ -49,6 +48,7 @@ const FARBE: Record<string, string> = {
   '/kalender': 'rot', '/postfach': 'blau', '/analyse': 'blau', '/leistung': 'gruen',
   '/leads': 'glut', '/aufgaben': 'gelb', '/rechnungen': 'gruen', '/finanzen': 'gruen',
   '/inspirationen': 'lila', '/team': 'blau', '/einstellungen': 'grau', '/papierkorb': 'grau',
+  '/monate': 'glut',
 }
 
 function aktiv(z: Ziel, pfad: string): boolean {

@@ -21,7 +21,11 @@ export function monatsKey(d = new Date()): string {
 // Ein Video zaehlt zum Monat, wenn es dort geplant ODER dort gepostet wurde.
 // Beides pruefen, sonst faellt ein Video durchs Raster, das ohne Termin
 // angelegt und spontan gepostet wurde.
+// Seit 0046 kann ein Video ausdruecklich einem anderen Monat zugerechnet
+// werden (abrechnungsmonat) -- dann zaehlt nur der.
 export function imMonat(v: Video, key = monatsKey()): boolean {
+  const ab = (v as Video & { abrechnungsmonat?: string | null }).abrechnungsmonat
+  if (ab) return ab === key
   return (v.scheduled_date ?? '').slice(0, 7) === key || (v.posted_at ?? '').slice(0, 7) === key
 }
 

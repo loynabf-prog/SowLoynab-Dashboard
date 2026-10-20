@@ -21,8 +21,9 @@ export interface Kundenlage {
 const tageBis = (datum: string, heute: string): number =>
   Math.round((new Date(datum + 'T00:00:00').getTime() - new Date(heute + 'T00:00:00').getTime()) / 86400000)
 
-export function kundenlage(client: Client, videos: Video[], heute: string, tageVoraus = 7): Kundenlage {
-  const plan = monatsplan(videos, client.monthly_quota, heute.slice(0, 7))
+/** @param sollMonat Videos laut Monatseintrag (0046); ohne Eintrag gilt der Retainer. */
+export function kundenlage(client: Client, videos: Video[], heute: string, tageVoraus = 7, sollMonat?: number | null): Kundenlage {
+  const plan = monatsplan(videos, sollMonat ?? client.monthly_quota, heute.slice(0, 7))
 
   // Produktionsarbeit: alles auf "Zu bearbeiten". Ohne Termin zaehlt es
   // immer dazu -- gerade das Unterminierte geht sonst unter.
@@ -61,7 +62,7 @@ export function kundenlage(client: Client, videos: Video[], heute: string, tageV
     rang = 'ruhend'
   } else if (gruende.length > 0) {
     rang = 'akut'
-  } else if (zukunft > 0 || (client.monthly_quota ?? 0) > 0) {
+  } else if (zukunft > 0 || (sollMonat ?? client.monthly_quota ?? 0) > 0) {
     // Alles erledigt, aber es laeuft weiter -- Retainer oder ein Video,
     // das nur noch auf seinen Termin wartet.
     rang = 'laeuft'
