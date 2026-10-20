@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import Login from './pages/Login'
 import Overview from './pages/Overview'
@@ -38,7 +38,16 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   // soll aber erst ein neues Passwort setzen, bevor die App aufgeht. Sonst
   // steht man in der App und das alte Passwort gilt weiter.
   if (zuruecksetzen) return <Login />
-  return <Layout>{children}</Layout>
+  return <>{children}</>
+}
+
+/**
+ * Die Schale (Leiste, Kopf, Assistent, Glocke ...) bleibt beim Tab-Wechsel
+ * stehen -- vorher wurde sie bei jedem Wechsel neu aufgebaut und hat alles
+ * neu geladen. Nur der Inhalt (Outlet) wechselt.
+ */
+function Schale() {
+  return <ProtectedRoute><Layout><Outlet /></Layout></ProtectedRoute>
 }
 
 export default function App() {
@@ -51,27 +60,29 @@ export default function App() {
         path="/login"
         element={loading ? null : session && !zuruecksetzen ? <Navigate to="/" replace /> : <Login />}
       />
-      <Route path="/" element={<ProtectedRoute><Overview /></ProtectedRoute>} />
-      <Route path="/kunden" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-      <Route path="/uebersicht" element={<Navigate to="/" replace />} />
-      <Route path="/client/:id" element={<ProtectedRoute><ClientPage /></ProtectedRoute>} />
-      <Route path="/leads" element={<ProtectedRoute><Leads /></ProtectedRoute>} />
-      <Route path="/aufgaben" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
-      <Route path="/plan" element={<ProtectedRoute><Posting /></ProtectedRoute>} />
-      <Route path="/posting" element={<Navigate to="/plan" replace />} />
-      <Route path="/produktion" element={<ProtectedRoute><Produktion /></ProtectedRoute>} />
-      <Route path="/medien" element={<ProtectedRoute><Medien /></ProtectedRoute>} />
-      <Route path="/kalender" element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
-      <Route path="/leistung" element={<ProtectedRoute><Performance /></ProtectedRoute>} />
-      <Route path="/analyse" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
-      <Route path="/finanzen" element={<ProtectedRoute><Finances /></ProtectedRoute>} />
-      <Route path="/monate" element={<ProtectedRoute><Monate /></ProtectedRoute>} />
-      <Route path="/rechnungen" element={<ProtectedRoute><Invoices /></ProtectedRoute>} />
-      <Route path="/inspirationen" element={<ProtectedRoute><Inspirations /></ProtectedRoute>} />
-      <Route path="/postfach" element={<ProtectedRoute><Postfach /></ProtectedRoute>} />
-      <Route path="/team" element={<ProtectedRoute><Team /></ProtectedRoute>} />
-      <Route path="/einstellungen" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-      <Route path="/papierkorb" element={<ProtectedRoute><Trash /></ProtectedRoute>} />
+      <Route element={<Schale />}>
+        <Route path="/" element={<Overview />} />
+        <Route path="/kunden" element={<Dashboard />} />
+        <Route path="/uebersicht" element={<Navigate to="/" replace />} />
+        <Route path="/client/:id" element={<ClientPage />} />
+        <Route path="/leads" element={<Leads />} />
+        <Route path="/aufgaben" element={<Tasks />} />
+        <Route path="/plan" element={<Posting />} />
+        <Route path="/posting" element={<Navigate to="/plan" replace />} />
+        <Route path="/produktion" element={<Produktion />} />
+        <Route path="/medien" element={<Medien />} />
+        <Route path="/kalender" element={<Calendar />} />
+        <Route path="/leistung" element={<Performance />} />
+        <Route path="/analyse" element={<Analytics />} />
+        <Route path="/finanzen" element={<Finances />} />
+        <Route path="/monate" element={<Monate />} />
+        <Route path="/rechnungen" element={<Invoices />} />
+        <Route path="/inspirationen" element={<Inspirations />} />
+        <Route path="/postfach" element={<Postfach />} />
+        <Route path="/team" element={<Team />} />
+        <Route path="/einstellungen" element={<Settings />} />
+        <Route path="/papierkorb" element={<Trash />} />
+      </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

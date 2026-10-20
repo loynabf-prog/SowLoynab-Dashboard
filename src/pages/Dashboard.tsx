@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Plus, ChevronRight } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useGemerkt, istGemerkt } from '../lib/merken'
 import { useAuth } from '../context/AuthContext'
 import { uploadLogo } from '../lib/storage'
 import type { Client, Video } from '../lib/types'
@@ -29,13 +30,13 @@ function contractDaysLeft(end: string | null | undefined): number | null {
 
 export default function Dashboard() {
   const { user } = useAuth()
-  const [clients, setClients] = useState<ClientWithCount[]>([])
-  const [videosByClient, setVideosByClient] = useState<Record<string, Video[]>>({})
-  const [postedMonth, setPostedMonth] = useState<Record<string, number>>({})
-  const [videoCount, setVideoCount] = useState<Record<string, number>>({})
+  const [clients, setClients] = useGemerkt<ClientWithCount[]>('kunden.clients', [])
+  const [videosByClient, setVideosByClient] = useGemerkt<Record<string, Video[]>>('kunden.videosByClient', {})
+  const [postedMonth, setPostedMonth] = useGemerkt<Record<string, number>>('kunden.postedMonth', {})
+  const [videoCount, setVideoCount] = useGemerkt<Record<string, number>>('kunden.videoCount', {})
   // Videos laut Monatseintrag (0046) fuer den laufenden Monat
-  const [sollMonat, setSollMonat] = useState<Record<string, number>>({})
-  const [loading, setLoading] = useState(true)
+  const [sollMonat, setSollMonat] = useGemerkt<Record<string, number>>('kunden.sollMonat', {})
+  const [loading, setLoading] = useState(() => !istGemerkt('kunden.clients'))
   const [error, setError] = useState<string | null>(null)
   const [showAdd, setShowAdd] = useState(false)
   // Welche Marke gerade gezeigt wird -- 'alle' zeigt beide.

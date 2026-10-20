@@ -69,7 +69,7 @@ body { background: var(--bg); color: var(--text); font-size: 16px; letter-spacin
 .btn-primary:hover { opacity: 0.88; }
 input, select, textarea { border-radius: 12px; }
 .brand-dot { animation: none; }
-.page { animation: neuSeite 0.35s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+.page { animation: neuSeite 0.16s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
 @keyframes neuSeite { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
 /* Grosser Seitentitel wie in iOS ("Large Title") */
@@ -718,3 +718,36 @@ a.n-zeile { text-decoration: none; }
 .p-lage.klickbar { cursor: pointer; }
 
 .n-segment { width: 100%; }
+
+/* Monats-Check */
+.mc-kopf { display: flex; align-items: center; gap: 10px; margin: 4px 4px 8px; font-size: 14px; font-weight: 600; color: var(--text-muted); }
+.mc-balken { flex: 1; height: 8px; border-radius: 4px; background: var(--bg-sunken); overflow: hidden; }
+.mc-balken i { display: block; height: 100%; background: var(--gruen); transition: width 0.3s ease; }
+.mc-kunde { margin: 0 0 12px; }
+.mc-kunde-kopf { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 12px; border: none; border-radius: var(--radius);
+  background: var(--bg-card); color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.mc-ok { width: 24px; height: 24px; border-radius: 50%; background: var(--gruen); color: #fff; display: grid; place-items: center; }
+.mc-ok svg { width: 14px; height: 14px; }
+.mc-profile { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 4px; }
+.mc-profile a { text-decoration: none; }
+.mc-zeile { padding: 10px 14px; display: flex; flex-direction: column; gap: 8px; }
+.mc-zeile + .mc-zeile { border-top: 0.5px solid var(--sep); }
+.mc-zeile-oben { display: flex; align-items: center; gap: 10px; }
+.mc-stand.verpasst, .mc-stand.link_fehlt { color: var(--rot); }
+.mc-stand.ungeprueft { color: var(--gelb); }
+.mc-stand.ok { color: var(--gruen); }
+.mc-haken { flex: none; width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--border-strong); background: transparent;
+  color: transparent; display: grid; place-items: center; cursor: pointer; }
+.mc-haken.on { background: var(--gruen); border-color: var(--gruen); color: #fff; }
+.mc-haken:disabled { opacity: 0.35; cursor: default; }
+.mc-haken svg { width: 20px; height: 20px; }
+.mc-links { display: flex; gap: 8px; flex-wrap: wrap; }
+.mc-link { display: inline-flex; align-items: center; border-radius: 999px; background: var(--bg-sunken); overflow: hidden; }
+.mc-link a { padding: 7px 4px 7px 12px; font-size: 14px; font-weight: 600; color: var(--text); text-decoration: none; }
+.mc-link button { border: none; background: none; padding: 7px 12px 7px 8px; font-size: 16px; color: var(--text-dim); cursor: pointer; }
+.mc-eingabe { display: flex; gap: 6px; width: 100%; }
+.mc-eingabe input { flex: 1; min-width: 0; }
+/* Monate: 5 Ansichten passen auf schmale Handys */
+.n-segment.eng { max-width: 100%; }
+.n-segment.eng button { min-width: 0; padding-left: 4px; padding-right: 4px; font-size: 13px; white-space: nowrap; }
+@media (max-width: 430px) { .n-segment.eng button small { display: none; } }

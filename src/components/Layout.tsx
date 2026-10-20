@@ -12,12 +12,13 @@ import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
   Sun, CalendarDays, Clapperboard, Users, Plus, Search, Sparkles, ChevronRight,
   LogOut, Calendar, Mail, BarChart3, TrendingUp, Target, ListChecks,
-  ReceiptEuro, Wallet, Bookmark, UserRound, Settings, Trash2, FolderOpen, CalendarRange } from 'lucide-react'
+  ReceiptEuro, Wallet, Bookmark, UserRound, Settings, Trash2, FolderOpen, CalendarRange, RefreshCw } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useIdentity } from '../context/IdentityContext'
 import { useTeam } from '../context/TeamContext'
 import { sichtbareBereiche } from '../lib/bereiche'
+import { allesVergessen } from '../lib/merken'
 import AssistentButton from './AssistentButton'
 import NudgeCenter from './NudgeCenter'
 import CommandPalette from './CommandPalette'
@@ -224,6 +225,10 @@ function ProfilBlatt({ gruppen, email, onClose, onSignOut }: {
         ))}
 
         <div className="n-gruppe">
+          <button className="n-zeile" onClick={() => { allesVergessen(); window.location.reload() }}>
+            <span className="n-ic grau"><RefreshCw strokeWidth={2.1} /></span>
+            <span className="n-text"><span className="n-titel">Alles neu laden</span><span className="n-unter">Holt alle Daten frisch</span></span>
+          </button>
           <button className="n-zeile" onClick={() => { onClose(); onSignOut() }}>
             <span className="n-ic rot"><LogOut strokeWidth={2.1} /></span>
             <span className="n-text"><span className="n-titel">Abmelden</span></span>

@@ -15,11 +15,14 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Camera, Check, ChevronDown, ChevronUp, CircleDollarSign, Clapperboard, HelpCircle, ListChecks, Lock, Plus } from 'lucide-react'
 import LogoFrame from '../components/LogoFrame'
 import { useToast } from '../context/ToastContext'
-import { schnellGepostet } from '../lib/videoAktionen'
+import { useGemerkt, istGemerkt } from '../lib/merken'
+import { schnellGepostet, linkSetzen, alsGepostet } from '../lib/videoAktionen'
+import { profilUrl } from '../lib/accounts'
+import { supabase } from '../lib/supabase'
 import {
   ladeMonatsDaten, monatsZeilen, monatsSumme, monatPlus, monatName, monatsKeyVon, istAbgeschlossen,
   speichereEintrag, entferneEintrag, monatSetzen, euro, videoZeilen, videoSumme, geldZeilen,
-  monatsTodos, monatsKalender, drehtagEintragen,
+  monatsTodos, monatsKalender, drehtagEintragen, monatsCheck, videoGeprueft, ladeAccountsAlle,
   type KundeFuerMonat, type MonatsEintrag, type MonatsVideo, type MonatsZeile, type MonatStatus,
   type MonatsDrehtag, type MonatsAufgabe, type MonatsTodo, type Zahlstatus, type VideoZeile,
 } from '../lib/monate'
@@ -41,15 +44,15 @@ export default function Monate() {
   const von = monatPlus(heuteKey, -VORHER)
   const bis = monatPlus(heuteKey, NACHHER)
 
-  const [kunden, setKunden] = useState<KundeFuerMonat[]>([])
-  const [eintraege, setEintraege] = useState<MonatsEintrag[]>([])
-  const [videos, setVideos] = useState<MonatsVideo[]>([])
-  const [drehtage, setDrehtage] = useState<MonatsDrehtag[]>([])
-  const [aufgaben, setAufgaben] = useState<MonatsAufgabe[]>([])
-  const [ansicht, setAnsicht] = useState<'kunden' | 'videos' | 'kalender' | 'todos'>('kunden')
+  const [kunden, setKunden] = useGemerkt<KundeFuerMonat[]>('monate.kunden', [])
+  const [eintraege, setEintraege] = useGemerkt<MonatsEintrag[]>('monate.eintraege', [])
+  const [videos, setVideos] = useGemerkt<MonatsVideo[]>('monate.videos', [])
+  const [drehtage, setDrehtage] = useGemerkt<MonatsDrehtag[]>('monate.drehtage', [])
+  const [aufgaben, setAufgaben] = useGemerkt<MonatsAufgabe[]>('monate.aufgaben', [])
+  const [ansicht, setAnsicht] = useState<'kunden' | 'videos' | 'kalender' | 'todos' | 'check'>('kunden')
   const [tagOffen, setTagOffen] = useState<string | null>(null)
   const [drehFuer, setDrehFuer] = useState<string>('')
-  const [laedt, setLaedt] = useState(true)
+  const [laedt, setLaedt] = useState(() => !istGemerkt('monate.kunden'))
   const [fehler, setFehler] = useState<string | null>(null)
   const [offen, setOffen] = useState<string | null>(null)
   const [dazuOffen, setDazuOffen] = useState(false)
@@ -193,11 +196,12 @@ export default function Monate() {
         )}
       </div>
 
-      <div className="n-segment" role="tablist" aria-label="Ansicht">
+      <div className="n-segment eng" role="tablist" aria-label="Ansicht">
         <button className={ansicht === 'kunden' ? 'on' : ''} onClick={() => setAnsicht('kunden')}>Geld <small>{geld.length}</small></button>
         <button className={ansicht === 'videos' ? 'on' : ''} onClick={() => setAnsicht('videos')}>Videos <small>{vz.length}</small></button>
         <button className={ansicht === 'kalender' ? 'on' : ''} onClick={() => setAnsicht('kalender')}>Kalender <small>{postsImMonat}</small></button>
         <button className={ansicht === 'todos' ? 'on' : ''} onClick={() => setAnsicht('todos')}>To-dos <small>{todos.length}</small></button>
+        <button className={ansicht === 'check' ? 'on' : ''} onClick={() => setAnsicht('check')}>Prüfen</button>
       </div>
 
       {ansicht === 'kalender' && (
@@ -216,6 +220,10 @@ export default function Monate() {
           }}
           monat={key}
         />
+      )}
+
+      {ansicht === 'check' && (
+        <MonatsCheckAnsicht monat={key} kunden={kunden} videos={videos} onGeaendert={laden} />
       )}
 
       {ansicht === 'todos' && (
@@ -598,6 +606,141 @@ function VideoZeileUI({ v, offen, onToggle, onPlanen, onZiel, onGepostet }: {
             ))}
             {da === 0 && <p className="p-fuss" style={{ margin: 0 }}>Noch keine Videos.</p>}
           </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ============================ Monats-Check (Nachkontrolle) ============================
+function MonatsCheckAnsicht({ monat, kunden, videos, onGeaendert }: {
+  monat: string
+  kunden: KundeFuerMonat[]
+  videos: MonatsVideo[]
+  onGeaendert: () => Promise<void> | void
+}) {
+  const { toast } = useToast()
+  const [accounts, setAccounts] = useState<{ client_id: string; platform: string; handle: string }[]>([])
+  const [offenK, setOffenK] = useState<string | null>(null)
+  useEffect(() => { ladeAccountsAlle().then(setAccounts) }, [])
+  const heute = new Date().toISOString().slice(0, 10)
+  const plattformen = useCallback((id: string) => {
+    const p = [...new Set(accounts.filter((a) => a.client_id === id).map((a) => a.platform))]
+      .filter((x): x is 'tiktok' | 'instagram' => x === 'tiktok' || x === 'instagram')
+    return p.length ? p : (['tiktok', 'instagram'] as ('tiktok' | 'instagram')[])
+  }, [accounts])
+  const liste = useMemo(() => monatsCheck(monat, heute, kunden, videos, plattformen), [monat, heute, kunden, videos, plattformen])
+  const gesamt = liste.reduce((s, k) => s + k.videos.length, 0)
+  const ok = liste.reduce((s, k) => s + k.videos.length - k.offen, 0)
+
+  async function tun(p: Promise<string | null>, meldung: string) {
+    const f = await p
+    if (f) { toast('Konnte nicht speichern: ' + f); return }
+    toast(meldung)
+    await onGeaendert()
+  }
+
+  return (
+    <>
+      <div className="mc-kopf">
+        <div className="mc-balken"><i style={{ width: gesamt ? `${(ok / gesamt) * 100}%` : '0%' }} /></div>
+        <span>{ok} von {gesamt} Videos geprüft</span>
+      </div>
+      <p className="p-fuss" style={{ margin: '0 4px 12px' }}>
+        Je Kunde: Profil öffnen, jedes Video antippen und vergleichen, dann abhaken. Fehlt ein Link oder ist er falsch, hier korrigieren.
+      </p>
+      {liste.length === 0 && <div className="n-gruppe"><div className="n-leer">In diesem Monat gibt es keine Videos.</div></div>}
+      {liste.map((k) => {
+        const accs = accounts.filter((a) => a.client_id === k.kunde.id)
+        const auf = offenK === k.kunde.id || (offenK === null && k.offen > 0 && liste.find((x) => x.offen > 0)?.kunde.id === k.kunde.id)
+        return (
+          <div key={k.kunde.id} className="mc-kunde">
+            <button className="mc-kunde-kopf" onClick={() => setOffenK(auf ? '' : k.kunde.id)} aria-expanded={auf}>
+              <LogoFrame name={k.kunde.name} logoUrl={k.kunde.logo_url} className="a-logo" />
+              <span className="n-text">
+                <span className="n-titel">{k.kunde.name}</span>
+                <span className="n-unter">{k.offen ? `${k.offen} von ${k.videos.length} offen` : `alle ${k.videos.length} geprüft`}</span>
+              </span>
+              {k.offen === 0 ? <span className="mc-ok"><Check strokeWidth={3} /></span> : null}
+              {auf ? <ChevronUp className="n-chevron" /> : <ChevronDown className="n-chevron" />}
+            </button>
+            {auf && (
+              <>
+                <div className="mc-profile">
+                  {accs.map((a) => (
+                    <a key={a.platform + a.handle} className="n-tun" href={profilUrl(a.platform as 'tiktok' | 'instagram', a.handle)} target="_blank" rel="noopener noreferrer">
+                      {a.platform === 'tiktok' ? 'TikTok' : 'Instagram'} öffnen ↗
+                    </a>
+                  ))}
+                  {accs.length === 0 && <span className="p-fuss" style={{ margin: 0 }}>Keine Accounts hinterlegt.</span>}
+                </div>
+                <div className="n-gruppe">
+                  {k.videos.map((c) => (
+                    <CheckZeile key={c.video.id} c={c}
+                      onGeprueft={(ja) => tun(videoGeprueft(c.video.id, ja), ja ? 'Abgehakt' : 'Wieder offen')}
+                      onLink={(feld, url) => tun(linkSetzen(c.video.id, feld, url), 'Link gespeichert')}
+                      onLinkWeg={(feld) => tun((async () => {
+                        const { error } = await supabase.from('videos').update({ [feld]: null, geprueft_am: null }).eq('id', c.video.id)
+                        return error ? error.message : null
+                      })(), 'Link entfernt')}
+                      onGepostet={() => tun(alsGepostet({ id: c.video.id }), 'Als gepostet markiert – Links werden geholt')}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )
+      })}
+    </>
+  )
+}
+
+const CHECK_TEXT = { verpasst: 'nicht gepostet', link_fehlt: 'Link fehlt', ungeprueft: 'noch nicht geprüft', ok: 'passt' } as const
+
+function CheckZeile({ c, onGeprueft, onLink, onLinkWeg, onGepostet }: {
+  c: ReturnType<typeof monatsCheck>[number]['videos'][number]
+  onGeprueft: (ja: boolean) => void
+  onLink: (feld: 'tiktok_url' | 'instagram_url', url: string) => void
+  onLinkWeg: (feld: 'tiktok_url' | 'instagram_url') => void
+  onGepostet: () => void
+}) {
+  const v = c.video
+  const [eingabe, setEingabe] = useState<Record<string, string>>({})
+  const datum = (v.status === 'posted' && v.posted_at ? v.posted_at.slice(0, 10) : v.scheduled_date) ?? ''
+  const felder: { feld: 'tiktok_url' | 'instagram_url'; name: string; url: string | null | undefined; noetig: boolean }[] = [
+    { feld: 'tiktok_url', name: 'TikTok', url: v.tiktok_url, noetig: c.fehlt.includes('tiktok') },
+    { feld: 'instagram_url', name: 'Instagram', url: v.instagram_url, noetig: c.fehlt.includes('instagram') },
+  ]
+  return (
+    <div className={`mc-zeile ${c.problem}`}>
+      <div className="mc-zeile-oben">
+        <span className="n-text">
+          <span className="n-titel">{v.title || 'Video'}</span>
+          <span className="n-unter">
+            {datum ? new Date(datum + 'T12:00:00').toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' }) : 'ohne Datum'}
+            {' · '}<b className={`mc-stand ${c.problem}`}>{CHECK_TEXT[c.problem]}</b>
+          </span>
+        </span>
+        {v.status === 'posted'
+          ? <button className={`mc-haken ${v.geprueft_am ? 'on' : ''}`} onClick={() => onGeprueft(!v.geprueft_am)} disabled={c.fehlt.length > 0} aria-label="Passt">
+              <Check strokeWidth={3} />
+            </button>
+          : <button className="n-tun glut" onClick={onGepostet}>Gepostet</button>}
+      </div>
+      {v.status === 'posted' && (
+        <div className="mc-links">
+          {felder.map((f) => f.url ? (
+            <span key={f.feld} className="mc-link">
+              <a href={f.url} target="_blank" rel="noopener noreferrer">{f.name} ansehen ↗</a>
+              <button onClick={() => onLinkWeg(f.feld)} aria-label={`${f.name}-Link entfernen`} title="Falsches Video? Link entfernen">×</button>
+            </span>
+          ) : f.noetig ? (
+            <span key={f.feld} className="mc-eingabe">
+              <input placeholder={`${f.name}-Link einfügen`} value={eingabe[f.feld] ?? ''} onChange={(e) => setEingabe({ ...eingabe, [f.feld]: e.target.value })} />
+              <button className="n-tun" disabled={!(eingabe[f.feld] ?? '').trim()} onClick={() => onLink(f.feld, (eingabe[f.feld] ?? '').trim())}>Speichern</button>
+            </span>
+          ) : null)}
         </div>
       )}
     </div>

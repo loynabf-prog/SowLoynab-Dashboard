@@ -138,3 +138,20 @@ describe('Geld und Videos getrennt', () => {
     expect(videoZeilen('2026-11', '2026-10', kunden, [], []).map((x) => [x.kunde.id, x.ziel, x.zielHerkunft])).toEqual([['michel', 10, 'retainer']])
   })
 })
+
+import { monatsCheck } from '../monate'
+describe('Monats-Check', () => {
+  it('ordnet verpasst > Link fehlt > ungeprueft > ok', () => {
+    const kunden = [k('a')]
+    const vids = [
+      v('a', { status: 'posted', scheduled_date: '2026-10-02', posted_at: '2026-10-02T12:00:00Z', tiktok_url: 'x', instagram_url: 'y', geprueft_am: '2026-10-20T10:00:00Z' }),
+      v('a', { status: 'posted', scheduled_date: '2026-10-03', posted_at: '2026-10-03T12:00:00Z', tiktok_url: 'x' }),
+      v('a', { status: 'todo', scheduled_date: '2026-10-05' }),
+      v('a', { status: 'posted', scheduled_date: '2026-10-06', posted_at: '2026-10-06T12:00:00Z', tiktok_url: 'x', instagram_url: 'y' }),
+    ]
+    const c = monatsCheck('2026-10', '2026-10-20', kunden, vids, () => ['tiktok', 'instagram'])
+    expect(c[0].videos.map((x) => x.problem)).toEqual(['verpasst', 'link_fehlt', 'ungeprueft', 'ok'])
+    expect(c[0].videos[1].fehlt).toEqual(['instagram'])
+    expect(c[0].offen).toBe(3)
+  })
+})

@@ -56,6 +56,10 @@ export interface MonatsVideo {
   scheduled_time?: string | null
   posted_at: string | null
   abrechnungsmonat?: string | null
+  tiktok_url?: string | null
+  instagram_url?: string | null
+  link_fetch_state?: string | null
+  geprueft_am?: string | null
 }
 
 export interface MonatsDrehtag {
@@ -240,7 +244,7 @@ export async function ladeMonatsDaten(von: string, bis: string) {
       .select('id, client_id, month_key, quota, betrag, status, notiz, zahlung_monat, dabei, zahlstatus, bezahlt_am')
       .gte('month_key', von).lte('month_key', bis),
     supabase.from('videos')
-      .select('id, client_id, title, status, scheduled_date, scheduled_time, posted_at, abrechnungsmonat')
+      .select('id, client_id, title, status, scheduled_date, scheduled_time, posted_at, abrechnungsmonat, tiktok_url, instagram_url, link_fetch_state, geprueft_am')
       .is('deleted_at', null),
     supabase.from('events')
       .select('id, title, starts_on, client_id, planned_videos')
@@ -462,4 +466,49 @@ export function geldZeilen(zeilen: MonatsZeile[]): MonatsZeile[] {
     if (z.eintrag?.betrag == null) return (z.kunde.client_type ?? 'zahlend') === 'zahlend' // Betrag fehlt noch
     return z.betrag > 0
   })
+}
+
+// ------------------------------------------------------------ Monats-Check
+export type CheckProblem = 'verpasst' | 'link_fehlt' | 'ungeprueft' | 'ok'
+
+export interface CheckVideo { video: MonatsVideo; problem: CheckProblem; fehlt: ('tiktok' | 'instagram')[] }
+export interface CheckKunde { kunde: KundeFuerMonat; videos: CheckVideo[]; offen: number }
+
+/**
+ * Nachkontrolle eines Monats: alle Videos je Kunde, das Problematischste
+ * zuerst. Ein Video ist "ok", wenn es gepostet ist, alle Links seiner
+ * Plattformen hat und abgehakt wurde.
+ */
+export function monatsCheck(
+  key: string, heute: string, kunden: KundeFuerMonat[], videos: MonatsVideo[],
+  plattformenVon: (clientId: string) => ('tiktok' | 'instagram')[],
+): CheckKunde[] {
+  const rang: Record<CheckProblem, number> = { verpasst: 0, link_fehlt: 1, ungeprueft: 2, ok: 3 }
+  const out: CheckKunde[] = []
+  for (const k of kunden) {
+    const vids = videos.filter((v) => v.client_id === k.id && zuordnungsMonat(v) === key)
+    if (!vids.length) continue
+    const pl = plattformenVon(k.id)
+    const cv: CheckVideo[] = vids.map((v): CheckVideo => {
+      if (v.status !== 'posted') {
+        const vorbei = !!v.scheduled_date && v.scheduled_date < heute
+        return { video: v, problem: (vorbei ? 'verpasst' : 'ungeprueft') as CheckProblem, fehlt: [] }
+      }
+      const fehlt = pl.filter((p) => !((p === 'tiktok' ? v.tiktok_url : v.instagram_url) ?? '').trim())
+      if (fehlt.length) return { video: v, problem: 'link_fehlt', fehlt }
+      return { video: v, problem: (v.geprueft_am ? 'ok' : 'ungeprueft') as CheckProblem, fehlt: [] }
+    }).sort((a, b) => rang[a.problem] - rang[b.problem] || (a.video.scheduled_date ?? '').localeCompare(b.video.scheduled_date ?? ''))
+    out.push({ kunde: k, videos: cv, offen: cv.filter((x) => x.problem !== 'ok').length })
+  }
+  return out.sort((a, b) => b.offen - a.offen || a.kunde.name.localeCompare(b.kunde.name))
+}
+
+export async function videoGeprueft(id: string, ja: boolean): Promise<string | null> {
+  const { error } = await supabase.from('videos').update({ geprueft_am: ja ? new Date().toISOString() : null }).eq('id', id)
+  return error ? error.message : null
+}
+
+export async function ladeAccountsAlle(): Promise<{ client_id: string; platform: string; handle: string }[]> {
+  const { data } = await supabase.from('client_accounts').select('client_id, platform, handle')
+  return (data ?? []) as { client_id: string; platform: string; handle: string }[]
 }

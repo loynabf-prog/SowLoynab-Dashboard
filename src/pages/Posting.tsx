@@ -13,6 +13,7 @@ import { Flame, Link2, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-rea
 import { monatsKalender, monatPlus, monatName } from '../lib/monate'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useGemerkt, istGemerkt } from '../lib/merken'
 import { nachPause, type MitPause } from '../lib/pause'
 import { celebrate } from '../lib/confetti'
 import { useToast } from '../context/ToastContext'
@@ -39,11 +40,11 @@ function wochentag(iso: string): string {
 export default function Posting() {
   const navigate = useNavigate()
   const { toast } = useToast()
-  const [videos, setVideos] = useState<TagVideo[]>([])
-  const [ohneTermin, setOhneTermin] = useState(0)
+  const [videos, setVideos] = useGemerkt<TagVideo[]>('plan.videos', [])
+  const [ohneTermin, setOhneTermin] = useGemerkt('plan.ohneTermin', 0)
   // Pausierte Kunden (0045) stehen nicht im Plan -- nur ein Hinweis darauf.
-  const [pausiert, setPausiert] = useState<string[]>([])
-  const [loading, setLoading] = useState(true)
+  const [pausiert, setPausiert] = useGemerkt<string[]>('plan.pausiert', [])
+  const [loading, setLoading] = useState(() => !istGemerkt('plan.videos'))
   // Datum und Uhrzeit laufen mit: wer die Seite ueber Mitternacht oder
   // ueber die Post-Uhrzeit offen hat, sieht trotzdem den richtigen Stand.
   const [jetzt, setJetzt] = useState(() => ({ tag: heute(), zeit: jetztUhrzeit() }))

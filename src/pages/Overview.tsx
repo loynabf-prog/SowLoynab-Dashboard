@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { useGemerkt, istGemerkt } from '../lib/merken'
 import { ohnePausierte, type MitPause } from '../lib/pause'
 import { useToast } from '../context/ToastContext'
 import { useIdentity } from '../context/IdentityContext'
@@ -83,14 +84,14 @@ export default function Overview() {
   const { toast } = useToast()
   const { memberId } = useIdentity()
   const { byId } = useTeam()
-  const [videos, setVideos] = useState<MeinVideo[]>([])
-  const [termine, setTermine] = useState<MeinTermin[]>([])
-  const [aufgaben, setAufgaben] = useState<MeineAufgabe[]>([])
+  const [videos, setVideos] = useGemerkt<MeinVideo[]>('heute.videos', [])
+  const [termine, setTermine] = useGemerkt<MeinTermin[]>('heute.termine', [])
+  const [aufgaben, setAufgaben] = useGemerkt<MeineAufgabe[]>('heute.aufgaben', [])
   const [erledigtDb, setErledigtDb] = useState(0)
   const [haken, setHaken] = useState(0)
   const [spaeter, setSpaeter] = useState<string[]>([])
   const [alle, setAlle] = useState(false)
-  const [laedt, setLaedt] = useState(true)
+  const [laedt, setLaedt] = useState(() => !istGemerkt('heute.videos'))
   // Gebuendelte Zeilen, die aufgeklappt sind
   const [offen, setOffen] = useState<string[]>([])
   // Fuer welche Gruppe gerade ein Drehtag geplant wird
