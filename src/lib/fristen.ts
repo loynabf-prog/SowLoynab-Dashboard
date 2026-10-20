@@ -19,6 +19,9 @@ import { datumPlus } from './datum'
 
 export const FRISTEN = { dreh: 21, schnitt: 3, planung: 1 } as const
 
+/** Dreh-Frist und Dreh-Erinnerungen an? Seit Okt 2026 aus. */
+export const DREH_ERINNERUNG = false
+
 /** Ab wie vielen Tagen vor der Frist wird es gelb? */
 export const VORWARNUNG = { dreh: 7, schnitt: 2, planung: 1 } as const
 
@@ -90,13 +93,17 @@ export function fristInfo(v: FristVideo, heuteIso: string, jetztZeit?: string): 
 
   let schritt: Schritt
   let frist: string
-  if (!s.gedreht) { schritt = 'dreh'; frist = datumPlus(tag, -FRISTEN.dreh) }
+  // Keine Dreh-Frist mehr (Fassie, Okt 2026): wann gedreht wird, ist unsere
+  // Sache. Ungedrehte Videos melden sich erst, wenn der Schnitt faellig
+  // wird -- dann ist es ein echtes Problem, vorher nur Stress.
+  if (!s.gedreht && !DREH_ERINNERUNG) { schritt = 'schnitt'; frist = datumPlus(tag, -FRISTEN.schnitt) }
+  else if (!s.gedreht) { schritt = 'dreh'; frist = datumPlus(tag, -FRISTEN.dreh) }
   else if (!s.geschnitten) { schritt = 'schnitt'; frist = datumPlus(tag, -FRISTEN.schnitt) }
   else if (!s.geplant) { schritt = 'planung'; frist = datumPlus(tag, -FRISTEN.planung) }
   else { schritt = 'posten'; frist = tag }
 
   const rest = tageZwischen(heuteIso, frist)
-  const label = SCHRITT_LABEL[schritt]
+  const label = schritt === 'schnitt' && !s.gedreht ? 'Drehen & Schneiden' : SCHRITT_LABEL[schritt]
 
   // Der Posting-Tag ist vorbei und nichts kam raus: das ist der Ernstfall.
   if (tageZwischen(heuteIso, tag) < 0) {

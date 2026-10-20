@@ -213,7 +213,8 @@ export function tagesLage(e: LageEingang, heuteIso: string, jetztZeit: string): 
     // Nur was man WIRKLICH schon anfassen kann -- ohne Posting-Tag oder ohne
     // gedrehtes Material laesst sich nichts vorziehen.
     if (f.ampel === 'ohne-termin') continue
-    if (f.schritt === 'schnitt' || f.schritt === 'planung') vorarbeit.push(p)
+    // Schneiden laesst sich nur vorziehen, wenn schon gedreht ist.
+    if ((f.schritt === 'schnitt' && s.gedreht) || f.schritt === 'planung') vorarbeit.push(p)
     else if (f.schritt === 'dreh' && v.drehtag) vorarbeit.push(p)
   }
 

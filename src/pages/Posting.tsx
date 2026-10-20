@@ -296,7 +296,7 @@ export default function Posting() {
           {ohneTermin > 0 && (
             <p className="p-fuss">{ohneTermin} {ohneTermin === 1 ? 'Video hat' : 'Videos haben'} noch keinen Posting-Tag.</p>
           )}
-          <p className="p-fuss">Vorlauf: gedreht {FRISTEN.dreh} Tage, geschnitten {FRISTEN.schnitt} Tage, eingeplant {FRISTEN.planung} Tag vor dem Posting-Tag.</p>
+          <p className="p-fuss">Vorlauf: gedreht und geschnitten {FRISTEN.schnitt} Tage, eingeplant {FRISTEN.planung} Tag vor dem Posting-Tag. Wann gedreht wird, entscheidet ihr – dafür gibt es keine Erinnerung.</p>
         </>
       )}
     </>

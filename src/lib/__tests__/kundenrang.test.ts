@@ -30,7 +30,7 @@ describe('kundenlage', () => {
   it('ein Video zum Drehen macht den Kunden akut', () => {
     const l = kundenlage(c(), [v({ status: 'todo', scheduled_date: '2026-09-12' })], HEUTE)
     expect(l.rang).toBe('akut')
-    expect(l.grund).toContain('1 zu drehen')
+    expect(l.grund).toContain('1 offen')
   })
 
   it('ein fertiges Video, das nur auf seinen Termin wartet, ist KEINE Arbeit', () => {

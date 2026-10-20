@@ -12,8 +12,8 @@
 // Oben stehen die naechsten Drehtage, weil die den Takt vorgeben.
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Camera, ChevronRight, Pause } from 'lucide-react'
-import { nachPause, pauseText, istPausiert, type MitPause } from '../lib/pause'
+import { ChevronRight, Pause } from 'lucide-react'
+import { nachPause, pauseText, type MitPause } from '../lib/pause'
 import ProduktionKopf from '../components/ProduktionKopf'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -26,15 +26,6 @@ import PostZeile from '../components/PostZeile'
 import type { TagVideo } from '../components/PostSchritt'
 
 type ProdVideo = TagVideo
-
-interface Drehtag {
-  id: string
-  title: string
-  starts_on: string
-  client_id: string | null
-  planned_videos: number | null
-  clients?: { name: string; pausiert_seit?: string | null } | null
-}
 
 type Spalte = Extract<Schritt, 'dreh' | 'schnitt' | 'planung'>
 
@@ -52,36 +43,23 @@ function offenerSchritt(v: ProdVideo, heuteIso: string): Spalte | null {
   return 'planung'
 }
 
-function kurzDatum(iso: string): string {
-  return new Date(iso + 'T12:00:00').toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' })
-}
-
 export default function Produktion() {
   const navigate = useNavigate()
   const { toast } = useToast()
   const [videos, setVideos] = useState<ProdVideo[]>([])
-  const [drehtage, setDrehtage] = useState<Drehtag[]>([])
   const [loading, setLoading] = useState(true)
   const [pausiertListe, setPausiertListe] = useState<{ id: string; name: string; pausiert_seit: string | null; pause_grund: string | null }[]>([])
   const [spalte, setSpalte] = useState<Spalte>('dreh')
   const heuteIso = heute()
 
   const laden = useCallback(async () => {
-    const [vRes, dRes, pRes] = await Promise.all([
+    const [vRes, pRes] = await Promise.all([
       supabase
         .from('videos')
         .select('*, clients(name, pausiert_seit, pause_grund)')
         .is('deleted_at', null)
         .neq('status', 'posted')
         .order('scheduled_date', { ascending: true, nullsFirst: false }),
-      supabase
-        .from('events')
-        .select('id, title, starts_on, client_id, planned_videos, clients(name, pausiert_seit)')
-        .eq('kind', 'dreh')
-        .is('deleted_at', null)
-        .gte('starts_on', heute())
-        .order('starts_on', { ascending: true })
-        .limit(6),
       supabase.from('clients').select('id, name, pausiert_seit, pause_grund').is('deleted_at', null).not('pausiert_seit', 'is', null),
     ])
     setPausiertListe((pRes.data ?? []) as { id: string; name: string; pausiert_seit: string | null; pause_grund: string | null }[])
@@ -94,7 +72,6 @@ export default function Produktion() {
       for (const v of liste) if (v.shoot_event_id) v.drehtag = datum.get(v.shoot_event_id) ?? null
     }
     setVideos(liste)
-    setDrehtage((dRes.data ?? []) as unknown as Drehtag[])
     setLoading(false)
   }, [toast])
 
@@ -125,8 +102,6 @@ export default function Produktion() {
     for (const k of Object.keys(m) as Spalte[]) m[k] = nachDringlichkeit(m[k], heuteIso)
     return m
   }, [laufend, heuteIso])
-
-  const videosAmDrehtag = (id: string) => videos.filter((v) => v.shoot_event_id === id).length
 
   async function abhaken(v: ProdVideo, feld: VorarbeitKey) {
     const { patch, fehler } = await vorarbeitSetzen(v, feld, true)
@@ -222,29 +197,7 @@ export default function Produktion() {
         </>
       )}
 
-      <div className="n-abschnitt"><h2>Nächste Drehtage</h2></div>
-      <div className="n-gruppe">
-        {drehtage.length === 0 ? (
-          <div className="n-leer">{loading ? 'Lade …' : 'Kein Drehtag geplant. Leg ihn im Kalender als Drehtag an.'}</div>
-        ) : drehtage.map((d) => {
-          const dran = videosAmDrehtag(d.id)
-          const soll = d.planned_videos ?? 0
-          const pause = istPausiert(d.clients)
-          const luecke = !pause && soll > 0 && dran < soll
-          return (
-            <button key={d.id} className="n-zeile" onClick={() => d.client_id && navigate(`/client/${d.client_id}`)}>
-              <span className={`n-ic ${pause ? 'grau' : luecke ? 'gelb' : 'lila'}`}>{pause ? <Pause strokeWidth={2.2} /> : <Camera strokeWidth={2.2} />}</span>
-              <span className="n-text">
-                <span className="n-titel">{d.clients?.name ?? d.title}</span>
-                <span className="n-unter">
-                  {kurzDatum(d.starts_on)} · {dran}{soll ? ` von ${soll}` : ''} Videos{luecke ? <span className="gelb"> · {soll - dran} fehlen</span> : null}{pause ? ' · pausiert' : null}
-                </span>
-              </span>
-              <ChevronRight className="n-chevron" />
-            </button>
-          )
-        })}
-      </div>
+      {/* Drehtage mit "x fehlen" sind seit Okt 2026 bewusst weg -- keine Dreh-Erinnerungen mehr. */}
     </>
   )
 }

@@ -15,7 +15,7 @@
 
 import { supabase } from './supabase'
 
-export type MonatStatus = 'geplant' | 'fest' | 'abgeschlossen'
+export type MonatStatus = 'geplant' | 'unsicher' | 'fest' | 'abgeschlossen'
 
 export interface MonatsEintrag {
   id?: string
@@ -25,6 +25,10 @@ export interface MonatsEintrag {
   betrag: number | null
   status: MonatStatus
   notiz: string | null
+  /** Monat, in dem das Geld voraussichtlich kommt (0047), sonst null. */
+  zahlung_monat?: string | null
+  /** false = bewusst nicht dabei (0047). */
+  dabei?: boolean
 }
 
 export interface KundeFuerMonat {
@@ -137,7 +141,7 @@ export function monatsZeilen(
         kunde: k, herkunft: 'eintrag', eintrag: e,
         soll: e.quota, betrag: e.betrag != null ? zahl(e.betrag) : zahl(k.monthly_fee),
         status: e.status, videos: vids, gepostet,
-        nichtDabei: e.quota === 0 && zahl(e.betrag) === 0,
+        nichtDabei: e.dabei === false,
       })
     } else if (vorschlaegeErlaubt && bekommtVorschlag(k)) {
       zeilen.push({
@@ -160,6 +164,7 @@ export function monatsZeilen(
 export interface MonatsSumme {
   fest: number          // fest + abgeschlossen
   geplant: number       // nur geplant
+  unsicher: number      // mit Fragezeichen
   vorschlag: number     // Retainer ohne Eintrag
   videosSoll: number
   videosAngelegt: number
@@ -168,11 +173,12 @@ export interface MonatsSumme {
 }
 
 export function monatsSumme(zeilen: MonatsZeile[]): MonatsSumme {
-  const s: MonatsSumme = { fest: 0, geplant: 0, vorschlag: 0, videosSoll: 0, videosAngelegt: 0, videosGepostet: 0, kunden: 0 }
+  const s: MonatsSumme = { fest: 0, geplant: 0, unsicher: 0, vorschlag: 0, videosSoll: 0, videosAngelegt: 0, videosGepostet: 0, kunden: 0 }
   for (const z of zeilen) {
     if (z.nichtDabei) continue
     if (z.status === 'fest' || z.status === 'abgeschlossen') s.fest += z.betrag
     else if (z.status === 'geplant') s.geplant += z.betrag
+    else if (z.status === 'unsicher') s.unsicher += z.betrag
     else s.vorschlag += z.betrag
     s.videosSoll += z.soll
     s.videosAngelegt += z.videos.length
@@ -193,7 +199,7 @@ export async function ladeMonatsDaten(von: string, bis: string) {
       .select('id, name, logo_url, monthly_quota, monthly_fee, active, client_type, pausiert_seit')
       .is('deleted_at', null).order('name'),
     supabase.from('client_month_plans')
-      .select('id, client_id, month_key, quota, betrag, status, notiz')
+      .select('id, client_id, month_key, quota, betrag, status, notiz, zahlung_monat, dabei')
       .gte('month_key', von).lte('month_key', bis),
     supabase.from('videos')
       .select('id, client_id, title, status, scheduled_date, posted_at, abrechnungsmonat')
@@ -210,7 +216,10 @@ export async function ladeMonatsDaten(von: string, bis: string) {
 
 export async function speichereEintrag(e: Omit<MonatsEintrag, 'id'>): Promise<string | null> {
   const { error } = await supabase.from('client_month_plans').upsert(
-    { client_id: e.client_id, month_key: e.month_key, quota: e.quota, betrag: e.betrag, status: e.status, notiz: e.notiz },
+    {
+      client_id: e.client_id, month_key: e.month_key, quota: e.quota, betrag: e.betrag, status: e.status, notiz: e.notiz,
+      zahlung_monat: e.zahlung_monat ?? null, dabei: e.dabei ?? true,
+    },
     { onConflict: 'client_id,month_key' },
   )
   return error ? error.message : null
@@ -228,7 +237,11 @@ export async function monatSetzen(key: string, zeilen: MonatsZeile[], status: Mo
     .filter((z) => z.herkunft === 'eintrag' || z.soll > 0 || z.betrag > 0)
     .map((z) => ({
       client_id: z.kunde.id, month_key: key, quota: z.soll, betrag: z.betrag,
-      status, notiz: z.eintrag?.notiz ?? null,
+      // "unsicher" bleibt beim Festmachen erhalten -- ein Fragezeichen
+      // verschwindet nicht durch einen Sammelknopf. Beim Abschliessen schon.
+      status: status === 'fest' && z.status === 'unsicher' ? 'unsicher' as MonatStatus : status,
+      notiz: z.eintrag?.notiz ?? null,
+      zahlung_monat: z.eintrag?.zahlung_monat ?? null, dabei: !z.nichtDabei,
     }))
   if (!rows.length) return null
   const { error } = await supabase.from('client_month_plans').upsert(rows, { onConflict: 'client_id,month_key' })

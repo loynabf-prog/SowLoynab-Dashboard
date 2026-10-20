@@ -25,7 +25,7 @@ const VORHER = 3
 const NACHHER = 8
 
 const STAND_TEXT: Record<MonatsZeile['status'], string> = {
-  vorschlag: 'Vorschlag', geplant: 'Geplant', fest: 'Fest', abgeschlossen: 'Abgeschlossen',
+  vorschlag: 'Vorschlag', geplant: 'Geplant', unsicher: 'Unsicher ?', fest: 'Fest', abgeschlossen: 'Abgeschlossen',
 }
 
 export default function Monate() {
@@ -105,7 +105,7 @@ export default function Monate() {
       <div className="m-streifen" role="tablist" aria-label="Monat" ref={streifen}>
         {monate.map((m) => {
           const s = proMonat.get(m)!
-          const gesamt = s.summe.fest + s.summe.geplant + s.summe.vorschlag
+          const gesamt = s.summe.fest + s.summe.geplant + s.summe.unsicher + s.summe.vorschlag
           return (
             <button key={m} role="tab" aria-selected={m === key}
               className={`m-monat ${m === key ? 'on' : ''} ${m === heuteKey ? 'jetzt' : ''} ${m < heuteKey ? 'vorbei' : ''}`}
@@ -124,15 +124,17 @@ export default function Monate() {
       </div>
 
       <div className="p-lage">
-        <div><strong>{euro(summe.fest + summe.geplant + summe.vorschlag)}</strong><span>Einnahmen</span></div>
+        <div><strong>{euro(summe.fest + summe.geplant + summe.unsicher + summe.vorschlag)}</strong><span>Einnahmen</span></div>
         <div className={summe.fest ? 'gruen' : 'null'}><strong>{euro(summe.fest)}</strong><span>davon fest</span></div>
         <div><strong>{summe.videosGepostet}/{summe.videosSoll}</strong><span>Videos gepostet</span></div>
       </div>
-      {(summe.geplant > 0 || summe.vorschlag > 0) && (
+      {(summe.geplant > 0 || summe.unsicher > 0 || summe.vorschlag > 0) && (
         <p className="p-fuss" style={{ marginTop: -8, marginBottom: 12 }}>
-          {summe.geplant > 0 && `${euro(summe.geplant)} geplant`}
-          {summe.geplant > 0 && summe.vorschlag > 0 && ' · '}
-          {summe.vorschlag > 0 && `${euro(summe.vorschlag)} nur Vorschlag (Retainer, noch nicht eingetragen)`}
+          {[
+            summe.geplant > 0 ? `${euro(summe.geplant)} geplant` : null,
+            summe.unsicher > 0 ? `${euro(summe.unsicher)} unsicher` : null,
+            summe.vorschlag > 0 ? `${euro(summe.vorschlag)} nur Vorschlag (Retainer, noch nicht eingetragen)` : null,
+          ].filter(Boolean).join(' · ')}
         </p>
       )}
 
@@ -170,7 +172,7 @@ export default function Monate() {
             onToggle={() => setOffen(offen === z.kunde.id ? null : z.kunde.id)}
             onKunde={() => navigate(`/client/${z.kunde.id}`)}
             onSpeichern={(e) => ausfuehren(speichereEintrag({ client_id: z.kunde.id, month_key: key, ...e }), 'Gespeichert')}
-            onNichtDabei={() => ausfuehren(speichereEintrag({ client_id: z.kunde.id, month_key: key, quota: 0, betrag: 0, status: 'fest', notiz: z.eintrag?.notiz ?? null }), `${z.kunde.name} ist im ${monatName(key, true)} nicht dabei`)}
+            onNichtDabei={() => ausfuehren(speichereEintrag({ client_id: z.kunde.id, month_key: key, quota: 0, betrag: 0, status: 'fest', notiz: z.eintrag?.notiz ?? null, dabei: false }), `${z.kunde.name} ist im ${monatName(key, true)} nicht dabei`)}
             onZurueck={() => ausfuehren(entferneEintrag(z.kunde.id, key), 'Eintrag entfernt')}
             onVideoMonat={(v, m) => ausfuehren(videoMonatSetzen(v.id, m), m ? `Zählt jetzt für ${monatName(m)}` : 'Zählt wieder nach Posting-Tag')}
           />
@@ -240,19 +242,22 @@ function KundenZeile({
   offen: boolean
   onToggle: () => void
   onKunde: () => void
-  onSpeichern: (e: { quota: number; betrag: number | null; status: MonatStatus; notiz: string | null }) => void
+  onSpeichern: (e: { quota: number; betrag: number | null; status: MonatStatus; notiz: string | null; zahlung_monat: string | null }) => void
   onNichtDabei: () => void
   onZurueck: () => void
   onVideoMonat: (v: MonatsVideo, m: string | null) => void
 }) {
   const [quota, setQuota] = useState(String(z.soll))
   const [betrag, setBetrag] = useState(String(z.betrag || ''))
-  const [status, setStatus] = useState<MonatStatus>(z.status === 'fest' ? 'fest' : 'geplant')
+  const startStatus = (): MonatStatus => (z.status === 'fest' || z.status === 'unsicher' ? z.status : 'geplant')
+  const [status, setStatus] = useState<MonatStatus>(startStatus())
   const [notiz, setNotiz] = useState(z.eintrag?.notiz ?? '')
+  const [zahlung, setZahlung] = useState(z.eintrag?.zahlung_monat ?? '')
   useEffect(() => {
     setQuota(String(z.soll)); setBetrag(String(z.betrag || ''))
-    setStatus(z.status === 'fest' ? 'fest' : 'geplant'); setNotiz(z.eintrag?.notiz ?? '')
-  }, [z.soll, z.betrag, z.status, z.eintrag?.notiz])
+    setStatus(startStatus()); setNotiz(z.eintrag?.notiz ?? ''); setZahlung(z.eintrag?.zahlung_monat ?? '')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [z.soll, z.betrag, z.status, z.eintrag?.notiz, z.eintrag?.zahlung_monat])
 
   const offenVideos = z.videos.length - z.gepostet
   const fehlt = Math.max(0, z.soll - z.videos.length)
@@ -260,6 +265,7 @@ function KundenZeile({
     `${z.gepostet}/${z.soll} gepostet`,
     offenVideos > 0 ? `${offenVideos} offen` : null,
     fehlt > 0 ? `${fehlt} noch nicht angelegt` : null,
+    z.eintrag?.zahlung_monat && z.eintrag.zahlung_monat !== monat ? `Geld erst im ${monatName(z.eintrag.zahlung_monat, true)}` : null,
     z.kunde.pausiert_seit ? 'pausiert' : null,
   ].filter(Boolean).join(' · ')
 
@@ -287,14 +293,21 @@ function KundenZeile({
               </div>
               <div className="n-segment" style={{ margin: 0 }}>
                 <button className={status === 'geplant' ? 'on' : ''} onClick={() => setStatus('geplant')}>Geplant</button>
+                <button className={status === 'unsicher' ? 'on' : ''} onClick={() => setStatus('unsicher')}>Unsicher ?</button>
                 <button className={status === 'fest' ? 'on' : ''} onClick={() => setStatus('fest')}>Steht fest</button>
               </div>
+              <label className="m-zahlung">Geld kommt
+                <select value={zahlung} onChange={(e) => setZahlung(e.target.value)}>
+                  <option value="">im selben Monat</option>
+                  {[1, 2, 3].map((n) => { const m = monatPlus(monat, n); return <option key={m} value={m}>erst im {monatName(m)}</option> })}
+                </select>
+              </label>
               <input value={notiz} onChange={(e) => setNotiz(e.target.value)} placeholder="Notiz, z. B. 1 Video schon im Oktober gepostet" />
               <div className="m-knoepfe">
                 <button className="n-tun stark" onClick={() => onSpeichern({
                   quota: Math.max(0, Math.round(Number(quota) || 0)),
                   betrag: betrag.trim() === '' ? null : Math.max(0, Number(betrag.replace(',', '.')) || 0),
-                  status, notiz: notiz.trim() || null,
+                  status, notiz: notiz.trim() || null, zahlung_monat: zahlung || null,
                 })}>Speichern</button>
                 <button className="n-tun" onClick={onNichtDabei}>Nicht dabei</button>
                 {z.herkunft === 'eintrag' && <button className="z-link" onClick={onZurueck}>Eintrag entfernen</button>}

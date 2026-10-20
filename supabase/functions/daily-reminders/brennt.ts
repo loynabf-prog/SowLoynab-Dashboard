@@ -8,7 +8,7 @@ export function plusTage(iso: string, n: number): string {
   return d.toISOString().slice(0, 10)
 }
 
-const FRISTEN = { dreh: 21, schnitt: 3, planung: 1 }
+const FRISTEN = { schnitt: 3, planung: 1 }
 
 /** Brennt dieses Video? Gleiche Regel wie fristInfo() in der App, ohne Uhrzeit. */
 export function brennt(v: {
@@ -20,12 +20,9 @@ export function brennt(v: {
   if (v.scheduled_date < heute) return true // verpasst
   const geplant = !!v.prep_scheduled || v.status === 'planned'
   const geschnitten = geplant || !!v.prep_edited || v.status === 'ready'
-  const gedreht = geschnitten || !!v.prep_shot || (!!v.drehtag && v.drehtag < heute)
   if (geplant) return false
-  if (!gedreht) {
-    if (v.drehtag && v.drehtag >= heute) return false // Drehtag steht -- das ist ein Plan
-    return plusTage(v.scheduled_date, -FRISTEN.dreh) <= heute
-  }
+  // Keine Dreh-Frist mehr (wie DREH_ERINNERUNG = false in fristen.ts):
+  // Ungedrehtes zaehlt erst, wenn der Schnitt faellig ist.
   if (!geschnitten) return plusTage(v.scheduled_date, -FRISTEN.schnitt) <= heute
   return plusTage(v.scheduled_date, -FRISTEN.planung) <= heute
 }

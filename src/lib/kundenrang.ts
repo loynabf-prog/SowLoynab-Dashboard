@@ -48,7 +48,7 @@ export function kundenlage(client: Client, videos: Video[], heute: string, tageV
   ).length
 
   const gruende: string[] = []
-  if (zuTun > 0) gruende.push(`${zuTun} zu drehen`)
+  if (zuTun > 0) gruende.push(`${zuTun} offen`)
   if (plan.ohneIdee > 0) gruende.push(`${plan.ohneIdee} ohne Idee`)
   if (ohneLink > 0) gruende.push(`${ohneLink} ohne Link`)
 

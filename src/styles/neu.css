@@ -606,6 +606,9 @@ a.n-zeile { text-decoration: none; }
 .m-stand { font-weight: 700 !important; }
 .m-stand.fest, .m-stand.abgeschlossen { color: var(--gruen) !important; }
 .m-stand.geplant { color: var(--gelb) !important; }
+.m-stand.unsicher { color: var(--rot) !important; }
+.m-zahlung { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 14px; font-weight: 600; color: var(--text-muted); }
+.m-zahlung select { width: auto; padding: 6px 10px; font-size: 14px; border-radius: 8px; }
 
 .m-auf { padding-left: 14px; }
 .m-felder { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }

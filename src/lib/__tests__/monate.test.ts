@@ -52,8 +52,10 @@ describe('monatsZeilen', () => {
     expect(istAbgeschlossen(ein, '2026-10')).toBe(true)
     expect(monatsZeilen('2026-10', '2026-10', kunden, ein, []).map((x) => x.kunde.id)).toEqual(['schleck'])
   })
-  it('0 Videos und 0 EUR = nicht dabei, zaehlt nicht in die Summe', () => {
-    const z = monatsZeilen('2026-11', '2026-10', kunden, [e('kebab', '2026-11', { quota: 0, betrag: 0 }), e('schleck', '2026-11', { status: 'fest', betrag: 900 })], [])
+  it('dabei=false = nicht dabei, zaehlt nicht in die Summe; 0 EUR mit dabei bleibt dabei', () => {
+    const z0 = monatsZeilen('2026-11', '2026-10', kunden, [e('licht', '2026-11', { quota: 0, betrag: 0, status: 'fest' })], [])
+    expect(z0.find((x) => x.kunde.id === 'licht')!.nichtDabei).toBe(false)
+    const z = monatsZeilen('2026-11', '2026-10', kunden, [e('kebab', '2026-11', { quota: 0, betrag: 0, dabei: false }), e('schleck', '2026-11', { status: 'fest', betrag: 900 })], [])
     expect(z.find((x) => x.kunde.id === 'kebab')!.nichtDabei).toBe(true)
     const s = monatsSumme(z)
     expect(s.fest).toBe(900)
@@ -70,6 +72,11 @@ describe('monatsZeilen', () => {
     const s = z.find((x) => x.kunde.id === 'schleck')!
     expect(s.videos.length).toBe(2)
     expect(s.gepostet).toBe(1)
+  })
+  it('unsicher wird extra gezaehlt', () => {
+    const s = monatsSumme(monatsZeilen('2026-11', '2026-10', kunden, [e('schleck', '2026-11', { betrag: 850, status: 'unsicher' }), e('kebab', '2026-11', { dabei: false, quota: 0, betrag: 0 })], []))
+    expect(s.unsicher).toBe(850)
+    expect(s.fest).toBe(0)
   })
   it('Summe trennt fest, geplant und Vorschlag', () => {
     const z = monatsZeilen('2026-11', '2026-10', kunden, [e('schleck', '2026-11', { betrag: 1000, status: 'geplant' })], [])
