@@ -650,3 +650,5 @@ a.n-zeile { text-decoration: none; }
 .m-dreh-form button { grid-column: 1 / -1; justify-self: start; }
 
 .m-todo .n-titel, .m-todo .n-unter { white-space: normal; }
+
+.m-label { margin: 4px 4px 6px; font-size: 13px; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; color: var(--text-dim); }

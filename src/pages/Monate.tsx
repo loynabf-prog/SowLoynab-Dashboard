@@ -17,10 +17,10 @@ import LogoFrame from '../components/LogoFrame'
 import { useToast } from '../context/ToastContext'
 import {
   ladeMonatsDaten, monatsZeilen, monatsSumme, monatPlus, monatName, monatsKeyVon, istAbgeschlossen,
-  speichereEintrag, entferneEintrag, monatSetzen, videoMonatSetzen, zuordnungsMonat, euro,
+  speichereEintrag, entferneEintrag, monatSetzen, euro, videoZeilen, videoSumme, geldZeilen,
   monatsTodos, monatsKalender, drehtagEintragen,
   type KundeFuerMonat, type MonatsEintrag, type MonatsVideo, type MonatsZeile, type MonatStatus,
-  type MonatsDrehtag, type MonatsAufgabe, type MonatsTodo, type Zahlstatus,
+  type MonatsDrehtag, type MonatsAufgabe, type MonatsTodo, type Zahlstatus, type VideoZeile,
 } from '../lib/monate'
 
 const VORHER = 3
@@ -44,7 +44,7 @@ export default function Monate() {
   const [videos, setVideos] = useState<MonatsVideo[]>([])
   const [drehtage, setDrehtage] = useState<MonatsDrehtag[]>([])
   const [aufgaben, setAufgaben] = useState<MonatsAufgabe[]>([])
-  const [ansicht, setAnsicht] = useState<'kunden' | 'kalender' | 'todos'>('kunden')
+  const [ansicht, setAnsicht] = useState<'kunden' | 'videos' | 'kalender' | 'todos'>('kunden')
   const [tagOffen, setTagOffen] = useState<string | null>(null)
   const [drehFuer, setDrehFuer] = useState<string>('')
   const [laedt, setLaedt] = useState(true)
@@ -80,14 +80,18 @@ export default function Monate() {
 
   const proMonat = useMemo(() => new Map(monate.map((m) => {
     const z = monatsZeilen(m, heuteKey, kunden, eintraege, videos)
-    return [m, { summe: monatsSumme(z), zu: istAbgeschlossen(eintraege, m) }]
+    const v = videoSumme(videoZeilen(m, heuteKey, kunden, eintraege, videos))
+    return [m, { summe: monatsSumme(z), v, zu: istAbgeschlossen(eintraege, m) }]
   })), [monate, heuteKey, kunden, eintraege, videos])
 
   const zeilen = useMemo(() => monatsZeilen(key, heuteKey, kunden, eintraege, videos), [key, heuteKey, kunden, eintraege, videos])
   const dabei = zeilen.filter((z) => !z.nichtDabei)
+  const geld = useMemo(() => geldZeilen(zeilen), [zeilen])
+  const vz = useMemo(() => videoZeilen(key, heuteKey, kunden, eintraege, videos), [key, heuteKey, kunden, eintraege, videos])
+  const vs = videoSumme(vz)
   const nichtDabei = zeilen.filter((z) => z.nichtDabei)
   const summe = monatsSumme(zeilen)
-  const todos = useMemo(() => monatsTodos(key, zeilen, drehtage, aufgaben), [key, zeilen, drehtage, aufgaben])
+  const todos = useMemo(() => monatsTodos(key, zeilen, drehtage, aufgaben, vz), [key, zeilen, drehtage, aufgaben, vz])
   const kalender = useMemo(() => monatsKalender(key, videos, drehtage), [key, videos, drehtage])
   const kundeName = useMemo(() => new Map(kunden.map((k) => [k.id, k.name])), [kunden])
   const postsImMonat = useMemo(() => videos.filter((v) => (v.scheduled_date ?? '').slice(0, 7) === key).length, [videos, key])
@@ -125,7 +129,7 @@ export default function Monate() {
               onClick={() => waehle(m)}>
               <span className="m-name">{monatName(m, true)}{s.zu && <Lock />}</span>
               <strong>{gesamt ? euro(gesamt) : '–'}</strong>
-              <small>{s.summe.videosSoll ? `${s.summe.videosSoll} Videos` : 'leer'}</small>
+              <small>{m < heuteKey ? `${s.v.gepostet} gepostet` : s.v.gepostet + s.v.geplant ? `${s.v.gepostet + s.v.geplant} Videos` : 'keine Videos'}</small>
             </button>
           )
         })}
@@ -136,25 +140,29 @@ export default function Monate() {
         <span>{zu ? 'abgeschlossen' : key === heuteKey ? 'laufender Monat' : key < heuteKey ? 'vorbei' : 'kommt'}</span>
       </div>
 
+      <div className="m-label">Geld</div>
       <div className="p-lage">
         <div><strong>{euro(summe.fest + summe.geplant + summe.unsicher + summe.vorschlag)}</strong><span>Einnahmen</span></div>
-        <div className={summe.fest ? 'gruen' : 'null'}><strong>{euro(summe.fest)}</strong><span>davon fest</span></div>
-        <div><strong>{summe.videosGepostet}/{summe.videosSoll}</strong><span>Videos gepostet</span></div>
-      </div>
-      <div className="p-lage">
         <div className={summe.bezahlt ? 'gruen' : 'null'}><strong>{euro(summe.bezahlt)}</strong><span>schon bezahlt</span></div>
-        <div className={summe.rechnung ? 'gelb' : 'null'}><strong>{euro(summe.rechnung)}</strong><span>Rechnung raus</span></div>
-        <div><strong>{euro(Math.max(0, summe.fest + summe.geplant + summe.unsicher + summe.vorschlag - summe.bezahlt - summe.rechnung))}</strong><span>noch offen</span></div>
+        <div><strong>{euro(Math.max(0, summe.fest + summe.geplant + summe.unsicher + summe.vorschlag - summe.bezahlt))}</strong><span>noch nicht bezahlt</span></div>
       </div>
-      {(summe.geplant > 0 || summe.unsicher > 0 || summe.vorschlag > 0) && (
+      {(summe.rechnung > 0 || summe.geplant > 0 || summe.unsicher > 0 || summe.vorschlag > 0) && (
         <p className="p-fuss" style={{ marginTop: -8, marginBottom: 12 }}>
           {[
+            summe.fest > 0 ? `${euro(summe.fest)} fest` : null,
+            summe.rechnung > 0 ? `${euro(summe.rechnung)} Rechnung raus` : null,
             summe.geplant > 0 ? `${euro(summe.geplant)} geplant` : null,
             summe.unsicher > 0 ? `${euro(summe.unsicher)} unsicher` : null,
-            summe.vorschlag > 0 ? `${euro(summe.vorschlag)} nur Vorschlag (Retainer, noch nicht eingetragen)` : null,
+            summe.vorschlag > 0 ? `${euro(summe.vorschlag)} nur Vorschlag (Retainer)` : null,
           ].filter(Boolean).join(' · ')}
         </p>
       )}
+      <div className="m-label">Videos</div>
+      <div className="p-lage">
+        <div className={vs.gepostet ? 'gruen' : 'null'}><strong>{vs.gepostet}</strong><span>gepostet</span></div>
+        <div><strong>{vs.geplant}</strong><span>mit Posting-Tag</span></div>
+        <div><strong>{vs.ziel || '–'}</strong><span>vorgenommen</span></div>
+      </div>
 
       <div className="m-aktionen">
         {zu ? (
@@ -178,7 +186,8 @@ export default function Monate() {
       </div>
 
       <div className="n-segment" role="tablist" aria-label="Ansicht">
-        <button className={ansicht === 'kunden' ? 'on' : ''} onClick={() => setAnsicht('kunden')}>Kunden <small>{dabei.length}</small></button>
+        <button className={ansicht === 'kunden' ? 'on' : ''} onClick={() => setAnsicht('kunden')}>Geld <small>{geld.length}</small></button>
+        <button className={ansicht === 'videos' ? 'on' : ''} onClick={() => setAnsicht('videos')}>Videos <small>{vz.length}</small></button>
         <button className={ansicht === 'kalender' ? 'on' : ''} onClick={() => setAnsicht('kalender')}>Kalender <small>{postsImMonat}</small></button>
         <button className={ansicht === 'todos' ? 'on' : ''} onClick={() => setAnsicht('todos')}>To-dos <small>{todos.length}</small></button>
       </div>
@@ -214,9 +223,9 @@ export default function Monate() {
       )}
 
       {ansicht === 'kunden' && <div className="n-gruppe">
-        {dabei.length === 0 ? (
-          <div className="n-leer">{laedt ? 'Lade …' : 'Noch kein Kunde in diesem Monat.'}</div>
-        ) : dabei.map((z) => (
+        {geld.length === 0 ? (
+          <div className="n-leer">{laedt ? 'Lade …' : 'Für diesen Monat ist noch kein Geld eingetragen.'}</div>
+        ) : geld.map((z) => (
           <KundenZeile
             key={z.kunde.id}
             z={z}
@@ -226,12 +235,31 @@ export default function Monate() {
             onToggle={() => setOffen(offen === z.kunde.id ? null : z.kunde.id)}
             onKunde={() => navigate(`/client/${z.kunde.id}`)}
             onSpeichern={(e) => ausfuehren(speichereEintrag({ client_id: z.kunde.id, month_key: key, ...e }), 'Gespeichert')}
-            onNichtDabei={() => ausfuehren(speichereEintrag({ client_id: z.kunde.id, month_key: key, quota: 0, betrag: 0, status: 'fest', notiz: z.eintrag?.notiz ?? null, dabei: false }), `${z.kunde.name} ist im ${monatName(key, true)} nicht dabei`)}
+            onNichtDabei={() => ausfuehren(speichereEintrag({ client_id: z.kunde.id, month_key: key, quota: z.soll, betrag: 0, status: 'fest', notiz: z.eintrag?.notiz ?? null, dabei: true }), `${z.kunde.name}: kein Geld im ${monatName(key, true)}`)}
             onZurueck={() => ausfuehren(entferneEintrag(z.kunde.id, key), 'Eintrag entfernt')}
-            onVideoMonat={(v, m) => ausfuehren(videoMonatSetzen(v.id, m), m ? `Zählt jetzt für ${monatName(m)}` : 'Zählt wieder nach Posting-Tag')}
           />
         ))}
       </div>}
+
+      {ansicht === 'videos' && (
+        <div className="n-gruppe">
+          {vz.length === 0 ? <div className="n-leer">{laedt ? 'Lade …' : 'Noch keine Videos in diesem Monat.'}</div> : vz.map((v) => (
+            <VideoZeileUI key={v.kunde.id} v={v} offen={offen === 'v' + v.kunde.id}
+              onToggle={() => setOffen(offen === 'v' + v.kunde.id ? null : 'v' + v.kunde.id)}
+              onPlanen={() => navigate(`/client/${v.kunde.id}?plan=${key}`)}
+              onZiel={(ziel) => ausfuehren(speichereEintrag(v.eintrag
+                ? { ...v.eintrag, quota: ziel }
+                : {
+                    client_id: v.kunde.id, month_key: key, quota: ziel,
+                    // Ohne Geld-Eintrag: zahlende Kunden bekommen ihren Retainer, sonst 0 EUR
+                    betrag: (v.kunde.client_type ?? 'zahlend') === 'zahlend' ? (Number(v.kunde.monthly_fee) || null) : 0,
+                    status: 'geplant', notiz: null,
+                  }), 'Vorhaben gespeichert')}
+            />
+          ))}
+        </div>
+      )}
+      {ansicht === 'videos' && <p className="p-fuss">Gezählt werden die echten Videos: gepostet im Monat, in dem sie rausgingen, sonst nach Posting-Tag. Unabhängig vom Geld.</p>}
 
       {ansicht === 'kunden' && !zu && (
         <div className="n-abschnitt" style={{ marginTop: 14 }}>
@@ -279,16 +307,18 @@ export default function Monate() {
         </>
       )}
 
-      <p className="p-fuss">
-        Ohne Eintrag schlägt die App für diesen und kommende Monate den Retainer vor. Vergangene Monate zählen nur,
-        was eingetragen ist. Ein Video zählt zu dem Monat seines Posting-Tags – außer du rechnest es einem anderen zu.
-      </p>
+      {ansicht === 'kunden' && (
+        <p className="p-fuss">
+          Geld und Videos sind getrennt: Hier steht nur, was ein Kunde im Monat zahlt. Ohne Eintrag schlägt die App
+          für diesen und kommende Monate den Retainer vor; vergangene Monate zählen nur, was eingetragen ist.
+        </p>
+      )}
     </>
   )
 }
 
 function KundenZeile({
-  z, monat, gesperrt, offen, onToggle, onKunde, onSpeichern, onNichtDabei, onZurueck, onVideoMonat,
+  z, monat, gesperrt, offen, onToggle, onKunde, onSpeichern, onNichtDabei, onZurueck,
 }: {
   z: MonatsZeile
   monat: string
@@ -299,9 +329,9 @@ function KundenZeile({
   onSpeichern: (e: { quota: number; betrag: number | null; status: MonatStatus; notiz: string | null; zahlung_monat: string | null; zahlstatus: Zahlstatus }) => void
   onNichtDabei: () => void
   onZurueck: () => void
-  onVideoMonat: (v: MonatsVideo, m: string | null) => void
 }) {
   const [quota, setQuota] = useState(String(z.soll))
+  void setQuota
   const [betrag, setBetrag] = useState(String(z.betrag || ''))
   const startStatus = (): MonatStatus => (z.status === 'fest' || z.status === 'unsicher' ? z.status : 'geplant')
   const [status, setStatus] = useState<MonatStatus>(startStatus())
@@ -314,12 +344,9 @@ function KundenZeile({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [z.soll, z.betrag, z.status, z.eintrag?.notiz, z.eintrag?.zahlung_monat, z.eintrag?.zahlstatus])
 
-  const offenVideos = z.videos.length - z.gepostet
-  const fehlt = Math.max(0, z.soll - z.videos.length)
   const unter = [
-    `${z.gepostet}/${z.soll} gepostet`,
-    offenVideos > 0 ? `${offenVideos} offen` : null,
-    fehlt > 0 ? `${fehlt} noch nicht angelegt` : null,
+    z.eintrag && z.eintrag.betrag == null ? 'Betrag fehlt' : null,
+    z.eintrag?.notiz ?? null,
     z.eintrag?.zahlung_monat && z.eintrag.zahlung_monat !== monat ? `Geld erst im ${monatName(z.eintrag.zahlung_monat, true)}` : null,
     z.kunde.pausiert_seit ? 'pausiert' : null,
   ].filter(Boolean).join(' · ')
@@ -346,8 +373,7 @@ function KundenZeile({
           {!gesperrt && (
             <>
               <div className="m-felder">
-                <label>Videos<input type="number" min={0} inputMode="numeric" value={quota} onChange={(e) => setQuota(e.target.value)} /></label>
-                <label>Betrag (€, netto)<input type="number" min={0} step="1" inputMode="decimal" value={betrag} onChange={(e) => setBetrag(e.target.value)} placeholder="0" /></label>
+                <label style={{ gridColumn: '1 / -1' }}>Betrag (€, netto)<input type="number" min={0} step="1" inputMode="decimal" value={betrag} onChange={(e) => setBetrag(e.target.value)} placeholder="0" /></label>
               </div>
               <div className="n-segment" style={{ margin: 0 }}>
                 <button className={status === 'geplant' ? 'on' : ''} onClick={() => setStatus('geplant')}>Geplant</button>
@@ -365,14 +391,14 @@ function KundenZeile({
                   {[1, 2, 3].map((n) => { const m = monatPlus(monat, n); return <option key={m} value={m}>erst im {monatName(m)}</option> })}
                 </select>
               </label>
-              <input value={notiz} onChange={(e) => setNotiz(e.target.value)} placeholder="Notiz, z. B. 1 Video schon im Oktober gepostet" />
+              <input value={notiz} onChange={(e) => setNotiz(e.target.value)} placeholder="Notiz, z. B. Rechnung am 5. schicken" />
               <div className="m-knoepfe">
                 <button className="n-tun stark" onClick={() => onSpeichern({
-                  quota: Math.max(0, Math.round(Number(quota) || 0)),
+                  quota: Math.max(0, Math.round(Number(quota) || 0)), // Videoziel bleibt, wie es ist
                   betrag: betrag.trim() === '' ? null : Math.max(0, Number(betrag.replace(',', '.')) || 0),
                   status, notiz: notiz.trim() || null, zahlung_monat: zahlung || null, zahlstatus,
                 })}>Speichern</button>
-                <button className="n-tun" onClick={onNichtDabei}>Nicht dabei</button>
+                <button className="n-tun" onClick={onNichtDabei}>Kein Geld diesen Monat</button>
                 {z.herkunft === 'eintrag' && <button className="z-link" onClick={onZurueck}>Eintrag entfernen</button>}
                 <button className="z-link" onClick={onKunde}>Kundenakte</button>
               </div>
@@ -380,36 +406,6 @@ function KundenZeile({
           )}
           {gesperrt && z.eintrag?.notiz && <p className="p-fuss" style={{ margin: 0 }}>{z.eintrag.notiz}</p>}
 
-          <div>
-            <div className="z-label">Videos in diesem Monat ({z.videos.length})</div>
-            {z.videos.length === 0 ? <p className="p-fuss" style={{ margin: 0 }}>Noch keine angelegt.</p> : (
-              <div className="m-videos">
-                {z.videos.map((v) => {
-                  const natuerlich = v.scheduled_date?.slice(0, 7) ?? v.posted_at?.slice(0, 7) ?? null
-                  const jetzt = zuordnungsMonat(v)!
-                  const wahl = [monatPlus(monat, -1), monat, monatPlus(monat, 1)]
-                  return (
-                    <div key={v.id} className="m-video">
-                      <span className={`m-punkt ${v.status === 'posted' ? 'gruen' : ''}`} />
-                      <span className="m-vtitel">
-                        {v.title || 'Video'}
-                        <small>{v.scheduled_date ? new Date(v.scheduled_date + 'T12:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' }) : 'ohne Termin'}{v.status === 'posted' ? ' · gepostet' : ''}{v.abrechnungsmonat ? ' · umgebucht' : ''}</small>
-                      </span>
-                      {!gesperrt && (
-                        <select
-                          aria-label="Zählt für Monat"
-                          value={jetzt}
-                          onChange={(e) => onVideoMonat(v, e.target.value === natuerlich ? null : e.target.value)}
-                        >
-                          {wahl.map((m) => <option key={m} value={m}>zählt: {monatName(m, true)}</option>)}
-                        </select>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
         </div>
       )}
     </div>
@@ -527,6 +523,66 @@ function TodoZeile({ t, onAnlegen, onDrehtag, onKunde }: {
         {t.unter && <span className="n-unter">{t.unter}</span>}
       </span>
       {knopf && <button className="n-tun" onClick={knopf.tun}>{knopf.text}</button>}
+    </div>
+  )
+}
+
+// ============================ Videos je Kunde ============================
+function VideoZeileUI({ v, offen, onToggle, onPlanen, onZiel }: {
+  v: VideoZeile
+  offen: boolean
+  onToggle: () => void
+  onPlanen: () => void
+  onZiel: (ziel: number) => void
+}) {
+  const [ziel, setZiel] = useState(String(v.ziel || ''))
+  useEffect(() => { setZiel(String(v.ziel || '')) }, [v.ziel])
+  const da = v.gepostet.length + v.geplant.length
+  const fehlt = Math.max(0, v.ziel - da)
+  const unter = [
+    `${v.gepostet.length} gepostet`,
+    v.geplant.length ? `${v.geplant.length} mit Posting-Tag` : null,
+    fehlt ? `${fehlt} noch ohne Tag` : null,
+    v.zielHerkunft === 'retainer' ? 'Ziel = Retainer' : null,
+  ].filter(Boolean).join(' · ')
+  const datum = (x: MonatsVideo) => {
+    const d = x.status === 'posted' && x.posted_at ? x.posted_at.slice(0, 10) : x.scheduled_date
+    return d ? new Date(d + 'T12:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' }) : ''
+  }
+  return (
+    <div>
+      <button className="n-zeile" onClick={onToggle} aria-expanded={offen}>
+        <LogoFrame name={v.kunde.name} logoUrl={v.kunde.logo_url} className="a-logo" />
+        <span className="n-text">
+          <span className="n-titel">{v.kunde.name}</span>
+          <span className="n-unter">{unter}</span>
+        </span>
+        <span className="a-wert-block">
+          <b>{v.gepostet.length}{v.ziel ? <span className="m-grau">/{v.ziel}</span> : null}</b>
+          <small>gepostet</small>
+        </span>
+        {offen ? <ChevronUp className="n-chevron" /> : <ChevronDown className="n-chevron" />}
+      </button>
+      {offen && (
+        <div className="z-auf m-auf">
+          <div className="z-feld">
+            <label className="m-zahlung" style={{ flex: 1 }}>Vorgenommen für den Monat
+              <input type="number" min={0} inputMode="numeric" value={ziel} onChange={(e) => setZiel(e.target.value)} placeholder="0" style={{ width: 90 }} />
+            </label>
+            <button className="n-tun stark" onClick={() => onZiel(Math.max(0, Math.round(Number(ziel) || 0)))}>Speichern</button>
+          </div>
+          {fehlt > 0 && <button className="n-tun" style={{ alignSelf: 'flex-start' }} onClick={onPlanen}>{fehlt} Posting-Tage planen</button>}
+          <div className="m-videos">
+            {[...v.gepostet, ...v.geplant].map((x) => (
+              <div key={x.id} className="m-video">
+                <span className={`m-punkt ${x.status === 'posted' ? 'gruen' : ''}`} />
+                <span className="m-vtitel">{x.title || 'Video'}<small>{datum(x)}{x.status === 'posted' ? ' · gepostet' : ''}</small></span>
+              </div>
+            ))}
+            {da === 0 && <p className="p-fuss" style={{ margin: 0 }}>Noch keine Videos.</p>}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -108,12 +108,23 @@ export function monatName(key: string, kurz = false): string {
   return kurz ? n.slice(0, 3) : `${n} ${j}`
 }
 
-/** Zu welchem Monat zaehlt ein Video? */
+/**
+ * In welchem Monat ist ein Video? Seit 20.10.2026 getrennt vom Geld:
+ * gepostet -> Monat, in dem es rausging; sonst Monat des Posting-Tags.
+ * (videos.abrechnungsmonat wird nicht mehr benutzt.)
+ */
 export function zuordnungsMonat(v: MonatsVideo): string | null {
-  if (v.abrechnungsmonat) return v.abrechnungsmonat
+  if (v.status === 'posted' && v.posted_at) return berlinMonat(v.posted_at)
   if (v.scheduled_date) return v.scheduled_date.slice(0, 7)
-  if (v.posted_at) return v.posted_at.slice(0, 7)
+  if (v.posted_at) return berlinMonat(v.posted_at)
   return null
+}
+
+/** Monat eines Zeitstempels in deutscher Zeit (Post um 0:30 am 1. zaehlt zum neuen Monat). */
+function berlinMonat(ts: string): string {
+  const d = new Date(ts)
+  if (isNaN(d.getTime())) return ts.slice(0, 7)
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Berlin', year: 'numeric', month: '2-digit' }).format(d).slice(0, 7)
 }
 
 function zahl(v: unknown): number {
@@ -314,19 +325,22 @@ export function monatsTodos(
   zeilen: MonatsZeile[],
   drehtage: MonatsDrehtag[],
   aufgaben: MonatsAufgabe[],
+  vz: VideoZeile[] = [],
 ): MonatsTodo[] {
   const out: MonatsTodo[] = []
   const dabei = zeilen.filter((z) => !z.nichtDabei && z.herkunft === 'eintrag')
-  for (const z of dabei) {
-    const fehlt = Math.max(0, z.soll - z.videos.length)
+  for (const v of vz) {
+    const da = v.gepostet.length + v.geplant.length
+    const fehlt = Math.max(0, v.ziel - da)
     if (fehlt > 0) {
-      out.push({ key: 'a' + z.kunde.id, art: 'anlegen', client_id: z.kunde.id,
-        text: `${z.kunde.name}: ${fehlt} ${fehlt === 1 ? 'Video' : 'Videos'} anlegen`,
-        unter: `${z.videos.length} von ${z.soll} haben schon einen Posting-Tag` })
+      out.push({ key: 'a' + v.kunde.id, art: 'anlegen', client_id: v.kunde.id,
+        text: `${v.kunde.name}: ${fehlt} ${fehlt === 1 ? 'Video' : 'Videos'} anlegen`,
+        unter: `${da} von ${v.ziel} sind gepostet oder haben einen Posting-Tag` })
     }
   }
-  for (const z of dabei) {
-    if (z.soll <= 0) continue
+  for (const v of vz) {
+    if (v.ziel <= 0) continue
+    const z = { kunde: v.kunde }
     const hat = drehtage.some((d) => d.client_id === z.kunde.id && (d.starts_on.slice(0, 7) === key || d.starts_on.slice(0, 7) === monatPlus(key, -1)))
     if (!hat) {
       out.push({ key: 'd' + z.kunde.id, art: 'drehtag', client_id: z.kunde.id,
@@ -393,4 +407,59 @@ export async function drehtagEintragen(clientId: string, name: string, datum: st
     title: `Drehtag ${name}`, kind: 'dreh', starts_on: datum, client_id: clientId, planned_videos: videos,
   })
   return error ? error.message : null
+}
+
+// ------------------------------------------------------------ Videos (getrennt vom Geld)
+export interface VideoZeile {
+  kunde: KundeFuerMonat
+  /** Vorhaben fuer den Monat: Eintrag, sonst Retainer (nur aktuelle/kommende Monate). */
+  ziel: number
+  zielHerkunft: 'eintrag' | 'retainer' | 'keins'
+  eintrag: MonatsEintrag | null
+  gepostet: MonatsVideo[]
+  geplant: MonatsVideo[]
+}
+
+/**
+ * Videos je Kunde in einem Monat -- gezaehlt aus den echten Videos, nicht
+ * aus dem Geld. Ein Ehrenamt ohne Betrag steht hier ganz normal drin.
+ */
+export function videoZeilen(
+  key: string, heuteKey: string, kunden: KundeFuerMonat[], eintraege: MonatsEintrag[], videos: MonatsVideo[],
+): VideoZeile[] {
+  const ein = new Map(eintraege.filter((e) => e.month_key === key).map((e) => [e.client_id, e]))
+  const zu = istAbgeschlossen(eintraege, key)
+  const out: VideoZeile[] = []
+  for (const k of kunden) {
+    const vids = videos.filter((v) => v.client_id === k.id && zuordnungsMonat(v) === key)
+    const gepostet = vids.filter((v) => v.status === 'posted')
+    const geplant = vids.filter((v) => v.status !== 'posted')
+    const e = ein.get(k.id) ?? null
+    let ziel = 0
+    let zielHerkunft: VideoZeile['zielHerkunft'] = 'keins'
+    if (e && e.dabei !== false) { ziel = e.quota; zielHerkunft = 'eintrag' }
+    else if (!e && key >= heuteKey && !zu && k.active !== false && (k.monthly_quota ?? 0) > 0 && !k.pausiert_seit) {
+      ziel = k.monthly_quota ?? 0; zielHerkunft = 'retainer'
+    }
+    if (ziel > 0 || vids.length > 0) out.push({ kunde: k, ziel, zielHerkunft, eintrag: e, gepostet, geplant })
+  }
+  return out.sort((a, b) => (b.ziel - a.ziel) || (b.gepostet.length - a.gepostet.length) || a.kunde.name.localeCompare(b.kunde.name))
+}
+
+export function videoSumme(z: VideoZeile[]) {
+  return {
+    gepostet: z.reduce((s, x) => s + x.gepostet.length, 0),
+    geplant: z.reduce((s, x) => s + x.geplant.length, 0),
+    ziel: z.reduce((s, x) => s + x.ziel, 0),
+  }
+}
+
+/** Geld-Liste: nur Kunden, bei denen es um Geld geht (kein Ehrenamt mit 0 EUR). */
+export function geldZeilen(zeilen: MonatsZeile[]): MonatsZeile[] {
+  return zeilen.filter((z) => {
+    if (z.nichtDabei) return false
+    if (z.herkunft === 'vorschlag') return z.betrag > 0
+    if (z.eintrag?.betrag == null) return (z.kunde.client_type ?? 'zahlend') === 'zahlend' // Betrag fehlt noch
+    return z.betrag > 0
+  })
 }

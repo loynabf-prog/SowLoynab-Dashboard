@@ -22,9 +22,10 @@ describe('Monate rechnen', () => {
     expect(monatName('2026-11')).toBe('November 2026')
     expect(monatName('2026-11', true)).toBe('Nov')
   })
-  it('Video zaehlt zu genau einem Monat, Abrechnungsmonat gewinnt', () => {
-    expect(zuordnungsMonat(v('a', { scheduled_date: '2026-10-30', abrechnungsmonat: '2026-11' }))).toBe('2026-11')
-    expect(zuordnungsMonat(v('a', { scheduled_date: '2026-10-30', posted_at: '2026-11-01T10:00:00Z' }))).toBe('2026-10')
+  it('Video zaehlt zu dem Monat, in dem es wirklich rausging -- unabhaengig vom Geld', () => {
+    expect(zuordnungsMonat(v('a', { scheduled_date: '2026-10-30', abrechnungsmonat: '2026-11' }))).toBe('2026-10')
+    expect(zuordnungsMonat(v('a', { scheduled_date: '2026-10-30', status: 'posted', posted_at: '2026-11-01T10:00:00Z' }))).toBe('2026-11')
+    expect(zuordnungsMonat(v('a', { scheduled_date: '2026-11-01', status: 'posted', posted_at: '2026-10-31T23:30:00Z' }))).toBe('2026-11')
     expect(zuordnungsMonat(v('a', { posted_at: '2026-11-01T10:00:00Z' }))).toBe('2026-11')
     expect(zuordnungsMonat(v('a'))).toBeNull()
   })
@@ -65,7 +66,7 @@ describe('monatsZeilen', () => {
   it('Videos werden dem Monat zugeordnet und gezaehlt', () => {
     const vids = [
       v('schleck', { scheduled_date: '2026-11-03' }),
-      v('schleck', { scheduled_date: '2026-10-29', status: 'posted', abrechnungsmonat: '2026-11' }),
+      v('schleck', { scheduled_date: '2026-10-29', status: 'posted', posted_at: '2026-11-02T10:00:00Z' }),
       v('schleck', { scheduled_date: '2026-10-10' }),
     ]
     const z = monatsZeilen('2026-11', '2026-10', kunden, [e('schleck', '2026-11')], vids)
@@ -87,7 +88,7 @@ describe('monatsZeilen', () => {
   })
 })
 
-import { monatsTodos, monatsKalender } from '../monate'
+import { monatsTodos, monatsKalender, videoZeilen, videoSumme, geldZeilen } from '../monate'
 
 describe('Monats-To-dos', () => {
   const kunden = [k('kraft', { monthly_quota: 10, monthly_fee: 1500 }), k('michel')]
@@ -98,7 +99,8 @@ describe('Monats-To-dos', () => {
     ]
     const vids = [v('kraft', { scheduled_date: '2026-11-03' }), v('kraft', { scheduled_date: '2026-11-05' })]
     const z = monatsZeilen('2026-11', '2026-10', kunden, ein, vids)
-    const t = monatsTodos('2026-11', z, [{ id: 'd1', title: 'Dreh', starts_on: '2026-10-28', client_id: 'michel', planned_videos: 12 }], [])
+    const vz = videoZeilen('2026-11', '2026-10', kunden, ein, vids)
+    const t = monatsTodos('2026-11', z, [{ id: 'd1', title: 'Dreh', starts_on: '2026-10-28', client_id: 'michel', planned_videos: 12 }], [], vz)
     const texte = t.map((x) => x.text)
     expect(texte).toContain('kraft: 8 Videos anlegen')
     expect(texte).toContain('kraft: Drehtag eintragen')
@@ -116,5 +118,23 @@ describe('Monats-Kalender', () => {
     expect(w[0][6].datum).toBe('2026-11-01')
     expect(w.flat().find((t) => t.datum === '2026-11-03')!.posts.length).toBe(1)
     expect(w[w.length - 1].some((t) => t.datum === '2026-11-30')).toBe(true)
+  })
+})
+
+describe('Geld und Videos getrennt', () => {
+  const kunden = [k('licht', { client_type: 'referenz', monthly_fee: 0, monthly_quota: 0 }), k('michel', { monthly_quota: 10, monthly_fee: 1000 })]
+  it('Ehrenamt steht bei Videos, nicht beim Geld', () => {
+    const ein = [e('licht', '2026-11', { quota: 10, betrag: 0, status: 'fest' }), e('michel', '2026-11', { quota: 12, betrag: 1000 })]
+    const vids = [v('licht', { scheduled_date: '2026-11-04' }), v('michel', { status: 'posted', scheduled_date: '2026-11-02', posted_at: '2026-11-02T12:00:00Z' })]
+    const geld = geldZeilen(monatsZeilen('2026-11', '2026-10', kunden, ein, vids)).map((z) => z.kunde.id)
+    expect(geld).toEqual(['michel'])
+    const vz = videoZeilen('2026-11', '2026-10', kunden, ein, vids)
+    expect(vz.map((x) => x.kunde.id).sort()).toEqual(['licht', 'michel'])
+    expect(videoSumme(vz)).toEqual({ gepostet: 1, geplant: 1, ziel: 22 })
+  })
+  it('Videos ohne Ziel tauchen trotzdem auf; Retainer als Ziel nur ab jetzt', () => {
+    const vids = [v('licht', { status: 'posted', posted_at: '2026-09-10T12:00:00Z' })]
+    expect(videoZeilen('2026-09', '2026-10', kunden, [], vids).map((x) => [x.kunde.id, x.ziel])).toEqual([['licht', 0]])
+    expect(videoZeilen('2026-11', '2026-10', kunden, [], []).map((x) => [x.kunde.id, x.ziel, x.zielHerkunft])).toEqual([['michel', 10, 'retainer']])
   })
 })
