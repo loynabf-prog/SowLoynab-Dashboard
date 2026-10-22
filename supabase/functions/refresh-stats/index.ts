@@ -123,7 +123,8 @@ Deno.serve(async (req) => {
     // unten anhand des Post-Datums.
     const { data: vids, error } = await supa
       .from('videos')
-      .select('id, client_id, tiktok_url, instagram_url, posted_at, tiktok_cover, ig_cover')
+      .select('id, client_id, tiktok_url, instagram_url, posted_at, tiktok_cover, ig_cover, ' +
+              'views_ig, likes_ig, comments_ig, shares_ig, saves_ig, views_tiktok, likes_tiktok, comments_tiktok, shares_tiktok, saves_tiktok')
       .eq('status', 'posted')
       .is('deleted_at', null)
       .not('posted_at', 'is', null)
@@ -131,37 +132,44 @@ Deno.serve(async (req) => {
       .limit(2000)
     if (error) return json({ error: error.message }, 500)
 
+    const body = await req.json().catch(() => ({}))
+    // Nachzieh-Modus: { video_ids: [...] } holt genau diese Videos, egal wie alt.
+    const nurIds: string[] | null = Array.isArray(body?.video_ids) ? body.video_ids.map(String) : null
+
     const now = new Date()
     const today = now.toISOString().slice(0, 10)
     let updated = 0
-    let due = 0
     const errors: string[] = []
 
-    for (const v of (vids ?? []) as any[]) {
-      if (!v.posted_at || !shouldCheckToday(v.posted_at, now)) continue
-      due++
-      let tt: Stats | null = null
-      let ig: Stats | null = null
-      try { if (v.tiktok_url) tt = await tiktokStats(v.tiktok_url, ttActor, token) } catch (e) { errors.push(`tt ${v.id}: ${(e as Error).message}`) }
-      try { if (v.instagram_url) ig = await instagramStats(v.instagram_url, igActor, token) } catch (e) { errors.push(`ig ${v.id}: ${(e as Error).message}`) }
-      if (!tt && !ig) continue
+    const faellig = ((vids ?? []) as any[]).filter((v) =>
+      nurIds ? nurIds.includes(v.id) : (v.posted_at && shouldCheckToday(v.posted_at, now)))
+    const due = faellig.length
 
+    async function verarbeite(v: any) {
+      // TikTok und Instagram gleichzeitig abfragen
+      const [tt, ig] = await Promise.all([
+        v.tiktok_url ? tiktokStats(v.tiktok_url, ttActor, token!).catch((e) => { errors.push(`tt ${v.id}: ${(e as Error).message}`); return null }) : Promise.resolve(null),
+        v.instagram_url ? instagramStats(v.instagram_url, igActor, token!).catch((e) => { errors.push(`ig ${v.id}: ${(e as Error).message}`); return null }) : Promise.resolve(null),
+      ])
+      if (!tt && !ig) return
+
+      // Schlaegt eine Plattform fehl (z. B. Apify-Limit), bleiben ihre alten
+      // Zahlen stehen -- sonst wuerde ein Fehler die Views "auf null" setzen.
+      const t = tt ?? { views: v.views_tiktok ?? null, likes: v.likes_tiktok ?? null, comments: v.comments_tiktok ?? null, shares: v.shares_tiktok ?? null, saves: v.saves_tiktok ?? null }
+      const i = ig ?? { views: v.views_ig ?? null, likes: v.likes_ig ?? null, comments: v.comments_ig ?? null, shares: v.shares_ig ?? null, saves: v.saves_ig ?? null }
       const merged = {
-        views: sum(tt?.views ?? null, ig?.views ?? null),
-        likes: sum(tt?.likes ?? null, ig?.likes ?? null),
-        comments: sum(tt?.comments ?? null, ig?.comments ?? null),
-        shares: sum(tt?.shares ?? null, ig?.shares ?? null),
-        saves: sum(tt?.saves ?? null, ig?.saves ?? null),
+        views: sum(t.views, i.views),
+        likes: sum(t.likes, i.likes),
+        comments: sum(t.comments, i.comments),
+        shares: sum(t.shares, i.shares),
+        saves: sum(t.saves, i.saves),
       }
       const reach = merged.views // beste verfügbare Näherung
       const duration = tt?.duration ?? ig?.duration ?? null
-      // getrennt pro Plattform (für den IG-vs-TikTok-Vergleich in der Analyse) --
-      // braucht Migration 0020, siehe supabase/migrations/0020_video_platform_stats.sql
+      // getrennt pro Plattform (für den IG-vs-TikTok-Vergleich in der Analyse)
       const perPlatform = {
-        views_ig: ig?.views ?? null, likes_ig: ig?.likes ?? null, comments_ig: ig?.comments ?? null,
-        shares_ig: ig?.shares ?? null, saves_ig: ig?.saves ?? null,
-        views_tiktok: tt?.views ?? null, likes_tiktok: tt?.likes ?? null, comments_tiktok: tt?.comments ?? null,
-        shares_tiktok: tt?.shares ?? null, saves_tiktok: tt?.saves ?? null,
+        views_ig: i.views, likes_ig: i.likes, comments_ig: i.comments, shares_ig: i.shares, saves_ig: i.saves,
+        views_tiktok: t.views, likes_tiktok: t.likes, comments_tiktok: t.comments, shares_tiktok: t.shares, saves_tiktok: t.saves,
       }
 
       const videoPatch: Record<string, unknown> = { ...merged, ...perPlatform, reach, stats_updated_at: new Date().toISOString() }
@@ -180,17 +188,35 @@ Deno.serve(async (req) => {
 
       let { error: upErr } = await supa.from('videos').update(videoPatch).eq('id', v.id)
       if (upErr) {
-        // Fehlen die neuen Spalten (0044 nicht eingespielt): ohne sie speichern.
         const nurZahlen: Record<string, unknown> = { ...merged, ...perPlatform, reach, stats_updated_at: videoPatch.stats_updated_at }
         if (duration != null) nurZahlen.duration_seconds = duration
         ;({ error: upErr } = await supa.from('videos').update(nurZahlen).eq('id', v.id))
         if (upErr) errors.push(`upd ${v.id}: ${upErr.message}`)
       }
-      // Tages-Schnappschuss (heutigen Eintrag ersetzen, damit die Kurve sauber bleibt)
+      // Tages-Schnappschuss, gesamt UND je Plattform (Migration 0057)
+      const verlauf = {
+        views_tiktok: t.views, likes_tiktok: t.likes, comments_tiktok: t.comments, shares_tiktok: t.shares, saves_tiktok: t.saves,
+        views_ig: i.views, likes_ig: i.likes, comments_ig: i.comments,
+      }
+      // Verlaufspunkt nur, wenn jede verlinkte Plattform frisch geantwortet hat.
+      const vollstaendig = (!v.tiktok_url || tt) && (!v.instagram_url || ig)
+      if (!vollstaendig) return
       await supa.from('video_stats').delete().eq('video_id', v.id).eq('captured_on', today)
-      await supa.from('video_stats').insert({ video_id: v.id, captured_on: today, ...merged, reach })
+      const { error: insErr } = await supa.from('video_stats').insert({ video_id: v.id, captured_on: today, ...merged, reach, ...verlauf })
+      if (insErr) await supa.from('video_stats').insert({ video_id: v.id, captured_on: today, ...merged, reach })
       updated++
     }
+
+    // Zwei Videos gleichzeitig (= bis zu 4 Apify-Laeufe). Nacheinander lief der
+    // Tageslauf ins Zeitlimit, mehr sprengt das Apify-Speicherlimit (16 GB).
+    const PARALLEL = 2
+    let pos = 0
+    await Promise.all(Array.from({ length: Math.min(PARALLEL, faellig.length) }, async () => {
+      while (pos < faellig.length) {
+        const v = faellig[pos++]
+        try { await verarbeite(v) } catch (e) { errors.push(`${v.id}: ${(e as Error).message}`) }
+      }
+    }))
 
     const nowIso = new Date().toISOString()
     try { await supa.from('system_status').upsert({ job: 'refresh-stats', last_ok: nowIso, last_error: null, detail: `${updated} aktualisiert von ${due} fälligen (${vids?.length ?? 0} insgesamt mit Link)`, updated_at: nowIso }, { onConflict: 'job' }) } catch { /* ignore */ }

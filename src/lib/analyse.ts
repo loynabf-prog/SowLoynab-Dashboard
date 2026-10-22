@@ -271,3 +271,70 @@ export function imZeitraum(v: AnalyseVideo, tage: number | null, jetzt = new Dat
   if (!v.veroeffentlicht) return false
   return jetzt.getTime() - Date.parse(v.veroeffentlicht) <= tage * 86_400_000
 }
+
+// ------------------------------------------------------------ Entwicklung
+// Je Monat der Veroeffentlichung: wie viele Videos, wie viele Views (heutiger
+// Stand) und wie sich die auf TikTok und Instagram verteilen.
+export interface MonatsZeile { monat: string; anzahl: number; tiktok: number; ig: number; views: number; schnitt: number | null }
+
+export function proMonat(videos: AnalyseVideo[]): MonatsZeile[] {
+  const m = new Map<string, MonatsZeile>()
+  for (const v of videos) {
+    if (!v.veroeffentlicht) continue
+    const monat = v.veroeffentlicht.slice(0, 7)
+    const z = m.get(monat) ?? { monat, anzahl: 0, tiktok: 0, ig: 0, views: 0, schnitt: null }
+    z.anzahl++
+    z.tiktok += v.views_tiktok ?? 0
+    z.ig += v.views_ig ?? 0
+    // Gesamtviews notfalls aus "views", falls die Aufteilung fehlt
+    z.views += (v.views_tiktok ?? 0) + (v.views_ig ?? 0) || (v.views ?? 0)
+    m.set(monat, z)
+  }
+  return [...m.values()]
+    .map((z) => ({ ...z, schnitt: z.anzahl ? z.views / z.anzahl : null }))
+    .sort((a, b) => a.monat.localeCompare(b.monat))
+}
+
+export function monatsLabel(monat: string): string {
+  const [j, mo] = monat.split('-').map(Number)
+  return new Date(j, mo - 1, 1).toLocaleDateString('de-DE', { month: 'short', year: '2-digit' })
+}
+
+// Follower-Verlauf: Summe ueber die Kunden, die schon am Anfang des Zeitraums
+// gemessen wurden. Kommen spaeter neue Accounts dazu, wuerde die Kurve sonst
+// einen Sprung zeigen, der kein echtes Wachstum ist. Ein Punkt pro Woche.
+export interface FollowerPunkt { client_id: string; captured_on: string; followers_ig: number | null; followers_tiktok: number | null }
+
+export function followerVerlauf(
+  stats: FollowerPunkt[], kunden: Set<string>, abDatum: string | null,
+): { tiktok: { x: string; y: number }[]; ig: { x: string; y: number }[] } {
+  const rows = stats.filter((r) => kunden.has(r.client_id)).sort((a, b) => a.captured_on.localeCompare(b.captured_on))
+  const start = abDatum && rows.some((r) => r.captured_on <= abDatum) ? abDatum : rows[0]?.captured_on ?? null
+  if (!start) return { tiktok: [], ig: [] }
+  // je Plattform: Kunden, die zum Start schon einen Wert haben
+  const basisTT = new Set<string>(), basisIG = new Set<string>()
+  for (const r of rows) {
+    if (r.captured_on > start) break
+    if (r.followers_tiktok != null) basisTT.add(r.client_id)
+    if (r.followers_ig != null) basisIG.add(r.client_id)
+  }
+  const letztTT = new Map<string, number>(), letztIG = new Map<string, number>()
+  const woche = new Map<string, { tt: number | null; ig: number | null }>()
+  const wochenKey = (d: string) => {
+    const t = new Date(d + 'T12:00:00Z'); const tag = (t.getUTCDay() + 6) % 7
+    t.setUTCDate(t.getUTCDate() - tag); return t.toISOString().slice(0, 10)
+  }
+  for (const r of rows) {
+    if (r.followers_tiktok != null && basisTT.has(r.client_id)) letztTT.set(r.client_id, r.followers_tiktok)
+    if (r.followers_ig != null && basisIG.has(r.client_id)) letztIG.set(r.client_id, r.followers_ig)
+    if (r.captured_on < start) continue
+    const summe = (m: Map<string, number>, basis: Set<string>) => (basis.size && m.size === basis.size ? [...m.values()].reduce((a, b) => a + b, 0) : null)
+    woche.set(wochenKey(r.captured_on), { tt: summe(letztTT, basisTT), ig: summe(letztIG, basisIG) })
+  }
+  const tiktok: { x: string; y: number }[] = [], ig: { x: string; y: number }[] = []
+  for (const [x, w] of [...woche.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+    if (w.tt != null) tiktok.push({ x, y: w.tt })
+    if (w.ig != null) ig.push({ x, y: w.ig })
+  }
+  return { tiktok, ig }
+}

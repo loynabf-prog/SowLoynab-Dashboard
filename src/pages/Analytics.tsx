@@ -23,8 +23,10 @@ import LogoFrame from '../components/LogoFrame'
 import {
   normalisiere, indexJeVideo, zeitRaster, besteZeit, nachTageszeit, vergleiche, plattformVerhaeltnis,
   topVideos, spaetzuender, sounds, imZeitraum, median, faktorText, prozentText, kurzZahl,
+  proMonat, monatsLabel, followerVerlauf,
   BLOECKE, TAGE, TAGE_LANG, type AnalyseVideo, type Sortierung,
 } from '../lib/analyse'
+import LineChart from '../components/LineChart'
 
 interface Kunde { id: string; name: string; logo_url: string | null; brand: string | null }
 interface StatRow { client_id: string; captured_on: string; followers_ig: number | null; followers_tiktok: number | null; account_id?: string | null }
@@ -155,6 +157,15 @@ export default function Analytics() {
     return [...m.entries()].map(([id, e]) => ({ id, ...e, kunde: kundeVon.get(id)! })).sort((a, b) => b.views - a.views)
   }, [videos, kundeVon])
 
+  // ------------------------------------------------------- Entwicklung
+  const monate = useMemo(() => proMonat(videos), [videos])
+  const maxMonat = useMemo(() => Math.max(1, ...monate.map((m) => m.views)), [monate])
+  const fKurve = useMemo(() => {
+    const relevant = new Set(kunde ? [kunde] : [...kundeVon.keys()].filter((id) => marke === 'alle' || markeVon(kundeVon.get(id)?.brand) === marke))
+    const ab = tage == null ? null : new Date(Date.now() - tage * 86_400_000).toISOString().slice(0, 10)
+    return followerVerlauf(stats, relevant, ab)
+  }, [stats, kunde, marke, kundeVon, tage])
+
   const maxIndex = useMemo(() => {
     let m = 1
     for (let t = 1; t <= 7; t++) for (const b of BLOECKE) { const z = raster[t][b.key]; if (z.n >= 2 && z.index != null) m = Math.max(m, z.index) }
@@ -224,6 +235,41 @@ export default function Analytics() {
             <b className={follower.plus > 0 ? 'gruen' : 'rot'}>{follower.plus > 0 ? '+' : '−'}{kurzZahl(Math.abs(follower.plus))} in 30 Tagen</b>
           )}
         </div>
+      )}
+
+      {/* ------------------------------------------------------- Entwicklung */}
+      {monate.length > 0 && (
+        <>
+          <div className="n-abschnitt"><h2>Entwicklung</h2><span>Views nach Monat der Veröffentlichung</span></div>
+          <div className="n-gruppe a-karte">
+            <div className="a-legende">
+              <span><i className="tt" /> TikTok</span>
+              <span><i className="ig" /> Instagram</span>
+            </div>
+            <div className="a-monate">
+              {monate.map((m) => (
+                <div key={m.monat} className="a-monat" title={`${monatsLabel(m.monat)}: ${m.anzahl} Videos · TikTok ${kurzZahl(m.tiktok)} · Instagram ${kurzZahl(m.ig)}`}>
+                  <span className="a-monat-name">{monatsLabel(m.monat)}</span>
+                  <span className="a-balken">
+                    <i className="tt" style={{ width: `${(m.tiktok / maxMonat) * 100}%` }} />
+                    <i className="ig" style={{ width: `${(m.ig / maxMonat) * 100}%` }} />
+                  </span>
+                  <span className="a-monat-wert"><b>{kurzZahl(m.views)}</b><small>{m.anzahl} {m.anzahl === 1 ? 'Video' : 'Videos'} · Ø {kurzZahl(m.schnitt)}</small></span>
+                </div>
+              ))}
+            </div>
+            {(fKurve.tiktok.length > 1 || fKurve.ig.length > 1) && (
+              <>
+                <p className="a-zwischen">Follower</p>
+                <LineChart series={[
+                  ...(fKurve.tiktok.length > 1 ? [{ key: 'tt', label: 'TikTok', color: 'var(--ink)', points: fKurve.tiktok }] : []),
+                  ...(fKurve.ig.length > 1 ? [{ key: 'ig', label: 'Instagram', color: '#af52de', points: fKurve.ig }] : []),
+                ]} />
+              </>
+            )}
+            <p className="a-fuss">Views = heutiger Stand aller Videos des Monats. Follower: wöchentlich, nur Accounts, die schon am Anfang des Zeitraums gemessen wurden.</p>
+          </div>
+        </>
       )}
 
       {/* -------------------------------------------------------- Beste Zeit */}

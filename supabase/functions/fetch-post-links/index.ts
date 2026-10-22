@@ -365,7 +365,12 @@ const bedienen = async (req: Request): Promise<Response> => {
         const heute = new Date().toISOString().slice(0, 10)
         try {
           await supa.from('video_stats').delete().eq('video_id', v.id).eq('captured_on', heute)
-          await supa.from('video_stats').insert({ video_id: v.id, captured_on: heute, ...gesamt, reach: gesamt.views })
+          const verlauf = {
+            views_tiktok: ttV, likes_tiktok: ttL, comments_tiktok: ttK, shares_tiktok: ttS, saves_tiktok: ttB,
+            views_ig: igV, likes_ig: igL, comments_ig: igK,
+          }
+          const { error: insErr } = await supa.from('video_stats').insert({ video_id: v.id, captured_on: heute, ...gesamt, reach: gesamt.views, ...verlauf })
+          if (insErr) await supa.from('video_stats').insert({ video_id: v.id, captured_on: heute, ...gesamt, reach: gesamt.views })
         } catch { /* Verlauf ist Zugabe -- daran soll der Lauf nicht scheitern */ }
         mitZahlen++
       }

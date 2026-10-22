@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   normalisiere, median, indexJeVideo, blockVon, zeitRaster, besteZeit, vergleiche, plattformVerhaeltnis,
   topVideos, spaetzuender, sounds, faktorText, prozentText, kurzZahl, imZeitraum, MIN_GRUPPE, type AnalyseVideo,
+  proMonat, followerVerlauf,
 } from '../analyse'
 
 let n = 0
@@ -110,5 +111,28 @@ describe('Format', () => {
     expect(imZeitraum(v({ veroeffentlicht: '2026-10-01T00:00:00Z' }), 30, jetzt)).toBe(true)
     expect(imZeitraum(v({ veroeffentlicht: '2026-08-01T00:00:00Z' }), 30, jetzt)).toBe(false)
     expect(imZeitraum(v({ veroeffentlicht: null }), null, jetzt)).toBe(true)
+  })
+})
+
+describe('Entwicklung', () => {
+  const w = (id: string, datum: string, tt: number | null, ig: number | null) =>
+    normalisiere({ id, client_id: 'k', veroeffentlicht: datum, views_tiktok: tt, views_ig: ig, views: (tt ?? 0) + (ig ?? 0) })
+
+  it('fasst Videos je Monat zusammen, getrennt nach Plattform', () => {
+    const m = proMonat([w('a', '2026-09-03T10:00:00Z', 100, 50), w('b', '2026-09-20T10:00:00Z', 300, null), w('c', '2026-10-01T10:00:00Z', null, 40)])
+    expect(m.map((z) => z.monat)).toEqual(['2026-09', '2026-10'])
+    expect(m[0]).toMatchObject({ anzahl: 2, tiktok: 400, ig: 50, views: 450, schnitt: 225 })
+    expect(m[1]).toMatchObject({ anzahl: 1, tiktok: 0, ig: 40, views: 40 })
+  })
+
+  it('Follower-Kurve springt nicht, wenn spaeter ein Kunde dazukommt', () => {
+    const s = [
+      { client_id: 'a', captured_on: '2026-09-01', followers_tiktok: 100, followers_ig: null },
+      { client_id: 'a', captured_on: '2026-09-15', followers_tiktok: 120, followers_ig: null },
+      { client_id: 'b', captured_on: '2026-09-15', followers_tiktok: 5000, followers_ig: null },
+    ]
+    const k = followerVerlauf(s, new Set(['a', 'b']), '2026-09-01')
+    expect(k.tiktok.map((p) => p.y)).toEqual([100, 120])
+    expect(k.ig).toEqual([])
   })
 })
