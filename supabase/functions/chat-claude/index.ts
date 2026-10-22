@@ -81,7 +81,7 @@ Deno.serve(async (req) => {
         + ` · für ${(a.assignee_ids ?? []).length ? (a.assignee_ids as string[]).map(name).join(', ') : 'alle'}`
         + `${a.client_id ? ` · ${kunde(a.client_id)}` : ''}${a.priority === 3 ? ' · DRINGEND' : a.priority === 2 ? ' · wichtig' : ''}`).join('\n') || '(keine offenen)',
       videos: ((videosR.data ?? []) as any[]).map((v) =>
-        `- ${v.scheduled_date} · ${kunde(v.client_id)} · ${v.title} · Stand: ${[v.prep_shot ? 'gedreht' : 'nicht gedreht', v.prep_edited ? 'geschnitten' : 'nicht geschnitten', v.prep_scheduled ? 'eingeplant' : 'nicht eingeplant'].join(', ')}`).join('\n') || '(keine)',
+        `- ${v.scheduled_date} · ${kunde(v.client_id)} · ${v.title} · Vorarbeit: ${[v.prep_shot && 'gedreht', v.prep_edited && 'geschnitten', v.prep_scheduled && 'eingeplant'].filter(Boolean).join(', ') || '–'}`).join('\n') || '(keine)',
       termine: ((termineR.data ?? []) as any[]).map((e) =>
         `- ${e.starts_on}${e.starts_at ? ' ' + String(e.starts_at).slice(0, 5) : ''} · ${e.kind === 'dreh' ? 'Drehtag' : e.kind ?? 'Termin'} · ${e.title}${e.client_id ? ` · ${kunde(e.client_id)}` : ''}${e.planned_videos ? ` · ${e.planned_videos} Videos` : ''}`).join('\n') || '(keine)',
     }
@@ -91,7 +91,7 @@ Deno.serve(async (req) => {
       `Heute ist ${heute}. Es schreibt dir gerade ${fragender}. Rechne relative Angaben ("Freitag", "nächste Woche") in echte Daten um.`,
       '',
       'Du antwortest wie ein Kollege im Chat: Deutsch, locker, kurz und konkret. Keine Überschriften, keine langen Einleitungen.',
-      'Kurze Listen mit "-" sind okay, wenn es mehrere Punkte sind. Duzen.',
+      'Kurze Listen mit "-" sind okay, wenn es mehrere Punkte sind. **Fett** sparsam für Kunden oder Überschriften-Zeilen. Duzen.',
       '',
       'Wenn jemand will, dass etwas angelegt oder geändert wird (Aufgabe, Kunde, Video, Lead, Idee, Termin …), nutze die Werkzeuge.',
       'Die App zeigt deinen Vorschlag dann als Karte mit "Ausführen" – erst danach passiert etwas. Sag in einem Satz dazu, was du vorbereitet hast.',
@@ -99,8 +99,10 @@ Deno.serve(async (req) => {
       'Wenn nur gefragt wird, antworte aus den Daten unten – ohne Werkzeuge.',
       'Erfinde nichts. Wenn die Daten etwas nicht hergeben, sag das ehrlich. Beträge, Rechnungsnummern und Verträge nie raten.',
       '',
-      'Fristen vor dem Posting-Tag: gedreht spätestens 21 Tage vorher, geschnitten 3 Tage vorher, eingeplant 1 Tag vorher.',
-      '"Was brennt?" heißt: überfällige Schritte nach diesen Fristen und überfällige Aufgaben, das Dringendste zuerst.',
+      'Das CRM verfolgt bewusst nur "gepostet / nicht gepostet". Drehen, Schneiden und Einplanen organisiert das Team selbst –',
+      'rechne dafür KEINE Fristen aus und mach deswegen keinen Druck. Den Vorarbeits-Stand nennst du nur, wenn jemand danach fragt.',
+      '"Was brennt?" heißt: Posts, deren Posting-Tag vorbei ist und die noch nicht gepostet sind, überfällige Aufgaben,',
+      'und was in den nächsten Tagen rausgehen soll. Das Dringendste zuerst, kurz halten.',
       '',
       'Team:', zeilen.team, '',
       'Kunden:', zeilen.kunden, '',
@@ -111,6 +113,7 @@ Deno.serve(async (req) => {
 
     // Verlauf als Gespraech: Claude = assistant, alle anderen = user (mit Namen davor).
     // Aufeinanderfolgende Nachrichten derselben Rolle werden zusammengefasst.
+    if (verlaufR.error) console.error('Verlauf:', verlaufR.error.message)
     const verlauf = ((verlaufR.data ?? []) as any[]).reverse()
     const messages: { role: 'user' | 'assistant'; content: string }[] = []
     for (const m of verlauf) {
@@ -130,7 +133,9 @@ Deno.serve(async (req) => {
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({ model: MODELL, max_tokens: 1500, system, tools: WERKZEUGE, messages }),
+      // Das Modell denkt vor der Antwort nach -- das braucht Platz, sonst bleibt nach
+      // dem Nachdenken nichts fuer die eigentliche Antwort uebrig (stop_reason max_tokens).
+      body: JSON.stringify({ model: MODELL, max_tokens: 12000, system, tools: WERKZEUGE, messages }),
     })
     if (!resp.ok) {
       const detail = await resp.text()
@@ -144,7 +149,7 @@ Deno.serve(async (req) => {
     const { error } = await supa.from('chat_messages').insert({
       channel_id: kanalId,
       author_kind: 'claude',
-      body: text || (schritte.length ? 'Hier ist mein Vorschlag:' : 'Hm, dazu fällt mir gerade nichts ein.'),
+      body: text || (schritte.length ? 'Hier ist mein Vorschlag:' : `Hm, da kam keine Antwort durch (${data?.stop_reason ?? 'unbekannt'}). Frag gern nochmal.`),
       plan: schritte.length ? schritte : null,
       plan_status: schritte.length ? 'offen' : null,
     })
@@ -165,7 +170,7 @@ Deno.serve(async (req) => {
       }).catch(() => undefined)
     }
 
-    return json({ ok: true, schritte: schritte.length })
+    return json({ ok: true, schritte: schritte.length, stop: data?.stop_reason, typen: bloecke.map((b) => b?.type), modell: data?.model, verlauf: verlauf.length, verlaufFehler: verlaufR.error?.message ?? null })
   } catch (err) {
     const msg = (err as Error).message
     // Damit im Chat nicht ewig "Claude tippt" steht: Fehler als Nachricht

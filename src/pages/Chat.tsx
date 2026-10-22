@@ -703,13 +703,15 @@ function GruppeModal({ onClose, onFertig }: { onClose: () => void; onFertig: (k:
 
 /** Text mit klickbaren Links und hervorgehobenen @Namen. */
 function Text({ text }: { text: string }) {
-  const teile = text.split(/(https?:\/\/\S+|@[\p{L}\p{N}_-]+)/u)
+  // Claude schreibt gern **fett** -- das soll im Chat auch fett aussehen.
+  const teile = text.split(/(https?:\/\/\S+|@[\p{L}\p{N}_-]+|\*\*[^*\n]+\*\*)/u)
   return (
     <span className="ch-text">
       {teile.map((t, i) =>
         /^https?:\/\//.test(t) ? <a key={i} href={t} target="_blank" rel="noreferrer">{t}</a>
-          : t.startsWith('@') ? <b key={i}>{t}</b>
-            : <span key={i}>{t}</span>,
+          : /^\*\*[^*\n]+\*\*$/.test(t) ? <strong key={i}>{t.slice(2, -2)}</strong>
+            : t.startsWith('@') ? <b key={i}>{t}</b>
+              : <span key={i}>{t}</span>,
       )}
     </span>
   )
