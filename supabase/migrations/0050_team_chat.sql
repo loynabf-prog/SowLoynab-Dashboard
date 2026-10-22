@@ -60,8 +60,9 @@ begin
   update chat_channels set last_message_at = new.created_at where id = new.channel_id;
   return new;
 end$$;
-drop trigger if exists trg_chat_touch_channel on chat_messages;
-create trigger trg_chat_touch_channel after insert on chat_messages
+-- Bewusst ohne DROP: der Supabase-Connector haelt "zerstoererische" Befehle
+-- fuer eine Rueckfrage an, die in der App nicht ankommt -> Migration bricht ab.
+create or replace trigger trg_chat_touch_channel after insert on chat_messages
   for each row execute function chat_touch_channel();
 
 -- Ungelesene je Kanal fuer eine Person (eigene Nachrichten zaehlen nicht).
@@ -85,25 +86,28 @@ select 'team', 'Team'
 where not exists (select 1 from chat_channels where kind = 'team');
 
 -- --- RLS + Realtime (nur eingeloggtes Team), wie bei den Anstupsern -------------
+alter table chat_channels enable row level security;
+alter table chat_messages enable row level security;
+alter table chat_reads enable row level security;
+
 do $$
 declare
   t text;
 begin
   foreach t in array array['chat_channels', 'chat_messages', 'chat_reads']
   loop
-    execute format('alter table %I enable row level security', t);
-    execute format('drop policy if exists "team_all_%1$s" on %1$I', t);
-    execute format(
-      'create policy "team_all_%1$s" on %1$I for all using (auth.role() = ''authenticated'') with check (auth.role() = ''authenticated'')',
-      t
-    );
-    if not exists (
-      select 1 from pg_publication_tables
-      where pubname = 'supabase_realtime' and tablename = t
-    ) then
+    if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = t and policyname = 'team_all_' || t) then
+      execute format(
+        'create policy "team_all_%1$s" on %1$I for all using (auth.role() = ''authenticated'') with check (auth.role() = ''authenticated'')',
+        t
+      );
+    end if;
+    if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and tablename = t) then
       execute format('alter publication supabase_realtime add table %I', t);
     end if;
   end loop;
 end$$;
 
 grant execute on function chat_ungelesen(uuid) to authenticated;
+alter function chat_touch_channel() set search_path = public;
+alter function chat_ungelesen(uuid) set search_path = public;
