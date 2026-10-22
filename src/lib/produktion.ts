@@ -39,7 +39,7 @@ export function eingangVon(ordner: string): string {
 /** Kurzer Satz, wo der Auftrag gerade steht. Bewusst ohne Druck. */
 export function statusText(a: Pick<Auftrag, 'status' | 'schritt' | 'notiz'>): string {
   switch (a.status) {
-    case 'wartet': return 'Wartet auf die Automatik – startet spätestens zur nächsten vollen Stunde'
+    case 'wartet': return 'Wartet auf die Automatik – startet beim nächsten stündlichen Lauf (immer um :26)'
     case 'laeuft': return a.schritt ? `Läuft: ${a.schritt}` : 'Wird sortiert und geschnitten'
     case 'feinschliff': return a.schritt || 'Liegt bei Lion im Feinschliff'
     case 'fertig': return 'Fertig – alles im Fertig-Ordner'
