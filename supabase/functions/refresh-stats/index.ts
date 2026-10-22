@@ -65,6 +65,8 @@ async function tiktokStats(urlStr: string, actor: string, token: string): Promis
   const items = await apifyRun(actor, { postURLs: [urlStr], resultsPerPage: 1, shouldDownloadVideos: false, shouldDownloadCovers: false }, token)
   const it = items[0]
   if (!it) return null
+  // Geloeschte/private Videos: Apify liefert einen Eintrag ohne Zahlen -> wie ein Fehler behandeln
+  if (it.error || it.errorDescription) throw new Error(`nicht abrufbar: ${String(it.error ?? it.errorDescription).slice(0, 80)}`)
   return {
     views: pick(it, ['playCount', 'views', 'videoViewCount', 'playcount']),
     likes: pick(it, ['diggCount', 'likes', 'likeCount']),
@@ -80,6 +82,8 @@ async function instagramStats(urlStr: string, actor: string, token: string): Pro
   const items = await apifyRun(actor, { directUrls: [urlStr], resultsType: 'posts', resultsLimit: 1 }, token)
   const it = items[0]
   if (!it) return null
+  // Geloeschte/private Videos: Apify liefert einen Eintrag ohne Zahlen -> wie ein Fehler behandeln
+  if (it.error || it.errorDescription) throw new Error(`nicht abrufbar: ${String(it.error ?? it.errorDescription).slice(0, 80)}`)
   return {
     views: pick(it, ['videoViewCount', 'videoPlayCount', 'views', 'playCount']),
     likes: pick(it, ['likesCount', 'likes']),
@@ -152,11 +156,14 @@ Deno.serve(async (req) => {
         v.instagram_url ? instagramStats(v.instagram_url, igActor, token!).catch((e) => { errors.push(`ig ${v.id}: ${(e as Error).message}`); return null }) : Promise.resolve(null),
       ])
       if (!tt && !ig) return
+      // Antwort ohne jede Zahl zaehlt nicht als Messung
+      const leer = (x: Stats | null) => !x || (x.views == null && x.likes == null && x.comments == null)
+      if (leer(tt) && leer(ig)) { errors.push(`${v.id}: Antwort ohne Zahlen`); return }
 
       // Schlaegt eine Plattform fehl (z. B. Apify-Limit), bleiben ihre alten
       // Zahlen stehen -- sonst wuerde ein Fehler die Views "auf null" setzen.
-      const t = tt ?? { views: v.views_tiktok ?? null, likes: v.likes_tiktok ?? null, comments: v.comments_tiktok ?? null, shares: v.shares_tiktok ?? null, saves: v.saves_tiktok ?? null }
-      const i = ig ?? { views: v.views_ig ?? null, likes: v.likes_ig ?? null, comments: v.comments_ig ?? null, shares: v.shares_ig ?? null, saves: v.saves_ig ?? null }
+      const t = !leer(tt) ? tt! : { views: v.views_tiktok ?? null, likes: v.likes_tiktok ?? null, comments: v.comments_tiktok ?? null, shares: v.shares_tiktok ?? null, saves: v.saves_tiktok ?? null }
+      const i = !leer(ig) ? ig! : { views: v.views_ig ?? null, likes: v.likes_ig ?? null, comments: v.comments_ig ?? null, shares: v.shares_ig ?? null, saves: v.saves_ig ?? null }
       const merged = {
         views: sum(t.views, i.views),
         likes: sum(t.likes, i.likes),
@@ -176,8 +183,8 @@ Deno.serve(async (req) => {
       if (duration != null) videoPatch.duration_seconds = duration
 
       // Alles Weitere aus derselben Antwort mitnehmen (Migration 0044).
-      const ttMeta = tt ? tiktokMeta(tt.roh) : null
-      const igMeta = ig ? instagramMeta(ig.roh) : null
+      const ttMeta = !leer(tt) ? tiktokMeta(tt!.roh) : null
+      const igMeta = !leer(ig) ? instagramMeta(ig!.roh) : null
       Object.assign(videoPatch, ohneLeere({ ...(ttMeta?.patch ?? {}), ...(igMeta?.patch ?? {}) }))
       if (ttMeta || igMeta) videoPatch.meta_updated_at = new Date().toISOString()
       // Vorschaubild nur einmal sichern -- es aendert sich nicht.
@@ -199,7 +206,7 @@ Deno.serve(async (req) => {
         views_ig: i.views, likes_ig: i.likes, comments_ig: i.comments,
       }
       // Verlaufspunkt nur, wenn jede verlinkte Plattform frisch geantwortet hat.
-      const vollstaendig = (!v.tiktok_url || tt) && (!v.instagram_url || ig)
+      const vollstaendig = (!v.tiktok_url || !leer(tt)) && (!v.instagram_url || !leer(ig))
       if (!vollstaendig) return
       await supa.from('video_stats').delete().eq('video_id', v.id).eq('captured_on', today)
       const { error: insErr } = await supa.from('video_stats').insert({ video_id: v.id, captured_on: today, ...merged, reach, ...verlauf })
@@ -220,7 +227,7 @@ Deno.serve(async (req) => {
 
     const nowIso = new Date().toISOString()
     try { await supa.from('system_status').upsert({ job: 'refresh-stats', last_ok: nowIso, last_error: null, detail: `${updated} aktualisiert von ${due} fälligen (${vids?.length ?? 0} insgesamt mit Link)`, updated_at: nowIso }, { onConflict: 'job' }) } catch { /* ignore */ }
-    return json({ updated, due, checked: vids?.length ?? 0, errors: errors.slice(0, 8) })
+    return json({ updated, due, checked: vids?.length ?? 0, errors: errors.slice(0, 12) })
   } catch (err) {
     try {
       const supa = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)

@@ -1,6 +1,6 @@
 // Supabase Edge Function: refresh-account-stats
 // -------------------------------------------------------------------------
-// Liest für jeden Social-Account AKTIVER Kunden einmal im Monat (am 1., per
+// Liest für jeden Social-Account AKTIVER Kunden einmal pro Woche (montags, per
 // Cron) die Zahlen aus. TikTok-Follower kommen zusätzlich kostenlos bei jedem
 // Posting über fetch-post-links mit.
 //
@@ -175,19 +175,21 @@ Deno.serve(async (req) => {
     const proKunde = new Map<string, Record<string, number | null>[]>()
     let geholt = 0
 
-    for (const z of ziele) {
+    // Vier Accounts gleichzeitig: nacheinander lief der Abruf bei 21 Accounts
+    // ins Zeitlimit der Edge Function (WORKER_RESOURCE_LIMIT).
+    async function einer(z: Ziel) {
       const h = z.handle.replace(/^@/, '').trim()
-      if (!h) continue
+      if (!h) return
       let s: AccountStats | null = null
       try {
         s = z.platform === 'tiktok'
-          ? await tiktokAccount(h, ttActor, token)
-          : await instagramAccount(h, igActor, token)
+          ? await tiktokAccount(h, ttActor, token!)
+          : await instagramAccount(h, igActor, token!)
       } catch (e) {
         errors.push(`${z.platform} ${h}: ${(e as Error).message}`)
-        continue
+        return
       }
-      if (!s) continue
+      if (!s) return
       geholt++
 
       const patch = spalten(z.platform, s)
@@ -203,6 +205,10 @@ Deno.serve(async (req) => {
         try { await supa.from('client_accounts').update({ ...p, profil_updated_at: new Date().toISOString() }).eq('id', z.account_id) } catch { /* Zugabe */ }
       }
     }
+    let pos = 0
+    await Promise.all(Array.from({ length: Math.min(4, ziele.length) }, async () => {
+      while (pos < ziele.length) await einer(ziele[pos++])
+    }))
 
     // Gesamtzeile je Kunde: alle Accounts addiert. Zwei Instagram-Accounts
     // mit 900 und 1.100 Followern ergeben hier 2.000 -- so, wie man den
