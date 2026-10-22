@@ -751,3 +751,154 @@ a.n-zeile { text-decoration: none; }
 .n-segment.eng { max-width: 100%; }
 .n-segment.eng button { min-width: 0; padding-left: 4px; padding-right: 4px; font-size: 13px; white-space: nowrap; }
 @media (max-width: 430px) { .n-segment.eng button small { display: none; } }
+
+/* =============================================================================
+   Team-Chat (/chat) -- iMessage-artig, Akzent Agentur-Orange
+   ============================================================================= */
+.n-inhalt.chat { padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 8px); }
+.ch {
+  display: grid; grid-template-columns: 1fr; gap: 16px;
+  height: calc(100dvh - 62px - env(safe-area-inset-top) - var(--tabbar-h) - env(safe-area-inset-bottom) - 20px);
+  min-height: 420px;
+}
+.ch-liste { overflow-y: auto; min-height: 0; }
+.ch-gespraech { display: none; min-height: 0; }
+.ch.ch-offen .ch-liste { display: none; }
+.ch.ch-offen .ch-gespraech { display: flex; }
+@media (min-width: 900px) {
+  .n-inhalt.chat { padding: 40px 32px 24px; }
+  .ch { grid-template-columns: 320px 1fr; height: calc(100dvh - 64px); }
+  .ch .ch-liste, .ch.ch-offen .ch-liste { display: block; }
+  .ch .ch-gespraech { display: flex; background: var(--bg-card); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); border: 1px solid var(--border); overflow: hidden; }
+  .ch-zurueck { display: none !important; }
+}
+
+.ch-liste-kopf { display: flex; align-items: center; justify-content: space-between; margin: 4px 4px 12px; }
+.ch-liste-kopf h1 { font-size: 34px; font-weight: 700; letter-spacing: -0.03em; margin: 0; }
+.ch-rund {
+  width: 38px; height: 38px; border-radius: 50%; flex: none;
+  display: grid; place-items: center; border: none; cursor: pointer;
+  background: var(--bg-sunken); color: var(--text);
+}
+.ch-rund:active { opacity: 0.7; }
+.ch-kanal.on { background: var(--glut-soft); }
+.ch-bild {
+  width: 40px; height: 40px; border-radius: 50%; flex: none;
+  display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 15px;
+}
+.ch-bild.team { background: var(--ink); font-size: 12px; font-style: italic; letter-spacing: -0.02em; }
+.ch-bild.claude { background: linear-gradient(135deg, #ff8a4c, var(--glut)); }
+.ch-bild.gruppe { background: #5e5ce6; }
+.ch-zahl {
+  min-width: 22px; height: 22px; padding: 0 7px; border-radius: 999px; margin-left: auto;
+  background: var(--glut); color: #fff; font-size: 12px; font-weight: 700; display: grid; place-items: center;
+}
+.ch-tipp { font-size: 13px; color: var(--text-dim); margin: 14px 6px; line-height: 1.45; }
+.ch-tipp b { color: var(--text-muted); font-weight: 600; }
+.ch-leer { margin: auto; display: grid; justify-items: center; gap: 10px; color: var(--text-dim); }
+.ch-wer { display: grid; justify-items: center; gap: 8px; text-align: center; padding: 60px 20px; }
+.ch-wer h2 { margin: 6px 0 0; }
+.ch-wer-opts { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; justify-content: center; }
+
+/* Gespraech */
+.ch-g { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
+.ch-g-kopf {
+  display: flex; align-items: center; gap: 10px; padding: 6px 4px 10px;
+  border-bottom: 1px solid var(--sep);
+}
+@media (min-width: 900px) { .ch-g-kopf { padding: 12px 16px; } }
+.ch-zurueck { border: none; background: none; color: var(--glut); padding: 4px; margin-left: -6px; cursor: pointer; display: grid; place-items: center; }
+.ch-g-titel { display: grid; min-width: 0; }
+.ch-g-titel strong { font-size: 16px; }
+.ch-g-titel span { font-size: 12.5px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.ch-verlauf { flex: 1; overflow-y: auto; padding: 12px 2px; display: flex; flex-direction: column; gap: 2px; overscroll-behavior: contain; }
+@media (min-width: 900px) { .ch-verlauf { padding: 16px 20px; } }
+.ch-frueher { align-self: center; margin-bottom: 8px; }
+.ch-tag { text-align: center; font-size: 12px; font-weight: 600; color: var(--text-dim); margin: 14px 0 6px; }
+.ch-system { text-align: center; font-size: 12.5px; color: var(--text-dim); margin: 6px 20px; }
+.ch-start { margin: auto; max-width: 360px; text-align: center; display: grid; gap: 8px; justify-items: center; color: var(--text-muted); padding: 20px 0; }
+.ch-start .as-beispiel { width: 100%; text-align: left; }
+
+.ch-msg { display: flex; flex-direction: column; align-items: flex-start; max-width: 82%; margin-top: 8px; }
+.ch-msg.folge { margin-top: 2px; }
+.ch-msg.ich { align-self: flex-end; align-items: flex-end; }
+.ch-autor { font-size: 12px; color: var(--text-dim); margin: 0 12px 3px; display: flex; gap: 4px; align-items: center; font-weight: 600; }
+.ch-msg.claude .ch-autor { color: var(--glut); }
+.ch-blase {
+  background: var(--bg-sunken); color: var(--text); padding: 8px 12px 6px; border-radius: 19px;
+  font-size: 16px; line-height: 1.35; white-space: pre-wrap; word-break: break-word;
+}
+.ch-msg.ich .ch-blase { background: var(--glut); color: #fff; }
+.ch-msg.ich .ch-blase a { color: #fff; }
+.ch-msg.claude .ch-blase { background: var(--glut-soft); }
+.ch-text b { font-weight: 650; }
+.ch-zeit { font-size: 10.5px; opacity: 0.55; margin-left: 8px; float: right; margin-top: 6px; }
+.ch-link { margin-top: 4px; }
+
+.ch-tippt { display: flex; gap: 4px; padding: 13px 14px; }
+.ch-tippt span { width: 7px; height: 7px; border-radius: 50%; background: var(--glut); opacity: 0.4; animation: ch-punkt 1.2s infinite; }
+.ch-tippt span:nth-child(2) { animation-delay: 0.15s; }
+.ch-tippt span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes ch-punkt { 0%, 60%, 100% { opacity: 0.25; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-3px); } }
+
+/* Aufgaben-Karte */
+.ch-aufgabe {
+  display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; min-width: 240px;
+  background: var(--bg-card); border: 1px solid var(--border-strong); border-radius: 18px; box-shadow: var(--shadow-sm);
+}
+.ch-aufgabe.ich { border-color: color-mix(in srgb, var(--glut) 45%, transparent); }
+.ch-haken {
+  width: 26px; height: 26px; border-radius: 50%; flex: none; margin-top: 2px; cursor: pointer;
+  border: 2px solid var(--border-strong); background: transparent; color: #fff; display: grid; place-items: center;
+}
+.ch-aufgabe.fertig .ch-haken { background: var(--gruen); border-color: var(--gruen); }
+.ch-aufgabe-text { display: grid; gap: 2px; min-width: 0; }
+.ch-aufgabe-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--glut); }
+.ch-aufgabe-text strong { font-size: 15.5px; line-height: 1.3; }
+.ch-aufgabe.fertig strong { text-decoration: line-through; color: var(--text-dim); }
+.ch-aufgabe-meta { font-size: 13px; color: var(--text-muted); }
+.ch-aufgabe-meta.rot { color: var(--rot); font-weight: 600; }
+
+/* Plan-Karte von Claude */
+.ch-plan {
+  margin-top: 6px; padding: 12px 14px; border-radius: 18px; min-width: 260px;
+  background: var(--bg-card); border: 1px solid color-mix(in srgb, var(--glut) 40%, transparent);
+}
+.ch-plan.verworfen { opacity: 0.55; }
+.ch-plan-kopf { font-size: 12px; font-weight: 700; color: var(--glut); display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+.ch-plan ol { margin: 0 0 4px; padding-left: 20px; display: grid; gap: 4px; font-size: 14.5px; }
+.ch-plan li.ok::marker { content: '✓  '; color: var(--gruen); }
+.ch-plan li.kaputt { color: var(--rot); }
+.ch-plan-knoepfe { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
+
+/* Eingabe */
+.ch-eingabe { padding: 8px 0 0; border-top: 1px solid var(--sep); position: relative; }
+@media (min-width: 900px) { .ch-eingabe { padding: 10px 14px 14px; } }
+.ch-eingabe-zeile { display: flex; align-items: flex-end; gap: 8px; }
+.ch-eingabe textarea {
+  flex: 1; resize: none; min-height: 38px; max-height: 140px; padding: 8px 14px; line-height: 1.35;
+  border-radius: 20px; border: 1px solid var(--border-strong); background: var(--bg-card); font-size: 16px;
+}
+.ch-senden {
+  width: 36px; height: 36px; border-radius: 50%; border: none; flex: none; margin-bottom: 1px;
+  background: var(--glut); color: #fff; display: grid; place-items: center; cursor: pointer;
+}
+.ch-senden:disabled { background: var(--bg-sunken); color: var(--text-dim); cursor: default; }
+.ch-vorschlaege {
+  position: absolute; bottom: calc(100% + 6px); left: 46px; right: 46px; z-index: 5;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden;
+}
+.ch-vorschlaege button {
+  display: flex; gap: 10px; align-items: baseline; width: 100%; padding: 10px 14px; border: none; background: none;
+  text-align: left; cursor: pointer; font-size: 15px; color: var(--text);
+}
+.ch-vorschlaege button + button { border-top: 1px solid var(--sep); }
+.ch-vorschlaege span { color: var(--text-dim); font-size: 13px; }
+
+.ch-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.ch-chips button {
+  padding: 7px 14px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--bg-card);
+  font-size: 14px; font-weight: 600; cursor: pointer; color: var(--text);
+}
+.ch-chips button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }

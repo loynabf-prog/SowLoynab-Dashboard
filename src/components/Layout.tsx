@@ -12,7 +12,7 @@ import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
   Sun, CalendarDays, Clapperboard, Users, Plus, Search, Sparkles, ChevronRight,
   LogOut, Calendar, Mail, BarChart3, TrendingUp, Target, ListChecks,
-  ReceiptEuro, Wallet, Bookmark, UserRound, Settings, Trash2, FolderOpen, CalendarRange, RefreshCw } from 'lucide-react'
+  ReceiptEuro, Wallet, Bookmark, UserRound, Settings, Trash2, FolderOpen, CalendarRange, RefreshCw, MessageCircle } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useIdentity } from '../context/IdentityContext'
@@ -21,6 +21,7 @@ import { sichtbareBereiche } from '../lib/bereiche'
 import { allesVergessen } from '../lib/merken'
 import AssistentButton from './AssistentButton'
 import NudgeCenter from './NudgeCenter'
+import ChatButton from './ChatButton'
 import CommandPalette from './CommandPalette'
 import QuickAdd from './QuickAdd'
 import UpdatePrompt from './UpdatePrompt'
@@ -42,7 +43,7 @@ const SYMBOL: Record<string, LucideIcon> = {
   '/kalender': Calendar, '/postfach': Mail, '/analyse': BarChart3, '/leistung': TrendingUp,
   '/leads': Target, '/aufgaben': ListChecks, '/rechnungen': ReceiptEuro, '/finanzen': Wallet,
   '/inspirationen': Bookmark, '/team': UserRound, '/einstellungen': Settings, '/papierkorb': Trash2,
-  '/medien': FolderOpen, '/monate': CalendarRange, '/produktion': Clapperboard,
+  '/medien': FolderOpen, '/monate': CalendarRange, '/produktion': Clapperboard, '/chat': MessageCircle,
 }
 const HAUPT_PFADE = ['/', '/plan', '/posting', '/monate', '/kunden']
 
@@ -51,7 +52,7 @@ const FARBE: Record<string, string> = {
   '/kalender': 'rot', '/postfach': 'blau', '/analyse': 'blau', '/leistung': 'gruen',
   '/leads': 'glut', '/aufgaben': 'gelb', '/rechnungen': 'gruen', '/finanzen': 'gruen',
   '/inspirationen': 'lila', '/team': 'blau', '/einstellungen': 'grau', '/papierkorb': 'grau',
-  '/monate': 'glut', '/produktion': 'lila', '/medien': 'blau',
+  '/monate': 'glut', '/produktion': 'lila', '/medien': 'blau', '/chat': 'gruen',
 }
 
 function aktiv(z: Ziel, pfad: string): boolean {
@@ -74,8 +75,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const gruppen = bereiche
     .map((b) => ({ titel: b.label, seiten: b.seiten.filter((s) => !HAUPT_PFADE.includes(s.to)) }))
     .filter((g) => g.seiten.length > 0)
-  const breit = location.pathname.startsWith('/client/') || location.pathname === '/kalender'
-  const animKey = location.pathname.startsWith('/client/') ? 'client' : location.pathname
+  const breit = location.pathname.startsWith('/client/') || location.pathname === '/kalender' || location.pathname.startsWith('/chat')
+  const chat = location.pathname.startsWith('/chat')
+  const animKey = location.pathname.startsWith('/client/') ? 'client' : chat ? 'chat' : location.pathname
 
   const neu = () => window.dispatchEvent(new Event('open-quickadd'))
 
@@ -118,6 +120,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <button className="n-kopf-knopf" onClick={() => window.dispatchEvent(new Event('open-search'))} aria-label="Suchen" title="Suchen (⌘K)">
           <Search size={21} strokeWidth={2} />
         </button>
+        <ChatButton />
         <NudgeCenter />
         <button
           className="n-avatar"
@@ -129,7 +132,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </button>
       </header>
 
-      <main className={`n-inhalt ${breit ? 'breit' : ''}`}>
+      <main className={`n-inhalt ${breit ? 'breit' : ''} ${chat ? 'chat' : ''}`}>
         <div className="page" key={animKey}>{children}</div>
       </main>
 

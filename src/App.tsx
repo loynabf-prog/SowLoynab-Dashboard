@@ -20,6 +20,7 @@ import Invoices from './pages/Invoices'
 import Inspirations from './pages/Inspirations'
 import Postfach from './pages/Postfach'
 import Settings from './pages/Settings'
+import Chat from './pages/Chat'
 import ContractSign from './pages/ContractSign'
 import Layout from './components/Layout'
 import Spinner from './components/Spinner'
@@ -82,6 +83,8 @@ export default function App() {
         <Route path="/team" element={<Team />} />
         <Route path="/einstellungen" element={<Settings />} />
         <Route path="/papierkorb" element={<Trash />} />
+        <Route path="/chat" element={<Chat />} />
+        <Route path="/chat/:id" element={<Chat />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

@@ -31,7 +31,7 @@ Deno.serve(async (req) => {
 
     webpush.setVapidDetails(subject, pub, priv)
 
-    const { member_id, title, body, link } = await req.json()
+    const { member_id, title, body, link, tag } = await req.json()
     if (!member_id) return json({ error: 'member_id fehlt.' }, 400)
 
     const supa = createClient(
@@ -44,7 +44,8 @@ Deno.serve(async (req) => {
       .eq('member_id', member_id)
     if (error) return json({ error: error.message }, 500)
 
-    const payload = JSON.stringify({ title: title || 'Anstupser', body: body || '', link: link || '/' })
+    // tag: gleiche Kennung ersetzt die vorige Benachrichtigung (z. B. ein Chat = eine Zeile)
+    const payload = JSON.stringify({ title: title || 'Anstupser', body: body || '', link: link || '/', tag: tag || undefined })
 
     let sent = 0
     for (const s of subs ?? []) {
