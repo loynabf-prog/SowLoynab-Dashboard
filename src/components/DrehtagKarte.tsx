@@ -1,10 +1,10 @@
 // Drehtag in der Kundenakte: Rohmaterial hochladen, Drehtag abschliessen,
 // und sehen, wo die Videos in der Kette stehen.
 //
-//   1. "Rohmaterial hochladen" oeffnet den _Eingang des Kunden in Dropbox
+//   1. "Rohmaterial hochladen" oeffnet 1 Eingang/<Kunde> in Dropbox
 //   2. Clips aus den Kamera-Uploads dort hineinschieben
 //   3. "Drehtag abschliessen" -> Auftrag; die Automatik sortiert und schneidet,
-//      Lion bekommt den Feinschliff im Chat, fertige Exporte landen in 3_Fertig
+//      Lion bekommt den Feinschliff im Chat (3 Feinschliff), fertige Exporte landen in 4 Fertig
 
 import { useCallback, useEffect, useState } from 'react'
 import { Check, Clapperboard, ExternalLink, Loader2, Upload } from 'lucide-react'

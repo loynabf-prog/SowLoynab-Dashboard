@@ -2,9 +2,10 @@ import { describe, it, expect } from 'vitest'
 import { eingangVon, istVideo, statusText } from '../produktion'
 
 describe('produktion', () => {
-  it('Eingang liegt im Kundenordner', () => {
-    expect(eingangVon('/Sow & Loynab Media/01_Kunden/Kebab Kumpels')).toBe('/Sow & Loynab Media/01_Kunden/Kebab Kumpels/_Eingang')
-    expect(eingangVon('/Sow & Loynab Media/01_Kunden/Kebab Kumpels/')).toBe('/Sow & Loynab Media/01_Kunden/Kebab Kumpels/_Eingang')
+  it('Eingang liegt oben in 1 Eingang/<Kunde>', () => {
+    expect(eingangVon('/Sow & Loynab Media/Kunden/Kebab Kumpels')).toBe('/Sow & Loynab Media/1 Eingang/Kebab Kumpels')
+    expect(eingangVon('/Sow & Loynab Media/Kunden/Kebab Kumpels/')).toBe('/Sow & Loynab Media/1 Eingang/Kebab Kumpels')
+    expect(eingangVon('/Sow & Loynab Media/Kunden/_Eigener Account')).toBe('/Sow & Loynab Media/1 Eingang/_Eigener Account')
   })
   it('zaehlt nur Videodateien', () => {
     expect(istVideo('IMG_4711.MOV')).toBe(true)

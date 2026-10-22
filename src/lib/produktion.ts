@@ -1,9 +1,12 @@
 // Produktions-Auftraege: Drehtag abschliessen -> Automatik sortiert und schneidet.
 // ---------------------------------------------------------------------------
-// Dropbox je Kunde:  _Eingang -> 1_Videos/<Idee> -> 2_Feinschliff/<Idee> -> 3_Fertig
+// Dropbox (seit 22.10.2026): der Ordner ist der Status.
+//   1 Eingang/<Kunde> -> 2 Im Schnitt/<Kunde> - <Idee> -> 3 Feinschliff/<Kunde> - <Idee>
+//   -> 4 Fertig/<Kunde> - <Idee>.mp4 -> Kunden/<Kunde>/Videos/<Datum> <Idee>
+// Kundenordner (clients.dropbox_ordner): /Sow & Loynab Media/Kunden/<Kunde>
 // Ein Auftrag entsteht, wenn jemand im CRM "Drehtag abschliessen" tippt.
 // Abgeholt wird er vom stuendlichen Automatik-Lauf auf dem Schnitt-PC
-// (Anleitung: 00_Agentur-Wissen/Pipeline.md in Dropbox).
+// (Anleitung: Agentur/Automatik/Pipeline.md in Dropbox).
 
 import { supabase } from './supabase'
 
@@ -26,14 +29,19 @@ export interface Auftrag {
 }
 
 export const STUFEN = {
-  eingang: '_Eingang',
-  videos: '1_Videos',
-  feinschliff: '2_Feinschliff',
-  fertig: '3_Fertig',
+  eingang: '1 Eingang',
+  schnitt: '2 Im Schnitt',
+  feinschliff: '3 Feinschliff',
+  fertig: '4 Fertig',
 } as const
 
+/** Eingang eines Kunden: <Basis>/1 Eingang/<Kunde>, aus dem Kundenordner <Basis>/Kunden/<Kunde>. */
 export function eingangVon(ordner: string): string {
-  return `${ordner.replace(/\/+$/, '')}/${STUFEN.eingang}`
+  const o = ordner.replace(/\/+$/, '')
+  const i = o.lastIndexOf('/')
+  const kunde = o.slice(i + 1)
+  const basis = o.slice(0, i).replace(/\/Kunden$/, '')
+  return `${basis}/${STUFEN.eingang}/${kunde}`
 }
 
 /** Kurzer Satz, wo der Auftrag gerade steht. Bewusst ohne Druck. */

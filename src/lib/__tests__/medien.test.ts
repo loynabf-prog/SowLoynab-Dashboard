@@ -19,7 +19,7 @@ describe('sortiert', () => {
 
 describe('brotkrumen', () => {
   it('vom Kundenordner bis hierher', () => {
-    const k = '/Sow & Loynab Media/01_Kunden/Kebab Kumpels'
+    const k = '/Sow & Loynab Media/Kunden/Kebab Kumpels'
     expect(brotkrumen(k, `${k}/2026-10_Drehtag-01/03_Schnitt`).map((b) => b.name))
       .toEqual(['Kebab Kumpels', '2026-10_Drehtag-01', '03_Schnitt'])
   })
@@ -36,6 +36,6 @@ describe('Helfer', () => {
     expect(relativ('/a/K', '/a/K/x/y')).toBe('x/y')
   })
   it('Weblink kodiert Sonderzeichen', () => {
-    expect(dropboxWebLink('/Sow & Loynab Media/01_Kunden')).toBe('https://www.dropbox.com/home/Sow%20%26%20Loynab%20Media/01_Kunden')
+    expect(dropboxWebLink('/Sow & Loynab Media/Kunden')).toBe('https://www.dropbox.com/home/Sow%20%26%20Loynab%20Media/Kunden')
   })
 })

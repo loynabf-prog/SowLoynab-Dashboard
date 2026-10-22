@@ -1,7 +1,7 @@
 // Supabase Edge Function: drive-import
 // -------------------------------------------------------------------------
 // Holt alle Dateien aus einem oeffentlichen Google-Drive-Ordner in den
-// _Eingang eines Kunden in Dropbox. Dropbox laedt selbst vom Link
+// Eingang eines Kunden in Dropbox (1 Eingang/<Kunde>). Dropbox laedt selbst vom Link
 // (files/save_url) -- grosse 4K-Videos laufen also nie ueber uns.
 //
 // Arbeitet nur die Tabelle drive_importe ab (Migration 0052):
@@ -24,7 +24,7 @@ const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const APP_KEY = Deno.env.get('DROPBOX_APP_KEY') ?? ''
 const APP_SECRET = Deno.env.get('DROPBOX_APP_SECRET') ?? ''
 const admin = createClient(SUPABASE_URL, SERVICE)
-const ZIEL = /^\/Sow & Loynab Media\/01_Kunden\/[^/]+\/_Eingang$/
+const ZIEL = /^\/Sow & Loynab Media\/1 Eingang\/[^/]+$/
 
 interface Datei { id: string; name: string; job?: string | null; status: 'offen' | 'laeuft' | 'fertig' | 'fehler'; fehler?: string }
 
@@ -96,7 +96,7 @@ async function bearbeite(imp: any) {
   let notiz: string | null = imp.notiz ?? null
 
   if (imp.status === 'neu') {
-    if (!ZIEL.test(imp.ziel)) throw new Error('Ziel muss ein _Eingang-Ordner eines Kunden sein')
+    if (!ZIEL.test(imp.ziel)) throw new Error('Ziel muss ein Kundenordner in 1 Eingang sein')
     const id = ordnerId(imp.quelle)
     if (!id) throw new Error('Das ist kein Google-Drive-Ordnerlink')
     const l = await driveListe(id)
