@@ -27,6 +27,7 @@ import NudgeModal from '../components/NudgeModal'
 import { insertRows, tableMissing, updateRow } from '../lib/db'
 import { statusFolgen } from '../lib/statusSync'
 import { linksJetztHolen, postenPatch, schnellGepostet } from '../lib/videoAktionen'
+import DrehtagKarte from '../components/DrehtagKarte'
 
 /**
  * channel_id nur mitschicken, wenn wirklich ein Kanal gesetzt ist.
@@ -641,6 +642,11 @@ export default function ClientPage() {
         accounts={accounts}
         onPlanen={() => setPlanOffen(true)}
       />
+
+      {/* Drehtag -> Dropbox-Eingang -> Automatik sortiert und schneidet */}
+      {((client as any).dropbox_ordner as string[] | null)?.length ? (
+        <DrehtagKarte clientId={client.id} clientName={client.name} ordner={(client as any).dropbox_ordner as string[]} />
+      ) : null}
 
       {client.notes && (
         <div className="info-box" style={{ marginBottom: 20 }}>

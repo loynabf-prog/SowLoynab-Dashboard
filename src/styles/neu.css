@@ -902,3 +902,27 @@ a.n-zeile { text-decoration: none; }
   font-size: 14px; font-weight: 600; cursor: pointer; color: var(--text);
 }
 .ch-chips button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+/* Drehtag-Karte in der Kundenakte */
+.dt-karte {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  padding: 14px 16px; margin: 0 0 20px; box-shadow: var(--shadow-sm);
+}
+.dt-kopf { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.dt-kopf strong { font-size: 16px; }
+.dt-wahl { margin-left: auto; }
+.dt-wahl button { padding: 4px 10px; font-size: 12.5px; }
+.dt-knoepfe { display: flex; gap: 8px; flex-wrap: wrap; }
+.dt-knoepfe .btn { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
+.dt-knoepfe .btn-primary { background: var(--glut); }
+.dt-hinweis { font-size: 13px; color: var(--text-muted); margin-top: 8px; }
+.dt-link { color: var(--text-dim); font-size: 12.5px; white-space: nowrap; }
+.dt-stufen { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 12px; font-size: 13.5px; color: var(--text-muted); }
+.dt-stufen b { color: var(--text); font-size: 15px; }
+.dt-liste { list-style: none; margin: 12px 0 0; padding: 10px 0 0; border-top: 1px solid var(--sep); display: grid; gap: 6px; font-size: 13.5px; }
+.dt-liste li { display: flex; gap: 10px; }
+.dt-liste li.fehler { color: var(--rot); }
+.dt-liste li.fertig { color: var(--text-dim); }
+.dt-datum { font-weight: 600; min-width: 42px; }
+.spin { animation: dt-dreh 0.9s linear infinite; }
+@keyframes dt-dreh { to { transform: rotate(360deg); } }
