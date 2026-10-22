@@ -19,6 +19,7 @@
 //   ANTHROPIC_API_KEY  -> fuer Claude
 
 import { WERKZEUGE } from '../_shared/werkzeuge.ts'
+import { planeMitWerkzeugen } from '../_shared/planen.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -96,44 +97,12 @@ Deno.serve(async (req) => {
       '- Antworte am Ende mit einem kurzen Satz, was du vorbereitet hast.',
     ].join('\n')
 
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-5',
-        // Das Modell denkt vor der Antwort nach -- mit 2000 blieb bei langen Auftraegen
-        // nach dem Nachdenken nichts fuer den Plan uebrig.
-        max_tokens: 12000,
-        system,
-        tools: WERKZEUGE,
-        messages: [{ role: 'user', content: auftrag }],
-      }),
+    // Schritt fuer Schritt planen lassen -- die Reihenfolge der Schritte IST die
+    // Reihenfolge beim Ausfuehren, darauf verlaesst sich die App.
+    const { schritte, text } = await planeMitWerkzeugen({
+      key, modell: 'claude-sonnet-5', system, werkzeuge: WERKZEUGE,
+      messages: [{ role: 'user', content: auftrag }],
     })
-
-    if (!resp.ok) {
-      const detail = await resp.text()
-      return json({ error: `Claude antwortet nicht (${resp.status}): ${detail.slice(0, 200)}` }, 502)
-    }
-
-    const data = await resp.json()
-    const bloecke: any[] = Array.isArray(data?.content) ? data.content : []
-
-    // Werkzeug-Aufrufe in Schritte uebersetzen. Die Reihenfolge der Bloecke
-    // IST die Reihenfolge der Schritte -- darauf verlaesst sich die App beim
-    // Ausfuehren.
-    const schritte = bloecke
-      .filter((b) => b?.type === 'tool_use')
-      .map((b) => ({ art: b.name, ...(b.input ?? {}) }))
-
-    const text = bloecke
-      .filter((b) => b?.type === 'text')
-      .map((b) => String(b.text ?? '').trim())
-      .filter(Boolean)
-      .join('\n')
 
     return json({ schritte, text, auftrag })
   } catch (err) {

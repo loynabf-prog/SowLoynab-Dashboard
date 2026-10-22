@@ -16,6 +16,7 @@
 
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { WERKZEUGE } from '../_shared/werkzeuge.ts'
+import { planeMitWerkzeugen } from '../_shared/planen.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -130,26 +131,14 @@ Deno.serve(async (req) => {
       messages.push({ role: 'user', content: `${fragender}: ${String(body?.frage ?? '').trim() || 'Hallo'}` })
     }
 
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      // Das Modell denkt vor der Antwort nach -- das braucht Platz, sonst bleibt nach
-      // dem Nachdenken nichts fuer die eigentliche Antwort uebrig (stop_reason max_tokens).
-      body: JSON.stringify({ model: MODELL, max_tokens: 12000, system, tools: WERKZEUGE, messages }),
+    const { schritte, text, stop, runden } = await planeMitWerkzeugen({
+      key, modell: MODELL, system, werkzeuge: WERKZEUGE, messages,
     })
-    if (!resp.ok) {
-      const detail = await resp.text()
-      throw new Error(`Claude antwortet nicht (${resp.status}): ${detail.slice(0, 200)}`)
-    }
-    const data = await resp.json()
-    const bloecke: any[] = Array.isArray(data?.content) ? data.content : []
-    const schritte = bloecke.filter((b) => b?.type === 'tool_use').map((b) => ({ art: b.name, ...(b.input ?? {}) }))
-    const text = bloecke.filter((b) => b?.type === 'text').map((b) => String(b.text ?? '').trim()).filter(Boolean).join('\n')
 
     const { error } = await supa.from('chat_messages').insert({
       channel_id: kanalId,
       author_kind: 'claude',
-      body: text || (schritte.length ? 'Hier ist mein Vorschlag:' : `Hm, da kam keine Antwort durch (${data?.stop_reason ?? 'unbekannt'}). Frag gern nochmal.`),
+      body: text || (schritte.length ? 'Hier ist mein Vorschlag:' : `Hm, da kam keine Antwort durch (${stop ?? 'unbekannt'}). Frag gern nochmal.`),
       plan: schritte.length ? schritte : null,
       plan_status: schritte.length ? 'offen' : null,
     })
@@ -170,7 +159,7 @@ Deno.serve(async (req) => {
       }).catch(() => undefined)
     }
 
-    return json({ ok: true, schritte: schritte.length, stop: data?.stop_reason, typen: bloecke.map((b) => b?.type), modell: data?.model, verlauf: verlauf.length, verlaufFehler: verlaufR.error?.message ?? null })
+    return json({ ok: true, schritte: schritte.length, stop, runden, verlauf: verlauf.length })
   } catch (err) {
     const msg = (err as Error).message
     // Damit im Chat nicht ewig "Claude tippt" steht: Fehler als Nachricht
