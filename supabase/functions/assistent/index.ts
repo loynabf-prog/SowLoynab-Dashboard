@@ -105,7 +105,9 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-5',
-        max_tokens: 2000,
+        // Das Modell denkt vor der Antwort nach -- mit 2000 blieb bei langen Auftraegen
+        // nach dem Nachdenken nichts fuer den Plan uebrig.
+        max_tokens: 12000,
         system,
         tools: WERKZEUGE,
         messages: [{ role: 'user', content: auftrag }],
