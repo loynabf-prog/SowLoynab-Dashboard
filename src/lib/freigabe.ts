@@ -22,7 +22,7 @@ export interface Aenderung {
   id: string
   video_id: string
   wunsch: string
-  status: 'offen' | 'laeuft' | 'erledigt' | 'fehler'
+  status: 'offen' | 'laeuft' | 'erledigt' | 'fehler' | 'uebergeben'
   notiz: string | null
   created_at: string
   erledigt_am: string | null
