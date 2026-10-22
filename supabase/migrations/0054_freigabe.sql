@@ -87,7 +87,7 @@ begin
       || 'Von Fassie freigegeben. ' || v.title || '.prproj öffnen, Clips in Medien/Clips, offene Punkte in NOTIZEN.md.' || E'\n'
       || 'Export nach 4 Fertig/' || regexp_replace(p_neuer_pfad, '^.*/', '') || '.mp4 (genau der Ordnername).',
     case when lion is null then null else array[lion] end,
-    p_von,
+    auth.uid(),
     1
   )
   returning id into aufgabe;
