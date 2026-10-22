@@ -13,7 +13,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
-  ArrowUp, Bot, Check, ChevronLeft, ListChecks, MessageCircle, Plus, Sparkles, Users, X,
+  ArrowUp, Bot, Check, Copy, ChevronLeft, ListChecks, MessageCircle, Plus, Sparkles, Users, X,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -289,6 +289,17 @@ function Gespraech({ kanal, onGelesen }: { kanal: Kanal; onGelesen: () => void }
     return () => { supabase.removeChannel(ch) }
   }, [kanal.id, ladeAufgaben])
 
+  /** Ganze Nachricht in die Zwischenablage -- ohne die **Sternchen** von Claude. */
+  async function kopieren(text: string) {
+    const sauber = text.replace(/\*\*([^*\n]+)\*\*/g, '$1')
+    try {
+      await navigator.clipboard.writeText(sauber)
+      toast('Kopiert')
+    } catch {
+      toast('Kopieren ging nicht – Text gedrückt halten und markieren')
+    }
+  }
+
   async function frueher() {
     const erste = liste[0]
     if (!erste) return
@@ -468,9 +479,20 @@ function Gespraech({ kanal, onGelesen }: { kanal: Kanal; onGelesen: () => void }
                   {auf ? (
                     <AufgabeKarte a={auf} heute={heute} wer={(auf.assignee_ids ?? []).map((x) => byId(x)?.name).filter(Boolean) as string[]} onToggle={() => abhaken(auf)} ich={ich} />
                   ) : (
-                    <div className="ch-blase">
-                      <Text text={n.body} />
-                      <span className="ch-zeit">{zeit(n.created_at)}</span>
+                    <div className="ch-blase-zeile">
+                      <div className="ch-blase">
+                        <Text text={n.body} />
+                        <span className="ch-zeit">{zeit(n.created_at)}</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="ch-kopieren"
+                        aria-label="Nachricht kopieren"
+                        title="Kopieren"
+                        onClick={() => kopieren(n.body)}
+                      >
+                        <Copy size={14} />
+                      </button>
                     </div>
                   )}
                   {n.plan && n.plan.length > 0 && (

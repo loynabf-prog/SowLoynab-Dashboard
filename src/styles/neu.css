@@ -961,3 +961,22 @@ a.n-zeile { text-decoration: none; }
   font: inherit; font-size: 15px; resize: vertical; background: var(--bg-card); color: var(--text);
 }
 .fg-hinweis, .fg-notiz { font-size: 13px; color: var(--text-muted); line-height: 1.45; }
+
+/* Chat: Nachrichten markier- und kopierbar (global ist Markieren aus) */
+.ch-blase, .ch-blase *, .ch-plan li, .ch-aufgabe-text strong, .ch-system {
+  -webkit-user-select: text; user-select: text;
+  -webkit-touch-callout: default;  /* iPhone: gedrückt halten -> Markieren/Kopieren */
+}
+.ch-blase ::selection { background: rgba(0, 0, 0, 0.18); }
+.ch-msg.ich .ch-blase ::selection { background: rgba(255, 255, 255, 0.4); color: #fff; }
+.ch-blase-zeile { display: flex; align-items: center; gap: 4px; max-width: 100%; }
+.ch-msg.ich .ch-blase-zeile { flex-direction: row-reverse; }
+.ch-kopieren {
+  flex: none; width: 28px; height: 28px; border-radius: 50%; border: none; cursor: pointer;
+  display: grid; place-items: center; background: transparent; color: var(--text-dim);
+  opacity: 0; transition: opacity 0.15s;
+}
+.ch-blase-zeile:hover .ch-kopieren, .ch-kopieren:focus-visible { opacity: 1; }
+.ch-kopieren:hover { background: var(--bg-sunken); color: var(--text); }
+/* Touch-Geraete ohne Hover: Knopf dezent immer sichtbar */
+@media (hover: none) { .ch-kopieren { opacity: 0.45; } }
