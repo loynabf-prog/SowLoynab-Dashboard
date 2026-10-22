@@ -15,6 +15,7 @@ import { drehtagAbschliessen, eingangVon, istVideo, ladeAuftraege, statusText, t
 import { useIdentity } from '../context/IdentityContext'
 import { useTeam } from '../context/TeamContext'
 import { useToast } from '../context/ToastContext'
+import { automatikAnstossen } from '../lib/automatik'
 
 interface Stufen { roh: number; pruefung: number; feinschliff: number; fertig: number }
 
@@ -77,6 +78,7 @@ export default function DrehtagKarte({ clientId, clientName, ordner }: { clientI
     setBusy(true)
     try {
       await drehtagAbschliessen({ clientId, ordner: ordnerJetzt, dateien: clips, memberId })
+      void automatikAnstossen(`Drehtag abgeschlossen: ${clientName} (${clips} Clips)`)
       // Im Team-Chat Bescheid geben -- dort sieht Lion auch spaeter seinen Feinschliff
       const { data: team } = await supabase.from('chat_channels').select('id').eq('kind', 'team').is('deleted_at', null).limit(1)
       const kanal = (team ?? [])[0] as { id: string } | undefined
@@ -84,7 +86,7 @@ export default function DrehtagKarte({ clientId, clientName, ordner }: { clientI
         const wer = memberId ? byId(memberId)?.name ?? 'Jemand' : 'Jemand'
         await supabase.from('chat_messages').insert({
           channel_id: kanal.id, author_kind: 'system',
-          body: `🎬 ${wer} hat den Drehtag bei ${clientName} abgeschlossen – ${clips} Clips im Eingang. Die Automatik sortiert und schneidet.`,
+          body: `🎬 ${wer} hat den Drehtag bei ${clientName} abgeschlossen – ${clips} Clips im Eingang. Die Automatik startet und schneidet.`,
         })
       }
       toast('Drehtag abgeschlossen – die Automatik übernimmt')

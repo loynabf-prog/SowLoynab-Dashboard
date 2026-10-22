@@ -14,6 +14,7 @@ import { aendern, freigeben, ladeFreigaben, offeneRunde, platzInSchlange, vorsch
 import { useIdentity } from '../context/IdentityContext'
 import { useTeam } from '../context/TeamContext'
 import { useToast } from '../context/ToastContext'
+import { automatikAnstossen } from '../lib/automatik'
 
 export default function FreigabeKarte() {
   const { memberId } = useIdentity()
@@ -77,6 +78,7 @@ export default function FreigabeKarte() {
     setBusy(v.id)
     try {
       await aendern(v, wunsch, memberId)
+      void automatikAnstossen(`Änderung: ${v.title} (${v.clients?.name ?? 'Kunde'})`)
       toast('Eingereiht – Claude meldet sich mit neuer Vorschau')
       setWunsch('')
       setWunschFuer(null)
