@@ -4,7 +4,8 @@
 //   1. "Rohmaterial hochladen" oeffnet 1 Eingang/<Kunde> in Dropbox
 //   2. Clips aus den Kamera-Uploads dort hineinschieben
 //   3. "Drehtag abschliessen" -> Auftrag; die Automatik sortiert und schneidet,
-//      Lion bekommt den Feinschliff im Chat (3 Feinschliff), fertige Exporte landen in 4 Fertig
+//      Fassie gibt jedes Video unter Produktion frei (oder laesst aendern),
+//      dann bekommt Lion den Feinschliff im Chat (3 Feinschliff), fertige Exporte landen in 4 Fertig
 
 import { useCallback, useEffect, useState } from 'react'
 import { Check, Clapperboard, ExternalLink, Loader2, Upload } from 'lucide-react'
@@ -15,7 +16,7 @@ import { useIdentity } from '../context/IdentityContext'
 import { useTeam } from '../context/TeamContext'
 import { useToast } from '../context/ToastContext'
 
-interface Stufen { roh: number; feinschliff: number; fertig: number }
+interface Stufen { roh: number; pruefung: number; feinschliff: number; fertig: number }
 
 export default function DrehtagKarte({ clientId, clientName, ordner }: { clientId: string; clientName: string; ordner: string[] }) {
   const { memberId } = useIdentity()
@@ -25,7 +26,7 @@ export default function DrehtagKarte({ clientId, clientName, ordner }: { clientI
   const [clips, setClips] = useState<number | null>(null)
   const [eingangFehler, setEingangFehler] = useState<string | null>(null)
   const [auftraege, setAuftraege] = useState<Auftrag[]>([])
-  const [stufen, setStufen] = useState<Stufen>({ roh: 0, feinschliff: 0, fertig: 0 })
+  const [stufen, setStufen] = useState<Stufen>({ roh: 0, pruefung: 0, feinschliff: 0, fertig: 0 })
   const [busy, setBusy] = useState(false)
 
   const ordnerJetzt = ordner[wahl] ?? ordner[0]
@@ -47,7 +48,7 @@ export default function DrehtagKarte({ clientId, clientName, ordner }: { clientI
     try { setAuftraege(await ladeAuftraege(clientId)) } catch { /* Tabelle fehlt -> Karte bleibt schlicht */ }
     const { data } = await supabase.from('videos').select('produktion_stufe')
       .eq('client_id', clientId).is('deleted_at', null).neq('status', 'posted').not('produktion_stufe', 'is', null)
-    const s: Stufen = { roh: 0, feinschliff: 0, fertig: 0 }
+    const s: Stufen = { roh: 0, pruefung: 0, feinschliff: 0, fertig: 0 }
     for (const v of (data ?? []) as { produktion_stufe: keyof Stufen }[]) s[v.produktion_stufe]++
     setStufen(s)
   }, [clientId])
@@ -129,9 +130,10 @@ export default function DrehtagKarte({ clientId, clientName, ordner }: { clientI
         <a href={dropboxWebLink(ordnerJetzt)} target="_blank" rel="noopener noreferrer" className="dt-link">Ordner <ExternalLink size={11} /></a>
       </div>
 
-      {(stufen.roh + stufen.feinschliff + stufen.fertig > 0) && (
+      {(stufen.roh + stufen.pruefung + stufen.feinschliff + stufen.fertig > 0) && (
         <div className="dt-stufen">
           <span><b>{stufen.roh}</b> sortiert</span>
+          <span><b>{stufen.pruefung}</b> zur Freigabe</span>
           <span><b>{stufen.feinschliff}</b> im Feinschliff</span>
           <span><b>{stufen.fertig}</b> fertig</span>
         </div>

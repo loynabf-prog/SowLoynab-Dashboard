@@ -33,7 +33,7 @@ export const dropbox = {
   link: (pfad: string) => rufe<{ url: string }>('link', { pfad }).then((r) => r.url),
   suche: (query: string, pfad: string) => rufe<{ eintraege: Eintrag[] }>('search', { query, pfad }).then((r) => r.eintraege),
   verschieben: (pfade: string[], nach: string) =>
-    rufe<{ ergebnis: { pfad: string; ok: boolean; fehler?: string }[] }>('move', { pfade, nach }).then((r) => r.ergebnis),
+    rufe<{ ergebnis: { pfad: string; ok: boolean; neu?: string; fehler?: string }[] }>('move', { pfade, nach }).then((r) => r.ergebnis),
 }
 
 /** Ordner zuerst, dann nach Name -- Drehtag-Ordner ("2026-10_...") neueste oben. */

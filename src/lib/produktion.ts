@@ -1,7 +1,7 @@
 // Produktions-Auftraege: Drehtag abschliessen -> Automatik sortiert und schneidet.
 // ---------------------------------------------------------------------------
 // Dropbox (seit 22.10.2026): der Ordner ist der Status.
-//   1 Eingang/<Kunde> -> 2 Im Schnitt/<Kunde> - <Idee> -> 3 Feinschliff/<Kunde> - <Idee>
+//   1 Eingang/<Kunde> -> 2 Im Schnitt/<Kunde> - <Idee> (Freigabe durch Fassie) -> 3 Feinschliff/<Kunde> - <Idee>
 //   -> 4 Fertig/<Kunde> - <Idee>.mp4 -> Kunden/<Kunde>/Videos/<Datum> <Idee>
 // Kundenordner (clients.dropbox_ordner): /Sow & Loynab Media/Kunden/<Kunde>
 // Ein Auftrag entsteht, wenn jemand im CRM "Drehtag abschliessen" tippt.
@@ -49,7 +49,7 @@ export function statusText(a: Pick<Auftrag, 'status' | 'schritt' | 'notiz'>): st
   switch (a.status) {
     case 'wartet': return 'Wartet auf die Automatik – startet beim nächsten stündlichen Lauf (immer um :26)'
     case 'laeuft': return a.schritt ? `Läuft: ${a.schritt}` : 'Wird sortiert und geschnitten'
-    case 'feinschliff': return a.schritt || 'Liegt bei Lion im Feinschliff'
+    case 'feinschliff': return a.schritt || 'Wartet auf Freigabe bzw. liegt bei Lion'
     case 'fertig': return 'Fertig – alles im Fertig-Ordner'
     case 'fehler': return a.notiz ? `Hängt: ${a.notiz}` : 'Hängt – bitte kurz reinschauen'
   }

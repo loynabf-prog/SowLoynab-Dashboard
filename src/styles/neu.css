@@ -926,3 +926,38 @@ a.n-zeile { text-decoration: none; }
 .dt-datum { font-weight: 600; min-width: 42px; }
 .spin { animation: dt-dreh 0.9s linear infinite; }
 @keyframes dt-dreh { to { transform: rotate(360deg); } }
+
+/* Zur Freigabe (Produktion) */
+.fg-karte {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  padding: 14px 16px; margin: 0 0 20px; box-shadow: var(--shadow-sm);
+}
+.fg-kopf { display: flex; flex-direction: column; gap: 2px; margin-bottom: 10px; }
+.fg-kopf strong { font-size: 16px; }
+.fg-kopf span { font-size: 13px; color: var(--text-muted); }
+.fg-liste { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.fg-video { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.fg-zeile {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px;
+  background: none; border: 0; text-align: left; cursor: pointer; color: var(--text);
+}
+.fg-play {
+  flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--glut); color: #fff;
+}
+.fg-video.wartet .fg-play { background: var(--text-dim); }
+.fg-text { display: flex; flex-direction: column; min-width: 0; }
+.fg-titel { font-weight: 600; font-size: 14.5px; }
+.fg-unter { font-size: 12.5px; color: var(--text-muted); }
+.fg-inhalt { padding: 0 12px 12px; display: grid; gap: 10px; }
+.fg-player { width: 100%; max-height: 62vh; border-radius: 10px; background: #000; }
+.fg-lade { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-muted); padding: 8px 0; }
+.fg-knoepfe { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.fg-knoepfe .btn { display: inline-flex; align-items: center; gap: 6px; }
+.fg-knoepfe .btn-primary { background: var(--glut) !important; }
+.fg-wunsch { display: grid; gap: 8px; }
+.fg-wunsch textarea {
+  width: 100%; border: 1px solid var(--border-strong); border-radius: 10px; padding: 10px;
+  font: inherit; font-size: 15px; resize: vertical; background: var(--bg-card); color: var(--text);
+}
+.fg-hinweis, .fg-notiz { font-size: 13px; color: var(--text-muted); line-height: 1.45; }
