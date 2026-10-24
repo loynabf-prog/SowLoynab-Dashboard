@@ -202,6 +202,8 @@ export default function Posting() {
         heuteIso={heuteIso}
         zeigeDatum={zeigeDatum}
         onOeffnen={() => navigate(`/client/${v.client_id}`)}
+            onKunde={() => navigate(`/client/${v.client_id}`)}
+            onVideo={() => navigate(`/client/${v.client_id}?video=${v.id}&open=1`)}
         onPosten={() => posten(v)}
         onLink={(feld, url) => link(v, feld, url)}
         onVorarbeit={(key, wert) => vorarbeit(v, key, wert)}

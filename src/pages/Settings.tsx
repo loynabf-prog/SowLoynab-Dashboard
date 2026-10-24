@@ -9,6 +9,8 @@ import { getPackages, packageLabel, type Package } from '../lib/packages'
 import { dbKlartext, updateRow } from '../lib/db'
 import CaptionVorgabeCard from '../components/CaptionVorgabeCard'
 import PasswortCard from '../components/PasswortCard'
+import { ladeNutzung, type NutzungZeile } from '../lib/nutzung'
+import { ALLE_SEITEN } from '../lib/bereiche'
 
 interface StatusRow { job: string; last_ok: string | null; last_error: string | null; last_error_at: string | null; detail: string | null }
 const JOB_LABEL: Record<string, string> = {
@@ -156,7 +158,39 @@ export default function Settings() {
           </div>
         )}
       </div>
+
+      <NutzungCard />
     </>
+  )
+}
+
+/** Welche Seiten wir wirklich benutzen -- Grundlage, um die Navigation umzusortieren. */
+function NutzungCard() {
+  const [rows, setRows] = useState<NutzungZeile[] | null>(null)
+  useEffect(() => { ladeNutzung().then(setRows) }, [])
+  const label = (pfad: string) => pfad === '/client' ? 'Kundenakte' : ALLE_SEITEN.find((s) => s.to === pfad)?.label ?? pfad
+  const max = Math.max(1, ...(rows ?? []).map((r) => r.aufrufe_30t))
+  return (
+    <div className="settings-card" style={{ marginTop: 18 }}>
+      <div className="section-divider" style={{ borderTop: 'none', paddingTop: 0 }}>Nutzung</div>
+      <p className="muted" style={{ fontSize: 13, margin: '4px 0 12px' }}>
+        Welche Seiten wie oft offen waren (letzte 30 Tage). Danach wird die Navigation umsortiert: viel benutzt nach vorn, wenig benutzt nach hinten.
+      </p>
+      {!rows ? <div className="col-empty">Lade …</div>
+        : rows.length === 0 ? <div className="col-empty">Noch nichts gemessen — ab jetzt zählt jeder Seitenaufruf.</div>
+        : (
+          <div className="status-list">
+            {rows.map((r) => (
+              <div className="status-row ok nutzung-row" key={r.pfad}>
+                <div className="status-main">
+                  <strong>{label(r.pfad)} <span className="muted" style={{ fontWeight: 500 }}>· {r.aufrufe_30t}× · {r.minuten_30t} Min</span></strong>
+                  <span className="nutzung-balken"><i style={{ width: `${Math.round((r.aufrufe_30t / max) * 100)}%` }} /></span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+    </div>
   )
 }
 

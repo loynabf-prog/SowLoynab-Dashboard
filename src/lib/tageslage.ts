@@ -136,7 +136,8 @@ function videoPunkt(v: LageVideo, heuteIso: string, jetztZeit: string): Punkt {
     zeit: hhmm(v.scheduled_time),
     text: f.text,
     ampel: f.ampel,
-    ziel: f.schritt === 'posten' ? '/plan' : '/produktion',
+    // Tipp aufs Video = Video-Details in der Kundenakte (Fassie, 24.10.2026)
+    ziel: v.client_id ? `/client/${v.client_id}?video=${v.id}&open=1` : (f.schritt === 'posten' ? '/plan' : '/produktion'),
     clientId: v.client_id ?? null,
     frist: f.frist,
     drehtag: v.drehtag ?? null,

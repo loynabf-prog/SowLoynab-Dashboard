@@ -20,6 +20,7 @@ import ChatButton from './ChatButton'
 import CommandPalette from './CommandPalette'
 import QuickAdd from './QuickAdd'
 import UpdatePrompt from './UpdatePrompt'
+import NutzungsMesser from './NutzungsMesser'
 
 interface Ziel { to: string; label: string; icon: LucideIcon; end?: boolean; auch?: string[] }
 
@@ -120,6 +121,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <CommandPalette />
       <QuickAdd />
       <UpdatePrompt />
+      <NutzungsMesser />
     </div>
   )
 }

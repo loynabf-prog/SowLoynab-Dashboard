@@ -11,7 +11,7 @@
 // Rechnen und Speichern: lib/monate.ts. Tabelle client_month_plans (0046).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Camera, Check, ChevronDown, ChevronUp, CircleDollarSign, Clapperboard, HelpCircle, ListChecks, Lock, Plus } from 'lucide-react'
 import LogoFrame from '../components/LogoFrame'
 import { useToast } from '../context/ToastContext'
@@ -376,7 +376,7 @@ function KundenZeile({
   return (
     <div>
       <button className="n-zeile" onClick={onToggle} aria-expanded={offen}>
-        <LogoFrame name={z.kunde.name} logoUrl={z.kunde.logo_url} className="a-logo" />
+        <KundenLogo id={z.kunde.id} name={z.kunde.name} logo={z.kunde.logo_url} />
         <span className="n-text">
           <span className="n-titel">{z.kunde.name}</span>
           <span className="n-unter">{unter}</span>
@@ -576,7 +576,7 @@ function VideoZeileUI({ v, offen, onToggle, onPlanen, onZiel, onGepostet }: {
   return (
     <div>
       <button className="n-zeile" onClick={onToggle} aria-expanded={offen}>
-        <LogoFrame name={v.kunde.name} logoUrl={v.kunde.logo_url} className="a-logo" />
+        <KundenLogo id={v.kunde.id} name={v.kunde.name} logo={v.kunde.logo_url} />
         <span className="n-text">
           <span className="n-titel">{v.kunde.name}</span>
           <span className="n-unter">{unter}</span>
@@ -658,7 +658,7 @@ function MonatsCheckAnsicht({ monat, kunden, videos, onGeaendert }: {
         return (
           <div key={k.kunde.id} className="mc-kunde">
             <button className="mc-kunde-kopf" onClick={() => setOffenK(auf ? '' : k.kunde.id)} aria-expanded={auf}>
-              <LogoFrame name={k.kunde.name} logoUrl={k.kunde.logo_url} className="a-logo" />
+              <KundenLogo id={k.kunde.id} name={k.kunde.name} logo={k.kunde.logo_url} />
               <span className="n-text">
                 <span className="n-titel">{k.kunde.name}</span>
                 <span className="n-unter">{k.offen ? `${k.offen} von ${k.videos.length} offen` : `alle ${k.videos.length} geprüft`}</span>
@@ -698,6 +698,18 @@ function MonatsCheckAnsicht({ monat, kunden, videos, onGeaendert }: {
   )
 }
 
+/** Logo in einer Zeile: Tipp darauf fuehrt zur Kundenakte, ohne die Zeile aufzuklappen. */
+function KundenLogo({ id, name, logo }: { id: string; name: string; logo: string | null }) {
+  const navigate = useNavigate()
+  return (
+    <span className="z-logo-knopf" role="link" tabIndex={0} title={`${name} öffnen`}
+      onClick={(e) => { e.stopPropagation(); navigate(`/client/${id}`) }}
+      onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); navigate(`/client/${id}`) } }}>
+      <LogoFrame name={name} logoUrl={logo} className="a-logo" />
+    </span>
+  )
+}
+
 const CHECK_TEXT = { verpasst: 'nicht gepostet', link_fehlt: 'Link fehlt', ungeprueft: 'noch nicht geprüft', ok: 'passt' } as const
 
 function CheckZeile({ c, onGeprueft, onLink, onLinkWeg, onGepostet }: {
@@ -718,7 +730,7 @@ function CheckZeile({ c, onGeprueft, onLink, onLinkWeg, onGepostet }: {
     <div className={`mc-zeile ${c.problem}`}>
       <div className="mc-zeile-oben">
         <span className="n-text">
-          <span className="n-titel">{v.title || 'Video'}</span>
+          <Link className="n-titel mc-titel" to={`/client/${v.client_id}?video=${v.id}&open=1`} title="Video-Details">{v.title || 'Video'}</Link>
           <span className="n-unter">
             {datum ? new Date(datum + 'T12:00:00').toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' }) : 'ohne Datum'}
             {' · '}<b className={`mc-stand ${c.problem}`}>{CHECK_TEXT[c.problem]}</b>

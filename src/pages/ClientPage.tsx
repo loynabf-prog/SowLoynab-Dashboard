@@ -258,9 +258,13 @@ export default function ClientPage() {
   useEffect(() => {
     const focus = searchParams.get('video')
     if (loading || !focus) return
-    if (!videos.some((v) => v.id === focus)) return
+    const treffer = videos.find((v) => v.id === focus)
+    if (!treffer) return
     setTab('board')
     setFlashId(focus)
+    // ?open=1 (aus Plan/Heute/Monate): die Video-Details direkt aufmachen,
+    // so als haette man in der Akte auf das Video getippt.
+    if (searchParams.get('open') === '1') { setEditing(treffer); searchParams.delete('open') }
     const t = setTimeout(() => {
       document.getElementById(`vid-${focus}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }, 60)

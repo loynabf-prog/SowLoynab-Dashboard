@@ -477,6 +477,7 @@ function useWischen({ links, rechts }: { links?: () => void; rechts?: () => void
 }
 
 function Zeile({ p, auf, onTun, onOeffnen }: { p: Punkt; auf?: boolean; onTun: () => void; onOeffnen: () => void }) {
+  const navigate = useNavigate()
   const s = SYMBOL[p.art]
   const was = p.gruppe
     ? { label: brauchtDrehtag(p) ? 'Drehtag planen' : auf ? 'Zuklappen' : 'Zeigen' }
@@ -485,13 +486,14 @@ function Zeile({ p, auf, onTun, onOeffnen }: { p: Punkt; auf?: boolean; onTun: (
   return (
     <div className="n-zeile-wrap" style={{ position: 'relative' }}>
       <div className="n-zeile" role="group">
+        {/* Tipp aufs Logo = Kundenakte, Tipp auf den Text = das Ding selbst (Video-Details, Termin ...) */}
+        {p.kunde && !p.gruppe ? (
+          <button className="z-logo z-logo-knopf" onClick={() => navigate(p.clientId ? `/client/${p.clientId}` : p.ziel)} aria-label={`${p.kunde} öffnen`} title="Kundenakte">
+            <LogoFrame name={p.kunde} logoUrl={p.logo ?? null} className="a-logo" />
+            <span className={`z-logo-punkt ${p.ampel === 'rot' ? 'rot' : p.ampel === 'gelb' ? 'gelb' : s.farbe}`}><s.icon strokeWidth={2.6} /></span>
+          </button>
+        ) : <span className={`n-ic ${s.farbe}`}><s.icon strokeWidth={2.2} /></span>}
         <button className="n-zeile-klick" onClick={onOeffnen} aria-label={`${p.titel} öffnen`}>
-          {p.kunde && !p.gruppe ? (
-            <span className="z-logo">
-              <LogoFrame name={p.kunde} logoUrl={p.logo ?? null} className="a-logo" />
-              <span className={`z-logo-punkt ${p.ampel === 'rot' ? 'rot' : p.ampel === 'gelb' ? 'gelb' : s.farbe}`}><s.icon strokeWidth={2.6} /></span>
-            </span>
-          ) : <span className={`n-ic ${s.farbe}`}><s.icon strokeWidth={2.2} /></span>}
           <span className="n-text">
             <span className="n-titel">{p.titel}</span>
             {p.kunde && !p.gruppe && <span className="n-unter">{p.kunde}</span>}

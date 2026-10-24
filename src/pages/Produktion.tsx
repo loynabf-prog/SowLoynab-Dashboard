@@ -176,6 +176,8 @@ export default function Produktion() {
             zeigeDatum
             nurSchritt={NUR_POSTEN ? undefined : aktiv.feld}
             onOeffnen={() => navigate(`/client/${v.client_id}`)}
+            onKunde={() => navigate(`/client/${v.client_id}`)}
+            onVideo={() => navigate(`/client/${v.client_id}?video=${v.id}&open=1`)}
             onPosten={() => posten(v)}
             onLink={async (feld, url) => { await linkSetzen(v.id, feld, url); laden() }}
             onVorarbeit={(key, wert) => vorarbeit(v, key, wert)}

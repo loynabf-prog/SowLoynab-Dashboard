@@ -5,7 +5,7 @@
 // (Stand, Verschieben, Links, Kundenakte) klappt erst beim Antippen auf.
 
 import { useState } from 'react'
-import { Video, Scissors, CalendarClock, Send, Link2, CheckCircle2, Circle, Check } from 'lucide-react'
+import { Video, Scissors, CalendarClock, Send, Link2, CheckCircle2, Circle, Check, ChevronDown } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { TagVideo } from './PostSchritt'
 import type { FristInfo } from '../lib/fristen'
@@ -41,7 +41,7 @@ function tagName(iso: string, heuteIso: string): string {
 
 export default function PostZeile({
   video, frist, heuteIso, zeigeDatum, nurSchritt,
-  onPosten, onLink, onVorarbeit, onTermin, onOeffnen,
+  onPosten, onLink, onVorarbeit, onTermin, onOeffnen, onKunde, onVideo,
 }: {
   video: TagVideo
   frist: FristInfo
@@ -54,6 +54,10 @@ export default function PostZeile({
   onVorarbeit: (key: VorarbeitKey, wert: boolean) => void
   onTermin: (datum: string) => Promise<void>
   onOeffnen: () => void
+  /** Tipp aufs Logo: zur Kundenakte. */
+  onKunde?: () => void
+  /** Tipp auf Titel: die Video-Details (wie in der Kundenakte). */
+  onVideo?: () => void
 }) {
   const [offen, setOffen] = useState(false)
   const phase = postPhase(video)
@@ -92,13 +96,14 @@ export default function PostZeile({
   return (
     <div className="n-zeile-wrap">
       <div className="n-zeile" role="group">
-        <button className="n-zeile-klick" onClick={() => setOffen((o) => !o)} aria-expanded={offen}>
-          {/* Logo des Kunden statt eines Symbols -- so sieht nicht jede Zeile gleich aus.
-              Der kleine Punkt unten rechts zeigt den Stand. */}
-          <span className="z-logo">
-            <LogoFrame name={video.clients?.name ?? '?'} logoUrl={video.clients?.logo_url ?? null} className="a-logo" />
-            <span className={`z-logo-punkt ${farbe}`}><sym.icon strokeWidth={2.6} /></span>
-          </span>
+        {/* Logo des Kunden statt eines Symbols -- so sieht nicht jede Zeile gleich aus.
+            Der kleine Punkt unten rechts zeigt den Stand. Tipp aufs Logo = Kundenakte. */}
+        <button className="z-logo z-logo-knopf" onClick={onKunde ?? onOeffnen} aria-label={`${video.clients?.name ?? 'Kunde'} öffnen`} title="Kundenakte">
+          <LogoFrame name={video.clients?.name ?? '?'} logoUrl={video.clients?.logo_url ?? null} className="a-logo" />
+          <span className={`z-logo-punkt ${farbe}`}><sym.icon strokeWidth={2.6} /></span>
+        </button>
+        {/* Tipp auf den Text = Video-Details; der Pfeil klappt die Handgriffe auf. */}
+        <button className="n-zeile-klick" onClick={onVideo ?? (() => setOffen((o) => !o))} aria-label={`${video.title} öffnen`}>
           <span className="n-text">
             <span className="n-titel">{video.title}</span>
             {(video.clients?.name || datum) && (
@@ -108,6 +113,7 @@ export default function PostZeile({
           </span>
           {zeit && <span className="n-zeit">{zeit}</span>}
         </button>
+        <button className={`z-auf-knopf ${offen ? 'on' : ''}`} onClick={() => setOffen((o) => !o)} aria-expanded={offen} aria-label={offen ? 'Zuklappen' : 'Mehr'}><ChevronDown strokeWidth={2.4} /></button>
         {knopf && <button className={`n-tun ${knopf.stark ? 'stark' : ''}`} onClick={knopf.tun}>{knopf.text}</button>}
       </div>
 
