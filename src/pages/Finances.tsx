@@ -5,6 +5,7 @@ import { euro, dateShort } from '../lib/format'
 import type { Transaction, TransactionType } from '../lib/types'
 import Modal from '../components/Modal'
 import { heute } from '../lib/datum'
+import BereichReiter from '../components/BereichReiter'
 
 interface TxRow extends Transaction {
   clients?: { name: string } | null
@@ -83,6 +84,7 @@ export default function Finances() {
         <button className="btn" onClick={() => setCreating('expense')}>– Ausgabe</button>
         <button className="btn btn-primary" onClick={() => setCreating('income')}>+ Einnahme</button>
       </div>
+      <BereichReiter />
 
       {error && <div className="error-box" style={{ marginBottom: 16 }}>{error}</div>}
 

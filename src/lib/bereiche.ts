@@ -1,17 +1,33 @@
 // Die Bereiche der Agentur -- und welche Seiten zu welchem gehoeren.
 // ---------------------------------------------------------------------------
-// Eine App, aber klar getrennte Arbeitsbereiche. Jeder Bereich kann spaeter
-// einem Mitarbeiter zugeordnet werden: wer nur "analyse" hat, sieht in der
-// Navigation nur die Analyse. Leer (null) heisst "sieht alles" -- das ist
-// der Normalfall fuer die Gruender.
+// Neu sortiert am 24.10.2026 (Fassie: "alles so schwer zu finden"). Vorher
+// lagen 16 Seiten in 9 Bereichen hinter dem Profilbild. Jetzt:
 //
-// Das ist Uebersicht, keine Zugriffssperre: alle teilen sich einen Login.
+//   Unten (Handy) / oben (Desktop): Heute, Plan, Monate, Kunden -- das, was
+//   taeglich gebraucht wird.
+//   Alles andere auf der Seite "Mehr" (/mehr) in 7 Bereichen, jede Seite mit
+//   einem Satz, der sagt, wofuer sie da ist. Zusammengehoerige Seiten haben
+//   oben Reiter (BereichReiter), damit man nicht zurueck muss.
+//
+// Jeder Bereich kann spaeter einem Mitarbeiter zugeordnet werden: wer nur
+// "analyse" hat, sieht in der Navigation nur die Analyse. Leer (null) heisst
+// "sieht alles" -- der Normalfall fuer die Gruender. Das ist Uebersicht,
+// keine Zugriffssperre: alle teilen sich einen Login.
 
 export type BereichKey =
-  | 'posting' | 'produktion' | 'kunden' | 'analyse'
-  | 'vertrieb' | 'buchhaltung' | 'kommunikation' | 'inhalte' | 'verwaltung'
+  | 'alltag' | 'produktion' | 'kunden' | 'geld' | 'analyse' | 'team' | 'system'
 
-export interface Seite { to: string; label: string; icon: string; end?: boolean }
+export interface Seite {
+  to: string
+  label: string
+  /** Ein Satz: wofuer ist die Seite da? Steht auf "Mehr" und in der Suche. */
+  was: string
+  /** Suchwoerter fuer ⌘K, z. B. "Dropbox" fuer Medien. */
+  suche?: string[]
+  end?: boolean
+  /** Reiter-Gruppe: Seiten mit gleichem Schluessel bekommen oben Reiter. */
+  reiter?: string
+}
 
 export interface Bereich {
   key: BereichKey
@@ -19,46 +35,85 @@ export interface Bereich {
   /** Ein Satz, wofuer der Bereich da ist -- steht in den Team-Einstellungen. */
   zweck: string
   seiten: Seite[]
-  /** In der Hauptleiste statt hinter "Mehr". */
-  primaer?: boolean
 }
 
+/** Die vier Hauptziele unten -- in dieser Reihenfolge, links zwei, rechts zwei. */
+export const HAUPT_PFADE = ['/', '/plan', '/monate', '/kunden']
+
 export const BEREICHE: Bereich[] = [
-  { key: 'posting', label: 'Plan', zweck: 'Was wann rausgeht — die Seite, die der Kunde sieht', primaer: true,
-    seiten: [{ to: '/plan', label: 'Plan', icon: '📣' }] },
-  { key: 'produktion', label: 'Produktion', zweck: 'Drehen, schneiden, einplanen, Medien aus Dropbox', primaer: true,
-    seiten: [{ to: '/produktion', label: 'Produktion', icon: '🎬' }, { to: '/medien', label: 'Medien', icon: '📁' }] },
-  { key: 'kunden', label: 'Kunden', zweck: 'Kundenakten, Verträge, Material', primaer: true,
-    seiten: [{ to: '/kunden', label: 'Kunden', icon: '👥' }, { to: '/monate', label: 'Monate', icon: '🗓' }] },
-  { key: 'analyse', label: 'Analyse', zweck: 'Zahlen der geposteten Videos',
-    seiten: [{ to: '/analyse', label: 'Gesamt-Analyse', icon: '📊' }, { to: '/leistung', label: 'Leistung', icon: '📈' }] },
-  { key: 'vertrieb', label: 'Vertrieb', zweck: 'Leads und Aufgaben',
-    seiten: [{ to: '/leads', label: 'Leads-Pipeline', icon: '🎯' }, { to: '/aufgaben', label: 'Aufgaben', icon: '✓' }] },
-  { key: 'buchhaltung', label: 'Buchhaltung', zweck: 'Rechnungen und Finanzen',
-    seiten: [{ to: '/rechnungen', label: 'Rechnungen', icon: '🧾' }, { to: '/finanzen', label: 'Finanzen', icon: '💶' }] },
-  { key: 'kommunikation', label: 'Kommunikation', zweck: 'Team-Chat und Postfach',
-    seiten: [{ to: '/chat', label: 'Chat', icon: '💬' }, { to: '/postfach', label: 'Postfach', icon: '✉️' }] },
-  { key: 'inhalte', label: 'Inhalte', zweck: 'Inspirationen und Ideen',
-    seiten: [{ to: '/inspirationen', label: 'Inspirationen', icon: '🔖' }] },
-  { key: 'verwaltung', label: 'Verwaltung', zweck: 'Team, Einstellungen, Papierkorb',
+  { key: 'alltag', label: 'Alltag', zweck: 'Was heute und diese Woche dran ist',
     seiten: [
-      { to: '/team', label: 'Team', icon: '🧑‍🤝‍🧑' },
-      { to: '/einstellungen', label: 'Einstellungen', icon: '⚙️' },
-      { to: '/papierkorb', label: 'Papierkorb', icon: '🗑' },
+      { to: '/', label: 'Heute', was: 'Dein Tag: was jetzt dran ist, abhaken und weiter', end: true, suche: ['start', 'übersicht', 'fokus'] },
+      { to: '/plan', label: 'Plan', was: 'Was wann rausgeht — die Seite, die der Kunde sieht', suche: ['posting', 'posts', 'kalender'] },
+      { to: '/kalender', label: 'Kalender', was: 'Alle Termine, Drehtage und Aufgaben auf einen Blick', suche: ['termine', 'woche'] },
+      { to: '/aufgaben', label: 'Aufgaben', was: 'Offene To-dos, Erinnerungen und wer was macht', suche: ['todo', 'erinnerung', 'tasks'] },
+      { to: '/chat', label: 'Chat', was: 'Team-Chat mit Lion und Claude, Aufgaben direkt zuweisen', suche: ['nachrichten', 'anstupsen', 'claude'] },
+    ] },
+  { key: 'produktion', label: 'Produktion', zweck: 'Drehen, schneiden, freigeben, Material',
+    seiten: [
+      { to: '/produktion', label: 'Produktion', was: 'Videos in Arbeit, Freigaben und was noch gedreht werden muss', reiter: 'produktion', suche: ['schnitt', 'freigabe', 'drehtag'] },
+      { to: '/medien', label: 'Medien', was: 'Rohmaterial und fertige Videos aus der Dropbox durchsuchen', reiter: 'produktion', suche: ['dropbox', 'dateien', 'clips', 'rohmaterial'] },
+      { to: '/inspirationen', label: 'Inspirationen', was: 'Gespeicherte Videos anderer als Vorlage für eigene Ideen', suche: ['ideen', 'referenz', 'vorlage'] },
+    ] },
+  { key: 'kunden', label: 'Kunden & Vertrieb', zweck: 'Kundenakten, Verträge, neue Kunden gewinnen',
+    seiten: [
+      { to: '/kunden', label: 'Kunden', was: 'Alle Kundenakten: Verträge, Ideen, Termine, Zahlen je Kunde', reiter: 'kunden', suche: ['akte', 'vertrag', 'briefing'] },
+      { to: '/leads', label: 'Leads', was: 'Interessenten von der ersten Nachricht bis zum Vertrag', reiter: 'kunden', suche: ['akquise', 'pipeline', 'google maps', 'vertrieb'] },
+    ] },
+  { key: 'geld', label: 'Geld', zweck: 'Monate, Rechnungen, Konto',
+    seiten: [
+      { to: '/monate', label: 'Monate', was: 'Je Monat: wer wie viele Videos bekommt und was reinkommt', reiter: 'geld', suche: ['monat', 'abschließen', 'einnahmen'] },
+      { to: '/rechnungen', label: 'Rechnungen', was: 'Rechnungen schreiben, als PDF senden, bezahlt abhaken', reiter: 'geld', suche: ['invoice', 'pdf', 'mahnung'] },
+      { to: '/finanzen', label: 'Finanzen', was: 'Einnahmen, Ausgaben und Fixkosten vom Geschäftskonto', reiter: 'geld', suche: ['konto', 'ausgaben', 'buchungen', 'abos'] },
+    ] },
+  { key: 'analyse', label: 'Analyse', zweck: 'Zahlen der geposteten Videos',
+    seiten: [
+      { to: '/analyse', label: 'Analyse', was: 'Was bei unseren Videos funktioniert: Views, beste Zeiten, Top-Videos', reiter: 'analyse', suche: ['statistik', 'views', 'reichweite', 'zahlen'] },
+      { to: '/leistung', label: 'Leistung', was: 'Zahlen je Video nachtragen, wenn sie nicht automatisch kamen', reiter: 'analyse', suche: ['nachtragen', 'aufrufe', 'likes'] },
+    ] },
+  { key: 'team', label: 'Team', zweck: 'Wer gehört dazu, Postfach',
+    seiten: [
+      { to: '/team', label: 'Team', was: 'Mitglieder, wer welche Bereiche sieht, Kalender aufs Handy', suche: ['mitglieder', 'lion', 'bereiche'] },
+      { to: '/postfach', label: 'Postfach', was: 'Agentur-Mails lesen und beantworten', suche: ['mail', 'e-mail', 'zoho'] },
+    ] },
+  { key: 'system', label: 'System', zweck: 'Einstellungen und Papierkorb',
+    seiten: [
+      { to: '/einstellungen', label: 'Einstellungen', was: 'Firmendaten, Pakete, Caption-Vorgabe, Verbindungen, Systemstatus', suche: ['firma', 'pakete', 'passwort', 'bank', 'zoho', 'kategorien'] },
+      { to: '/papierkorb', label: 'Papierkorb', was: 'Gelöschtes wiederherstellen', suche: ['gelöscht', 'wiederherstellen', 'trash'] },
     ] },
 ]
 
-/** Seiten, die jeder sieht: der eigene Tag und der gemeinsame Kalender. */
-export const IMMER: Seite[] = [
-  { to: '/', label: 'Heute', icon: '☀️', end: true },
-  { to: '/kalender', label: 'Kalender', icon: '🗓' },
-]
+/** Alle Seiten flach -- fuer Suche und Reiter. */
+export const ALLE_SEITEN: Seite[] = BEREICHE.flatMap((b) => b.seiten)
+
+/** Bereich einer Seite (nach Pfad). */
+export function bereichVon(pfad: string): Bereich | undefined {
+  return BEREICHE.find((b) => b.seiten.some((s) => s.to === pfad))
+}
+
+/** Die Reiter-Nachbarn einer Seite (inkl. ihr selbst), leer wenn keine. */
+export function reiterVon(pfad: string): Seite[] {
+  const s = ALLE_SEITEN.find((x) => x.to === pfad)
+  if (!s?.reiter) return []
+  return ALLE_SEITEN.filter((x) => x.reiter === s.reiter)
+}
 
 /**
- * Welche Bereiche sieht dieses Mitglied? null/leer = alle. Verwaltung
- * bleibt immer erreichbar, sonst sperrt man sich die Einstellungen weg.
+ * Alte Bereichsschluessel (vor dem 24.10.2026), die noch in team_members
+ * stehen koennen -- auf die neuen abbilden, damit niemand Seiten verliert.
+ */
+const ALT: Record<string, BereichKey[]> = {
+  posting: ['alltag'], vertrieb: ['kunden', 'alltag'], buchhaltung: ['geld'],
+  kommunikation: ['alltag', 'team'], inhalte: ['produktion'], verwaltung: ['system', 'team'],
+}
+
+/**
+ * Welche Bereiche sieht dieses Mitglied? null/leer = alle. System bleibt
+ * immer erreichbar, sonst sperrt man sich die Einstellungen weg.
  */
 export function sichtbareBereiche(erlaubt: string[] | null | undefined): Bereich[] {
   if (!erlaubt || erlaubt.length === 0) return BEREICHE
-  return BEREICHE.filter((b) => b.key === 'verwaltung' || erlaubt.includes(b.key))
+  const keys = new Set<string>()
+  for (const k of erlaubt) for (const n of ALT[k] ?? [k]) keys.add(n)
+  return BEREICHE.filter((b) => b.key === 'system' || keys.has(b.key))
 }

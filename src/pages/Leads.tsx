@@ -13,6 +13,7 @@ import { useTeam } from '../context/TeamContext'
 import { useIdentity } from '../context/IdentityContext'
 import { useToast } from '../context/ToastContext'
 import { funktionsFehler } from '../lib/funktion'
+import BereichReiter from '../components/BereichReiter'
 
 export default function Leads() {
   const { user } = useAuth()
@@ -162,6 +163,7 @@ export default function Leads() {
           + Lead
         </button>
       </div>
+      <BereichReiter />
 
       <div className="toolbar-row">
         <input

@@ -1,23 +1,33 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Search, Users, Target, CheckCircle2, ArrowRight } from 'lucide-react'
+import { ALLE_SEITEN, bereichVon } from '../lib/bereiche'
+import { symbolVon } from '../lib/seitenSymbole'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
 interface Hit {
-  kind: 'client' | 'lead' | 'task'
+  kind: 'client' | 'lead' | 'task' | 'seite'
   id: string
   label: string
   sub?: string
   to: string
   icon: string
+  /** Zusaetzliche Suchwoerter (Seiten). */
+  worte?: string
 }
+
+// Seiten stehen immer drin -- die Suche ist auch der schnellste Weg zu einer Seite.
+const SEITEN: Hit[] = ALLE_SEITEN.map((s) => ({
+  kind: 'seite', id: s.to, label: s.label, sub: s.was, to: s.to, icon: '',
+  worte: [bereichVon(s.to)?.label ?? '', ...(s.suche ?? [])].join(' ').toLowerCase(),
+}))
 
 export default function CommandPalette() {
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
-  const [hits, setHits] = useState<Hit[]>([])
+  const [hits, setHits] = useState<Hit[]>(SEITEN)
   const [active, setActive] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -53,7 +63,7 @@ export default function CommandPalette() {
         supabase.from('leads').select('id, name, city, stage').is('deleted_at', null).order('name'),
         supabase.from('tasks').select('id, title, done').is('deleted_at', null).eq('done', false),
       ])
-      const list: Hit[] = []
+      const list: Hit[] = [...SEITEN]
       for (const x of (c.data ?? []) as any[]) list.push({ kind: 'client', id: x.id, label: x.name, sub: x.handle_ig ? '@' + x.handle_ig.replace(/^@/, '') : 'Kunde', to: `/client/${x.id}`, icon: '' })
       for (const x of (l.data ?? []) as any[]) list.push({ kind: 'lead', id: x.id, label: x.name, sub: x.city || 'Lead', to: '/leads', icon: '' })
       for (const x of (t.data ?? []) as any[]) list.push({ kind: 'task', id: x.id, label: x.title, sub: 'Aufgabe', to: '/aufgaben', icon: '' })
@@ -64,7 +74,9 @@ export default function CommandPalette() {
 
   const results = useMemo(() => {
     const s = q.trim().toLowerCase()
-    const base = s ? hits.filter((h) => h.label.toLowerCase().includes(s) || (h.sub ?? '').toLowerCase().includes(s)) : hits
+    const base = s
+      ? hits.filter((h) => h.label.toLowerCase().includes(s) || (h.sub ?? '').toLowerCase().includes(s) || (h.worte ?? '').includes(s))
+      : hits.filter((h) => h.kind !== 'seite')
     return base.slice(0, 24)
   }, [q, hits])
 
@@ -87,7 +99,7 @@ export default function CommandPalette() {
             ref={inputRef}
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Kunde, Lead oder Aufgabe suchen …"
+            placeholder="Seite, Kunde, Lead oder Aufgabe suchen …"
             onKeyDown={(e) => {
               if (e.key === 'ArrowDown') { e.preventDefault(); setActive((a) => Math.min(a + 1, results.length - 1)) }
               else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((a) => Math.max(a - 1, 0)) }
@@ -112,7 +124,7 @@ export default function CommandPalette() {
               onMouseEnter={() => setActive(i)}
               onClick={() => go(h)}
             >
-              <span className="cmd-icon">{h.kind === 'client' ? <Users size={16} /> : h.kind === 'lead' ? <Target size={16} /> : h.kind === 'task' ? <CheckCircle2 size={16} /> : <ArrowRight size={16} />}</span>
+              <span className="cmd-icon">{h.kind === 'client' ? <Users size={16} /> : h.kind === 'lead' ? <Target size={16} /> : h.kind === 'task' ? <CheckCircle2 size={16} /> : h.kind === 'seite' ? (() => { const I = symbolVon(h.to); return <I size={16} /> })() : <ArrowRight size={16} />}</span>
               <span className="cmd-label">{h.label}</span>
               <span className="cmd-sub">{h.sub}</span>
             </button>

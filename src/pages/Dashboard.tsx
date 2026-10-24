@@ -14,6 +14,7 @@ import Modal from '../components/Modal'
 import LogoFrame from '../components/LogoFrame'
 import LogoCropper from '../components/LogoCropper'
 import { heute } from '../lib/datum'
+import BereichReiter from '../components/BereichReiter'
 
 // Die Video-Zahlen kommen nicht mehr aus der Kunden-Abfrage, sondern aus
 // loadCounts() — sonst zaehlt Postgres auch die geloeschten Videos mit.
@@ -128,6 +129,7 @@ export default function Dashboard() {
         <Link className="btn btn-sm" to="/monate">Monate</Link>
         <button className="btn btn-primary btn-sm" onClick={() => setShowAdd(true)}><Plus size={16} strokeWidth={2.4} />Kunde</button>
       </div>
+      <BereichReiter />
 
       {error && (
         <div className="error-box" style={{ maxWidth: 940, margin: '0 auto 20px' }}>

@@ -9,6 +9,7 @@ import { sendMail, blobToBase64 } from '../lib/mail'
 import { insertRows, updateRow } from '../lib/db'
 import Modal from '../components/Modal'
 import { heute } from '../lib/datum'
+import BereichReiter from '../components/BereichReiter'
 
 interface Invoice {
   id: string
@@ -114,6 +115,7 @@ export default function Invoices() {
         <div className="spacer" />
         <button className="btn btn-primary" onClick={() => setCreating(true)}>+ Rechnung</button>
       </div>
+      <BereichReiter />
 
       <div className="fin-tiles" style={{ marginBottom: 22 }}>
         <div className="fin-tile"><span className="fin-label">Offen</span><span className="fin-value">{euro(totals.open)}</span><span className="fin-sub">noch nicht bezahlt</span></div>

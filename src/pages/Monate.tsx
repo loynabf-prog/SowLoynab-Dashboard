@@ -19,6 +19,7 @@ import { useGemerkt, istGemerkt } from '../lib/merken'
 import { schnellGepostet, linkSetzen, alsGepostet } from '../lib/videoAktionen'
 import { profilUrl } from '../lib/accounts'
 import { supabase } from '../lib/supabase'
+import BereichReiter from '../components/BereichReiter'
 import {
   ladeMonatsDaten, monatsZeilen, monatsSumme, monatPlus, monatName, monatsKeyVon, istAbgeschlossen,
   speichereEintrag, entferneEintrag, monatSetzen, euro, videoZeilen, videoSumme, geldZeilen,
@@ -122,6 +123,7 @@ export default function Monate() {
     <>
       <div className="h-datum">{laedt ? 'Lade …' : 'Kunden, Videos und Einnahmen je Monat'}</div>
       <h1 className="h-gruss">Monate</h1>
+      <BereichReiter />
       {fehler && <div className="n-gruppe"><div className="n-leer">Konnte nicht laden: {fehler}</div></div>}
 
       {/* Streifen */}

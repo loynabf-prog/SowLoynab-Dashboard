@@ -101,7 +101,7 @@ export default function Team() {
       <h2 className="section-title" style={{ marginTop: 26 }}>Bereiche</h2>
       <p className="muted" style={{ fontSize: 13, maxWidth: 560, marginTop: -4 }}>
         Wer welche Bereiche in der Navigation sieht. Alles an heißt: sieht alles.
-        Verwaltung bleibt immer erreichbar.
+        System (Einstellungen, Papierkorb) bleibt immer erreichbar.
       </p>
       <div className="card-list" style={{ maxWidth: 560, marginTop: 12 }}>
         {members.map((m) => {
@@ -110,7 +110,7 @@ export default function Team() {
             <div className="bereich-row" key={m.id}>
               <span className="team-name">{m.name}</span>
               <div className="bereich-chips">
-                {BEREICHE.filter((b) => b.key !== 'verwaltung').map((b) => (
+                {BEREICHE.filter((b) => b.key !== 'system').map((b) => (
                   <button
                     key={b.key}
                     className={`ps-schritt ${an.includes(b.key) ? 'on' : ''}`}

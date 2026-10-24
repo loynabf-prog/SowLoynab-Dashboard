@@ -27,6 +27,7 @@ import {
   BLOECKE, TAGE, TAGE_LANG, type AnalyseVideo, type Sortierung,
 } from '../lib/analyse'
 import LineChart from '../components/LineChart'
+import BereichReiter from '../components/BereichReiter'
 
 interface Kunde { id: string; name: string; logo_url: string | null; brand: string | null }
 interface StatRow { client_id: string; captured_on: string; followers_ig: number | null; followers_tiktok: number | null; account_id?: string | null }
@@ -181,6 +182,7 @@ export default function Analytics() {
     <>
       <div className="h-datum">{loading ? 'Lade …' : 'Was bei unseren Videos funktioniert'}</div>
       <h1 className="h-gruss">Analyse</h1>
+      <BereichReiter />
       {fehler && <div className="n-gruppe"><div className="n-leer">Konnte nicht laden: {fehler}</div></div>}
 
       <div className="n-segment" role="tablist" aria-label="Zeitraum">

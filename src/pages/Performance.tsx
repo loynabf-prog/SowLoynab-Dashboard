@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../context/ToastContext'
+import BereichReiter from '../components/BereichReiter'
 
 interface Row {
   id: string
@@ -67,6 +68,7 @@ export default function Performance() {
           {onlyOpen ? 'Nur offene' : 'Nur offene'}
         </button>
       </div>
+      <BereichReiter />
 
       <div className="info-box" style={{ marginBottom: 16 }}>
         Trag die Zahlen aus Instagram/TikTok-Insights hier ein — <strong>Reichweite</strong> ist das Wichtigste.
