@@ -37,7 +37,9 @@ export interface VideoIdea {
   channel_id?: string | null
   title: string
   notes: string | null
-  source: 'manual' | 'ai'
+  source: 'manual' | 'ai' | 'lexikon'
+  /** Aus welchem Lexikon-Eintrag die Idee uebernommen wurde. */
+  lexikon_id?: string | null
   sort_order: number | null
   moved_video_id: string | null
   deleted_at: string | null
@@ -49,6 +51,36 @@ export type InspirationPlatform = 'tiktok' | 'instagram' | 'other'
 
 // Ein fremdes Video, das wir uns als Vorbild gemerkt haben.
 // client_id = null -> allgemeine Inspiration ohne Kunden.
+export type LexikonTyp = 'format' | 'idee'
+export type LexikonKategorie = 'werbung' | 'sympathie' | 'expertise' | 'entertainment'
+
+export const LEXIKON_KATEGORIEN: { key: LexikonKategorie; label: string; farbe: string }[] = [
+  { key: 'werbung', label: 'Werbung', farbe: '#ff9f0a' },
+  { key: 'sympathie', label: 'Sympathie', farbe: '#ff375f' },
+  { key: 'expertise', label: 'Expertise', farbe: '#0a84ff' },
+  { key: 'entertainment', label: 'Entertainment', farbe: '#bf5af2' },
+]
+
+/** Eintrag im Video-Lexikon: allgemein gehaltene Idee oder wiederholbares Format je Branche. */
+export interface LexikonEintrag {
+  id: string
+  branche: string
+  typ: LexikonTyp
+  titel: string
+  beschreibung: string | null
+  aufbau: string | null
+  kategorie: LexikonKategorie | null
+  quelle: string | null
+  belege: string | null
+  format_id: string | null
+  tags: string[]
+  sort_order: number | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+}
+
 export interface Inspiration {
   id: string
   client_id: string | null

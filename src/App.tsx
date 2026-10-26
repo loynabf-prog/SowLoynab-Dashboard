@@ -18,6 +18,7 @@ import Performance from './pages/Performance'
 import Analytics from './pages/Analytics'
 import Invoices from './pages/Invoices'
 import Inspirations from './pages/Inspirations'
+import Lexikon from './pages/Lexikon'
 import Postfach from './pages/Postfach'
 import Settings from './pages/Settings'
 import Chat from './pages/Chat'
@@ -80,6 +81,7 @@ export default function App() {
         <Route path="/monate" element={<Monate />} />
         <Route path="/rechnungen" element={<Invoices />} />
         <Route path="/inspirationen" element={<Inspirations />} />
+        <Route path="/lexikon" element={<Lexikon />} />
         <Route path="/postfach" element={<Postfach />} />
         <Route path="/team" element={<Team />} />
         <Route path="/einstellungen" element={<Settings />} />

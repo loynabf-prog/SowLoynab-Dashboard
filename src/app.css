@@ -1210,6 +1210,7 @@ a.fin-tile:hover { transform: translateY(-3px); box-shadow: var(--shadow); borde
   color: var(--text-muted);
 }
 .pool-badge.ai { background: var(--brand-glow); color: var(--brand); }
+.pool-badge.lexikon { background: rgba(191, 90, 242, 0.12); color: #9b3fd1; }
 .pool-x {
   border: none;
   background: transparent;
@@ -4163,3 +4164,13 @@ html { scroll-behavior: smooth; }
 .ps-termin-knopf { background: none; border: none; padding: 2px 0; font-size: 12px; font-weight: 600; color: var(--text-dim); cursor: pointer; }
 .ps-termin-knopf:hover { color: var(--brand); }
 .heute-zeile.medien-ordner { align-items: center; min-height: 50px; }
+
+/* ---------- Video-Lexikon ---------- */
+.lex-card { text-align: left; font: inherit; color: inherit; cursor: pointer; width: 100%; }
+.lex-card .pool-notes { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.lex-badges { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.lex-meta { display: flex; flex-wrap: wrap; gap: 10px; font-size: 12px; color: var(--text-muted); margin-top: auto; }
+.lex-text { white-space: pre-wrap; font-size: 14px; line-height: 1.5; }
+.lex-liste { display: flex; flex-direction: column; gap: 4px; }
+.lex-link { background: none; border: none; padding: 0; text-align: left; color: var(--brand); font: inherit; cursor: pointer; }
+.lex-link:hover { text-decoration: underline; }

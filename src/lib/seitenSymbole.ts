@@ -2,13 +2,13 @@
 import {
   Sun, CalendarDays, Calendar, ListChecks, MessageCircle, Clapperboard, FolderOpen, Bookmark,
   Users, Target, CalendarRange, ReceiptEuro, Wallet, BarChart3, TrendingUp, UserRound, Mail,
-  Settings, Trash2, ChevronRight, LayoutGrid,
+  Settings, Trash2, ChevronRight, LayoutGrid, BookOpen,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 export const SYMBOL: Record<string, LucideIcon> = {
   '/': Sun, '/plan': CalendarDays, '/kalender': Calendar, '/aufgaben': ListChecks, '/chat': MessageCircle,
-  '/produktion': Clapperboard, '/medien': FolderOpen, '/inspirationen': Bookmark,
+  '/produktion': Clapperboard, '/medien': FolderOpen, '/lexikon': BookOpen, '/inspirationen': Bookmark,
   '/kunden': Users, '/leads': Target,
   '/monate': CalendarRange, '/rechnungen': ReceiptEuro, '/finanzen': Wallet,
   '/analyse': BarChart3, '/leistung': TrendingUp,
@@ -19,7 +19,7 @@ export const SYMBOL: Record<string, LucideIcon> = {
 /** Farben wie in den iPhone-Einstellungen: ein Farbton je Bereich. */
 export const FARBE: Record<string, string> = {
   '/': 'glut', '/plan': 'glut', '/kalender': 'rot', '/aufgaben': 'gelb', '/chat': 'gruen',
-  '/produktion': 'lila', '/medien': 'lila', '/inspirationen': 'lila',
+  '/produktion': 'lila', '/medien': 'lila', '/lexikon': 'lila', '/inspirationen': 'lila',
   '/kunden': 'blau', '/leads': 'blau',
   '/monate': 'gruen', '/rechnungen': 'gruen', '/finanzen': 'gruen',
   '/analyse': 'blau', '/leistung': 'blau',

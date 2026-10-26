@@ -1957,7 +1957,7 @@ function IdeaPool({
               key={idea.id}
             >
               <div className="pool-card-head">
-                <span className={`pool-badge ${idea.source}`}>{idea.source === 'ai' ? 'KI' : 'manuell'}</span>
+                <span className={`pool-badge ${idea.source}`}>{idea.source === 'ai' ? 'KI' : idea.source === 'lexikon' ? 'Lexikon' : 'manuell'}</span>
                 <button className="pool-x" onClick={() => onDelete(idea.id)} title="löschen"></button>
               </div>
               <div className="pool-title">{idea.title}</div>
