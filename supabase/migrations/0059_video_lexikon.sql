@@ -44,10 +44,9 @@ do $$ begin
 end $$;
 
 -- updated_at automatisch nachziehen
-create or replace function public.lexikon_touch() returns trigger language plpgsql as $$
+create or replace function public.lexikon_touch() returns trigger language plpgsql set search_path = public as $$
 begin new.updated_at = now(); return new; end $$;
-drop trigger if exists lexikon_touch on public.lexikon_eintraege;
-create trigger lexikon_touch before update on public.lexikon_eintraege
+create or replace trigger lexikon_touch before update on public.lexikon_eintraege
   for each row execute function public.lexikon_touch();
 
 -- Welche Kunden-Idee kam aus welchem Lexikon-Eintrag? (zeigt "2× genutzt")

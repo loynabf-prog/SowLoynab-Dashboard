@@ -125,7 +125,7 @@ export default function Lexikon() {
       {fehlt && (
         <div className="warn-box" style={{ marginBottom: 16 }}>
           Dafür fehlt noch eine Ergänzung in der Datenbank (Skript <strong>0059_video_lexikon.sql</strong>).
-          Claude spielt sie ein — danach ist das Lexikon sofort da.
+          Danach ist das Lexikon sofort da.
         </div>
       )}
 
