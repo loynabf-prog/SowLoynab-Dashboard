@@ -16,6 +16,7 @@ import { ChevronRight, Pause } from 'lucide-react'
 import { nachPause, pauseText, type MitPause } from '../lib/pause'
 import ProduktionKopf from '../components/ProduktionKopf'
 import FreigabeKarte from '../components/FreigabeKarte'
+import PipelineKarte from '../components/PipelineKarte'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../context/ToastContext'
@@ -154,7 +155,8 @@ export default function Produktion() {
     <>
       <ProduktionKopf unter={NUR_POSTEN ? 'Alles, was noch nicht gepostet ist' : 'Drehen, schneiden, einplanen'} />
 
-      <FreigabeKarte />
+      <PipelineKarte />
+      <div id="freigabe" className="h-freigabe"><FreigabeKarte /></div>
 
       {!NUR_POSTEN && <div className="n-chips" role="tablist" aria-label="Schritt">
         {SPALTEN.map((sp) => (
