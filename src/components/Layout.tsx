@@ -21,6 +21,7 @@ import CommandPalette from './CommandPalette'
 import QuickAdd from './QuickAdd'
 import UpdatePrompt from './UpdatePrompt'
 import NutzungsMesser from './NutzungsMesser'
+import BetriebWahl from './BetriebWahl'
 
 interface Ziel { to: string; label: string; icon: LucideIcon; end?: boolean; auch?: string[] }
 
@@ -122,6 +123,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <QuickAdd />
       <UpdatePrompt />
       <NutzungsMesser />
+      <BetriebWahl />
     </div>
   )
 }

@@ -13,9 +13,9 @@
 //   Sounds        mehrfach genutzte TikTok-Sounds
 //   Kunden        Videos, Ø Views und Follower je Kunde
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Play, TrendingUp, Music, Clock, ChevronRight } from 'lucide-react'
+import { Play, TrendingUp, Music, Clock, ChevronRight, RefreshCw, ExternalLink } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { nurGesamt } from '../lib/accounts'
 import { MARKEN, markeVon, type Marke } from '../lib/marken'
@@ -28,6 +28,8 @@ import {
 } from '../lib/analyse'
 import LineChart from '../components/LineChart'
 import BereichReiter from '../components/BereichReiter'
+import Modal from '../components/Modal'
+import { useToast } from '../context/ToastContext'
 
 interface Kunde { id: string; name: string; logo_url: string | null; brand: string | null }
 interface StatRow { client_id: string; captured_on: string; followers_ig: number | null; followers_tiktok: number | null; account_id?: string | null }
@@ -43,9 +45,6 @@ function datumKurz(iso: string | null): string {
   return new Date(iso).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })
 }
 
-function linkVon(v: AnalyseVideo): string | null {
-  return v.tiktok_url ?? v.instagram_url ?? null
-}
 
 export default function Analytics() {
   const navigate = useNavigate()
@@ -58,9 +57,10 @@ export default function Analytics() {
   const [kunde, setKunde] = useState<string | null>(null)
   const [marke, setMarke] = useState<Marke | 'alle'>('alle')
   const [sortierung, setSortierung] = useState<Sortierung>('index')
+  // Angetipptes Video: Blatt mit allen Zahlen und "Aktuelle Zahlen holen".
+  const [offen, setOffen] = useState<AnalyseVideo | null>(null)
 
-  useEffect(() => {
-    Promise.all([
+  const laden = useCallback(() => Promise.all([
       supabase.from('video_analyse').select('*'),
       supabase.from('clients').select('id, name, logo_url, brand').is('deleted_at', null),
       supabase.from('client_stats').select('client_id, captured_on, account_id, followers_ig, followers_tiktok').order('captured_on', { ascending: true }),
@@ -70,8 +70,9 @@ export default function Analytics() {
       setKunden((k.data ?? []) as Kunde[])
       setStats(nurGesamt((s.data ?? []) as StatRow[]))
       setLoading(false)
-    })
-  }, [])
+    }), [])
+
+  useEffect(() => { laden() }, [laden])
 
   const kundeVon = useMemo(() => new Map(kunden.map((k) => [k.id, k])), [kunden])
   // Videos geloeschter Kunden fallen raus (die stehen nicht in "kunden").
@@ -371,6 +372,7 @@ export default function Analytics() {
           <VideoZeile
             key={v.id}
             v={v}
+            onOpen={setOffen}
             kunde={kunde ? null : kundeVon.get(v.client_id)?.name ?? null}
             wert={sortierung === 'views' ? kurzZahl(v.views) : sortierung === 'index' ? faktorText(idx.get(v.id) ?? null) : prozentText(v.share_rate_tiktok, 2)}
             unterWert={sortierung === 'index' ? kurzZahl(v.views) + ' Views' : sortierung === 'share' ? kurzZahl(v.views_tiktok) + ' Views' : faktorText(idx.get(v.id) ?? null)}
@@ -385,7 +387,7 @@ export default function Analytics() {
           <div className="n-gruppe">
             {spaet.map(({ video: v, faktor }) => (
               <VideoZeile
-                key={v.id} v={v}
+                key={v.id} v={v} onOpen={setOffen}
                 kunde={kunde ? null : kundeVon.get(v.client_id)?.name ?? null}
                 wert={faktorText(faktor)}
                 unterWert={`${kurzZahl(v.views_tag1)} → ${kurzZahl(v.views_tag28)}`}
@@ -446,12 +448,19 @@ export default function Analytics() {
           </button>
         </div>
       )}
+      {offen && (
+        <VideoBlatt
+          v={offen}
+          kunde={kundeVon.get(offen.client_id)?.name ?? null}
+          onClose={() => setOffen(null)}
+          onAktualisiert={() => { laden() }}
+        />
+      )}
     </>
   )
 }
 
-function VideoZeile({ v, kunde, wert, unterWert }: { v: AnalyseVideo; kunde: string | null; wert: string; unterWert: string }) {
-  const link = linkVon(v)
+function VideoZeile({ v, kunde, wert, unterWert, onOpen }: { v: AnalyseVideo; kunde: string | null; wert: string; unterWert: string; onOpen: (v: AnalyseVideo) => void }) {
   const inhalt = (
     <>
       {v.cover
@@ -467,7 +476,94 @@ function VideoZeile({ v, kunde, wert, unterWert }: { v: AnalyseVideo; kunde: str
       </span>
     </>
   )
-  return link
-    ? <a className="n-zeile" href={link} target="_blank" rel="noopener noreferrer">{inhalt}</a>
-    : <div className="n-zeile">{inhalt}</div>
+  // Antippen oeffnet das Video in der App (Zahlen, aktualisieren, Links) --
+  // nicht mehr direkt TikTok, das ging am Handy oft ins Leere.
+  return <button type="button" className="n-zeile a-tipp" onClick={() => onOpen(v)}>{inhalt}<ChevronRight className="n-chevron" /></button>
+}
+
+interface VideoVoll {
+  id: string; client_id: string; title: string | null
+  tiktok_url: string | null; instagram_url: string | null; stats_updated_at: string | null
+  views_tiktok: number | null; likes_tiktok: number | null; comments_tiktok: number | null; shares_tiktok: number | null; saves_tiktok: number | null
+  views_ig: number | null; likes_ig: number | null; comments_ig: number | null; shares_ig: number | null; saves_ig: number | null
+}
+const VOLL_SPALTEN = 'id, client_id, title, tiktok_url, instagram_url, stats_updated_at, ' +
+  'views_tiktok, likes_tiktok, comments_tiktok, shares_tiktok, saves_tiktok, views_ig, likes_ig, comments_ig, shares_ig, saves_ig'
+
+const ZAHL_ZEILEN: { label: string; tt: keyof VideoVoll; ig: keyof VideoVoll }[] = [
+  { label: 'Views', tt: 'views_tiktok', ig: 'views_ig' },
+  { label: 'Likes', tt: 'likes_tiktok', ig: 'likes_ig' },
+  { label: 'Kommentare', tt: 'comments_tiktok', ig: 'comments_ig' },
+  { label: 'Geteilt', tt: 'shares_tiktok', ig: 'shares_ig' },
+  { label: 'Gespeichert', tt: 'saves_tiktok', ig: 'saves_ig' },
+]
+
+function standText(iso: string | null): string {
+  if (!iso) return 'Noch nie abgerufen'
+  const d = new Date(iso)
+  return 'Stand ' + d.toLocaleString('de-DE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+}
+
+/** Blatt zu einem Video: alle Zahlen je Plattform, jetzt aktualisieren, Links. */
+function VideoBlatt({ v, kunde, onClose, onAktualisiert }: { v: AnalyseVideo; kunde: string | null; onClose: () => void; onAktualisiert: () => void }) {
+  const navigate = useNavigate()
+  const { toast } = useToast()
+  const [voll, setVoll] = useState<VideoVoll | null>(null)
+  const [holt, setHolt] = useState(false)
+
+  const lade = useCallback(async () => {
+    const { data } = await supabase.from('videos').select(VOLL_SPALTEN).eq('id', v.id).maybeSingle()
+    setVoll((data as unknown as VideoVoll) ?? null)
+  }, [v.id])
+  useEffect(() => { lade() }, [lade])
+
+  async function aktualisieren() {
+    setHolt(true)
+    try {
+      const { data, error } = await supabase.functions.invoke('refresh-stats', { body: { video_ids: [v.id] } })
+      if (error) throw error
+      if ((data as any)?.updated > 0) {
+        toast('Aktuelle Zahlen geholt')
+        await lade()
+        onAktualisiert()
+      } else {
+        toast('Keine neuen Zahlen bekommen – später nochmal versuchen')
+      }
+    } catch (e) {
+      toast('Abruf hat nicht geklappt: ' + (e as Error).message)
+    } finally {
+      setHolt(false)
+    }
+  }
+
+  const tt = voll?.tiktok_url ?? v.tiktok_url
+  const ig = voll?.instagram_url ?? v.instagram_url
+  return (
+    <Modal title={v.title || 'Video'} onClose={onClose}>
+      <p className="vb-unter">{[kunde, datumKurz(v.veroeffentlicht), standText(voll?.stats_updated_at ?? null)].filter(Boolean).join(' · ')}</p>
+      {(tt || ig) && (
+        <table className="vb-tabelle">
+          <thead><tr><th />{tt && <th>TikTok</th>}{ig && <th>Instagram</th>}</tr></thead>
+          <tbody>
+            {ZAHL_ZEILEN.map((z) => (
+              <tr key={z.label}>
+                <td>{z.label}</td>
+                {tt && <td>{voll ? kurzZahl((voll[z.tt] as number | null) ?? null) : '…'}</td>}
+                {ig && <td>{voll ? kurzZahl((voll[z.ig] as number | null) ?? null) : '…'}</td>}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {!tt && !ig && <p className="vb-unter">Noch kein Link hinterlegt – ohne Link gibt es keine Zahlen.</p>}
+      <div className="vb-knoepfe">
+        <button type="button" className="btn btn-primary" onClick={aktualisieren} disabled={holt || (!tt && !ig)}>
+          <RefreshCw strokeWidth={2.2} className={holt ? 'vb-dreht' : ''} /> {holt ? 'Hole Zahlen … (bis 1 Min.)' : 'Aktuelle Zahlen holen'}
+        </button>
+        {tt && <a className="btn" href={tt} target="_blank" rel="noopener noreferrer"><ExternalLink strokeWidth={2.2} /> TikTok</a>}
+        {ig && <a className="btn" href={ig} target="_blank" rel="noopener noreferrer"><ExternalLink strokeWidth={2.2} /> Instagram</a>}
+        <button type="button" className="btn" onClick={() => navigate(`/client/${v.client_id}?video=${v.id}&open=1`)}>In der Kundenakte öffnen</button>
+      </div>
+    </Modal>
+  )
 }

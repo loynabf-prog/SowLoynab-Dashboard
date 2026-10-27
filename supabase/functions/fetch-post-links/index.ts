@@ -164,6 +164,13 @@ export function linksKomplett(plattformen: string[], tiktok: unknown, instagram:
   return true
 }
 
+/** Bei gewaehltem Betrieb nur dessen Accounts; ohne Treffer alle (alte Daten). */
+export function nurBetrieb<T extends { channel_id?: string | null }>(handles: T[], channelId: string | null | undefined): T[] {
+  if (!channelId) return handles
+  const passend = handles.filter((h) => h.channel_id === channelId)
+  return passend.length ? passend : handles
+}
+
 export function zuAlt(p: { zeit: string | null }, gepostetAm: string | null, jetzt = Date.now()): boolean {
   if (!p.zeit) return false // ohne Zeitstempel nicht ausschliessen
   const bezug = gepostetAm ? Date.parse(gepostetAm) : jetzt
@@ -187,7 +194,7 @@ const bedienen = async (req: Request): Promise<Response> => {
 
     let abfrage = supa
       .from('videos')
-      .select('id, client_id, title, posted_at, tiktok_url, instagram_url, link_fetch_tries, ' +
+      .select('id, client_id, channel_id, title, posted_at, tiktok_url, instagram_url, link_fetch_tries, ' +
               'views_ig, likes_ig, comments_ig, shares_ig, saves_ig, ' +
               'views_tiktok, likes_tiktok, comments_tiktok, shares_tiktok, saves_tiktok')
       .is('deleted_at', null)
@@ -215,8 +222,11 @@ const bedienen = async (req: Request): Promise<Response> => {
       // kann es mehrere je Plattform geben -- dann ist nicht zu entscheiden,
       // welcher gemeint war, also fragen wir.
       const { data: accs } = await supa
-        .from('client_accounts').select('id, platform, handle').eq('client_id', v.client_id)
-      let handles = (accs ?? []) as { id?: string; platform: string; handle: string }[]
+        .from('client_accounts').select('id, platform, handle, channel_id').eq('client_id', v.client_id)
+      let handles = (accs ?? []) as { id?: string; platform: string; handle: string; channel_id?: string | null }[]
+      // Zwei Betriebe (z. B. Schleckofatz / Schmackofatz): beim Posten wird
+      // der Betrieb gewaehlt -- dann zaehlen nur dessen Accounts.
+      handles = nurBetrieb(handles, v.channel_id)
       if (handles.length === 0) {
         const { data: c } = await supa
           .from('clients').select('handle_ig, handle_tiktok').eq('id', v.client_id).maybeSingle()
@@ -230,6 +240,16 @@ const bedienen = async (req: Request): Promise<Response> => {
       // manchmal noch nicht ueber die Schnittstelle sichtbar. Deshalb der
       // naechste Versuch schon nach 5 Minuten, danach alle 20.
       const naechster = new Date(Date.now() + (versuch <= 1 ? 5 : 20) * 60_000).toISOString()
+
+      // Kein Account hinterlegt: hier gibt es nichts abzuholen. Sofort als
+      // fehlgeschlagen markieren, statt ewig auf "wird geholt" zu stehen.
+      if (handles.length === 0) {
+        await supa.from('videos').update({
+          link_fetch_tries: versuch, link_fetch_at: null, link_fetch_state: 'fehlgeschlagen',
+          link_fetch_note: 'Kein TikTok- oder Instagram-Account beim Kunden hinterlegt',
+        }).eq('id', v.id)
+        continue
+      }
 
       // Erst "reservieren", dann abrufen: Wird die Funktion mitten im Abruf
       // beendet (Zeitlimit), zaehlt der Versuch trotzdem -- sonst wuerde jeder
@@ -321,6 +341,12 @@ const bedienen = async (req: Request): Promise<Response> => {
           : naechster
         if (versuch >= MAX_VERSUCHE) patch.link_fetch_state = 'fehlgeschlagen'
         unklar++
+      } else if (versuch >= MAX_VERSUCHE) {
+        // Letzter Anlauf vorbei: nicht auf "offen" haengen lassen -- der
+        // naechste Lauf nimmt das Video wegen MAX_VERSUCHE nie wieder auf.
+        patch.link_fetch_at = null
+        patch.link_fetch_state = 'fehlgeschlagen'
+        patch.link_fetch_note = 'Kein passendes Posting gefunden'
       } else {
         patch.link_fetch_at = naechster
         patch.link_fetch_state = 'offen'

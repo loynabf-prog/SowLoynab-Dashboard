@@ -41,6 +41,7 @@ function ohneLeereKanal<T extends { channel_id?: string | null }>(row: T): T {
   return rest as T
 }
 import { klartext, lookupVideo, statsPatch } from '../lib/apify'
+import { ABGEBROCHEN, betriebFuerPosten } from '../lib/betriebWahl'
 import { seit } from '../lib/format'
 import { getPackages, mengeText, type Package } from '../lib/packages'
 import { monatsplan, monatsKey, type Monatsplan } from '../lib/monatsplan'
@@ -324,6 +325,10 @@ export default function ClientPage() {
       p = { ...statusFolgen(patch.status, before), ...p }
     }
     if (patch.status === 'posted' && before && before.status !== 'posted') {
+      // Zwei Betriebe? Erst fragen, welcher gepostet hat (lib/betriebWahl.ts).
+      const b = await betriebFuerPosten(before.client_id, before.channel_id ?? p.channel_id)
+      if (!b.ok) { toast(ABGEBROCHEN); return }
+      if (b.channelId && b.channelId !== before.channel_id) p = { ...p, channel_id: b.channelId }
       // Wie "Gepostet" auf der Startseite: Zeitpunkt plus sofortige
       // automatische Link-Abholung.
       p = { ...(postenPatch({ ...before, posted_at: null }) as Partial<Video>), ...p }
@@ -621,6 +626,7 @@ export default function ClientPage() {
         </button>
         <button className="btn btn-sm" title="Video ist schon draußen, aber nicht angelegt? Dann hier tippen." onClick={async () => {
           const f = await schnellGepostet(client.id)
+          if (f === ABGEBROCHEN) return
           if (f) { setError(f); return }
           toast('Video gepostet – Link, Zahlen und Titel werden geholt (bis zu 2 Minuten)')
           loadVideos()

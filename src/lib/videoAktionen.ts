@@ -5,6 +5,7 @@
 import { supabase } from './supabase'
 import type { Video } from './types'
 import { vorarbeitPatch, type VorarbeitKey, type VorarbeitPatch } from './statusSync'
+import { ABGEBROCHEN, betriebFuerPosten, istPlatzhalter } from './betriebWahl'
 
 export type { VorarbeitKey } from './statusSync'
 export type LinkFeld = 'tiktok_url' | 'instagram_url'
@@ -40,6 +41,14 @@ export async function alsGepostet(
   jetzt = new Date(),
 ): Promise<string | null> {
   const voll = postenPatch({ ...v, posted_at: null }, jetzt)
+  // Zwei Betriebe beim Kunden? Dann kurz fragen, welcher gepostet hat --
+  // sonst weiss die Link-Abholung nicht, welchen Account sie lesen soll.
+  const { data: zeile } = await supabase.from('videos').select('client_id, channel_id').eq('id', v.id).maybeSingle()
+  if (zeile && (zeile as any).client_id) {
+    const b = await betriebFuerPosten((zeile as any).client_id, (zeile as any).channel_id)
+    if (!b.ok) return ABGEBROCHEN
+    if (b.channelId && b.channelId !== (zeile as any).channel_id) voll.channel_id = b.channelId
+  }
   const { error } = await supabase.from('videos').update(voll).eq('id', v.id)
   if (!error) {
     if ('link_fetch_at' in voll) linksJetztHolen(v.id)
@@ -67,21 +76,62 @@ export const SCHNELL_TITEL = 'Gepostetes Video'
  */
 export async function schnellGepostet(clientId: string, jetzt = new Date()): Promise<string | null> {
   const heute = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Berlin', year: 'numeric', month: '2-digit', day: '2-digit' }).format(jetzt)
-  const { data, error } = await supabase.from('videos').insert({
-    client_id: clientId, title: SCHNELL_TITEL, status: 'posted',
+  const b = await betriebFuerPosten(clientId, null)
+  if (!b.ok) return ABGEBROCHEN
+  const gepostet = {
+    title: SCHNELL_TITEL, status: 'posted',
     scheduled_date: heute, posted_at: jetzt.toISOString(),
     prep_shot: true, prep_edited: true, prep_scheduled: true,
     link_fetch_at: jetzt.toISOString(), link_fetch_state: 'offen', link_fetch_tries: 0,
-  }).select('id').single()
+    ...(b.channelId ? { channel_id: b.channelId } : {}),
+  }
+
+  // Erst einen offenen Platzhalter dieses Monats aufbrauchen ("Oktober 6"),
+  // statt ein zusaetzliches Video anzulegen -- sonst zaehlt der Monat doppelt
+  // und der Platzhalter steht spaeter als "verpasst" da.
+  const slot = await freierSlot(clientId, heute, b.channelId)
+  if (slot) {
+    const { error } = await supabase.from('videos').update(gepostet).eq('id', slot)
+    if (error) return error.message
+    linksJetztHolen(slot)
+    return null
+  }
+
+  const { data, error } = await supabase.from('videos').insert({ client_id: clientId, ...gepostet }).select('id').single()
   if (error) return error.message
   linksJetztHolen((data as { id: string }).id)
   return null
 }
 
+/** Aeltester noch offener Platzhalter des laufenden Monats (passender Betrieb oder ohne). */
+async function freierSlot(clientId: string, heute: string, channelId: string | null): Promise<string | null> {
+  const monat = heute.slice(0, 7)
+  const { data } = await supabase.from('videos')
+    .select('id, title, channel_id, scheduled_date')
+    .eq('client_id', clientId).is('deleted_at', null).neq('status', 'posted')
+    .gte('scheduled_date', `${monat}-01`).lte('scheduled_date', `${monat}-31`)
+    .order('scheduled_date', { ascending: true })
+  return waehleSlot((data ?? []) as SlotKandidat[], channelId)
+}
+
+export interface SlotKandidat { id: string; title: string | null; channel_id?: string | null; scheduled_date: string | null }
+export function waehleSlot(kandidaten: SlotKandidat[], channelId: string | null): string | null {
+  const t = kandidaten.find((k) => istPlatzhalter(k.title) && (!k.channel_id || !channelId || k.channel_id === channelId))
+  return t ? t.id : null
+}
+
 /** Abholung neu starten (z. B. nach "fehlgeschlagen") und sofort ausloesen. */
 export async function linksErneutHolen(videoId: string): Promise<string | null> {
+  const patch: Record<string, unknown> = { link_fetch_at: new Date().toISOString(), link_fetch_state: 'offen', link_fetch_tries: 0, link_fetch_note: null }
+  // Fehlt der Betrieb (das war meist der Grund fuers Scheitern), jetzt fragen.
+  const { data: zeile } = await supabase.from('videos').select('client_id, channel_id').eq('id', videoId).maybeSingle()
+  if (zeile && (zeile as any).client_id) {
+    const b = await betriebFuerPosten((zeile as any).client_id, (zeile as any).channel_id)
+    if (!b.ok) return ABGEBROCHEN
+    if (b.channelId) patch.channel_id = b.channelId
+  }
   const { error } = await supabase.from('videos')
-    .update({ link_fetch_at: new Date().toISOString(), link_fetch_state: 'offen', link_fetch_tries: 0, link_fetch_note: null })
+    .update(patch)
     .eq('id', videoId)
   if (error) return error.message
   linksJetztHolen(videoId)
