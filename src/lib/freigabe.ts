@@ -80,12 +80,18 @@ export async function ladeFreigaben(): Promise<{ videos: PruefVideo[]; aenderung
   return { videos: (v.data ?? []) as unknown as PruefVideo[], aenderungen: (a.data ?? []) as Aenderung[] }
 }
 
-export async function aendern(video: PruefVideo, wunsch: string, memberId: string | null): Promise<void> {
+/** Aenderungswunsch: das Video geht zurueck in den Ofen -- hinten an, oder mit vorne=true als Naechstes. */
+export async function aendern(video: PruefVideo, wunsch: string, memberId: string | null, vorne = false): Promise<void> {
   const text = wunsch.trim()
   if (!text) throw new Error('Bitte kurz schreiben, was anders soll')
-  const { error } = await supabase.from('video_aenderungen')
-    .insert({ video_id: video.id, client_id: video.client_id, wunsch: text, created_by: memberId })
+  const { data, error } = await supabase.from('video_aenderungen')
+    .insert({ video_id: video.id, client_id: video.client_id, wunsch: text, created_by: memberId, art: 'aenderung' })
+    .select('id').single()
   if (error) throw error
+  if (vorne && data) {
+    const { error: e2 } = await supabase.rpc('schlange_nach_vorne', { p_id: (data as { id: string }).id })
+    if (e2) throw e2
+  }
 }
 
 /** Ordner nach 3 Feinschliff, Video umstellen, Aufgabe + Karte fuer Lion, Push an Lion. */

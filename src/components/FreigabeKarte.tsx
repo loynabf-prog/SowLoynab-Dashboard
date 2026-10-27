@@ -30,6 +30,7 @@ export default function FreigabeKarte() {
   const [busy, setBusy] = useState<string | null>(null)
 
   const [alle, setAlle] = useState(false)
+  const [vorne, setVorne] = useState(false)
   const aktive = members.filter((m) => m.active !== false)
   const nameVon = (id: string | null) => aktive.find((m) => m.id === id)?.name ?? null
   const anderer = aktive.find((m) => m.id !== memberId) ?? null
@@ -96,9 +97,10 @@ export default function FreigabeKarte() {
   async function schicken(v: PruefVideo) {
     setBusy(v.id)
     try {
-      await aendern(v, wunsch, memberId)
+      await aendern(v, wunsch, memberId, vorne)
       void automatikAnstossen(`Änderung: ${v.title} (${v.clients?.name ?? 'Kunde'})`)
-      toast('Eingereiht – Claude meldet sich mit neuer Vorschau')
+      toast(vorne ? 'Als Nächstes im Ofen' : 'Zurück in die Warteschlange')
+      setVorne(false)
       setWunsch('')
       setWunschFuer(null)
       laden()
@@ -170,6 +172,9 @@ export default function FreigabeKarte() {
                         autoFocus rows={3} value={wunsch} onChange={(e) => setWunsch(e.target.value)}
                         placeholder="Was soll anders?"
                       />
+                      <label className="of-vorne">
+                        <input type="checkbox" checked={vorne} onChange={(e) => setVorne(e.target.checked)} /> Als Nächstes
+                      </label>
                       <div className="fg-knoepfe">
                         <button className="btn btn-sm" onClick={() => { setWunschFuer(null); setWunsch('') }}>Abbrechen</button>
                         <button className="btn btn-sm btn-primary" disabled={busy === v.id || !wunsch.trim()} onClick={() => schicken(v)}>

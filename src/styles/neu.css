@@ -1348,3 +1348,50 @@ a.n-zeile { text-decoration: none; }
 .fg-umschalter button { border: none; background: none; padding: 5px 12px; border-radius: 8px; font: inherit; font-size: 13px; font-weight: 600; color: var(--text-muted); cursor: pointer; }
 .fg-umschalter button.on { background: var(--bg-card, #fff); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
 .fg-leer { margin: 10px 4px 4px; font-size: 14px; color: var(--text-muted); }
+
+/* ===================================================================
+   Schnittofen (27.10.2026): Warteschlange -> Im Ofen -> Raus -> Tablett.
+   Das eine auffaellige Element: der Ofen selbst, dunkel mit warmer Glut,
+   die nur gluet, wenn wirklich etwas geschnitten wird.
+   =================================================================== */
+.of-karte { background: var(--bg-card); border-radius: var(--r-xl, 28px); box-shadow: 0 0 0 1px var(--hair); padding: 16px; margin: 0 0 18px; display: flex; flex-direction: column; gap: 12px; }
+.of-kopf { display: flex; align-items: center; justify-content: space-between; }
+.of-kopf strong { font-size: 20px; letter-spacing: -.02em; }
+.of-kopf .aktion { height: 36px; padding: 0 13px; }
+.of-ofen { position: relative; overflow: hidden; border-radius: 22px; background: #1c1c1e; color: #f5f5f7; min-height: 92px; display: flex; align-items: center; }
+.of-glut { position: absolute; left: -10%; right: -10%; bottom: -60px; height: 110px; background: radial-gradient(60% 100% at 50% 100%, rgba(255, 95, 0, .55), rgba(255, 95, 0, 0) 70%); opacity: .25; pointer-events: none; }
+.of-ofen.an .of-glut { opacity: 1; animation: of-glut 3.2s ease-in-out infinite; }
+@keyframes of-glut { 0%, 100% { transform: translateY(0) scaleX(1); opacity: .85; } 50% { transform: translateY(-8px) scaleX(1.06); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .of-ofen.an .of-glut { animation: none; } }
+.of-ofen-inhalt { position: relative; z-index: 1; display: flex; align-items: center; gap: 14px; width: 100%; padding: 16px; border: none; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.of-ofen-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.of-ofen-titel { font-size: 17px; font-weight: 650; letter-spacing: -.01em; }
+.of-ofen-unter { font-size: 13px; color: rgba(245, 245, 247, .62); }
+.of-ofen-wunsch { margin-top: 4px; font-size: 13.5px; color: rgba(245, 245, 247, .85); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.of-ofen-leer { position: relative; z-index: 1; padding: 0 18px; font-size: 15px; color: rgba(245, 245, 247, .55); }
+.of-logo { width: 36px; height: 36px; border-radius: 11px; overflow: hidden; flex: none; background: var(--bg-sunken, #f0f0f2); display: inline-flex; align-items: center; justify-content: center; font-weight: 700; color: var(--text-muted); box-shadow: 0 0 0 1px var(--hair); }
+.of-logo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.of-logo.gross { width: 56px; height: 56px; border-radius: 17px; box-shadow: 0 0 0 1px rgba(255,255,255,.08), 0 10px 24px -10px rgba(255, 95, 0, .6); }
+.of-abschnitt { display: flex; align-items: baseline; justify-content: space-between; margin: 4px 2px 0; font-size: 14px; font-weight: 600; color: var(--text-muted); }
+.of-abschnitt b { color: var(--text); font-variant-numeric: tabular-nums; }
+.of-schlange { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.of-schlange li { display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 10px; border-radius: 16px; background: var(--bg, #f5f5f7); }
+.of-platz { width: 22px; flex: none; text-align: center; font-size: 13px; font-weight: 700; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.of-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.of-titel { font-size: 14.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.of-unter { font-size: 12.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.of-unter.rot { color: var(--c-rot, #e5484d); }
+.of-knopf { width: 34px; height: 34px; flex: none; border: none; border-radius: 11px; background: var(--bg-card, #fff); box-shadow: 0 0 0 1px var(--hair); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text); }
+.of-knopf svg { width: 17px; height: 17px; }
+.of-knopf.leise { color: var(--text-muted); background: none; box-shadow: none; }
+.of-haengt li { background: color-mix(in srgb, var(--c-rot, #e5484d) 7%, #fff); }
+.of-tablett { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+.of-tablett::-webkit-scrollbar { display: none; }
+.of-teller { flex: none; width: 92px; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 6px; border: none; border-radius: 16px; background: color-mix(in srgb, var(--c-gruen, #2e9e5b) 7%, #fff); font: inherit; color: inherit; cursor: pointer; }
+.of-teller .of-logo { width: 44px; height: 44px; border-radius: 13px; }
+.of-teller .of-titel { font-size: 12px; font-weight: 600; max-width: 100%; text-align: center; }
+.of-auswahl { display: flex; flex-direction: column; gap: 6px; max-height: 60vh; overflow-y: auto; }
+.of-wahl { display: flex; align-items: center; gap: 10px; padding: 10px; border: none; border-radius: 14px; background: var(--bg, #f5f5f7); font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.of-vorne { display: flex; align-items: center; gap: 8px; margin: 10px 2px; font-size: 15px; font-weight: 500; }
+.of-vorne input { width: 20px; height: 20px; accent-color: var(--c-glut, #ff5f00); }
+.of-glut { bottom: -70px; height: 140px; background: radial-gradient(55% 100% at 50% 100%, rgba(255, 110, 20, .8), rgba(255, 70, 0, .25) 45%, rgba(255, 95, 0, 0) 75%); }

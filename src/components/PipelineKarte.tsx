@@ -114,7 +114,7 @@ export default function PipelineKarte({ kompakt = false }: { kompakt?: boolean }
       const ziel = document.getElementById('freigabe')
       if (ziel) { ziel.scrollIntoView({ behavior: 'smooth', block: 'start' }); return }
     }
-    if (kompakt) navigate(`/produktion#${k}`)
+    if (kompakt) navigate(k === 'automatik' || k === 'eingang' ? '/produktion#ofen' : `/produktion#${k}`)
     else setOffen(offen === k ? null : k)
   }
 
