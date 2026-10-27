@@ -1231,3 +1231,76 @@ a.n-zeile { text-decoration: none; }
 .m-zahlen > div { background: var(--bg-card, #fff); border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
 .m-zahlen b { font-size: 20px; font-variant-numeric: tabular-nums; }
 .ruhe-chip { display: none !important; }
+
+/* ===================================================================
+   High-End-Feinschliff (27.10.2026, zweite Runde): Homebildschirm-Ordnung,
+   aber Dashboard-Struktur und ruhige, teure Optik. Ein Akzent (Orange),
+   getoente Symbol-Chips statt bunter Verlaeufe.
+   =================================================================== */
+:root {
+  --c-glut: #ff5f00; --c-rot: #e5484d; --c-gelb: #c98a00; --c-gruen: #2e9e5b; --c-blau: #2f6feb;
+  --c-lila: #8e4ec6; --c-tuerkis: #1a96a5; --c-pink: #d6409f; --c-grau: #6e6e73; --c-tinte: #1d1d1f;
+  --hair: rgba(0, 0, 0, .06);
+}
+.app-ic { --c: var(--c-grau); background: color-mix(in srgb, var(--c) 11%, #fff) !important; color: var(--c); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 14%, transparent); }
+.app-ic.glut { --c: var(--c-glut); } .app-ic.rot { --c: var(--c-rot); } .app-ic.gelb { --c: var(--c-gelb); }
+.app-ic.gruen { --c: var(--c-gruen); } .app-ic.blau { --c: var(--c-blau); } .app-ic.lila { --c: var(--c-lila); }
+.app-ic.tuerkis { --c: var(--c-tuerkis); } .app-ic.pink { --c: var(--c-pink); } .app-ic.grau { --c: var(--c-grau); }
+.app-ic.tinte { --c: var(--c-tinte); }
+.app-ic { width: 54px; height: 54px; border-radius: 16px; }
+.app-ic svg { width: 25px; height: 25px; }
+.app-titel { font-size: 12.5px; font-weight: 500; color: var(--text); }
+.app-badge { background: var(--c-glut); box-shadow: 0 0 0 2.5px var(--bg, #f5f5f7); }
+.app-puls { background: var(--c-glut); }
+
+/* Mehr: Bereiche als Karten, darin das Symbol-Raster */
+.app-bereich { background: var(--bg-card); border-radius: 22px; padding: 16px 12px 18px; box-shadow: 0 0 0 1px var(--hair); }
+.app-bereich-titel { text-transform: none; letter-spacing: -.01em; font-size: 15px; font-weight: 650; color: var(--text); margin: 0 6px 14px; }
+.app-bereich:not(:has(.app-bereich-titel)) { background: none; box-shadow: none; padding: 0; }
+
+/* Kennzahl-Kacheln */
+.kacheln { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0 0 14px; }
+@media (min-width: 760px) { .kacheln { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.kachel { display: flex; flex-direction: column; justify-content: space-between; gap: 18px; min-height: 104px; padding: 14px 14px 12px; border: none; border-radius: 20px; background: var(--bg-card); box-shadow: 0 0 0 1px var(--hair); font: inherit; color: var(--text); text-align: left; cursor: pointer; transition: transform .15s ease, box-shadow .15s ease; }
+.kachel:active { transform: scale(.98); }
+.kachel-kopf { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.kachel-titel { font-size: 15px; font-weight: 600; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kachel-wert { font-size: 34px; font-weight: 700; letter-spacing: -.03em; line-height: 1; font-variant-numeric: tabular-nums; }
+.kachel-pfeil { font-size: 26px; line-height: 1; color: var(--text-dim); }
+.kachel.aktiv { box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--c-glut) 55%, transparent), 0 8px 24px -12px color-mix(in srgb, var(--c-glut) 45%, transparent); }
+.kachel.aktiv .kachel-wert { color: var(--c-glut); }
+.kachel .app-ic.klein { width: 32px; height: 32px; border-radius: 10px; position: relative; }
+.kachel .app-ic.klein svg { width: 18px; height: 18px; }
+.kachel .app-puls { width: 10px; height: 10px; bottom: -2px; right: -2px; }
+
+/* Werkzeugleiste */
+.aktionen { display: flex; gap: 8px; overflow-x: auto; margin: 0 0 18px; padding: 2px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.aktionen::-webkit-scrollbar { display: none; }
+.aktion { flex: none; display: inline-flex; align-items: center; gap: 7px; height: 40px; padding: 0 15px; border: none; border-radius: 20px; background: var(--bg-card); box-shadow: 0 0 0 1px var(--hair); font: inherit; font-size: 14.5px; font-weight: 600; color: var(--text); cursor: pointer; }
+.aktion svg { width: 17px; height: 17px; color: var(--text-muted); }
+.aktion.haupt { background: var(--text); color: #fff; box-shadow: none; }
+.aktion.haupt svg { color: #fff; }
+.aktion:active { transform: scale(.97); }
+
+/* Produktionslinie (Pipeline kompakt) */
+.linie-karte { background: var(--bg-card); border-radius: 22px; box-shadow: 0 0 0 1px var(--hair); padding: 16px 14px 14px; margin: 0 0 18px; }
+.linie-kopf { display: flex; align-items: center; justify-content: space-between; width: 100%; margin: 0 0 18px; padding: 0 2px; border: none; background: none; font: inherit; color: inherit; cursor: pointer; }
+.linie-kopf strong { font-size: 17px; letter-spacing: -.015em; }
+.linie { position: relative; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.linie-spur { position: absolute; left: 8.33%; right: 8.33%; top: 17px; height: 2px; background: var(--bg-sunken, #ececf0); border-radius: 1px; overflow: hidden; }
+.linie-spur i { position: absolute; top: 0; left: -30%; width: 30%; height: 100%; background: linear-gradient(90deg, transparent, var(--c-glut), transparent); animation: linie-lauf 2.4s cubic-bezier(.45,.05,.55,.95) infinite; }
+@keyframes linie-lauf { to { left: 100%; } }
+@media (prefers-reduced-motion: reduce) { .linie-spur i, .app-puls, .pl-puls { animation: none; } }
+.station { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; border: none; background: none; padding: 0; font: inherit; color: var(--text); cursor: pointer; min-width: 0; }
+.station-punkt { width: 36px; height: 36px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; background: var(--bg-card); box-shadow: 0 0 0 1.5px var(--bg-sunken, #e5e5ea); color: var(--text-dim); }
+.station.voll .station-punkt { background: var(--text); color: #fff; box-shadow: none; }
+.station.dran .station-punkt { background: var(--c-glut); color: #fff; box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--c-glut) 70%, transparent); }
+.station.laeuft .station-punkt { background: var(--c-lila); color: #fff; box-shadow: 0 0 0 4px color-mix(in srgb, var(--c-lila) 18%, transparent); }
+.station-name { font-size: 12px; font-weight: 500; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.station.voll .station-name, .station.dran .station-name, .station.laeuft .station-name { color: var(--text); }
+.m-zahlen > div { border-radius: 20px; box-shadow: 0 0 0 1px var(--hair); padding: 14px; gap: 14px; }
+.m-zahlen b { font-size: 24px; letter-spacing: -.02em; }
+.vl-karte, .dm-block, .pb-account, .pl-karte, .fg-karte { box-shadow: 0 0 0 1px var(--hair); border-radius: 22px; }
+.kachel.aktiv { box-shadow: 0 0 0 1px var(--hair), 0 10px 28px -18px color-mix(in srgb, var(--c-glut) 60%, transparent); }
+.kachel-pfeil { align-self: flex-end; }
+.kachel { min-height: 96px; }

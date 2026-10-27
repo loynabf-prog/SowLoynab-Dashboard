@@ -7,8 +7,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ChevronRight, BarChart3, Users, CalendarDays, Check, Target } from 'lucide-react'
-import AppIcon, { AppRaster } from '../components/AppIcon'
+import { ChevronRight, BarChart3, Users, CalendarDays, Check, Target, Eye, UserPlus } from 'lucide-react'
+import { Aktion, Aktionen, Kachel } from '../components/AppIcon'
 import { supabase } from '../lib/supabase'
 import { ladeKanaele, type Channel } from '../lib/channels'
 import { ladeAccounts, letzterStandJeAccount, profilUrl, type ClientAccount } from '../lib/accounts'
@@ -98,18 +98,26 @@ export default function PersonalBrand() {
     <>
       <h1 className="h-gruss">Personal Brand</h1>
 
-      <AppRaster>
-        <AppIcon icon={CalendarDays} farbe="glut" titel="Plan" onClick={() => navigate(akte)} />
-        <AppIcon icon={Check} farbe="gruen" titel="Gepostet" onClick={async () => {
+      <Aktionen>
+        <Aktion icon={CalendarDays} haupt titel="Plan" onClick={() => navigate(akte)} />
+        <Aktion icon={Check} titel="Gepostet" onClick={async () => {
           const f = await schnellGepostet(eigen.id)
           if (f === ABGEBROCHEN) return
           if (f) { toast('Konnte nicht speichern: ' + f); return }
           toast('Gepostet')
           laden()
         }} />
-        <AppIcon icon={BarChart3} farbe="lila" titel="Analyse" onClick={() => navigate(`/analyse?kunde=${eigen.id}`)} />
-        <AppIcon icon={Target} farbe="tuerkis" titel="Leads" badge={leads.filter((l) => l.quelle_kanal_id && l.stage !== 'won' && l.stage !== 'lost').length} onClick={() => navigate('/leads')} />
-      </AppRaster>
+        <Aktion icon={BarChart3} titel="Analyse" onClick={() => navigate(`/analyse?kunde=${eigen.id}`)} />
+        <Aktion icon={Target} titel="Leads" onClick={() => navigate('/leads')} />
+      </Aktionen>
+
+      {/* Kennzahlen auf einen Blick */}
+      <div className="kacheln">
+        <Kachel icon={CalendarDays} farbe="glut" titel="Monat" wert={soll ? `${gepostet}/${soll}` : gepostet} aktiv={!!soll && gepostet < soll && kommend.some((v) => !!v.scheduled_date && v.scheduled_date < tag)} onClick={() => navigate(akte)} />
+        <Kachel icon={Users} farbe="blau" titel="Follower" wert={kurzZahl(accounts.reduce((s, a) => s + (follower.get(a.id) ?? 0), 0)) || '–'} onClick={() => navigate(`/analyse?kunde=${eigen.id}`)} />
+        <Kachel icon={Eye} farbe="lila" titel="Views 30 T." wert={kurzZahl(videos.filter((v) => v.posted_at).reduce((s, v) => s + (v.views ?? 0), 0)) || '–'} onClick={() => navigate(`/analyse?kunde=${eigen.id}`)} />
+        <Kachel icon={UserPlus} farbe="tuerkis" titel="Leads" wert={leads.filter((l) => l.quelle_kanal_id).length} onClick={() => navigate('/leads')} />
+      </div>
 
       {/* ----------------------------------------------------- Dieser Monat */}
       <div className="n-abschnitt"><h2>Dieser Monat</h2><span>{gepostet}/{soll || '–'}</span></div>

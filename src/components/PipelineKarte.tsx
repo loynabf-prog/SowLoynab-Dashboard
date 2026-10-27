@@ -9,7 +9,6 @@ import { Inbox, Wand2, Eye, Scissors, CheckCircle2, CalendarCheck, Loader2, Chev
 import type { LucideIcon } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import LogoFrame from './LogoFrame'
-import AppIcon from './AppIcon'
 import {
   PIPELINE, bauePipeline,
   type PipeAenderung, type PipeAuftrag, type PipeEintrag, type PipeVideo, type Pipeline, type StufeKey,
@@ -98,17 +97,21 @@ export default function PipelineKarte({ kompakt = false }: { kompakt?: boolean }
   const laeuft = p.automatik.some((e) => e.laeuft)
   if (kompakt) {
     return (
-      <div className="widget">
-        <button type="button" className="widget-kopf" onClick={() => navigate('/produktion')}>
-          <strong>Pipeline</strong>
+      <div className="linie-karte">
+        <button type="button" className="linie-kopf" onClick={() => navigate('/produktion')}>
+          <strong>Produktion</strong>
           <ChevronRight className="n-chevron" />
         </button>
-        <div className="app-raster">
+        <div className="linie">
+          <span className="linie-spur">{laeuft && <i />}</span>
           {PIPELINE.map((st) => {
             const n = p[st.key].length
+            const klasse = !n ? '' : st.key === 'freigabe' ? 'dran' : st.key === 'automatik' && laeuft ? 'laeuft' : 'voll'
             return (
-              <AppIcon key={st.key} icon={ICON[st.key]} farbe={FARBE[st.key]} titel={st.kurz} badge={n}
-                aus={n === 0} puls={st.key === 'automatik' && laeuft} onClick={() => zurStufe(st.key)} />
+              <button key={st.key} type="button" className={`station ${klasse}`} onClick={() => zurStufe(st.key)} aria-label={`${st.kurz}: ${n}`}>
+                <span className="station-punkt">{n}</span>
+                <span className="station-name">{st.kurz}</span>
+              </button>
             )
           })}
         </div>

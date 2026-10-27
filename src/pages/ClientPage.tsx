@@ -42,7 +42,7 @@ function ohneLeereKanal<T extends { channel_id?: string | null }>(row: T): T {
 }
 import { klartext, lookupVideo, statsPatch } from '../lib/apify'
 import { ABGEBROCHEN, betriebFuerPosten } from '../lib/betriebWahl'
-import AppIcon, { AppRaster } from '../components/AppIcon'
+import { Aktion, Aktionen } from '../components/AppIcon'
 import { Plus, Check, CalendarRange, Pencil, Pause, Play } from 'lucide-react'
 import { seit } from '../lib/format'
 import { getPackages, mengeText, type Package } from '../lib/packages'
@@ -608,9 +608,9 @@ export default function ClientPage() {
       </div>
 
       {/* Aktionen als Symbole wie auf dem Homebildschirm */}
-      <AppRaster>
-        <AppIcon icon={Plus} farbe="blau" titel="Idee" onClick={() => setCreating(true)} />
-        <AppIcon icon={Check} farbe="gruen" titel="Gepostet" onClick={async () => {
+      <Aktionen>
+        <Aktion icon={Plus} haupt titel="Idee" onClick={() => setCreating(true)} />
+        <Aktion icon={Check} titel="Gepostet" onClick={async () => {
           const f = await schnellGepostet(client.id)
           if (f === ABGEBROCHEN) return
           if (f) { setError(f); return }
@@ -618,19 +618,19 @@ export default function ClientPage() {
           loadVideos()
           setTimeout(() => loadVideos(), 100_000)
         }} />
-        <AppIcon icon={CalendarRange} farbe="glut" titel="Monat" onClick={() => setPlanOffen(true)} />
-        <AppIcon icon={Pencil} farbe="grau" titel="Bearbeiten" onClick={() => setEditClient(true)} />
+        <Aktion icon={CalendarRange} titel="Monat" onClick={() => setPlanOffen(true)} />
+        <Aktion icon={Pencil} titel="Bearbeiten" onClick={() => setEditClient(true)} />
         {istPausiert(client) ? (
-          <AppIcon icon={Play} farbe="gelb" titel="Weiter" onClick={async () => {
+          <Aktion icon={Play} titel="Weiter" onClick={async () => {
             const { error } = await updateRow('clients', { pausiert_seit: null, pause_grund: null }, 'id', client.id)
             if (error) { setError(error.message); return }
             toast('Läuft wieder')
             loadClient()
           }} />
         ) : (
-          <AppIcon icon={Pause} farbe="gelb" titel="Pause" onClick={() => setPauseOffen(true)} />
+          <Aktion icon={Pause} titel="Pause" onClick={() => setPauseOffen(true)} />
         )}
-      </AppRaster>
+      </Aktionen>
 
       {istPausiert(client) && (
         <div className="pause-band">

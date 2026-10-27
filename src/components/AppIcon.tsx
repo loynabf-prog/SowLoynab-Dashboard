@@ -39,3 +39,41 @@ export function AppRaster({ children, titel }: { children: React.ReactNode; tite
     </section>
   )
 }
+
+/**
+ * Kennzahl-Kachel fuers Dashboard: getoentes Symbol, Titel, grosse Zahl.
+ * Ohne Zahl zeigt sie einen feinen Pfeil -- dann ist es ein Einstieg.
+ */
+export function Kachel({ icon: I, farbe, titel, wert, aktiv, puls, onClick }: {
+  icon: LucideIcon
+  farbe: AppFarbe | string
+  titel: string
+  wert?: string | number | null
+  /** Hervorheben: hier wartet etwas auf dich. */
+  aktiv?: boolean
+  puls?: boolean
+  onClick: () => void
+}) {
+  return (
+    <button type="button" className={`kachel ${aktiv ? 'aktiv' : ''}`} onClick={onClick}>
+      <span className="kachel-kopf">
+        <span className={`app-ic klein ${farbe}`}><I strokeWidth={2.1} />{puls && <span className="app-puls" />}</span>
+        <span className="kachel-titel">{titel}</span>
+      </span>
+      {wert != null && wert !== '' ? <span className="kachel-wert">{wert}</span> : <span className="kachel-pfeil" aria-hidden>›</span>}
+    </button>
+  )
+}
+
+/** Schlanke Werkzeugleiste: Symbol + ein Wort. */
+export function Aktion({ icon: I, titel, haupt, onClick }: { icon: LucideIcon; titel: string; haupt?: boolean; onClick: () => void }) {
+  return (
+    <button type="button" className={`aktion ${haupt ? 'haupt' : ''}`} onClick={onClick}>
+      <I strokeWidth={2.2} />
+      <span>{titel}</span>
+    </button>
+  )
+}
+export function Aktionen({ children }: { children: React.ReactNode }) {
+  return <div className="aktionen">{children}</div>
+}
