@@ -60,6 +60,8 @@ export interface MonatsVideo {
   instagram_url?: string | null
   link_fetch_state?: string | null
   geprueft_am?: string | null
+  /** Schnitt-Stufe (0054): roh | pruefung | feinschliff | fertig */
+  produktion_stufe?: string | null
 }
 
 export interface MonatsDrehtag {
@@ -244,7 +246,7 @@ export async function ladeMonatsDaten(von: string, bis: string) {
       .select('id, client_id, month_key, quota, betrag, status, notiz, zahlung_monat, dabei, zahlstatus, bezahlt_am')
       .gte('month_key', von).lte('month_key', bis),
     supabase.from('videos')
-      .select('id, client_id, title, status, scheduled_date, scheduled_time, posted_at, abrechnungsmonat, tiktok_url, instagram_url, link_fetch_state, geprueft_am')
+      .select('id, client_id, title, status, scheduled_date, scheduled_time, posted_at, abrechnungsmonat, tiktok_url, instagram_url, link_fetch_state, geprueft_am, produktion_stufe')
       .is('deleted_at', null),
     supabase.from('events')
       .select('id, title, starts_on, client_id, planned_videos')
@@ -511,4 +513,44 @@ export async function videoGeprueft(id: string, ja: boolean): Promise<string | n
 export async function ladeAccountsAlle(): Promise<{ client_id: string; platform: string; handle: string }[]> {
   const { data } = await supabase.from('client_accounts').select('client_id, platform, handle')
   return (data ?? []) as { client_id: string; platform: string; handle: string }[]
+}
+
+// ---------------------------------------------------------------------------
+// Vorlauf: Ziel ist, am Monatsende den ganzen naechsten Monat fertig zu haben.
+// Je Kunde: wie viele Videos sind fuer den Monat vorgenommen, wie viele haben
+// schon einen Posting-Tag, wie viele sind fertig geschnitten, wie viele
+// schon eingeplant. Zahlende Kunden zuerst, dann Personal Brand, dann Ehrenamt.
+
+export interface VorlaufZeile {
+  kunde: KundeFuerMonat
+  soll: number
+  mitTag: number
+  fertig: number
+  eingeplant: number
+}
+
+/** Fertig = Export da (Stufe fertig) oder schon bereit/eingeplant. */
+export function istFertig(v: MonatsVideo): boolean {
+  return v.status === 'posted' || v.status === 'planned' || v.status === 'ready' || v.produktion_stufe === 'fertig'
+}
+
+export function vorlauf(
+  key: string, heuteKey: string, kunden: KundeFuerMonat[], eintraege: MonatsEintrag[], videos: MonatsVideo[],
+  rang: (art: string | null | undefined) => number,
+): { zeilen: VorlaufZeile[]; soll: number; fertig: number; eingeplant: number; mitTag: number } {
+  const zeilen = videoZeilen(key, heuteKey, kunden, eintraege, videos)
+    .filter((z) => z.ziel > 0 || z.geplant.length + z.gepostet.length > 0)
+    .map((z) => {
+      const alle = [...z.gepostet, ...z.geplant]
+      return {
+        kunde: z.kunde,
+        soll: Math.max(z.ziel, alle.length),
+        mitTag: alle.filter((v) => !!v.scheduled_date).length,
+        fertig: alle.filter(istFertig).length,
+        eingeplant: alle.filter((v) => v.status === 'planned' || v.status === 'posted').length,
+      }
+    })
+    .sort((a, b) => rang(a.kunde.client_type) - rang(b.kunde.client_type) || (a.fertig / (a.soll || 1)) - (b.fertig / (b.soll || 1)) || a.kunde.name.localeCompare(b.kunde.name))
+  const sum = (f: (z: VorlaufZeile) => number) => zeilen.reduce((s, z) => s + f(z), 0)
+  return { zeilen, soll: sum((z) => z.soll), fertig: sum((z) => z.fertig), eingeplant: sum((z) => z.eingeplant), mitTag: sum((z) => z.mitTag) }
 }

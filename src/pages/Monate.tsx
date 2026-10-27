@@ -20,8 +20,9 @@ import { schnellGepostet, linkSetzen, alsGepostet } from '../lib/videoAktionen'
 import { profilUrl } from '../lib/accounts'
 import { supabase } from '../lib/supabase'
 import BereichReiter from '../components/BereichReiter'
+import { rangVon } from '../lib/kundenart'
 import {
-  ladeMonatsDaten, monatsZeilen, monatsSumme, monatPlus, monatName, monatsKeyVon, istAbgeschlossen,
+  ladeMonatsDaten, monatsZeilen, monatsSumme, monatPlus, monatName, monatsKeyVon, istAbgeschlossen, vorlauf,
   speichereEintrag, entferneEintrag, monatSetzen, euro, videoZeilen, videoSumme, geldZeilen,
   monatsTodos, monatsKalender, drehtagEintragen, monatsCheck, videoGeprueft, ladeAccountsAlle,
   type KundeFuerMonat, type MonatsEintrag, type MonatsVideo, type MonatsZeile, type MonatStatus,
@@ -96,6 +97,10 @@ export default function Monate() {
   const geld = useMemo(() => geldZeilen(zeilen), [zeilen])
   const vz = useMemo(() => videoZeilen(key, heuteKey, kunden, eintraege, videos), [key, heuteKey, kunden, eintraege, videos])
   const vs = videoSumme(vz)
+  // Vorlauf: immer der naechste Monat -- am Monatsende soll der komplett fertig sein.
+  const naechster = monatPlus(heuteKey, 1)
+  const vl = useMemo(() => vorlauf(naechster, heuteKey, kunden, eintraege, videos, rangVon), [naechster, heuteKey, kunden, eintraege, videos])
+  const [vlAlle, setVlAlle] = useState(false)
   const nichtDabei = zeilen.filter((z) => z.nichtDabei)
   const summe = monatsSumme(zeilen)
   const todos = useMemo(() => monatsTodos(key, zeilen, drehtage, aufgaben, vz), [key, zeilen, drehtage, aufgaben, vz])
@@ -152,6 +157,42 @@ export default function Monate() {
         <h2>{monatName(key)}</h2>
         <span>{zu ? 'abgeschlossen' : key === heuteKey ? 'laufender Monat' : key < heuteKey ? 'vorbei' : 'kommt'}</span>
       </div>
+
+      <p className="m-kennzahlen">
+        <b>{geld.length}</b> zahlende {geld.length === 1 ? 'Kunde' : 'Kunden'} · <b>{vs.ziel || vs.gepostet + vs.geplant}</b> Videos zu posten · <b>{euro(summe.fest + summe.geplant + summe.unsicher + summe.vorschlag)}</b> Einnahmen
+      </p>
+
+      {/* Vorlauf naechster Monat: Ziel ist, ihn am Monatsende fertig zu haben */}
+      {vl.soll > 0 && (
+        <div className="vl-karte">
+          <button type="button" className="vl-kopf" onClick={() => waehle(naechster)}>
+            <span>
+              <strong>Vorlauf {monatName(naechster)}</strong>
+              <small>{vl.fertig} von {vl.soll} fertig · {vl.eingeplant} eingeplant · {vl.mitTag} mit Posting-Tag</small>
+            </span>
+            <b className={vl.fertig >= vl.soll ? 'ok' : ''}>{Math.round((vl.fertig / vl.soll) * 100)} %</b>
+          </button>
+          <div className="vl-balken">
+            <i className="eingeplant" style={{ width: `${Math.min(100, (vl.eingeplant / vl.soll) * 100)}%` }} />
+            <i className="fertig" style={{ width: `${Math.min(100, (Math.max(0, vl.fertig - vl.eingeplant) / vl.soll) * 100)}%` }} />
+          </div>
+          <ul className="vl-liste">
+            {(vlAlle ? vl.zeilen : vl.zeilen.slice(0, 5)).map((z) => (
+              <li key={z.kunde.id}>
+                <button type="button" onClick={() => navigate(`/client/${z.kunde.id}`)}>
+                  <LogoFrame name={z.kunde.name} logoUrl={z.kunde.logo_url} className="vl-logo" />
+                  <span className="vl-name">{z.kunde.name}</span>
+                  <span className="vl-mini"><i style={{ width: `${Math.min(100, (z.fertig / (z.soll || 1)) * 100)}%` }} /></span>
+                  <span className={`vl-zahl ${z.fertig >= z.soll ? 'ok' : ''}`}>{z.fertig}/{z.soll}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+          {vl.zeilen.length > 5 && (
+            <button type="button" className="n-mehr-link" onClick={() => setVlAlle((a) => !a)}>{vlAlle ? 'Weniger' : `Alle ${vl.zeilen.length} Kunden`}</button>
+          )}
+        </div>
+      )}
 
       <div className="m-label">Geld</div>
       <div className="p-lage klickbar" role="button" tabIndex={0} onClick={() => setAnsicht('kunden')}>
