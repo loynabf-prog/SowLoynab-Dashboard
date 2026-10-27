@@ -15,7 +15,7 @@ export interface PruefVideo {
   client_id: string
   dropbox_pfad: string | null
   updated_at?: string | null
-  clients?: { name: string } | null
+  clients?: { name: string; logo_url?: string | null } | null
 }
 
 export interface Aenderung {
@@ -60,7 +60,7 @@ export function offeneRunde(liste: Aenderung[], videoId: string): Aenderung | nu
 
 export async function ladeFreigaben(): Promise<{ videos: PruefVideo[]; aenderungen: Aenderung[] }> {
   const [v, a] = await Promise.all([
-    supabase.from('videos').select('id, title, client_id, dropbox_pfad, updated_at, clients(name)')
+    supabase.from('videos').select('id, title, client_id, dropbox_pfad, updated_at, clients(name, logo_url)')
       .eq('produktion_stufe', 'pruefung').is('deleted_at', null).order('updated_at', { ascending: true }),
     supabase.from('video_aenderungen').select('id, video_id, wunsch, status, notiz, created_at, erledigt_am')
       .is('deleted_at', null).order('created_at', { ascending: false }).limit(200),

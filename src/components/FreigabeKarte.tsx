@@ -108,7 +108,11 @@ export default function FreigabeKarte() {
           return (
             <li key={v.id} className={'fg-video' + (runde ? ' wartet' : '')}>
               <button className="fg-zeile" onClick={() => ansehen(v)}>
-                <span className="fg-play"><Play size={15} /></span>
+                {/* Echtes Kundenlogo mit Play-Zeichen statt Symbol */}
+                <span className="fg-bild">
+                  {v.clients?.logo_url ? <img src={v.clients.logo_url} alt={v.clients?.name ?? ''} /> : <span className="bild-init">{(v.clients?.name ?? '?').slice(0, 1)}</span>}
+                  <span className="fg-bild-play"><Play size={11} fill="currentColor" /></span>
+                </span>
                 <span className="fg-text">
                   <span className="fg-titel">{v.title}</span>
                   <span className="fg-unter">

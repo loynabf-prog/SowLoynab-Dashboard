@@ -62,6 +62,9 @@ Deno.serve(async (req) => {
     const platform = String(body?.platform ?? '').toLowerCase()
     const handle = String(body?.handle ?? '').replace(/^@/, '').trim()
     const clientId = body?.client_id ? String(body.client_id) : null
+    // Mit account_id: Bild gehoert zu diesem einen Account (client_accounts.profilbild_url),
+    // nicht zum Kunden -- z. B. Fassies und Lions private Accounts (0061).
+    const accountId = body?.account_id ? String(body.account_id) : null
     if (!handle) return json({ error: 'Kein Handle angegeben.' }, 400)
     if (!['instagram', 'tiktok'].includes(platform)) return json({ error: 'Plattform muss instagram oder tiktok sein.' }, 400)
 
@@ -82,7 +85,7 @@ Deno.serve(async (req) => {
       : typeof roh?.nickName === 'string' ? roh.nickName : null
 
     let logoUrl: string | null = null
-    if (bildUrl && clientId) {
+    if (bildUrl && (clientId || accountId)) {
       const supa = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
       try {
         const bild = await fetch(bildUrl)
@@ -92,11 +95,16 @@ Deno.serve(async (req) => {
         const endung = typ.includes('png') ? 'png' : typ.includes('webp') ? 'webp' : 'jpg'
         // Fester Pfad je Kunde und Plattform: ein erneuter Abruf ersetzt das
         // Bild, statt den Speicher mit alten Fassungen vollaufen zu lassen.
-        const pfad = `auto/${clientId}-${platform}.${endung}`
+        const pfad = accountId ? `auto/acc-${accountId}.${endung}` : `auto/${clientId}-${platform}.${endung}`
         const up = await supa.storage.from('logos').upload(pfad, bytes, { contentType: typ, upsert: true })
         if (up.error) throw new Error(up.error.message)
-        logoUrl = supa.storage.from('logos').getPublicUrl(pfad).data.publicUrl
-        await supa.from('clients').update({ logo_url: logoUrl }).eq('id', clientId)
+        // Zeitstempel anhaengen: gleicher Pfad, neues Bild -- sonst zeigt der Browser das alte aus dem Cache
+        logoUrl = supa.storage.from('logos').getPublicUrl(pfad).data.publicUrl + `?v=${Date.now()}`
+        if (accountId) {
+          await supa.from('client_accounts').update({ profilbild_url: logoUrl, profilbild_am: new Date().toISOString() }).eq('id', accountId)
+        } else {
+          await supa.from('clients').update({ logo_url: logoUrl }).eq('id', clientId)
+        }
       } catch (e) {
         // Das Profil haben wir trotzdem -- nur das Bild hat nicht geklappt.
         return json({ logo_url: null, follower, anzeigename, warnung: `Bild konnte nicht gespeichert werden: ${(e as Error).message}` })

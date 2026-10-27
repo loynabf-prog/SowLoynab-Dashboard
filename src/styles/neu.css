@@ -1304,3 +1304,42 @@ a.n-zeile { text-decoration: none; }
 .kachel.aktiv { box-shadow: 0 0 0 1px var(--hair), 0 10px 28px -18px color-mix(in srgb, var(--c-glut) 60%, transparent); }
 .kachel-pfeil { align-self: flex-end; }
 .kachel { min-height: 96px; }
+
+/* ===================================================================
+   Luxus-Feinschliff (27.10.2026, dritte Runde): abgerundete Rechtecke
+   ueberall (keine Kreise, keine Ecken), echte Bilder statt Symbole.
+   =================================================================== */
+:root { --r-s: 10px; --r-m: 14px; --r-l: 22px; --r-xl: 28px; }
+.logo-frame, .logo-frame img { border-radius: 28% !important; }
+.bild-stapel { display: inline-flex; align-items: center; }
+.bild { width: 32px; height: 32px; border-radius: 10px; overflow: hidden; flex: none; background: var(--bg-sunken, #eee); box-shadow: 0 0 0 2px var(--bg-card, #fff); display: inline-flex; align-items: center; justify-content: center; }
+.bild + .bild { margin-left: -9px; }
+.bild img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.bild-init { font-size: 13px; font-weight: 700; color: var(--text-muted); }
+.bild.mehr { font-size: 11.5px; font-weight: 700; color: var(--text-muted); background: var(--bg-sunken, #f0f0f2); }
+.kachel .bild { width: 34px; height: 34px; border-radius: 11px; }
+.aktion { border-radius: var(--r-m); }
+.station-punkt { border-radius: 13px !important; width: 40px; height: 40px; overflow: hidden; }
+.station-punkt img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.station-zahl { position: absolute; top: -7px; right: calc(50% - 30px); min-width: 20px; height: 20px; padding: 0 5px; border-radius: 7px; background: var(--c-glut); color: #fff; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 0 0 2px var(--bg-card, #fff); z-index: 2; }
+.station.mitbild .station-punkt { box-shadow: 0 0 0 1.5px var(--hair); }
+.station.mitbild:not(.dran):not(.voll) .station-punkt img { filter: grayscale(1); opacity: .45; }
+.station .bild-stapel { margin-top: -2px; min-height: 18px; }
+.station .bild { width: 18px; height: 18px; border-radius: 6px; box-shadow: 0 0 0 1.5px var(--bg-card, #fff); }
+.station .bild + .bild { margin-left: -6px; }
+.station .bild.mehr { font-size: 9px; }
+.linie-spur { top: 19px; }
+.app-badge, .fg-zahl, .sz-zahl { border-radius: 8px; }
+.n-ic, .app-ic { border-radius: 30% !important; }
+.fg-bild { position: relative; width: 44px; height: 44px; flex: none; border-radius: 13px; overflow: hidden; background: var(--bg-sunken); display: inline-flex; align-items: center; justify-content: center; }
+.fg-bild img { width: 100%; height: 100%; object-fit: cover; }
+.fg-bild-play { position: absolute; right: 3px; bottom: 3px; width: 18px; height: 18px; border-radius: 6px; background: rgba(0,0,0,.55); color: #fff; display: inline-flex; align-items: center; justify-content: center; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+.pb-held { display: flex; align-items: center; gap: 14px; margin: 4px 0 18px; }
+.pb-held .h-gruss { margin: 0; }
+.pb-held-bild { width: 64px; height: 64px; border-radius: 19px; overflow: hidden; flex: none; background: var(--bg-sunken); box-shadow: 0 0 0 1px var(--hair), 0 12px 30px -16px rgba(0,0,0,.35); }
+.pb-held-bild img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pb-account-kopf { gap: 12px; }
+.pb-account-bild { width: 48px; height: 48px; border-radius: 15px; object-fit: cover; flex: none; box-shadow: 0 0 0 1px var(--hair); }
+.pb-account-bild.leer { display: inline-flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 18px; }
+.pb-punkt { border-radius: 4px; }
+.fg-zahl { background: var(--c-glut); }

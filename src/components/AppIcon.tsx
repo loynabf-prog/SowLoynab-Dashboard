@@ -44,8 +44,10 @@ export function AppRaster({ children, titel }: { children: React.ReactNode; tite
  * Kennzahl-Kachel fuers Dashboard: getoentes Symbol, Titel, grosse Zahl.
  * Ohne Zahl zeigt sie einen feinen Pfeil -- dann ist es ein Einstieg.
  */
-export function Kachel({ icon: I, farbe, titel, wert, aktiv, puls, onClick }: {
+export function Kachel({ icon: I, farbe, titel, wert, aktiv, puls, bilder, onClick }: {
   icon: LucideIcon
+  /** Echte Bilder (Kundenlogos, Profilbilder) statt Symbol -- bis zu drei, gestapelt. */
+  bilder?: { url: string | null; name: string }[]
   farbe: AppFarbe | string
   titel: string
   wert?: string | number | null
@@ -57,7 +59,9 @@ export function Kachel({ icon: I, farbe, titel, wert, aktiv, puls, onClick }: {
   return (
     <button type="button" className={`kachel ${aktiv ? 'aktiv' : ''}`} onClick={onClick}>
       <span className="kachel-kopf">
-        <span className={`app-ic klein ${farbe}`}><I strokeWidth={2.1} />{puls && <span className="app-puls" />}</span>
+        {bilder && bilder.length > 0
+          ? <BildStapel bilder={bilder} />
+          : <span className={`app-ic klein ${farbe}`}><I strokeWidth={2.1} />{puls && <span className="app-puls" />}</span>}
         <span className="kachel-titel">{titel}</span>
       </span>
       {wert != null && wert !== '' ? <span className="kachel-wert">{wert}</span> : <span className="kachel-pfeil" aria-hidden>›</span>}
@@ -76,4 +80,20 @@ export function Aktion({ icon: I, titel, haupt, onClick }: { icon: LucideIcon; t
 }
 export function Aktionen({ children }: { children: React.ReactNode }) {
   return <div className="aktionen">{children}</div>
+}
+
+/** Echte Bilder als Stapel (abgerundete Quadrate), wie Kontakte in iMessage-Gruppen. */
+export function BildStapel({ bilder, max = 3 }: { bilder: { url: string | null; name: string }[]; max?: number }) {
+  const zeigen = bilder.slice(0, max)
+  const rest = bilder.length - zeigen.length
+  return (
+    <span className="bild-stapel">
+      {zeigen.map((b, i) => (
+        <span key={i} className="bild" style={{ zIndex: max - i }}>
+          {b.url ? <img src={b.url} alt={b.name} loading="lazy" /> : <span className="bild-init">{b.name.slice(0, 1).toUpperCase()}</span>}
+        </span>
+      ))}
+      {rest > 0 && <span className="bild mehr">+{rest}</span>}
+    </span>
+  )
 }

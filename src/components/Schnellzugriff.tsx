@@ -15,24 +15,29 @@ export default function Schnellzugriff() {
   const [pruefen, setPruefen] = useState<number | null>(null)
   const [aufgaben, setAufgaben] = useState<{ offen: number; faellig: number } | null>(null)
   const [brand, setBrand] = useState<string | null>(null)
+  const [brandBild, setBrandBild] = useState<{ url: string | null; name: string } | null>(null)
+  const [pruefBilder, setPruefBilder] = useState<{ url: string | null; name: string }[]>([])
 
   useEffect(() => {
     let weg = false
     const laden = async () => {
       const [p, t] = await Promise.all([
-        supabase.from('videos').select('id', { count: 'exact', head: true })
+        supabase.from('videos').select('id, client_id, clients(name, logo_url)', { count: 'exact' })
           .eq('produktion_stufe', 'pruefung').is('deleted_at', null),
         supabase.from('tasks').select('due_date').eq('done', false).is('deleted_at', null),
       ])
       if (weg) return
       setPruefen(p.error ? null : p.count ?? 0)
+      // Echte Kundenlogos der Videos, die auf Freigabe warten (jeder Kunde einmal)
+      setPruefBilder([...new Map(((p.data ?? []) as any[]).map((v) => [v.client_id, { url: v.clients?.logo_url ?? null, name: v.clients?.name ?? '?' }])).values()])
       // Personal Brand: gepostet / vorgenommen in diesem Monat
       const monat = heute().slice(0, 7)
-      const { data: e } = await supabase.from('clients').select('id, monthly_quota').eq('client_type', 'eigen').is('deleted_at', null).limit(1).maybeSingle()
+      const { data: e } = await supabase.from('clients').select('id, name, logo_url, monthly_quota').eq('client_type', 'eigen').is('deleted_at', null).limit(1).maybeSingle()
       if (e && !weg) {
         const { count } = await supabase.from('videos').select('id', { count: 'exact', head: true })
           .eq('client_id', (e as any).id).eq('status', 'posted').is('deleted_at', null)
           .gte('scheduled_date', `${monat}-01`).lte('scheduled_date', `${monat}-31`)
+        setBrandBild({ url: (e as any).logo_url ?? null, name: (e as any).name })
         const soll = (e as any).monthly_quota
         setBrand(soll ? `${count ?? 0}/${soll}` : String(count ?? 0))
       }
@@ -55,10 +60,10 @@ export default function Schnellzugriff() {
 
   return (
     <div className="kacheln">
-      <Kachel icon={Eye} farbe="glut" titel="Freigabe" wert={pruefen ?? '–'} aktiv={!!pruefen} onClick={pruefen ? zurFreigabe : () => navigate('/produktion')} />
+      <Kachel icon={Eye} farbe="glut" titel="Freigabe" bilder={pruefBilder} wert={pruefen ?? '–'} aktiv={!!pruefen} onClick={pruefen ? zurFreigabe : () => navigate('/produktion')} />
       <Kachel icon={ListChecks} farbe="gelb" titel="Aufgaben" wert={aufgaben ? (aufgaben.faellig || aufgaben.offen) : '–'} aktiv={!!aufgaben?.faellig} onClick={() => navigate('/aufgaben')} />
       <Kachel icon={FolderOpen} farbe="blau" titel="Medien" onClick={() => navigate('/medien')} />
-      <Kachel icon={Megaphone} farbe="pink" titel="Brand" wert={brand} onClick={() => navigate('/brand')} />
+      <Kachel icon={Megaphone} farbe="pink" titel="Brand" bilder={brandBild ? [brandBild] : undefined} wert={brand} onClick={() => navigate('/brand')} />
     </div>
   )
 }

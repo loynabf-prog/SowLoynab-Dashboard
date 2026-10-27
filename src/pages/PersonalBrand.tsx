@@ -19,7 +19,7 @@ import { schnellGepostet } from '../lib/videoAktionen'
 import { ABGEBROCHEN } from '../lib/betriebWahl'
 import { useToast } from '../context/ToastContext'
 
-interface Eigen { id: string; name: string; monthly_quota: number | null }
+interface Eigen { id: string; name: string; monthly_quota: number | null; logo_url: string | null }
 interface V {
   id: string; title: string | null; status: string; scheduled_date: string | null; scheduled_time: string | null
   channel_id: string | null; posted_at: string | null; views: number | null
@@ -47,7 +47,7 @@ export default function PersonalBrand() {
   const monat = tag.slice(0, 7)
 
   async function laden() {
-    const { data: c } = await supabase.from('clients').select('id, name, monthly_quota')
+    const { data: c } = await supabase.from('clients').select('id, name, monthly_quota, logo_url')
       .eq('client_type', 'eigen').is('deleted_at', null).order('created_at').limit(1).maybeSingle()
     if (!c) { setLaedt(false); return }
     const e = c as Eigen
@@ -96,7 +96,11 @@ export default function PersonalBrand() {
 
   return (
     <>
-      <h1 className="h-gruss">Personal Brand</h1>
+      {/* Kopf mit echtem Profilbild statt Symbol */}
+      <div className="pb-held">
+        <span className="pb-held-bild">{eigen.logo_url ? <img src={eigen.logo_url} alt={eigen.name} /> : null}</span>
+        <h1 className="h-gruss">Personal Brand</h1>
+      </div>
 
       <Aktionen>
         <Aktion icon={CalendarDays} haupt titel="Plan" onClick={() => navigate(akte)} />
@@ -155,7 +159,12 @@ export default function PersonalBrand() {
           return (
             <div key={k.id} className="pb-account">
               <div className="pb-account-kopf">
-                <span className="pb-punkt" style={{ background: k.color }} />
+                {(() => {
+                  const bild = accs.find((a) => a.profilbild_url)?.profilbild_url ?? (k.name === 'Agentur' ? eigen.logo_url : null)
+                  return bild
+                    ? <img className="pb-account-bild" src={bild} alt={k.name} />
+                    : <span className="pb-account-bild leer" style={{ background: k.color }}>{k.name.slice(0, 1)}</span>
+                })()}
                 <strong>{k.name}</strong>
               </div>
               {accs.length === 0 ? (

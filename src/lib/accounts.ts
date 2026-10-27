@@ -23,6 +23,8 @@ export interface ClientAccount {
   sort: number
   /** Zu welchem Kanal gehoert der Account? Nur gesetzt, wenn getrennt wird. */
   channel_id?: string | null
+  /** Eigenes Profilbild des Accounts (0061), z. B. Fassies privater Account. */
+  profilbild_url?: string | null
 }
 
 /** Ein Account, der noch nicht gespeichert ist (im Bearbeiten-Formular). */

@@ -9,6 +9,7 @@ import { Inbox, Wand2, Eye, Scissors, CheckCircle2, CalendarCheck, Loader2, Chev
 import type { LucideIcon } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import LogoFrame from './LogoFrame'
+import { BildStapel } from './AppIcon'
 import {
   PIPELINE, bauePipeline,
   type PipeAenderung, type PipeAuftrag, type PipeEintrag, type PipeVideo, type Pipeline, type StufeKey,
@@ -19,6 +20,21 @@ const ICON: Record<StufeKey, LucideIcon> = {
 }
 const FARBE: Record<StufeKey, string> = {
   eingang: 'grau', automatik: 'lila', freigabe: 'glut', feinschliff: 'blau', fertig: 'tuerkis', eingeplant: 'gruen',
+}
+
+/** Echte Gesichter fuer die Stationen "Fassie" und "Lion": Profilbild ihres privaten Accounts. */
+async function ladeGesichter(): Promise<Partial<Record<StufeKey, string>>> {
+  const { data } = await supabase.from('client_accounts')
+    .select('profilbild_url, platform, client_channels(name), clients!inner(client_type)')
+    .eq('clients.client_type', 'eigen').not('profilbild_url', 'is', null)
+  const out: Partial<Record<StufeKey, string>> = {}
+  const rows = ((data ?? []) as any[]).sort((a, b) => (a.platform === 'instagram' ? -1 : 1) - (b.platform === 'instagram' ? -1 : 1))
+  for (const r of rows) {
+    const n = String(r.client_channels?.name ?? '').toLowerCase()
+    if (n.startsWith('fassie') && !out.freigabe) out.freigabe = r.profilbild_url
+    if (n.startsWith('lion') && !out.feinschliff) out.feinschliff = r.profilbild_url
+  }
+  return out
 }
 
 async function ladePipeline(): Promise<Pipeline> {
@@ -43,6 +59,8 @@ async function ladePipeline(): Promise<Pipeline> {
 export default function PipelineKarte({ kompakt = false }: { kompakt?: boolean }) {
   const navigate = useNavigate()
   const [p, setP] = useState<Pipeline | null>(null)
+  const [gesichter, setGesichter] = useState<Partial<Record<StufeKey, string>>>({})
+  useEffect(() => { ladeGesichter().then(setGesichter).catch(() => {}) }, [])
   const [offen, setOffen] = useState<StufeKey | null>(null)
   const warte = useRef<number | null>(null)
 
@@ -107,10 +125,15 @@ export default function PipelineKarte({ kompakt = false }: { kompakt?: boolean }
           {PIPELINE.map((st) => {
             const n = p[st.key].length
             const klasse = !n ? '' : st.key === 'freigabe' ? 'dran' : st.key === 'automatik' && laeuft ? 'laeuft' : 'voll'
+            const gesicht = gesichter[st.key]
+            // Kundenlogos der Videos in dieser Station, jeder Kunde einmal
+            const logos = [...new Map(p[st.key].map((e) => [e.clientId, { url: e.logo, name: e.kunde }])).values()]
             return (
-              <button key={st.key} type="button" className={`station ${klasse}`} onClick={() => zurStufe(st.key)} aria-label={`${st.kurz}: ${n}`}>
-                <span className="station-punkt">{n}</span>
+              <button key={st.key} type="button" className={`station ${klasse} ${gesicht ? 'mitbild' : ''}`} onClick={() => zurStufe(st.key)} aria-label={`${st.kurz}: ${n}`}>
+                {gesicht && n > 0 && <span className="station-zahl">{n}</span>}
+                <span className="station-punkt">{gesicht ? <img src={gesicht} alt={st.kurz} /> : n}</span>
                 <span className="station-name">{st.kurz}</span>
+                {logos.length > 0 ? <BildStapel bilder={logos} max={2} /> : <span className="bild-stapel" />}
               </button>
             )
           })}
