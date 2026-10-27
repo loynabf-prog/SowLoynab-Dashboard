@@ -1343,3 +1343,8 @@ a.n-zeile { text-decoration: none; }
 .pb-account-bild.leer { display: inline-flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 18px; }
 .pb-punkt { border-radius: 4px; }
 .fg-zahl { background: var(--c-glut); }
+.fg-kopf { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.fg-umschalter { display: inline-flex; padding: 3px; border-radius: 11px; background: var(--bg-sunken, #f0f0f2); }
+.fg-umschalter button { border: none; background: none; padding: 5px 12px; border-radius: 8px; font: inherit; font-size: 13px; font-weight: 600; color: var(--text-muted); cursor: pointer; }
+.fg-umschalter button.on { background: var(--bg-card, #fff); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.fg-leer { margin: 10px 4px 4px; font-size: 14px; color: var(--text-muted); }

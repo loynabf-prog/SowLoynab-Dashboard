@@ -32,3 +32,16 @@ describe('bauePipeline', () => {
     expect(automatikSatz(p)).toContain('Startet')
   })
 })
+
+describe('Stationen nach Zustaendigkeit (seit 27.10.2026)', () => {
+  it('Vorschau landet bei dem, dem der Kunde gehoert; weitergegeben geht vor', () => {
+    const personVon = (id: string | null) => (id === 'L' ? 'lion' as const : id === 'F' ? 'fassie' as const : null)
+    const p = bauePipeline([
+      { ...v('a', 'pruefung'), clients: { name: 'Hajo', client_type: 'zahlend', zustaendig_id: 'L' } },
+      { ...v('b', 'pruefung'), clients: { name: 'Michel', client_type: 'zahlend', zustaendig_id: 'F' } },
+      { ...v('c', 'pruefung'), bearbeiter_id: 'L', clients: { name: 'Michel', client_type: 'zahlend', zustaendig_id: 'F' } },
+    ], [], [], personVon)
+    expect(p.freigabe.map((e) => e.id)).toEqual(['b'])
+    expect(p.feinschliff.map((e) => e.id).sort()).toEqual(['a', 'c'])
+  })
+})

@@ -25,8 +25,8 @@ export interface StufeInfo { key: StufeKey; titel: string; wer: string; leer: st
 export const PIPELINE: StufeInfo[] = [
   { key: 'eingang',     titel: 'Eingang',     wer: 'Material',  leer: 'Kein Drehtag offen' , kurz: 'Eingang' },
   { key: 'automatik',   titel: 'Rohschnitt',  wer: 'Automatik', leer: 'Nichts im Schnitt' , kurz: 'Schnitt' },
-  { key: 'freigabe',    titel: 'Freigabe',    wer: 'Fassie',    leer: 'Nichts zu prüfen' , kurz: 'Fassie' },
-  { key: 'feinschliff', titel: 'Feinschliff', wer: 'Lion',      leer: 'Nichts bei Lion' , kurz: 'Lion' },
+  { key: 'freigabe',    titel: 'Fassie',      wer: 'Fassie',    leer: 'Nichts zu prüfen' , kurz: 'Fassie' },
+  { key: 'feinschliff', titel: 'Lion',        wer: 'Lion',      leer: 'Nichts bei Lion' , kurz: 'Lion' },
   { key: 'fertig',      titel: 'Fertig',      wer: 'Einplanen', leer: 'Nichts wartet aufs Einplanen' , kurz: 'Fertig' },
   { key: 'eingeplant',  titel: 'Eingeplant',  wer: 'Geht raus', leer: 'Nichts eingeplant' , kurz: 'Geplant' },
 ]
@@ -39,7 +39,9 @@ export interface PipeVideo {
   produktion_stufe: string | null
   scheduled_date: string | null
   updated_at?: string | null
-  clients?: { name: string; logo_url?: string | null; client_type?: string | null } | null
+  /** Weitergegeben an (0062); sonst zaehlt clients.zustaendig_id */
+  bearbeiter_id?: string | null
+  clients?: { name: string; logo_url?: string | null; client_type?: string | null; zustaendig_id?: string | null } | null
 }
 export interface PipeAuftrag {
   id: string
@@ -82,7 +84,15 @@ function nachPrio(a: PipeEintrag, b: PipeEintrag): number {
   return a.rang - b.rang || (a.datum ?? '9999').localeCompare(b.datum ?? '9999') || a.titel.localeCompare(b.titel)
 }
 
-export function bauePipeline(videos: PipeVideo[], auftraege: PipeAuftrag[], aenderungen: PipeAenderung[]): Pipeline {
+/**
+ * Seit 27.10.2026 schneidet jeder seine eigenen Kunden komplett: die Stationen
+ * "Fassie" und "Lion" zeigen, was beim jeweiligen zur Vorschau liegt.
+ * personVon liefert fuer eine Mitglieds-Id 'fassie' | 'lion' (oder null).
+ */
+export function bauePipeline(
+  videos: PipeVideo[], auftraege: PipeAuftrag[], aenderungen: PipeAenderung[],
+  personVon: (memberId: string | null) => 'fassie' | 'lion' | null = () => null,
+): Pipeline {
   const p: Pipeline = { eingang: [], automatik: [], freigabe: [], feinschliff: [], fertig: [], eingeplant: [] }
 
   // Aenderungswuensche in Arbeit: das Video gehoert solange zur Automatik.
@@ -120,8 +130,14 @@ export function bauePipeline(videos: PipeVideo[], auftraege: PipeAuftrag[], aend
     }
     switch (v.produktion_stufe) {
       case 'roh': p.automatik.push({ ...basis, unter: `Rohschnitt · ${termin}`, laeuft: false }); break
-      case 'pruefung': p.freigabe.push({ ...basis, unter: `Vorschau ansehen · ${termin}` }); break
-      case 'feinschliff': p.feinschliff.push({ ...basis, unter: termin }); break
+      case 'pruefung':
+      case 'feinschliff': {
+        // Bei wem liegt die Vorschau? Weitergegeben > zustaendig; alte 'feinschliff' ohne Angabe = Lion
+        const wer = personVon(v.bearbeiter_id ?? v.clients?.zustaendig_id ?? null)
+          ?? (v.produktion_stufe === 'feinschliff' ? 'lion' : 'fassie')
+        p[wer === 'lion' ? 'feinschliff' : 'freigabe'].push({ ...basis, unter: termin })
+        break
+      }
       case 'fertig':
         if (v.status === 'planned') p.eingeplant.push({ ...basis, unter: termin })
         else p.fertig.push({ ...basis, unter: `Fertig · ${termin}` })

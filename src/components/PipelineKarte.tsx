@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom'
 import { Inbox, Wand2, Eye, Scissors, CheckCircle2, CalendarCheck, Loader2, ChevronRight } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { useTeam } from '../context/TeamContext'
 import LogoFrame from './LogoFrame'
 import { BildStapel } from './AppIcon'
 import {
@@ -37,10 +38,10 @@ async function ladeGesichter(): Promise<Partial<Record<StufeKey, string>>> {
   return out
 }
 
-async function ladePipeline(): Promise<Pipeline> {
-  const kunde = 'clients(name, logo_url, client_type, pausiert_seit)'
+async function ladePipeline(personVon: (id: string | null) => 'fassie' | 'lion' | null): Promise<Pipeline> {
+  const kunde = 'clients(name, logo_url, client_type, pausiert_seit, zustaendig_id)'
   const [v, a, w] = await Promise.all([
-    supabase.from('videos').select(`id, title, client_id, status, produktion_stufe, scheduled_date, updated_at, ${kunde}`)
+    supabase.from('videos').select(`id, title, client_id, status, produktion_stufe, scheduled_date, updated_at, bearbeiter_id, ${kunde}`)
       .is('deleted_at', null).neq('status', 'posted')
       .or('produktion_stufe.not.is.null,status.eq.planned'),
     supabase.from('produktion_auftraege').select(`id, client_id, status, schritt, dateien, drehtag, created_at, ${kunde}`)
@@ -53,6 +54,7 @@ async function ladePipeline(): Promise<Pipeline> {
     ohnePause((v.data ?? []) as unknown as PipeVideo[]),
     ohnePause((a.error ? [] : a.data ?? []) as unknown as PipeAuftrag[]),
     ((w.error ? [] : w.data ?? []) as PipeAenderung[]),
+    personVon,
   )
 }
 
@@ -64,9 +66,14 @@ export default function PipelineKarte({ kompakt = false }: { kompakt?: boolean }
   const [offen, setOffen] = useState<StufeKey | null>(null)
   const warte = useRef<number | null>(null)
 
+  const { members } = useTeam()
+  const personVon = useCallback((id: string | null) => {
+    const n = members.find((m) => m.id === id)?.name ?? ''
+    return /^lion/i.test(n) ? 'lion' as const : /^fassie/i.test(n) ? 'fassie' as const : null
+  }, [members])
   const laden = useCallback(async () => {
-    try { setP(await ladePipeline()) } catch { /* Tabellen fehlen -> Karte bleibt weg */ }
-  }, [])
+    try { setP(await ladePipeline(personVon)) } catch { /* Tabellen fehlen -> Karte bleibt weg */ }
+  }, [personVon])
 
   useEffect(() => { laden() }, [laden])
   useEffect(() => {

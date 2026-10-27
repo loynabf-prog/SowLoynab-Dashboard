@@ -1,16 +1,17 @@
-// Zur Freigabe: geschnittene Videos, die Fassie anschaut, bevor Lion sie bekommt.
+// Vorschau: geschnittene Videos der eigenen Kunden (seit 27.10.2026 schneidet
+// jeder seine Kunden mit Claude komplett selbst).
 //
-//   Vorschau ansehen -> "Freigeben" (geht sofort zu Lion)
-//                    -> "Ändern" (Wunsch reiht sich ein, Claude arbeitet die
-//                       Wünsche nacheinander ab und meldet sich mit neuer Vorschau)
+//   Vorschau ansehen -> "Fertig"       (bereit zum Posten, Ordner nach 4 Fertig)
+//                    -> "Ändern"       (Wunsch reiht sich ein, Claude arbeitet nacheinander ab)
+//                    -> "An <Name>"    (nur bei Problemen: an den anderen weitergeben)
 //
-// Während ein Wunsch unterwegs ist, kann man schon das nächste Video ansehen.
+// Standard: nur meine Videos. "Alle" zeigt auch die des anderen.
 
 import { useCallback, useEffect, useState } from 'react'
-import { Check, Loader2, Pencil, Play } from 'lucide-react'
+import { Check, CornerUpRight, Loader2, Pencil, Play } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { dropbox } from '../lib/medien'
-import { aendern, freigeben, ladeFreigaben, offeneRunde, platzInSchlange, vorschauPfad, type Aenderung, type PruefVideo } from '../lib/freigabe'
+import { aendern, bearbeiterVon, fertigMachen, ladeFreigaben, weitergeben, offeneRunde, platzInSchlange, vorschauPfad, type Aenderung, type PruefVideo } from '../lib/freigabe'
 import { useIdentity } from '../context/IdentityContext'
 import { useTeam } from '../context/TeamContext'
 import { useToast } from '../context/ToastContext'
@@ -28,7 +29,10 @@ export default function FreigabeKarte() {
   const [wunsch, setWunsch] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
 
-  const lionId = members.find((m) => /^lion/i.test(m.name))?.id ?? null
+  const [alle, setAlle] = useState(false)
+  const aktive = members.filter((m) => m.active !== false)
+  const nameVon = (id: string | null) => aktive.find((m) => m.id === id)?.name ?? null
+  const anderer = aktive.find((m) => m.id !== memberId) ?? null
 
   const laden = useCallback(async () => {
     try {
@@ -60,11 +64,26 @@ export default function FreigabeKarte() {
     }
   }
 
-  async function los(v: PruefVideo) {
+  async function fertig(v: PruefVideo) {
     setBusy(v.id)
     try {
-      await freigeben(v, memberId, lionId)
-      toast(`Freigegeben – ${v.title} liegt jetzt bei Lion`)
+      await fertigMachen(v, memberId)
+      toast('Fertig – bereit zum Posten')
+      setOffen(null)
+      laden()
+    } catch (e) {
+      toast('Ging nicht: ' + (e as Error).message)
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function abgeben(v: PruefVideo) {
+    if (!anderer) return
+    setBusy(v.id)
+    try {
+      await weitergeben(v, anderer.id, memberId)
+      toast(`An ${anderer.name} gegeben`)
       setOffen(null)
       laden()
     } catch (e) {
@@ -90,17 +109,27 @@ export default function FreigabeKarte() {
     }
   }
 
+  // Meine: weitergegeben an mich, sonst der Kunde gehoert mir (ohne Zuordnung: alle sehen es)
+  const meine = videos.filter((v) => { const b = bearbeiterVon(v); return !memberId || !b || b === memberId })
+  const liste = alle ? videos : meine
   if (videos.length === 0) return null
 
   return (
     <div className="fg-karte">
       <div className="fg-kopf">
-        <strong>Freigabe <span className="fg-zahl">{videos.length}</span></strong>
-        <span>{videos.length} {videos.length === 1 ? 'Video wartet' : 'Videos warten'} auf dich, bevor sie zu Lion gehen</span>
+        <strong>Vorschau <span className="fg-zahl">{meine.length}</span></strong>
+        {memberId && meine.length !== videos.length && (
+          <div className="fg-umschalter" role="tablist">
+            <button className={!alle ? 'on' : ''} onClick={() => setAlle(false)}>Meine</button>
+            <button className={alle ? 'on' : ''} onClick={() => setAlle(true)}>Alle</button>
+          </div>
+        )}
       </div>
 
+      {liste.length === 0 && <p className="fg-leer">Nichts für dich</p>}
       <ul className="fg-liste">
-        {videos.map((v) => {
+        {liste.map((v) => {
+          const wer = nameVon(bearbeiterVon(v))
           const runde = offeneRunde(aenderungen, v.id)
           const platz = runde ? platzInSchlange(aenderungen, runde.id) : null
           const letzte = aenderungen.find((a) => a.video_id === v.id && a.status === 'erledigt')
@@ -117,6 +146,7 @@ export default function FreigabeKarte() {
                   <span className="fg-titel">{v.title}</span>
                   <span className="fg-unter">
                     {v.clients?.name ?? 'Kunde'}
+                    {alle && wer ? ` · ${wer}` : ''}
                     {runde
                       ? runde.status === 'laeuft' ? ' · wird geändert' : ` · Platz ${platz ?? '–'}`
                       : letzte ? ' · neu' : ''}
@@ -152,8 +182,13 @@ export default function FreigabeKarte() {
                       <button className="btn btn-sm" onClick={() => { setWunschFuer(v.id); setWunsch('') }}>
                         <Pencil size={15} /> Ändern
                       </button>
-                      <button className="btn btn-sm btn-primary" disabled={busy === v.id} onClick={() => los(v)}>
-                        {busy === v.id ? <Loader2 size={15} className="spin" /> : <Check size={15} />} Freigeben
+                      {anderer && (
+                        <button className="btn btn-sm" disabled={busy === v.id} onClick={() => abgeben(v)}>
+                          <CornerUpRight size={15} /> An {anderer.name}
+                        </button>
+                      )}
+                      <button className="btn btn-sm btn-primary" disabled={busy === v.id} onClick={() => fertig(v)}>
+                        {busy === v.id ? <Loader2 size={15} className="spin" /> : <Check size={15} />} Fertig
                       </button>
                     </div>
                   )}

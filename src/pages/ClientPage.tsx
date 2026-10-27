@@ -43,7 +43,7 @@ function ohneLeereKanal<T extends { channel_id?: string | null }>(row: T): T {
 import { klartext, lookupVideo, statsPatch } from '../lib/apify'
 import { ABGEBROCHEN, betriebFuerPosten } from '../lib/betriebWahl'
 import { Aktion, Aktionen } from '../components/AppIcon'
-import { Plus, Check, CalendarRange, Pencil, Pause, Play } from 'lucide-react'
+import { Plus, Check, CalendarRange, Pencil, Pause, Play, UserRound } from 'lucide-react'
 import { seit } from '../lib/format'
 import { getPackages, mengeText, type Package } from '../lib/packages'
 import { monatsplan, monatsKey, type Monatsplan } from '../lib/monatsplan'
@@ -75,6 +75,7 @@ import InspirationCard from '../components/InspirationCard'
 import PostLinksModal from '../components/PostLinksModal'
 import ContractCard from '../components/ContractCard'
 import { useToast } from '../context/ToastContext'
+import { useTeam } from '../context/TeamContext'
 import { heute } from '../lib/datum'
 
 type ClientTab = 'board' | 'termine' | 'pool' | 'analyse' | 'inspiration'
@@ -83,6 +84,8 @@ export default function ClientPage() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuth()
   const { toast } = useToast()
+  const { members: teamAlle } = useTeam()
+  const teamAktiv = teamAlle.filter((m) => m.active !== false)
   const [client, setClient] = useState<Client | null>(null)
   const [videos, setVideos] = useState<Video[]>([])
   const [loading, setLoading] = useState(true)
@@ -629,6 +632,17 @@ export default function ClientPage() {
           }} />
         ) : (
           <Aktion icon={Pause} titel="Pause" onClick={() => setPauseOffen(true)} />
+        )}
+        {/* Wer schneidet diesen Kunden? Tippen wechselt zum anderen. */}
+        {teamAktiv.length > 1 && (
+          <Aktion icon={UserRound} titel={teamAktiv.find((m) => m.id === client.zustaendig_id)?.name ?? 'Zuständig'} onClick={async () => {
+            const i = teamAktiv.findIndex((m) => m.id === client.zustaendig_id)
+            const neu = teamAktiv[(i + 1) % teamAktiv.length]
+            const { error } = await updateRow('clients', { zustaendig_id: neu.id }, 'id', client.id)
+            if (error) { setError(error.message); return }
+            toast(`${neu.name} schneidet ${client.name}`)
+            loadClient()
+          }} />
         )}
       </Aktionen>
 

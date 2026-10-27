@@ -8,7 +8,9 @@ export interface Client {
   handle_tiktok: string | null
   notes: string | null
   brand: string | null        // 'media' (Sow & Loynab) | 'creator' (Creator Scout)
-  client_type: string | null  // 'zahlend' | 'referenz' | 'passiv'
+  client_type: string | null  // 'zahlend' | 'eigen' | 'referenz' | 'passiv'
+  /** Wer die Videos dieses Kunden schneidet (0062). */
+  zustaendig_id?: string | null
   package: string | null
   monthly_fee: number | null
   active: boolean
