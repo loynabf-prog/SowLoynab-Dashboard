@@ -21,6 +21,7 @@ import Inspirations from './pages/Inspirations'
 import Lexikon from './pages/Lexikon'
 import Postfach from './pages/Postfach'
 import Settings from './pages/Settings'
+import Firma from './pages/Firma'
 import Chat from './pages/Chat'
 import Mehr from './pages/Mehr'
 import PersonalBrand from './pages/PersonalBrand'
@@ -87,6 +88,7 @@ export default function App() {
         <Route path="/postfach" element={<Postfach />} />
         <Route path="/team" element={<Team />} />
         <Route path="/einstellungen" element={<Settings />} />
+        <Route path="/firma" element={<Firma />} />
         <Route path="/papierkorb" element={<Trash />} />
         <Route path="/mehr" element={<Mehr />} />
         <Route path="/chat" element={<Chat />} />

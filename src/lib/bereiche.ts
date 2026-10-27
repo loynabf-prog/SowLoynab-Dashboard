@@ -67,6 +67,7 @@ export const BEREICHE: Bereich[] = [
       { to: '/monate', label: 'Monate', was: 'Je Monat: wer wie viele Videos bekommt und was reinkommt', reiter: 'geld', suche: ['monat', 'abschließen', 'einnahmen'] },
       { to: '/rechnungen', label: 'Rechnungen', was: 'Rechnungen schreiben, als PDF senden, bezahlt abhaken', reiter: 'geld', suche: ['invoice', 'pdf', 'mahnung'] },
       { to: '/finanzen', label: 'Finanzen', was: 'Einnahmen, Ausgaben und Fixkosten vom Geschäftskonto', reiter: 'geld', suche: ['konto', 'ausgaben', 'buchungen', 'abos'] },
+      { to: '/firma', label: 'Firmendaten', was: 'Steuernummer, USt-IdNr., Adresse, Bank — antippen und kopieren', reiter: 'geld', suche: ['steuernummer', 'ust-id', 'ustid', 'umsatzsteuer', 'adresse', 'iban', 'firma', 'finanzamt', 'unternehmensdaten'] },
     ] },
   { key: 'analyse', label: 'Analyse', zweck: 'Zahlen der geposteten Videos',
     seiten: [
@@ -80,7 +81,7 @@ export const BEREICHE: Bereich[] = [
     ] },
   { key: 'system', label: 'System', zweck: 'Einstellungen und Papierkorb',
     seiten: [
-      { to: '/einstellungen', label: 'Einstellungen', was: 'Firmendaten, Pakete, Caption-Vorgabe, Verbindungen, Systemstatus', suche: ['firma', 'pakete', 'passwort', 'bank', 'zoho', 'kategorien'] },
+      { to: '/einstellungen', label: 'Einstellungen', was: 'Pakete, Caption-Vorgabe, Verbindungen, Systemstatus', suche: ['firma', 'pakete', 'passwort', 'bank', 'zoho', 'kategorien'] },
       { to: '/papierkorb', label: 'Papierkorb', was: 'Gelöschtes wiederherstellen', suche: ['gelöscht', 'wiederherstellen', 'trash'] },
     ] },
 ]

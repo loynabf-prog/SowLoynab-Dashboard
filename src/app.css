@@ -4174,3 +4174,37 @@ html { scroll-behavior: smooth; }
 .lex-liste { display: flex; flex-direction: column; gap: 4px; }
 .lex-link { background: none; border: none; padding: 0; text-align: left; color: var(--brand); font: inherit; cursor: pointer; }
 .lex-link:hover { text-decoration: underline; }
+
+/* ---- Firmendaten (/firma): Liste wie iPhone-Einstellungen, Zeile antippen = kopieren ---- */
+.firma-gruppe { max-width: 640px; margin-top: 18px; }
+.firma-titel {
+  font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--text-dim); margin: 0 4px 6px;
+}
+.firma-liste {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: var(--shadow-sm); overflow: hidden;
+}
+.firma-zeile {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  padding: 13px 16px; background: none; border: 0; border-top: 1px solid var(--border);
+  font: inherit; color: inherit; text-align: left; cursor: pointer;
+}
+.firma-liste > .firma-zeile:first-child { border-top: 0; }
+button.firma-zeile:active:not(:disabled) { background: var(--border); }
+.firma-zeile.leer { cursor: default; }
+.firma-label { flex: 0 0 120px; font-size: 14px; color: var(--text-dim); }
+.firma-wert { flex: 1; min-width: 0; font-size: 15px; font-weight: 500; white-space: pre-line; overflow-wrap: anywhere; }
+.firma-wert.mono { font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
+.firma-zeile.leer .firma-wert { color: var(--text-dim); font-weight: 400; font-style: italic; }
+.firma-icon { flex: none; color: var(--text-dim); }
+.firma-icon.ok { color: #1f9d55; }
+.firma-edit { cursor: default; flex-wrap: wrap; }
+.firma-edit input, .firma-edit textarea { flex: 1; min-width: 180px; }
+.firma-hinweis { max-width: 640px; margin-top: 4px; }
+.firma-hinweis .btn { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
+@media (max-width: 520px) {
+  .firma-zeile:not(.firma-edit) { flex-wrap: wrap; row-gap: 2px; }
+  .firma-label { flex-basis: 100%; font-size: 12px; }
+  .firma-zeile:not(.firma-edit) .firma-wert { flex: 1; }
+}
