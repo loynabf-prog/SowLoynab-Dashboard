@@ -1084,3 +1084,25 @@ a.n-zeile { text-decoration: none; }
 .h-freigabe { scroll-margin-top: 16px; }
 .h-freigabe:empty { display: none; }
 .h-freigabe .fg-karte { margin-bottom: 18px; }
+
+/* Personal Brand */
+.pb-banner { display: flex; align-items: center; gap: 12px; padding: 14px 16px; margin: 0 0 18px; border-radius: var(--radius, 16px); background: var(--bg-card, #fff); color: inherit; text-decoration: none; }
+.pb-banner-ic { width: 40px; height: 40px; border-radius: 12px; background: var(--glut, #ff6a00); color: #fff; font-weight: 800; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.pb-banner-text { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.pb-banner-text span { font-size: 13px; color: var(--text-muted, #6e6e73); }
+.pb-balken { flex: 1; height: 8px; border-radius: 4px; background: var(--bg-2, #f2f2f7); overflow: hidden; }
+.pb-balken i { display: block; height: 100%; background: var(--glut, #ff6a00); border-radius: 4px; }
+.pb-punkt { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+.pb-rot { color: var(--rot, #ff3b30); font-weight: 600; font-size: 13px; }
+.pb-knoepfe { display: flex; gap: 10px; margin: 12px 0 0; }
+.pb-knoepfe .btn { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 46px; }
+.pb-knoepfe svg { width: 18px; height: 18px; }
+.pb-accounts { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+.pb-account { background: var(--bg-card, #fff); border-radius: var(--radius, 16px); padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.pb-account-kopf { display: flex; align-items: center; gap: 8px; font-size: 17px; }
+.pb-handles { display: flex; flex-wrap: wrap; gap: 8px; font-size: 13px; }
+.pb-handles a { color: var(--blau, #0a84ff); text-decoration: none; }
+.pb-fehlt { align-self: flex-start; border: none; background: none; padding: 0; color: var(--gelb, #ff9f0a); font: inherit; font-size: 13px; cursor: pointer; }
+.pb-werte { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.pb-werte span { display: flex; flex-direction: column; font-size: 11px; color: var(--text-muted, #6e6e73); }
+.pb-werte b { font-size: 17px; color: var(--text, #1d1d1f); font-variant-numeric: tabular-nums; }

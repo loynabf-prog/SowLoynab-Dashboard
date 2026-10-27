@@ -59,6 +59,7 @@ export const BEREICHE: Bereich[] = [
   { key: 'kunden', label: 'Kunden & Vertrieb', zweck: 'Kundenakten, Verträge, neue Kunden gewinnen',
     seiten: [
       { to: '/kunden', label: 'Kunden', was: 'Alle Kundenakten: Verträge, Ideen, Termine, Zahlen je Kunde', reiter: 'kunden', suche: ['akte', 'vertrag', 'briefing'] },
+      { to: '/brand', label: 'Personal Brand', was: 'Unsere eigenen Accounts: Posts, Analyse, Leads je Account', reiter: 'kunden', suche: ['eigen', 'agentur-account', 'sowloynab', 'personal brand', 'ads'] },
       { to: '/leads', label: 'Leads', was: 'Interessenten von der ersten Nachricht bis zum Vertrag', reiter: 'kunden', suche: ['akquise', 'pipeline', 'google maps', 'vertrieb'] },
     ] },
   { key: 'geld', label: 'Geld', zweck: 'Monate, Rechnungen, Konto',

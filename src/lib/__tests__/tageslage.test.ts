@@ -180,3 +180,17 @@ describe('pro Kunde', () => {
     expect(nachKunde(namen, (x) => x).map((g) => g.kunde)).toEqual(['A', 'B', 'C', 'D', 'Ohne Kunde'])
   })
 })
+
+describe('Prioritaet nach Kundenart', () => {
+  it('verpasste Posts: zahlend vor Personal Brand vor Ehrenamt', async () => {
+    const { tagesLage } = await import('../tageslage')
+    const v = (id: string, art: string) => ({
+      id, title: id, status: 'todo', scheduled_date: '2026-10-20', scheduled_time: null,
+      prep_shot: false, prep_edited: false, prep_scheduled: false, client_id: id,
+      clients: { name: id, client_type: art },
+    })
+    const lage = tagesLage({ videos: [v('ehrenamt', 'referenz'), v('eigen', 'eigen'), v('kunde', 'zahlend')] as any, termine: [], aufgaben: [] }, '2026-10-27', '10:00')
+    // Ehrenamt ist nie rot -> nicht in "brennt"
+    expect(lage.brennt.map((p) => p.kunde)).toEqual(['kunde', 'eigen'])
+  })
+})

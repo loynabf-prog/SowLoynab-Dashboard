@@ -17,6 +17,8 @@
 import type { Video } from './types'
 import { datumPlus } from './datum'
 
+import { rangVon } from './kundenart'
+
 export const FRISTEN = { dreh: 21, schnitt: 3, planung: 1 } as const
 
 /** Dreh-Frist und Dreh-Erinnerungen an? Seit Okt 2026 aus. */
@@ -190,6 +192,9 @@ export function nachDringlichkeit<T extends FristVideo>(videos: T[], heuteIso: s
     const fa = fristInfo(a, heuteIso, jetztZeit)
     const fb = fristInfo(b, heuteIso, jetztZeit)
     if (RANG[fa.ampel] !== RANG[fb.ampel]) return RANG[fa.ampel] - RANG[fb.ampel]
+    // Gleich dringend: zahlende Kunden vor Personal Brand vor Ehrenamt
+    const ka = rangVon(a.clients?.client_type), kb = rangVon(b.clients?.client_type)
+    if (ka !== kb) return ka - kb
     return (a.scheduled_date ?? '9999').localeCompare(b.scheduled_date ?? '9999')
   })
 }

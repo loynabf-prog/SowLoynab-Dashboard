@@ -14,7 +14,7 @@
 //   Kunden        Videos, Ø Views und Follower je Kunde
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Play, TrendingUp, Music, Clock, ChevronRight, RefreshCw, ExternalLink } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { nurGesamt } from '../lib/accounts'
@@ -55,7 +55,9 @@ export default function Analytics() {
   const [loading, setLoading] = useState(true)
   const [fehler, setFehler] = useState<string | null>(null)
   const [zeitraum, setZeitraum] = useState<(typeof ZEITRAEUME)[number]['key']>('90')
-  const [kunde, setKunde] = useState<string | null>(null)
+  // ?kunde=<id> (z. B. aus der Personal Brand): direkt auf diesen Kunden filtern
+  const [params] = useSearchParams()
+  const [kunde, setKunde] = useState<string | null>(() => params.get('kunde'))
   const [marke, setMarke] = useState<Marke | 'alle'>('alle')
   const [sortierung, setSortierung] = useState<Sortierung>('index')
   // Angetipptes Video: Blatt mit allen Zahlen und "Aktuelle Zahlen holen".

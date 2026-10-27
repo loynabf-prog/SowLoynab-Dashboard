@@ -524,6 +524,7 @@ function LeadModal({
     city: lead?.city ?? '',
     stage: lead?.stage ?? ('new' as LeadStage),
     source: lead?.source ?? '',
+    quelle_kanal_id: lead?.quelle_kanal_id ?? '',
     potential_fee: lead?.potential_fee != null ? String(lead.potential_fee) : '',
     next_followup: lead?.next_followup ?? '',
     notes: lead?.notes ?? '',
@@ -532,6 +533,13 @@ function LeadModal({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const set = (k: keyof typeof f, v: string) => setF((p) => ({ ...p, [k]: v }))
+  // Unsere Personal-Brand-Accounts: ueber welchen kam der Lead?
+  const [eigeneKanaele, setEigeneKanaele] = useState<{ id: string; name: string }[]>([])
+  useEffect(() => {
+    supabase.from('client_channels').select('id, name, sort, clients!inner(client_type, deleted_at)')
+      .eq('clients.client_type', 'eigen').is('clients.deleted_at', null).order('sort')
+      .then(({ data }) => setEigeneKanaele(((data ?? []) as any[]).map((k) => ({ id: k.id, name: k.name }))))
+  }, [])
 
   async function save(e: React.FormEvent) {
     e.preventDefault()
@@ -548,6 +556,7 @@ function LeadModal({
       city: f.city.trim() || null,
       stage: f.stage,
       source: f.source.trim() || null,
+      ...(f.quelle_kanal_id || lead?.quelle_kanal_id ? { quelle_kanal_id: f.quelle_kanal_id || null } : {}),
       potential_fee: f.potential_fee ? Number(f.potential_fee.replace(',', '.')) : null,
       next_followup: f.next_followup || null,
       notes: f.notes.trim() || null,
@@ -631,6 +640,15 @@ function LeadModal({
             </select>
           </div>
         </div>
+        {eigeneKanaele.length > 0 && (f.source === 'Instagram' || f.source === 'TikTok' || f.quelle_kanal_id) && (
+          <div>
+            <label>Über welchen Account?</label>
+            <select value={f.quelle_kanal_id} onChange={(e) => set('quelle_kanal_id', e.target.value)}>
+              <option value="">— weiß nicht —</option>
+              {eigeneKanaele.map((k) => <option key={k.id} value={k.id}>{k.name}</option>)}
+            </select>
+          </div>
+        )}
         <div>
           <label>Zuständig</label>
           <AssigneePicker value={assignees} onChange={setAssignees} />

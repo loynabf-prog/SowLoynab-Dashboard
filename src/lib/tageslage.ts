@@ -17,6 +17,7 @@
 import { fristInfo, stand, tageZwischen, NUR_POSTEN, type Ampel, type Schritt } from './fristen'
 import type { VideoStatus } from './types'
 import { datumPlus } from './datum'
+import { rangVon } from './kundenart'
 
 export type Art = 'termin' | 'drehtag' | 'posten' | 'dreh' | 'schnitt' | 'planung' | 'aufgabe'
 
@@ -77,6 +78,8 @@ export interface Punkt {
   drehtag?: string | null
   /** Gebuendelt: die einzelnen Videos dahinter (mind. 2). */
   gruppe?: Punkt[]
+  /** Prioritaet der Kundenart (kundenart.ts RANG): 0 zahlend, 1 eigen, 2 Ehrenamt. Aufgaben/Termine 0. */
+  rang?: number
 }
 
 export interface Lage {
@@ -139,6 +142,7 @@ function videoPunkt(v: LageVideo, heuteIso: string, jetztZeit: string): Punkt {
     // Tipp aufs Video = Video-Details in der Kundenakte (Fassie, 24.10.2026)
     ziel: v.client_id ? `/client/${v.client_id}?video=${v.id}&open=1` : (f.schritt === 'posten' ? '/plan' : '/produktion'),
     clientId: v.client_id ?? null,
+    rang: rangVon(v.clients?.client_type),
     frist: f.frist,
     drehtag: v.drehtag ?? null,
   }
@@ -162,8 +166,15 @@ function aufgabePunkt(a: LageAufgabe, heuteIso: string): Punkt {
 }
 
 /** Nach Uhrzeit, Punkte ohne Uhrzeit hinten. */
+/**
+ * Zahlende Kunden zuerst, dann Personal Brand, dann Ehrenamt -- innerhalb
+ * derselben Prioritaet nach Uhrzeit. Was vertraglich versprochen ist, steht
+ * immer oben.
+ */
 function nachZeit(p: Punkt[]): Punkt[] {
   return [...p].sort((a, b) => {
+    const r = (a.rang ?? 0) - (b.rang ?? 0)
+    if (r !== 0) return r
     if (a.zeit && b.zeit) return a.zeit.localeCompare(b.zeit)
     if (a.zeit) return -1
     if (b.zeit) return 1
@@ -227,6 +238,8 @@ export function tagesLage(e: LageEingang, heuteIso: string, jetztZeit: string): 
   // Vorarbeit: das mit der naechsten Frist zuerst -- das entlastet am meisten.
   vorarbeit.sort((a, b) => {
     const r = { schnitt: 0, planung: 1, dreh: 2 } as Record<string, number>
+    const k = (a.rang ?? 0) - (b.rang ?? 0)
+    if (k !== 0) return k
     const d = (r[a.art] ?? 9) - (r[b.art] ?? 9)
     return d !== 0 ? d : a.titel.localeCompare(b.titel)
   })

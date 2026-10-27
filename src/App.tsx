@@ -23,6 +23,7 @@ import Postfach from './pages/Postfach'
 import Settings from './pages/Settings'
 import Chat from './pages/Chat'
 import Mehr from './pages/Mehr'
+import PersonalBrand from './pages/PersonalBrand'
 import ContractSign from './pages/ContractSign'
 import Layout from './components/Layout'
 import Spinner from './components/Spinner'
@@ -66,6 +67,7 @@ export default function App() {
       <Route element={<Schale />}>
         <Route path="/" element={<Overview />} />
         <Route path="/kunden" element={<Dashboard />} />
+        <Route path="/brand" element={<PersonalBrand />} />
         <Route path="/uebersicht" element={<Navigate to="/" replace />} />
         <Route path="/client/:id" element={<ClientPage />} />
         <Route path="/leads" element={<Leads />} />

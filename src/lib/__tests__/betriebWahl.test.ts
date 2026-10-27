@@ -60,5 +60,6 @@ describe('nurBetrieb (Link-Abruf)', () => {
   ]
   it('ohne Betrieb alle Accounts', () => expect(nurBetrieb(h, null)).toHaveLength(2))
   it('mit Betrieb nur dessen Account', () => expect(nurBetrieb(h, 'b').map((x) => x.handle)).toEqual(['schmackofatz96']))
-  it('unbekannter Betrieb: alle (alte Daten)', () => expect(nurBetrieb(h, 'zzz')).toHaveLength(2))
+  it('Betrieb ohne eigenen Account: nichts (nicht den falschen greifen)', () => expect(nurBetrieb(h, 'zzz')).toHaveLength(0))
+  it('alte Daten ohne Zuordnung: alle', () => expect(nurBetrieb([{ platform: 'tiktok', handle: 'x', channel_id: null }], 'a')).toHaveLength(1))
 })

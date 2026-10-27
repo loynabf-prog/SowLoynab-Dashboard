@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ARTEN, artInfo, artVon, istAktiv } from '../kundenart'
+import { ARTEN, KUNDEN_ARTEN, artInfo, artVon, istAktiv, rangVon } from '../kundenart'
 
 describe('artVon', () => {
   it('erkennt alle drei Arten', () => {
@@ -23,8 +23,17 @@ describe('istAktiv', () => {
 })
 
 describe('ARTEN', () => {
-  it('hat drei Eintraege in der Reihenfolge der Wichtigkeit', () => {
-    expect(ARTEN.map((a) => a.key)).toEqual(['zahlend', 'referenz', 'passiv'])
+  it('hat vier Eintraege in der Reihenfolge der Wichtigkeit', () => {
+    expect(ARTEN.map((a) => a.key)).toEqual(['zahlend', 'eigen', 'referenz', 'passiv'])
+  })
+  it('Kundenliste ohne Personal Brand', () => {
+    expect(KUNDEN_ARTEN.map((a) => a.key)).toEqual(['zahlend', 'referenz', 'passiv'])
+  })
+  it('Rang: zahlend vor eigen vor Ehrenamt; Unbekanntes zaehlt als zahlend', () => {
+    expect(rangVon('zahlend')).toBeLessThan(rangVon('eigen'))
+    expect(rangVon('eigen')).toBeLessThan(rangVon('referenz'))
+    expect(rangVon(null)).toBe(rangVon('zahlend'))
+    expect(artVon('eigen')).toBe('eigen')
   })
   it('liefert zu jedem Wert etwas Anzeigbares', () => {
     expect(artInfo('referenz').titel).toBe('Ehrenamt & Referenzen')

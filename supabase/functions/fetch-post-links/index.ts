@@ -164,11 +164,16 @@ export function linksKomplett(plattformen: string[], tiktok: unknown, instagram:
   return true
 }
 
-/** Bei gewaehltem Betrieb nur dessen Accounts; ohne Treffer alle (alte Daten). */
+/**
+ * Bei gewaehltem Betrieb/Account nur dessen Accounts. Sind die Accounts noch
+ * gar keinem Betrieb zugeordnet (alte Daten), zaehlen alle. Ist zugeordnet,
+ * aber fuer diesen Betrieb nichts hinterlegt (z. B. Lions privater Account
+ * noch ohne Handle), gibt es nichts -- lieber nichts holen als den falschen.
+ */
 export function nurBetrieb<T extends { channel_id?: string | null }>(handles: T[], channelId: string | null | undefined): T[] {
   if (!channelId) return handles
-  const passend = handles.filter((h) => h.channel_id === channelId)
-  return passend.length ? passend : handles
+  if (!handles.some((h) => h.channel_id)) return handles
+  return handles.filter((h) => h.channel_id === channelId)
 }
 
 export function zuAlt(p: { zeit: string | null }, gepostetAm: string | null, jetzt = Date.now()): boolean {
@@ -227,7 +232,7 @@ const bedienen = async (req: Request): Promise<Response> => {
       // Zwei Betriebe (z. B. Schleckofatz / Schmackofatz): beim Posten wird
       // der Betrieb gewaehlt -- dann zaehlen nur dessen Accounts.
       handles = nurBetrieb(handles, v.channel_id)
-      if (handles.length === 0) {
+      if (handles.length === 0 && !v.channel_id) {
         const { data: c } = await supa
           .from('clients').select('handle_ig, handle_tiktok').eq('id', v.client_id).maybeSingle()
         handles = [

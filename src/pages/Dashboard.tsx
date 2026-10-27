@@ -8,7 +8,7 @@ import { uploadLogo } from '../lib/storage'
 import type { Client, Video } from '../lib/types'
 import { kundenlage, type Kundenlage } from '../lib/kundenrang'
 import { MARKEN, markeVon, type Marke } from '../lib/marken'
-import { ARTEN, artVon, istAktiv, type Kundenart } from '../lib/kundenart'
+import { KUNDEN_ARTEN, artVon, istAktiv, type Kundenart } from '../lib/kundenart'
 import { normHandle } from '../lib/accounts'
 import Modal from '../components/Modal'
 import LogoFrame from '../components/LogoFrame'
@@ -124,12 +124,24 @@ export default function Dashboard() {
       <div className="page-head">
         <div>
           <h1>Kunden</h1>
-          <span className="sub">{loading ? 'Lade …' : `${clients.filter((c) => c.active !== false).length} aktiv`}</span>
+          <span className="sub">{loading ? 'Lade …' : `${clients.filter((c) => c.active !== false && artVon(c.client_type) !== 'eigen').length} aktiv`}</span>
         </div>
         <Link className="btn btn-sm" to="/monate">Monate</Link>
         <button className="btn btn-primary btn-sm" onClick={() => setShowAdd(true)}><Plus size={16} strokeWidth={2.4} />Kunde</button>
       </div>
       <BereichReiter />
+
+      {/* Unsere eigenen Accounts sind kein Kunde: eigener Bereich */}
+      {clients.some((c) => artVon(c.client_type) === 'eigen') && (
+        <Link to="/brand" className="pb-banner">
+          <span className="pb-banner-ic">S&amp;L</span>
+          <span className="pb-banner-text">
+            <strong>Personal Brand</strong>
+            <span>Agentur-Account, Fassie, Lion · Posts, Analyse, Leads</span>
+          </span>
+          <ChevronRight className="n-chevron" />
+        </Link>
+      )}
 
       {error && (
         <div className="error-box" style={{ maxWidth: 940, margin: '0 auto 20px' }}>
@@ -168,7 +180,7 @@ export default function Dashboard() {
       {/* Die Art ordnet, die Dringlichkeit sortiert. Zahlende Kunden zuerst,
           Ehrenamt darunter, Passives ganz unten und abgeblendet — sonst
           verwaessert das eine das andere. */}
-      {ARTEN.map((art) => {
+      {KUNDEN_ARTEN.map((art) => {
         const gruppe = eingestuft.filter((x) => artVon(x.c.client_type) === art.key)
         if (gruppe.length === 0) return null
         const akut = gruppe.filter((x) => x.lage.rang === 'akut').length
@@ -341,7 +353,7 @@ function AddClientModal({
         <div>
           <label>Kundenart</label>
           <div className="art-wahl">
-            {ARTEN.map((a) => (
+            {KUNDEN_ARTEN.map((a) => (
               <button
                 type="button"
                 key={a.key}

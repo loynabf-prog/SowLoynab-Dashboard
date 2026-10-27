@@ -131,6 +131,8 @@ export interface Lead {
   notes: string | null
   next_followup: string | null
   source: string | null
+  /** Personal-Brand-Account, ueber den der Lead kam (0060). */
+  quelle_kanal_id?: string | null
   assigned_to: string | null
   assignee_ids: string[]
   sort_order: number | null
