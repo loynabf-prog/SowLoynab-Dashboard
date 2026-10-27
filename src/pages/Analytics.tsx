@@ -184,7 +184,6 @@ export default function Analytics() {
 
   return (
     <>
-      <div className="h-datum">{loading ? 'Lade …' : 'Was bei unseren Videos funktioniert'}</div>
       <h1 className="h-gruss">Analyse</h1>
       <BereichReiter />
       {fehler && <div className="n-gruppe"><div className="n-leer">Konnte nicht laden: {fehler}</div></div>}
@@ -556,14 +555,14 @@ function VideoBlatt({ v, kunde, onClose, onAktualisiert }: { v: AnalyseVideo; ku
           </tbody>
         </table>
       )}
-      {!tt && !ig && <p className="vb-unter">Noch kein Link hinterlegt – ohne Link gibt es keine Zahlen.</p>}
+      {!tt && !ig && <p className="vb-unter">Kein Link</p>}
       <div className="vb-knoepfe">
         <button type="button" className="btn btn-primary" onClick={aktualisieren} disabled={holt || (!tt && !ig)}>
-          <RefreshCw strokeWidth={2.2} className={holt ? 'vb-dreht' : ''} /> {holt ? 'Hole Zahlen … (bis 1 Min.)' : 'Aktuelle Zahlen holen'}
+          <RefreshCw strokeWidth={2.2} className={holt ? 'vb-dreht' : ''} /> {holt ? '…' : 'Aktualisieren'}
         </button>
         {tt && <a className="btn" href={tt} target="_blank" rel="noopener noreferrer"><ExternalLink strokeWidth={2.2} /> TikTok</a>}
         {ig && <a className="btn" href={ig} target="_blank" rel="noopener noreferrer"><ExternalLink strokeWidth={2.2} /> Instagram</a>}
-        <button type="button" className="btn" onClick={() => navigate(`/client/${v.client_id}?video=${v.id}&open=1`)}>In der Kundenakte öffnen</button>
+        <button type="button" className="btn" onClick={() => navigate(`/client/${v.client_id}?video=${v.id}&open=1`)}>Kundenakte</button>
       </div>
     </Modal>
   )

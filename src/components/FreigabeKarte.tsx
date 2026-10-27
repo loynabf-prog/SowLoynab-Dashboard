@@ -95,7 +95,7 @@ export default function FreigabeKarte() {
   return (
     <div className="fg-karte">
       <div className="fg-kopf">
-        <strong>Zur Freigabe</strong>
+        <strong>Freigabe <span className="fg-zahl">{videos.length}</span></strong>
         <span>{videos.length} {videos.length === 1 ? 'Video wartet' : 'Videos warten'} auf dich, bevor sie zu Lion gehen</span>
       </div>
 
@@ -114,8 +114,8 @@ export default function FreigabeKarte() {
                   <span className="fg-unter">
                     {v.clients?.name ?? 'Kunde'}
                     {runde
-                      ? runde.status === 'laeuft' ? ' · Claude ändert gerade' : ` · Änderung eingereiht${platz ? ` (Platz ${platz})` : ''}`
-                      : letzte ? ' · neue Vorschau nach Änderung' : ''}
+                      ? runde.status === 'laeuft' ? ' · wird geändert' : ` · Platz ${platz ?? '–'}`
+                      : letzte ? ' · neu' : ''}
                   </span>
                 </span>
               </button>
@@ -124,22 +124,22 @@ export default function FreigabeKarte() {
                 <div className="fg-inhalt">
                   {links[v.id]
                     ? <video className="fg-player" src={links[v.id]} controls playsInline preload="metadata" />
-                    : <div className="fg-lade"><Loader2 size={18} className="spin" /> Lade Vorschau …</div>}
+                    : <div className="fg-lade"><Loader2 size={18} className="spin" /></div>}
 
                   {runde ? (
                     <div className="fg-hinweis">
-                      Dein Wunsch: „{runde.wunsch}“ – {runde.status === 'laeuft' ? 'wird gerade umgesetzt.' : 'wartet in der Schlange.'} Du bekommst eine Push, sobald die neue Vorschau da ist.
+                      „{runde.wunsch}“ · {runde.status === 'laeuft' ? 'läuft' : 'wartet'}
                     </div>
                   ) : wunschFuer === v.id ? (
                     <div className="fg-wunsch">
                       <textarea
                         autoFocus rows={3} value={wunsch} onChange={(e) => setWunsch(e.target.value)}
-                        placeholder="Was soll anders? z. B. Hook kürzer, Satz bei 0:12 raus, Musik lauter …"
+                        placeholder="Was soll anders?"
                       />
                       <div className="fg-knoepfe">
                         <button className="btn btn-sm" onClick={() => { setWunschFuer(null); setWunsch('') }}>Abbrechen</button>
                         <button className="btn btn-sm btn-primary" disabled={busy === v.id || !wunsch.trim()} onClick={() => schicken(v)}>
-                          {busy === v.id ? <Loader2 size={15} className="spin" /> : <Pencil size={15} />} Änderung einreihen
+                          {busy === v.id ? <Loader2 size={15} className="spin" /> : <Pencil size={15} />} Senden
                         </button>
                       </div>
                     </div>
@@ -149,11 +149,11 @@ export default function FreigabeKarte() {
                         <Pencil size={15} /> Ändern
                       </button>
                       <button className="btn btn-sm btn-primary" disabled={busy === v.id} onClick={() => los(v)}>
-                        {busy === v.id ? <Loader2 size={15} className="spin" /> : <Check size={15} />} Freigeben → Lion
+                        {busy === v.id ? <Loader2 size={15} className="spin" /> : <Check size={15} />} Freigeben
                       </button>
                     </div>
                   )}
-                  {letzte?.notiz && !runde && <div className="fg-notiz">Zuletzt geändert: {letzte.notiz}</div>}
+                  {letzte?.notiz && !runde && <div className="fg-notiz">{letzte.notiz}</div>}
                 </div>
               )}
             </li>

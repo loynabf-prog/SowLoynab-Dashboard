@@ -42,6 +42,8 @@ function ohneLeereKanal<T extends { channel_id?: string | null }>(row: T): T {
 }
 import { klartext, lookupVideo, statsPatch } from '../lib/apify'
 import { ABGEBROCHEN, betriebFuerPosten } from '../lib/betriebWahl'
+import AppIcon, { AppRaster } from '../components/AppIcon'
+import { Plus, Check, CalendarRange, Pencil, Pause, Play } from 'lucide-react'
 import { seit } from '../lib/format'
 import { getPackages, mengeText, type Package } from '../lib/packages'
 import { monatsplan, monatsKey, type Monatsplan } from '../lib/monatsplan'
@@ -603,46 +605,36 @@ export default function ClientPage() {
             ).join('  ·  ') || 'keine Handles hinterlegt'}
           </span>
         </div>
-        <div className="spacer" />
-        <button className="btn btn-sm btn-ghost" onClick={() => setEditClient(true)}>
-          Kunde bearbeiten
-        </button>
-        {istPausiert(client) ? (
-          <button className="btn btn-sm" onClick={async () => {
-            const { error } = await updateRow('clients', { pausiert_seit: null, pause_grund: null }, 'id', client.id)
-            if (error) { setError(error.message); return }
-            toast('Läuft wieder – erscheint wieder auf Heute und im Plan')
-            loadClient()
-          }}>
-            Fortsetzen
-          </button>
-        ) : (
-          <button className="btn btn-sm btn-ghost" onClick={() => setPauseOffen(true)}>
-            Pausieren
-          </button>
-        )}
-        <button className="btn btn-sm" onClick={() => setPlanOffen(true)}>
-          Monatsplan
-        </button>
-        <button className="btn btn-sm" title="Video ist schon draußen, aber nicht angelegt? Dann hier tippen." onClick={async () => {
+      </div>
+
+      {/* Aktionen als Symbole wie auf dem Homebildschirm */}
+      <AppRaster>
+        <AppIcon icon={Plus} farbe="blau" titel="Idee" onClick={() => setCreating(true)} />
+        <AppIcon icon={Check} farbe="gruen" titel="Gepostet" onClick={async () => {
           const f = await schnellGepostet(client.id)
           if (f === ABGEBROCHEN) return
           if (f) { setError(f); return }
-          toast('Video gepostet – Link, Zahlen und Titel werden geholt (bis zu 2 Minuten)')
+          toast('Gepostet')
           loadVideos()
           setTimeout(() => loadVideos(), 100_000)
-        }}>
-          Video gepostet
-        </button>
-        <button className="btn btn-primary" onClick={() => setCreating(true)}>
-          + Idee
-        </button>
-      </div>
+        }} />
+        <AppIcon icon={CalendarRange} farbe="glut" titel="Monat" onClick={() => setPlanOffen(true)} />
+        <AppIcon icon={Pencil} farbe="grau" titel="Bearbeiten" onClick={() => setEditClient(true)} />
+        {istPausiert(client) ? (
+          <AppIcon icon={Play} farbe="gelb" titel="Weiter" onClick={async () => {
+            const { error } = await updateRow('clients', { pausiert_seit: null, pause_grund: null }, 'id', client.id)
+            if (error) { setError(error.message); return }
+            toast('Läuft wieder')
+            loadClient()
+          }} />
+        ) : (
+          <AppIcon icon={Pause} farbe="gelb" titel="Pause" onClick={() => setPauseOffen(true)} />
+        )}
+      </AppRaster>
 
       {istPausiert(client) && (
         <div className="pause-band">
           <strong>{pauseText(client)}</strong>
-          <span>Videos und Drehtage stehen nicht auf Heute, im Plan oder in der Morgen-Nachricht. In der Produktion bleiben sie unter „Pausiert“.</span>
         </div>
       )}
 
@@ -2302,7 +2294,7 @@ function DieserMonat({ videos, monat, heuteIso, mitVertrag, onOeffnen, onAnalyse
     <div className="dm-block">
       {imMonat.length > 0 && (
         <>
-          <div className="dm-kopf"><strong>Posting-Tage diesen Monat</strong><span>{imMonat.filter((v) => v.status === 'posted').length} von {imMonat.length} raus</span></div>
+          <div className="dm-kopf"><strong>Diesen Monat</strong><span>{imMonat.filter((v) => v.status === 'posted').length} von {imMonat.length} raus</span></div>
           <div className="dm-tage">
             {imMonat.map((v) => {
               const raus = v.status === 'posted'
@@ -2322,8 +2314,8 @@ function DieserMonat({ videos, monat, heuteIso, mitVertrag, onOeffnen, onAnalyse
       {zuletzt.length > 0 && (
         <>
           <div className="dm-kopf">
-            <strong>Resonanz</strong>
-            <button type="button" className="n-mehr-link" onClick={onAnalyse}>Ganze Analyse</button>
+            <strong>Zahlen</strong>
+            <button type="button" className="n-mehr-link" onClick={onAnalyse}>Alle</button>
           </div>
           <div className="dm-videos">
             {zuletzt.map((v) => {

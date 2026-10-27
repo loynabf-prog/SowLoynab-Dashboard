@@ -282,7 +282,6 @@ export default function Overview() {
             </svg>
             <div className="h-ring-text">
               <strong>{satz.oben}</strong>
-              <span>{satz.unten}</span>
             </div>
           </div>
 
@@ -306,7 +305,6 @@ export default function Overview() {
             <div className="h-ruhig">
               <span className="n-ic gruen"><Coffee strokeWidth={2.2} /></span>
               <strong>Alles erledigt</strong>
-              <span>Nichts offen, nichts vorzuziehen. Genieß den Tag.</span>
             </div>
           )}
 
@@ -322,7 +320,7 @@ export default function Overview() {
           {tagPlan.rest.length > 0 && (
             <>
               <div className="n-abschnitt">
-                <h2>{tagPlan.ruhig ? 'Weitere Vorarbeit' : 'Auch noch offen'}</h2>
+                <h2>{tagPlan.ruhig ? 'Vorarbeit' : 'Offen'}</h2>
                 <span>{tagPlan.rest.length}</span>
                 <button className="n-mehr-link" onClick={() => setAlle((a) => !a)}>{alle ? 'Weniger' : 'Alle anzeigen'}</button>
               </div>
@@ -345,6 +343,13 @@ export default function Overview() {
       )}
     </>
   )
+}
+
+/** Ein, zwei Woerter statt Satz: "verpasst", "überfällig", "3 Videos". */
+function kurzGrund(p: Punkt): string {
+  if (p.gruppe) return `${p.gruppe.length} verpasst`
+  if (p.art === 'aufgabe') return 'überfällig'
+  return /verpasst/i.test(p.text) ? 'verpasst' : /vorbei/i.test(p.text) ? 'jetzt posten' : 'überfällig'
 }
 
 /** Gruppe mit ungedrehten Videos ohne Drehtag: dann ist "Drehtag planen" der Knopf. */
@@ -390,7 +395,7 @@ function DrehtagPlanen({ p, heute, onAbbrechen, onAnlegen }: {
   )
 }
 
-function Fokus({ p, auf, unter, onAufklappen, ruhig, onTun, onSpaeter, onOeffnen }: {
+function Fokus({ p, auf, unter, onAufklappen, onTun, onSpaeter, onOeffnen }: {
   p: Punkt
   auf: boolean
   unter: (u: Punkt) => ReactNode
@@ -422,9 +427,11 @@ function Fokus({ p, auf, unter, onAufklappen, ruhig, onTun, onSpaeter, onOeffnen
       <div className="h-fokus-oben">
         <span className="h-fokus-marke">
           {p.ampel === 'rot' ? <Flame strokeWidth={2.4} /> : <I strokeWidth={2.4} />}
-          {ruhig ? 'Kannst du schon machen' : 'Jetzt dran'}
         </span>
-        <span className={`h-fokus-grund ${p.ampel === 'rot' ? 'rot' : ''}`}>{p.zeit ? `${p.zeit} · ` : ''}{p.text}</span>
+        {/* Nur was zaehlt: Uhrzeit oder rot "verpasst" -- kein Erklaersatz */}
+        {(p.zeit || p.ampel === 'rot') && (
+          <span className={`h-fokus-grund ${p.ampel === 'rot' ? 'rot' : ''}`}>{p.ampel === 'rot' ? kurzGrund(p) : p.zeit}</span>
+        )}
       </div>
       <h2>{p.titel}</h2>
       <div className="h-fokus-wer">{p.kunde ?? ' '}</div>
@@ -505,7 +512,7 @@ function Zeile({ p, auf, onTun, onOeffnen }: { p: Punkt; auf?: boolean; onTun: (
           <span className="n-text">
             <span className="n-titel">{p.titel}</span>
             {p.kunde && !p.gruppe && <span className="n-unter">{p.kunde}</span>}
-            <span className={`n-grund ${p.ampel === 'rot' ? 'rot' : p.ampel === 'gelb' ? 'gelb' : ''}`}>{p.text}</span>
+            {p.ampel === 'rot' && <span className="n-grund rot">{kurzGrund(p)}</span>}
           </span>
           {p.zeit && <span className="n-zeit">{p.zeit}</span>}
         </button>

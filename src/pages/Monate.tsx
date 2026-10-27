@@ -12,7 +12,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Camera, Check, ChevronDown, ChevronUp, CircleDollarSign, Clapperboard, HelpCircle, ListChecks, Lock, Plus } from 'lucide-react'
+import { Camera, Check, ChevronDown, ChevronUp, CircleDollarSign, Clapperboard, Euro, HelpCircle, ListChecks, Lock, Plus, Users } from 'lucide-react'
 import LogoFrame from '../components/LogoFrame'
 import { useToast } from '../context/ToastContext'
 import { useGemerkt, istGemerkt } from '../lib/merken'
@@ -126,7 +126,6 @@ export default function Monate() {
 
   return (
     <>
-      <div className="h-datum">{laedt ? 'Lade …' : 'Kunden, Videos und Einnahmen je Monat'}</div>
       <h1 className="h-gruss">Monate</h1>
       <BereichReiter />
       {fehler && <div className="n-gruppe"><div className="n-leer">Konnte nicht laden: {fehler}</div></div>}
@@ -158,17 +157,19 @@ export default function Monate() {
         <span>{zu ? 'abgeschlossen' : key === heuteKey ? 'laufender Monat' : key < heuteKey ? 'vorbei' : 'kommt'}</span>
       </div>
 
-      <p className="m-kennzahlen">
-        <b>{geld.length}</b> zahlende {geld.length === 1 ? 'Kunde' : 'Kunden'} · <b>{vs.ziel || vs.gepostet + vs.geplant}</b> Videos zu posten · <b>{euro(summe.fest + summe.geplant + summe.unsicher + summe.vorschlag)}</b> Einnahmen
-      </p>
+      <div className="m-zahlen">
+        <div><span className="app-ic klein gruen"><Euro strokeWidth={2.2} /></span><b>{euro(summe.fest + summe.geplant + summe.unsicher + summe.vorschlag)}</b></div>
+        <div><span className="app-ic klein blau"><Users strokeWidth={2.2} /></span><b>{geld.length}</b></div>
+        <div><span className="app-ic klein glut"><Clapperboard strokeWidth={2.2} /></span><b>{vs.ziel || vs.gepostet + vs.geplant}</b></div>
+      </div>
 
       {/* Vorlauf naechster Monat: Ziel ist, ihn am Monatsende fertig zu haben */}
       {vl.soll > 0 && (
         <div className="vl-karte">
           <button type="button" className="vl-kopf" onClick={() => waehle(naechster)}>
             <span>
-              <strong>Vorlauf {monatName(naechster)}</strong>
-              <small>{vl.fertig} von {vl.soll} fertig · {vl.eingeplant} eingeplant · {vl.mitTag} mit Posting-Tag</small>
+              <strong>{monatName(naechster)}</strong>
+              <small>{vl.fertig}/{vl.soll} fertig</small>
             </span>
             <b className={vl.fertig >= vl.soll ? 'ok' : ''}>{Math.round((vl.fertig / vl.soll) * 100)} %</b>
           </button>
@@ -189,7 +190,7 @@ export default function Monate() {
             ))}
           </ul>
           {vl.zeilen.length > 5 && (
-            <button type="button" className="n-mehr-link" onClick={() => setVlAlle((a) => !a)}>{vlAlle ? 'Weniger' : `Alle ${vl.zeilen.length} Kunden`}</button>
+            <button type="button" className="n-mehr-link" onClick={() => setVlAlle((a) => !a)}>{vlAlle ? '–' : `+${vl.zeilen.length - 5}`}</button>
           )}
         </div>
       )}

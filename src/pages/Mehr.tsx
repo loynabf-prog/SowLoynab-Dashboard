@@ -5,13 +5,14 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight, LogOut, RefreshCw, Search, Sparkles } from 'lucide-react'
+import { LogOut, RefreshCw, Search, Sparkles } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useIdentity } from '../context/IdentityContext'
 import { useTeam } from '../context/TeamContext'
 import { HAUPT_PFADE, sichtbareBereiche, type Seite } from '../lib/bereiche'
 import { farbeVon, symbolVon } from '../lib/seitenSymbole'
 import { allesVergessen } from '../lib/merken'
+import AppIcon, { AppRaster } from '../components/AppIcon'
 
 function passt(s: Seite, q: string): boolean {
   if (!q) return true
@@ -43,16 +44,8 @@ export default function Mehr() {
 
   return (
     <>
-      <div className="h-datum">Alle Bereiche</div>
       <h1 className="h-gruss">Mehr</h1>
 
-      <div className="n-blatt-kopf mehr-kopf">
-        <span className="n-avatar" style={{ background: ich?.color ?? 'var(--text-dim)' }}>{(ich?.name ?? '?').slice(0, 1).toUpperCase()}</span>
-        <div>
-          <strong>{ich?.name ?? 'Wer bist du?'}</strong>
-          <span>{user?.email ?? ''}</span>
-        </div>
-      </div>
       <div className="n-segment" role="radiogroup" aria-label="Ich bin">
         {members.filter((m) => m.active !== false).map((m) => (
           <button key={m.id} className={m.id === memberId ? 'on' : ''} onClick={() => setMemberId(m.id)} role="radio" aria-checked={m.id === memberId}>
@@ -63,48 +56,28 @@ export default function Mehr() {
 
       <label className="mehr-suche">
         <Search size={18} />
-        <input ref={feld} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Seite suchen … (z. B. Rechnung, Dropbox)" aria-label="Seite suchen" />
+        <input ref={feld} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Suchen" aria-label="Seite suchen" />
       </label>
 
-      <div className="n-gruppe mehr-assistent">
-        <button className="n-zeile" onClick={() => window.dispatchEvent(new Event('open-assistent'))}>
-          <span className="n-ic tinte"><Sparkles strokeWidth={2.1} /></span>
-          <span className="n-text"><span className="n-titel">Assistent</span><span className="n-unter">Sag, was passieren soll — Kunde anlegen, Monat planen, Ideen</span></span>
-          <ChevronRight className="n-chevron" />
-        </button>
-      </div>
+      {gruppen.length === 0 && <div className="col-empty">Nichts gefunden</div>}
 
-      {gruppen.length === 0 && <div className="col-empty">Keine Seite passt zu „{q}“.</div>}
-
+      {/* Homebildschirm: ein Symbol je Seite, kein Erklaertext */}
       {gruppen.map((g) => (
-        <section key={g.key} className="mehr-bereich">
-          <div className="n-seite-titel">{g.label}<small>{g.zweck}</small></div>
-          <div className="n-gruppe">
-            {g.seiten.map((s) => {
-              const I = symbolVon(s.to)
-              return (
-                <button key={s.to} className="n-zeile" onClick={() => navigate(s.to)}>
-                  <span className={`n-ic ${farbeVon(s.to)}`}><I strokeWidth={2.1} /></span>
-                  <span className="n-text"><span className="n-titel">{s.label}</span><span className="n-unter">{s.was}</span></span>
-                  <ChevronRight className="n-chevron" />
-                </button>
-              )
-            })}
-          </div>
-        </section>
+        <AppRaster key={g.key} titel={g.label}>
+          {g.key === gruppen[0].key && !suche && (
+            <AppIcon icon={Sparkles} farbe="tinte" titel="Assistent" onClick={() => window.dispatchEvent(new Event('open-assistent'))} />
+          )}
+          {g.seiten.map((s) => (
+            <AppIcon key={s.to} icon={symbolVon(s.to)} farbe={farbeVon(s.to)} titel={s.label} onClick={() => navigate(s.to)} />
+          ))}
+        </AppRaster>
       ))}
 
-      <div className="n-seite-titel">Konto</div>
-      <div className="n-gruppe">
-        <button className="n-zeile" onClick={() => { allesVergessen(); window.location.reload() }}>
-          <span className="n-ic grau"><RefreshCw strokeWidth={2.1} /></span>
-          <span className="n-text"><span className="n-titel">Alles neu laden</span><span className="n-unter">Holt alle Daten frisch</span></span>
-        </button>
-        <button className="n-zeile" onClick={() => signOut()}>
-          <span className="n-ic rot"><LogOut strokeWidth={2.1} /></span>
-          <span className="n-text"><span className="n-titel">Abmelden</span></span>
-        </button>
-      </div>
+      <AppRaster titel={ich?.name ?? 'Konto'}>
+        <AppIcon icon={RefreshCw} farbe="grau" titel="Neu laden" onClick={() => { allesVergessen(); window.location.reload() }} />
+        <AppIcon icon={LogOut} farbe="rot" titel="Abmelden" onClick={() => signOut()} />
+      </AppRaster>
+      {user?.email && <p className="mehr-fuss">{user.email}</p>}
     </>
   )
 }

@@ -7,7 +7,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ChevronRight, BarChart3, Users, CalendarDays } from 'lucide-react'
+import { ChevronRight, BarChart3, Users, CalendarDays, Check, Target } from 'lucide-react'
+import AppIcon, { AppRaster } from '../components/AppIcon'
 import { supabase } from '../lib/supabase'
 import { ladeKanaele, type Channel } from '../lib/channels'
 import { ladeAccounts, letzterStandJeAccount, profilUrl, type ClientAccount } from '../lib/accounts'
@@ -25,7 +26,6 @@ interface V {
 }
 interface L { id: string; stage: string; source: string | null; quelle_kanal_id: string | null }
 
-const STAGE_GEWONNEN = 'won'
 
 function tagKurz(iso: string): string {
   return new Date(iso + 'T12:00:00').toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'short' })
@@ -96,17 +96,29 @@ export default function PersonalBrand() {
 
   return (
     <>
-      <div className="h-datum">Unsere eigenen Accounts — getrennt von den Kunden</div>
       <h1 className="h-gruss">Personal Brand</h1>
 
+      <AppRaster>
+        <AppIcon icon={CalendarDays} farbe="glut" titel="Plan" onClick={() => navigate(akte)} />
+        <AppIcon icon={Check} farbe="gruen" titel="Gepostet" onClick={async () => {
+          const f = await schnellGepostet(eigen.id)
+          if (f === ABGEBROCHEN) return
+          if (f) { toast('Konnte nicht speichern: ' + f); return }
+          toast('Gepostet')
+          laden()
+        }} />
+        <AppIcon icon={BarChart3} farbe="lila" titel="Analyse" onClick={() => navigate(`/analyse?kunde=${eigen.id}`)} />
+        <AppIcon icon={Target} farbe="tuerkis" titel="Leads" badge={leads.filter((l) => l.quelle_kanal_id && l.stage !== 'won' && l.stage !== 'lost').length} onClick={() => navigate('/leads')} />
+      </AppRaster>
+
       {/* ----------------------------------------------------- Dieser Monat */}
-      <div className="n-abschnitt"><h2>Dieser Monat</h2><span>{gepostet} von {soll || '–'} gepostet</span></div>
+      <div className="n-abschnitt"><h2>Dieser Monat</h2><span>{gepostet}/{soll || '–'}</span></div>
       <div className="n-gruppe">
         <div className="n-zeile">
           <div className="pb-balken"><i style={{ width: soll ? `${Math.min(100, (gepostet / soll) * 100)}%` : '0%' }} /></div>
         </div>
         {kommend.length === 0 ? (
-          <div className="n-leer">{soll && gepostet < soll ? `Noch ${soll - gepostet} ohne Termin – im Plan anlegen` : 'Alles für diesen Monat gepostet.'}</div>
+          <div className="n-leer">{soll && gepostet < soll ? `${soll - gepostet} fehlen` : '✓'}</div>
         ) : kommend.map((v) => {
           const k = kanalVon(v.channel_id)
           const verpasst = !!v.scheduled_date && v.scheduled_date < tag
@@ -121,16 +133,6 @@ export default function PersonalBrand() {
             </button>
           )
         })}
-      </div>
-      <div className="pb-knoepfe">
-        <button type="button" className="btn" onClick={() => navigate(akte)}><CalendarDays strokeWidth={2.2} /> Plan & Videos</button>
-        <button type="button" className="btn" onClick={async () => {
-          const f = await schnellGepostet(eigen.id)
-          if (f === ABGEBROCHEN) return
-          if (f) { toast('Konnte nicht speichern: ' + f); return }
-          toast('Gepostet – Link und Zahlen werden geholt')
-          laden()
-        }}>Video gepostet</button>
       </div>
 
       {/* --------------------------------------------------------- Accounts */}
@@ -149,7 +151,7 @@ export default function PersonalBrand() {
                 <strong>{k.name}</strong>
               </div>
               {accs.length === 0 ? (
-                <button type="button" className="pb-fehlt" onClick={() => navigate(akte)}>Handle fehlt – in der Akte eintragen</button>
+                <button type="button" className="pb-fehlt" onClick={() => navigate(akte)}>+ Handle</button>
               ) : (
                 <div className="pb-handles">
                   {accs.map((a) => (
@@ -161,8 +163,8 @@ export default function PersonalBrand() {
               )}
               <div className="pb-werte">
                 <span><b>{fol ? kurzZahl(fol) : '–'}</b>Follower</span>
-                <span><b>{posts}</b>Posts Monat</span>
-                <span><b>{views30 ? kurzZahl(views30) : '–'}</b>Views 30 T.</span>
+                <span><b>{posts}</b>Posts</span>
+                <span><b>{views30 ? kurzZahl(views30) : '–'}</b>Views</span>
                 <span><b>{leadsHier.length}</b>Leads</span>
               </div>
             </div>
@@ -171,7 +173,7 @@ export default function PersonalBrand() {
       </div>
 
       {/* ------------------------------------------------------------ Leads */}
-      <div className="n-abschnitt"><h2>Leads</h2><span>woher sie kommen</span></div>
+      <div className="n-abschnitt"><h2>Leads</h2></div>
       <div className="n-gruppe">
         {kanaele.map((k) => {
           const hier = leads.filter((l) => l.quelle_kanal_id === k.id)
@@ -180,7 +182,6 @@ export default function PersonalBrand() {
               <span className="pb-punkt" style={{ background: k.color }} />
               <span className="n-text">
                 <span className="n-titel">{k.name}</span>
-                <span className="n-unter">{hier.filter((l) => l.stage === STAGE_GEWONNEN).length} gewonnen</span>
               </span>
               <span className="a-wert">{hier.length}</span>
             </Link>
@@ -190,25 +191,13 @@ export default function PersonalBrand() {
           <Link to="/leads" className="n-zeile">
             <span className="n-ic grau"><Users strokeWidth={2.2} /></span>
             <span className="n-text">
-              <span className="n-titel">Instagram/TikTok ohne Account</span>
-              <span className="n-unter">Im Lead „Über welchen Account“ eintragen</span>
+              <span className="n-titel">Ohne Account</span>
             </span>
             <span className="a-wert">{ohneZuordnung}</span>
           </Link>
         )}
       </div>
 
-      <div className="n-abschnitt"><h2>Analyse</h2></div>
-      <div className="n-gruppe">
-        <button type="button" className="n-zeile a-tipp" onClick={() => navigate(`/analyse?kunde=${eigen.id}`)}>
-          <span className="n-ic lila"><BarChart3 strokeWidth={2.2} /></span>
-          <span className="n-text">
-            <span className="n-titel">Was bei unseren Videos funktioniert</span>
-            <span className="n-unter">Top-Videos, beste Zeiten, Follower je Account</span>
-          </span>
-          <ChevronRight className="n-chevron" />
-        </button>
-      </div>
     </>
   )
 }

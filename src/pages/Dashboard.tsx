@@ -137,7 +137,6 @@ export default function Dashboard() {
           <span className="pb-banner-ic">S&amp;L</span>
           <span className="pb-banner-text">
             <strong>Personal Brand</strong>
-            <span>Agentur-Account, Fassie, Lion · Posts, Analyse, Leads</span>
           </span>
           <ChevronRight className="n-chevron" />
         </Link>

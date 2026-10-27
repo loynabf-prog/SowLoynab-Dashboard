@@ -3,10 +3,9 @@
 
 import BereichReiter from './BereichReiter'
 
-export default function ProduktionKopf({ unter }: { unter: string }) {
+export default function ProduktionKopf(_props: { unter?: string }) {
   return (
     <>
-      <div className="h-datum">{unter}</div>
       <h1 className="h-gruss">Produktion</h1>
       <BereichReiter />
     </>

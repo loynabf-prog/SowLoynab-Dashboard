@@ -5,20 +5,21 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Inbox, Cpu, Eye, Scissors, CheckCircle2, CalendarCheck, Loader2, ChevronRight } from 'lucide-react'
+import { Inbox, Wand2, Eye, Scissors, CheckCircle2, CalendarCheck, Loader2, ChevronRight } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import LogoFrame from './LogoFrame'
+import AppIcon from './AppIcon'
 import {
-  PIPELINE, automatikSatz, bauePipeline,
+  PIPELINE, bauePipeline,
   type PipeAenderung, type PipeAuftrag, type PipeEintrag, type PipeVideo, type Pipeline, type StufeKey,
 } from '../lib/pipeline'
 
 const ICON: Record<StufeKey, LucideIcon> = {
-  eingang: Inbox, automatik: Cpu, freigabe: Eye, feinschliff: Scissors, fertig: CheckCircle2, eingeplant: CalendarCheck,
+  eingang: Inbox, automatik: Wand2, freigabe: Eye, feinschliff: Scissors, fertig: CheckCircle2, eingeplant: CalendarCheck,
 }
 const FARBE: Record<StufeKey, string> = {
-  eingang: 'grau', automatik: 'lila', freigabe: 'glut', feinschliff: 'blau', fertig: 'gruen', eingeplant: 'gruen',
+  eingang: 'grau', automatik: 'lila', freigabe: 'glut', feinschliff: 'blau', fertig: 'tuerkis', eingeplant: 'gruen',
 }
 
 async function ladePipeline(): Promise<Pipeline> {
@@ -94,27 +95,20 @@ export default function PipelineKarte({ kompakt = false }: { kompakt?: boolean }
   }
 
   // ------------------------------------------------------------ kompakt
+  const laeuft = p.automatik.some((e) => e.laeuft)
   if (kompakt) {
     return (
-      <div className="pl-karte pl-kompakt">
-        <button type="button" className="pl-kopf" onClick={() => navigate('/produktion')}>
+      <div className="widget">
+        <button type="button" className="widget-kopf" onClick={() => navigate('/produktion')}>
           <strong>Pipeline</strong>
-          <span className="pl-satz">
-            {p.automatik.some((e) => e.laeuft) && <i className="pl-puls" />}
-            {automatikSatz(p)}
-          </span>
           <ChevronRight className="n-chevron" />
         </button>
-        <div className="pl-leiste">
+        <div className="app-raster">
           {PIPELINE.map((st) => {
             const n = p[st.key].length
-            const Ic = ICON[st.key]
             return (
-              <button key={st.key} type="button" className={`pl-stufe ${n ? 'voll' : ''} ${st.key}`} onClick={() => zurStufe(st.key)}>
-                <span className={`n-ic ${n ? FARBE[st.key] : 'grau'}`}><Ic strokeWidth={2.2} /></span>
-                <b>{n}</b>
-                <small>{st.wer}</small>
-              </button>
+              <AppIcon key={st.key} icon={ICON[st.key]} farbe={FARBE[st.key]} titel={st.kurz} badge={n}
+                aus={n === 0} puls={st.key === 'automatik' && laeuft} onClick={() => zurStufe(st.key)} />
             )
           })}
         </div>
@@ -127,10 +121,7 @@ export default function PipelineKarte({ kompakt = false }: { kompakt?: boolean }
     <div className="pl-karte" id="pipeline">
       <div className="pl-kopf statisch">
         <strong>Pipeline</strong>
-        <span className="pl-satz">
-          {p.automatik.some((e) => e.laeuft) && <i className="pl-puls" />}
-          {automatikSatz(p)}
-        </span>
+        {laeuft && <i className="pl-puls" />}
       </div>
       <div className="pl-spalten">
         {PIPELINE.map((st) => {
@@ -140,15 +131,12 @@ export default function PipelineKarte({ kompakt = false }: { kompakt?: boolean }
           return (
             <section key={st.key} id={st.key} className={`pl-spalte ${st.key}`}>
               <header>
-                <span className={`n-ic ${liste.length ? FARBE[st.key] : 'grau'}`}><Ic strokeWidth={2.2} /></span>
-                <span className="pl-spalte-titel">
-                  <strong>{st.titel}</strong>
-                  <small>{st.wer}</small>
-                </span>
+                <span className={`app-ic klein ${liste.length ? FARBE[st.key] : 'grau'}`}><Ic strokeWidth={2.2} /></span>
+                <span className="pl-spalte-titel"><strong>{st.kurz}</strong></span>
                 <b className="pl-zahl">{liste.length}</b>
               </header>
               {liste.length === 0 ? (
-                <p className="pl-leer">{st.leer}</p>
+                <p className="pl-leer">–</p>
               ) : (
                 <ul>
                   {zeigen.map((e) => (
@@ -160,7 +148,6 @@ export default function PipelineKarte({ kompakt = false }: { kompakt?: boolean }
                         <LogoFrame name={e.kunde} logoUrl={e.logo} className="pl-logo" />
                         <span className="n-text">
                           <span className="n-titel">{e.titel}</span>
-                          <span className="n-unter">{e.kunde} · {e.unter}</span>
                         </span>
                       </button>
                     </li>
@@ -169,7 +156,7 @@ export default function PipelineKarte({ kompakt = false }: { kompakt?: boolean }
               )}
               {liste.length > 6 && (
                 <button type="button" className="n-mehr-link pl-mehr" onClick={() => setOffen(offen === st.key ? null : st.key)}>
-                  {offen === st.key ? 'Weniger' : `Alle ${liste.length} zeigen`}
+                  {offen === st.key ? '–' : `+${liste.length - 6}`}
                 </button>
               )}
             </section>

@@ -20,15 +20,15 @@ import { rangVon } from './kundenart'
 
 export type StufeKey = 'eingang' | 'automatik' | 'freigabe' | 'feinschliff' | 'fertig' | 'eingeplant'
 
-export interface StufeInfo { key: StufeKey; titel: string; wer: string; leer: string }
+export interface StufeInfo { key: StufeKey; titel: string; wer: string; leer: string; /** Ein Wort unter dem Symbol */ kurz: string }
 
 export const PIPELINE: StufeInfo[] = [
-  { key: 'eingang',     titel: 'Eingang',     wer: 'Material',  leer: 'Kein Drehtag offen' },
-  { key: 'automatik',   titel: 'Rohschnitt',  wer: 'Automatik', leer: 'Nichts im Schnitt' },
-  { key: 'freigabe',    titel: 'Freigabe',    wer: 'Fassie',    leer: 'Nichts zu prüfen' },
-  { key: 'feinschliff', titel: 'Feinschliff', wer: 'Lion',      leer: 'Nichts bei Lion' },
-  { key: 'fertig',      titel: 'Fertig',      wer: 'Einplanen', leer: 'Nichts wartet aufs Einplanen' },
-  { key: 'eingeplant',  titel: 'Eingeplant',  wer: 'Geht raus', leer: 'Nichts eingeplant' },
+  { key: 'eingang',     titel: 'Eingang',     wer: 'Material',  leer: 'Kein Drehtag offen' , kurz: 'Eingang' },
+  { key: 'automatik',   titel: 'Rohschnitt',  wer: 'Automatik', leer: 'Nichts im Schnitt' , kurz: 'Schnitt' },
+  { key: 'freigabe',    titel: 'Freigabe',    wer: 'Fassie',    leer: 'Nichts zu prüfen' , kurz: 'Fassie' },
+  { key: 'feinschliff', titel: 'Feinschliff', wer: 'Lion',      leer: 'Nichts bei Lion' , kurz: 'Lion' },
+  { key: 'fertig',      titel: 'Fertig',      wer: 'Einplanen', leer: 'Nichts wartet aufs Einplanen' , kurz: 'Fertig' },
+  { key: 'eingeplant',  titel: 'Eingeplant',  wer: 'Geht raus', leer: 'Nichts eingeplant' , kurz: 'Geplant' },
 ]
 
 export interface PipeVideo {

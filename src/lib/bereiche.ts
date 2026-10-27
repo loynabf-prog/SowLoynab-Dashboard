@@ -53,7 +53,7 @@ export const BEREICHE: Bereich[] = [
     seiten: [
       { to: '/produktion', label: 'Produktion', was: 'Videos in Arbeit, Freigaben und was noch gedreht werden muss', reiter: 'produktion', suche: ['schnitt', 'freigabe', 'drehtag'] },
       { to: '/medien', label: 'Medien', was: 'Rohmaterial und fertige Videos aus der Dropbox durchsuchen', reiter: 'produktion', suche: ['dropbox', 'dateien', 'clips', 'rohmaterial'] },
-      { to: '/lexikon', label: 'Video-Lexikon', was: 'Formate und Videoideen je Branche — für jeden Kunden etwas aussuchen', suche: ['lexikon', 'formate', 'ideen', 'branche', 'fahrschule'] },
+      { to: '/lexikon', label: 'Lexikon', was: 'Formate und Videoideen je Branche — für jeden Kunden etwas aussuchen', suche: ['lexikon', 'formate', 'ideen', 'branche', 'fahrschule'] },
       { to: '/inspirationen', label: 'Inspirationen', was: 'Gespeicherte Videos anderer als Vorlage für eigene Ideen', suche: ['ideen', 'referenz', 'vorlage'] },
     ] },
   { key: 'kunden', label: 'Kunden & Vertrieb', zweck: 'Kundenakten, Verträge, neue Kunden gewinnen',

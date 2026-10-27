@@ -5,12 +5,10 @@
 
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Eye, ListChecks, FolderOpen, Scissors } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
+import { Eye, ListChecks, FolderOpen, Megaphone } from 'lucide-react'
+import AppIcon, { AppRaster } from './AppIcon'
 import { supabase } from '../lib/supabase'
 import { heute } from '../lib/datum'
-
-interface Kachel { key: string; label: string; icon: LucideIcon; farbe: string; zahl: number | null; unter: string; los: () => void }
 
 export default function Schnellzugriff() {
   const navigate = useNavigate()
@@ -44,31 +42,12 @@ export default function Schnellzugriff() {
     else navigate('/produktion')
   }
 
-  const kacheln: Kachel[] = [
-    {
-      key: 'freigabe', label: 'Freigabe', icon: Eye, farbe: 'glut', zahl: pruefen || null,
-      unter: pruefen ? `${pruefen} ${pruefen === 1 ? 'Video wartet' : 'Videos warten'}` : 'Nichts zu prüfen',
-      los: pruefen ? zurFreigabe : () => navigate('/produktion'),
-    },
-    {
-      key: 'aufgaben', label: 'Aufgaben', icon: ListChecks, farbe: 'blau', zahl: aufgaben?.faellig || null,
-      unter: aufgaben ? (aufgaben.faellig ? `${aufgaben.faellig} fällig` : `${aufgaben.offen} offen`) : '…',
-      los: () => navigate('/aufgaben'),
-    },
-    { key: 'medien', label: 'Medien', icon: FolderOpen, farbe: 'lila', zahl: null, unter: 'Dropbox-Material', los: () => navigate('/medien') },
-    { key: 'produktion', label: 'Produktion', icon: Scissors, farbe: 'gruen', zahl: null, unter: 'Videos in Arbeit', los: () => navigate('/produktion') },
-  ]
-
   return (
-    <div className="sz-raster" role="navigation" aria-label="Schnellzugriff">
-      {kacheln.map((k) => (
-        <button key={k.key} type="button" className="sz-kachel" onClick={k.los}>
-          <span className={`n-ic ${k.farbe}`}><k.icon strokeWidth={2.2} /></span>
-          {k.zahl != null && <span className="sz-zahl">{k.zahl}</span>}
-          <strong>{k.label}</strong>
-          <span className="sz-unter">{k.unter}</span>
-        </button>
-      ))}
-    </div>
+    <AppRaster>
+      <AppIcon icon={Eye} farbe="glut" titel="Freigabe" badge={pruefen} aus={!pruefen} onClick={pruefen ? zurFreigabe : () => navigate('/produktion')} />
+      <AppIcon icon={ListChecks} farbe="gelb" titel="Aufgaben" badge={aufgaben?.faellig} onClick={() => navigate('/aufgaben')} />
+      <AppIcon icon={FolderOpen} farbe="blau" titel="Medien" onClick={() => navigate('/medien')} />
+      <AppIcon icon={Megaphone} farbe="pink" titel="Brand" onClick={() => navigate('/brand')} />
+    </AppRaster>
   )
 }

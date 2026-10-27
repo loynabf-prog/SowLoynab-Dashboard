@@ -1183,3 +1183,51 @@ a.n-zeile { text-decoration: none; }
 .vl-mini { width: 64px; height: 6px; border-radius: 3px; background: var(--bg-2, #f2f2f7); overflow: hidden; flex: none; }
 .vl-mini i { display: block; height: 100%; background: #1f9d55; }
 .vl-zahl { width: 44px; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; flex: none; }
+
+/* ===================================================================
+   Homebildschirm-Prinzip (27.10.2026): Icons und Titel, kein Erklaertext
+   =================================================================== */
+.app-bereich { margin: 0 0 22px; }
+.app-bereich-titel { margin: 0 4px 10px; font-size: 13px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--text-muted, #8e8e93); }
+.app-raster { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px 8px; }
+@media (min-width: 700px) { .app-raster { grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); } }
+.app { display: flex; flex-direction: column; align-items: center; gap: 7px; border: none; background: none; padding: 0; font: inherit; color: var(--text, #1d1d1f); cursor: pointer; min-width: 0; -webkit-tap-highlight-color: transparent; }
+.app:active .app-ic { transform: scale(.9); filter: brightness(.92); }
+.app-ic { position: relative; width: 60px; height: 60px; border-radius: 15px; display: inline-flex; align-items: center; justify-content: center; color: #fff; transition: transform .12s ease; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+.app-ic svg { width: 30px; height: 30px; }
+.app-titel { font-size: 12.5px; font-weight: 500; line-height: 1.15; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app.aus .app-ic { opacity: .38; }
+.app.aus .app-titel { color: var(--text-muted, #8e8e93); }
+.app-badge { position: absolute; top: -6px; right: -6px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; background: #ff3b30; color: #fff; font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 0 0 2px var(--bg, #f5f5f7); }
+.app-puls { position: absolute; bottom: -3px; right: -3px; width: 14px; height: 14px; border-radius: 50%; background: #34c759; box-shadow: 0 0 0 2px var(--bg, #f5f5f7); animation: pl-puls 1.4s ease-in-out infinite; }
+.app-ic.glut { background: linear-gradient(160deg, #ff8a3d, #ff5f00); }
+.app-ic.rot { background: linear-gradient(160deg, #ff6b61, #ff3b30); }
+.app-ic.gelb { background: linear-gradient(160deg, #ffd60a, #ff9f0a); }
+.app-ic.gruen { background: linear-gradient(160deg, #4cd964, #28b84a); }
+.app-ic.blau { background: linear-gradient(160deg, #3fa2ff, #0a6cff); }
+.app-ic.lila { background: linear-gradient(160deg, #c86bff, #9b3fd6); }
+.app-ic.tuerkis { background: linear-gradient(160deg, #5ad8e6, #24aac6); }
+.app-ic.pink { background: linear-gradient(160deg, #ff6fa0, #ff2d6f); }
+.app-ic.grau { background: linear-gradient(160deg, #a1a1a8, #7c7c84); }
+.app-ic.tinte { background: linear-gradient(160deg, #4a4a52, #1d1d1f); }
+
+/* Widget-Karte (wie iOS-Widgets) */
+.widget { background: var(--bg-card, #fff); border-radius: 22px; padding: 14px 12px 16px; margin: 0 0 22px; }
+.widget-kopf { display: flex; align-items: center; justify-content: space-between; margin: 0 4px 14px; border: none; background: none; padding: 0; width: calc(100% - 8px); font: inherit; color: inherit; cursor: pointer; }
+.widget-kopf strong { font-size: 17px; }
+.widget .app-raster { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px 4px; }
+.widget .app-ic { width: 46px; height: 46px; border-radius: 12px; }
+.widget .app-ic svg { width: 23px; height: 23px; }
+.widget .app-titel { font-size: 11px; }
+.widget .app-badge { min-width: 20px; height: 20px; font-size: 12px; top: -6px; right: -7px; }
+
+/* Erklaertexte aus: Fussnoten, Hinweissaetze */
+.p-fuss, .rang-hinweis, .h-wisch-hinweis, .bw-hinweis, .fg-kopf > span, .pl-satz, .dm-kopf > span { display: none !important; }
+.mehr-fuss { text-align: center; font-size: 12px; color: var(--text-muted, #8e8e93); margin: 8px 0 24px; }
+.n-ic.tuerkis { background: #24aac6; } .n-ic.pink { background: #ff2d6f; }
+.app-ic.klein { width: 30px; height: 30px; border-radius: 8px; } .app-ic.klein svg { width: 17px; height: 17px; }
+.fg-zahl { display: inline-flex; min-width: 22px; height: 22px; padding: 0 6px; margin-left: 6px; border-radius: 11px; background: #ff3b30; color: #fff; font-size: 13px; align-items: center; justify-content: center; vertical-align: 2px; }
+.m-zahlen { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 0 0 16px; }
+.m-zahlen > div { background: var(--bg-card, #fff); border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.m-zahlen b { font-size: 20px; font-variant-numeric: tabular-nums; }
+.ruhe-chip { display: none !important; }
