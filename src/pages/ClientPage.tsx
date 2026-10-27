@@ -26,7 +26,7 @@ import { celebrate } from '../lib/confetti'
 import NudgeModal from '../components/NudgeModal'
 import { insertRows, tableMissing, updateRow } from '../lib/db'
 import { statusFolgen } from '../lib/statusSync'
-import { linksJetztHolen, postenPatch, schnellGepostet } from '../lib/videoAktionen'
+import { linksJetztHolen, postenPatch, schnellGepostet, zahlenJetztHolen } from '../lib/videoAktionen'
 import DrehtagKarte from '../components/DrehtagKarte'
 
 /**
@@ -958,6 +958,13 @@ export default function ClientPage() {
             onEdit={(v) => setEditing(v)}
             onDelete={deleteVideo}
             onLinks={(v) => setAskLinks(v)}
+            onRefresh={async (v) => {
+              toast('Hole aktuelle Zahlen … (bis 1 Min.)')
+              try {
+                toast((await zahlenJetztHolen(v.id)) ? 'Aktuelle Zahlen geholt' : 'Keine neuen Zahlen bekommen – später nochmal versuchen')
+                loadVideos()
+              } catch (e) { toast('Abruf hat nicht geklappt: ' + klartext((e as Error).message)) }
+            }}
           />
           <GrowthSection stats={stats} accounts={accounts} onAdd={() => setGrowthOpen(true)} />
         </>
@@ -2148,7 +2155,7 @@ function AiIdeasModal({
 }
 
 // ============================ Analyse (gepostete Videos) ============================
-function AnalyseSection({ videos, kanaele, reachThisMonth, onEdit, onDelete, onLinks }: { videos: Video[]; kanaele: Channel[]; reachThisMonth: number; onEdit: (v: Video) => void; onDelete: (id: string) => void; onLinks: (v: Video) => void }) {
+function AnalyseSection({ videos, kanaele, reachThisMonth, onEdit, onDelete, onLinks, onRefresh }: { videos: Video[]; kanaele: Channel[]; reachThisMonth: number; onEdit: (v: Video) => void; onDelete: (id: string) => void; onLinks: (v: Video) => void; onRefresh: (v: Video) => void }) {
   // Farbstreifen nur, wenn der Kunde wirklich zwei Betriebe hat.
   const trennt = trenntKanaele(kanaele)
   const num = (n: number | null | undefined) => (n == null ? '–' : n.toLocaleString('de-DE'))
@@ -2226,7 +2233,7 @@ function AnalyseSection({ videos, kanaele, reachThisMonth, onEdit, onDelete, onL
                         className="stats-refresh"
                         role="button"
                         title="Zahlen jetzt neu holen"
-                        onClick={(e) => { e.stopPropagation(); onLinks(v) }}
+                        onClick={(e) => { e.stopPropagation(); onRefresh(v) }}
                       >
                         ⟳ {v.stats_updated_at ? `geprüft ${seit(v.stats_updated_at)}` : 'nie geprüft'}
                       </span>

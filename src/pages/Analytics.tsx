@@ -29,6 +29,7 @@ import {
 import LineChart from '../components/LineChart'
 import BereichReiter from '../components/BereichReiter'
 import Modal from '../components/Modal'
+import { zahlenJetztHolen } from '../lib/videoAktionen'
 import { useToast } from '../context/ToastContext'
 
 interface Kunde { id: string; name: string; logo_url: string | null; brand: string | null }
@@ -520,9 +521,7 @@ function VideoBlatt({ v, kunde, onClose, onAktualisiert }: { v: AnalyseVideo; ku
   async function aktualisieren() {
     setHolt(true)
     try {
-      const { data, error } = await supabase.functions.invoke('refresh-stats', { body: { video_ids: [v.id] } })
-      if (error) throw error
-      if ((data as any)?.updated > 0) {
+      if (await zahlenJetztHolen(v.id)) {
         toast('Aktuelle Zahlen geholt')
         await lade()
         onAktualisiert()

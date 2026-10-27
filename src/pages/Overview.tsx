@@ -13,6 +13,8 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import LogoFrame from '../components/LogoFrame'
+import Schnellzugriff from '../components/Schnellzugriff'
+import FreigabeKarte from '../components/FreigabeKarte'
 import {
   Send, Video, Scissors, CalendarClock, CheckCircle2, MapPin, Camera,
   Clock, ArrowUpRight, Flame, Check, ChevronRight, ChevronDown, Coffee, X,
@@ -282,6 +284,10 @@ export default function Overview() {
               <span>{satz.unten}</span>
             </div>
           </div>
+
+          {/* Freigabe, Aufgaben, Medien, Produktion: direkt erreichbar statt tief in "Mehr" */}
+          <Schnellzugriff />
+          <div id="freigabe" className="h-freigabe"><FreigabeKarte /></div>
 
           {f ? (
             <Fokus

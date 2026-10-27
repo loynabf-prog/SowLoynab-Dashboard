@@ -176,3 +176,14 @@ export async function terminSetzen(id: string, datum: string): Promise<string | 
   const { error } = await supabase.from('videos').update({ scheduled_date: datum }).eq('id', id)
   return error ? error.message : null
 }
+
+/**
+ * Aktuelle Zahlen eines geposteten Videos sofort holen (refresh-stats im
+ * Nachzieh-Modus): schreibt Video und Tagesverlauf wie der Nachtlauf.
+ * Gibt true zurueck, wenn neue Zahlen kamen; wirft bei Fehlern.
+ */
+export async function zahlenJetztHolen(videoId: string): Promise<boolean> {
+  const { data, error } = await supabase.functions.invoke('refresh-stats', { body: { video_ids: [videoId] } })
+  if (error) throw error
+  return ((data as { updated?: number } | null)?.updated ?? 0) > 0
+}

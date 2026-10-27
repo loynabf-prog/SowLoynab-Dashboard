@@ -1064,3 +1064,23 @@ a.n-zeile { text-decoration: none; }
 .vb-knoepfe svg { width: 18px; height: 18px; }
 .vb-dreht { animation: vb-drehen 1s linear infinite; }
 @keyframes vb-drehen { to { transform: rotate(360deg); } }
+
+/* Schnellzugriff auf "Heute" */
+.sz-raster { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 0 0 18px; }
+.sz-kachel {
+  position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
+  padding: 12px; border: none; border-radius: var(--radius, 16px); background: var(--bg-card, #fff);
+  text-align: left; font: inherit; color: inherit; cursor: pointer; min-width: 0;
+}
+.sz-kachel:active { transform: scale(0.97); }
+.sz-kachel strong { font-size: 15px; font-weight: 600; }
+.sz-unter { font-size: 12px; color: var(--text-2, #6e6e73); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.sz-zahl {
+  position: absolute; top: 10px; right: 10px; min-width: 22px; height: 22px; padding: 0 6px;
+  border-radius: 11px; background: var(--glut, #ff6a00); color: #fff; font-size: 13px; font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+@media (max-width: 520px) { .sz-raster { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.h-freigabe { scroll-margin-top: 16px; }
+.h-freigabe:empty { display: none; }
+.h-freigabe .fg-karte { margin-bottom: 18px; }
