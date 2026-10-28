@@ -1395,3 +1395,8 @@ a.n-zeile { text-decoration: none; }
 .of-vorne { display: flex; align-items: center; gap: 8px; margin: 10px 2px; font-size: 15px; font-weight: 500; }
 .of-vorne input { width: 20px; height: 20px; accent-color: var(--c-glut, #ff5f00); }
 .of-glut { bottom: -70px; height: 140px; background: radial-gradient(55% 100% at 50% 100%, rgba(255, 110, 20, .8), rgba(255, 70, 0, .25) 45%, rgba(255, 95, 0, 0) 75%); }
+
+/* Monat: einzelne Videos antippbar (28.10.2026) */
+.m-video-knopf { width: 100%; border: none; background: none; text-align: left; cursor: pointer; font: inherit; color: inherit; border-radius: 10px; padding: 6px 4px; }
+.m-video-knopf:hover { background: var(--bg-card-hover); }
+.m-video-knopf .n-chevron { margin-left: auto; width: 16px; height: 16px; }

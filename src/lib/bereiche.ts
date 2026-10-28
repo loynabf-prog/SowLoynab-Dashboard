@@ -37,8 +37,8 @@ export interface Bereich {
   seiten: Seite[]
 }
 
-/** Die vier Hauptziele unten -- in dieser Reihenfolge, links zwei, rechts zwei. */
-export const HAUPT_PFADE = ['/', '/plan', '/monate', '/kunden']
+/** Die fuenf Hauptziele unten (28.10.2026): Heute, Ofen, Kalender, Monat, Analyse. */
+export const HAUPT_PFADE = ['/', '/ofen', '/plan', '/monate', '/analyse']
 
 export const BEREICHE: Bereich[] = [
   { key: 'alltag', label: 'Alltag', zweck: 'Was heute und diese Woche dran ist',

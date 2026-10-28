@@ -6,7 +6,7 @@
 // Claude-Chat zu diesem Video (ein Chat pro Video, videos.chat_url).
 // Logik: lib/backstube.ts. Live per Realtime.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -27,6 +27,28 @@ import '../styles/backstube.css'
 
 type Sicht = 'alle' | 'meins'
 
+/** Standbilder der Videos (Standbild.jpg im Video-Ordner), per video_id */
+const Bilder = createContext<Map<string, string>>(new Map())
+
+/** Kurzes Klingeln + Vibration, wenn eine Pizza rauskommt (nur solange die Seite offen ist). */
+function klingeln() {
+  try { navigator.vibrate?.([80, 60, 80]) } catch { /* egal */ }
+  try {
+    const Ctx = (window.AudioContext || (window as any).webkitAudioContext) as typeof AudioContext | undefined
+    if (!Ctx) return
+    const ctx = new Ctx()
+    ;[0, 0.18].forEach((t, i) => {
+      const o = ctx.createOscillator(), g = ctx.createGain()
+      o.type = 'sine'; o.frequency.value = i ? 1568 : 1319
+      g.gain.setValueAtTime(0.0001, ctx.currentTime + t)
+      g.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + t + 0.01)
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + t + 0.9)
+      o.connect(g).connect(ctx.destination); o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + 1)
+    })
+    window.setTimeout(() => ctx.close(), 1500)
+  } catch { /* egal */ }
+}
+
 export default function Ofen() {
   const navigate = useNavigate()
   const { memberId } = useIdentity()
@@ -37,7 +59,9 @@ export default function Ofen() {
   const [sicht, setSicht] = useState<Sicht>('alle')
   const [offen, setOffen] = useState<Pizza | null>(null)
   const [, setTick] = useState(0)
+  const [bilder, setBilder] = useState<Map<string, string>>(new Map())
   const warte = useRef<number | null>(null)
+  const rausVorher = useRef<Set<string> | null>(null)
 
   const team = useMemo(() => members.filter((m) => m.active !== false), [members])
   const teamIds = useMemo(() => team.map((m) => m.id).join(','), [team])
@@ -49,6 +73,33 @@ export default function Ofen() {
   }, [teamIds])
 
   useEffect(() => { laden() }, [laden])
+
+  // Klingeln, wenn seit dem letzten Laden eine Pizza neu rausgekommen ist
+  useEffect(() => {
+    if (!daten) return
+    const jetzt = new Set(daten.pizzen.filter((p) => p.stufe === 'raus').map((p) => p.video.id))
+    const vorher = rausVorher.current
+    if (vorher && [...jetzt].some((id) => !vorher.has(id))) klingeln()
+    rausVorher.current = jetzt
+  }, [daten])
+
+  // Standbilder fuer alles, was schon einen Video-Ordner hat
+  useEffect(() => {
+    if (!daten) return
+    const kandidaten = daten.pizzen
+      .filter((p) => ['zettel', 'ofen', 'raus', 'teller'].includes(p.stufe) && p.video.dropbox_pfad && !/\.mp4$/i.test(p.video.dropbox_pfad) && !bilder.has(p.video.id))
+      .slice(0, 25)
+    if (!kandidaten.length) return
+    const pfade = kandidaten.map((p) => `${p.video.dropbox_pfad!.replace(/\/+$/, '')}/Standbild.jpg`)
+    dropbox.vorschauen(pfade).then((r) => {
+      setBilder((alt) => {
+        const neu = new Map(alt)
+        r.forEach((x, i) => { neu.set(kandidaten[i].video.id, x.bild ?? '') })
+        return neu
+      })
+    }).catch(() => { /* ohne Bild geht es auch */ })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [daten])
   useEffect(() => {
     const neu = () => {
       if (warte.current) window.clearTimeout(warte.current)
@@ -92,14 +143,15 @@ export default function Ofen() {
   const jetzt = new Date()
 
   return (
-    <div className="bs">
+    <Bilder.Provider value={bilder}>
+    <div className="bs bs-kueche">
       <header className="bs-kopf">
         <button type="button" className="bs-rund" aria-label="Zurück" onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/'))}>
           <ArrowLeft strokeWidth={2.2} />
         </button>
         <div className="bs-titel">
           <span className="bs-ueber">{jetzt.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
-          <h1>Backstube</h1>
+          <h1 className="bs-neon">BACKSTUBE</h1>
         </div>
         <div className="bs-schalter" role="tablist">
           <button type="button" className={sicht === 'alle' ? 'an' : ''} onClick={() => setSicht('alle')}>Beide</button>
@@ -199,6 +251,7 @@ export default function Ofen() {
         />
       )}
     </div>
+    </Bilder.Provider>
   )
 }
 
@@ -213,6 +266,7 @@ function alsPruef(p: Pizza): PruefVideo & { scheduled_date?: string | null } {
 /* ======================================================================== */
 
 function PizzaRund({ p, gross, ring }: { p: Pizza; gross?: boolean; ring?: number | null }) {
+  const bild = useContext(Bilder).get(p.video.id)
   const c = p.video.clients
   const r = 46, u = 2 * Math.PI * r
   return (
@@ -223,9 +277,10 @@ function PizzaRund({ p, gross, ring }: { p: Pizza; gross?: boolean; ring?: numbe
           <circle cx="50" cy="50" r={r} className="bs-ring-wert" strokeDasharray={u} strokeDashoffset={u * (1 - Math.min(100, Math.max(3, ring)) / 100)} />
         </svg>
       )}
-      <span className="bs-pizza-mitte">
-        {c?.logo_url ? <img src={c.logo_url} alt="" /> : <span>{(c?.name ?? '?').slice(0, 1)}</span>}
+      <span className={`bs-pizza-mitte ${bild ? 'mit-bild' : ''}`}>
+        {bild ? <img src={bild} alt="" /> : c?.logo_url ? <img src={c.logo_url} alt="" /> : <span>{(c?.name ?? '?').slice(0, 1)}</span>}
       </span>
+      {bild && c?.logo_url && <span className="bs-pizza-logo"><img src={c.logo_url} alt="" /></span>}
     </span>
   )
 }
@@ -292,13 +347,16 @@ export function Fliessband({ name, farbe, stand, zutaten, teig, teller, gegessen
 
         {/* Schlange */}
         <div className="fb-station fb-schlange">
-          <span className="fb-titel">Schlange</span>
-          <div className="fb-reihe">
-            {schlange.length === 0 && <span className="fb-nix">leer</span>}
+          <span className="fb-titel">Bons</span>
+          <div className="fb-schiene" aria-hidden />
+          <div className="fb-bons">
+            {schlange.length === 0 && <span className="fb-nix">kein Bon</span>}
             {schlange.map((p, i) => (
-              <button key={p.auftrag?.id ?? p.video.id} type="button" className="fb-pizza" onClick={() => onPizza(p)} title={p.auftrag?.wunsch ?? p.video.title}>
-                <b className="fb-nr">{i + 1}</b>
-                <PizzaRund p={p} /><span>{p.video.title}</span>
+              <button key={p.auftrag?.id ?? p.video.id} type="button" className="fb-bon" style={{ ['--kipp' as any]: `${(i % 3 - 1) * 1.6}deg` }} onClick={() => onPizza(p)} title={p.auftrag?.wunsch ?? p.video.title}>
+                <span className="fb-bon-kopf"><b>#{i + 1}</b><span>{p.auftrag?.art === 'aenderung' ? 'ÄNDERUNG' : 'NEU'}</span></span>
+                <span className="fb-bon-titel">{p.video.title}</span>
+                <span className="fb-bon-kunde">{p.video.clients?.name}</span>
+                {p.auftrag?.wunsch && <span className="fb-bon-text">{p.auftrag.wunsch}</span>}
               </button>
             ))}
           </div>
@@ -328,6 +386,7 @@ export function Fliessband({ name, farbe, stand, zutaten, teig, teller, gegessen
 
         {/* Ausgabe: zurueck oder weiter */}
         <div className="fb-station fb-ausgabe">
+          <span className={`fb-lampe ${raus.length ? 'an' : ''}`} aria-hidden><i /></span>
           <span className="fb-titel">Ausgabe</span>
           <svg className="fb-zurueck" viewBox="0 0 200 40" preserveAspectRatio="none" aria-hidden>
             <path d="M190 38 C 190 6, 10 6, 10 38" />

@@ -272,6 +272,7 @@ export function chatAuftrag(v: Pick<BVideo, 'id' | 'title' | 'clients'>): string
     '1. Lade den Skill sowloynab-crm.',
     `2. Merk dir diesen Chat im CRM: recent_chats(n=1) → dessen url → update videos set chat_url = '<url>' where id = '${v.id}'.`,
     '3. Hol aus dem Video-Ordner (videos.dropbox_pfad, sonst archiv_pfad) NOTIZEN.md und Vorschau.mp4 und zeig mir die Vorschau hier.',
+    'Schneidest du selbst hier im Chat: vorher im Ofen anmelden (Agentur/Automatik/Schnitt-im-Chat.md).',
     '4. Dann sage ich dir meine Änderungen mündlich. Mach daraus einen klaren Bestellzettel in der Backstube (video_aenderungen, art=aenderung, vorne wenn ich es sage). Sage ich „passt“, servierst du (Agentur/Automatik/Pipeline.md, Abschnitt 3.5).',
     'Alle weiteren Vorschauen zu diesem Video besprechen wir in diesem Chat.',
   ].join('\n')

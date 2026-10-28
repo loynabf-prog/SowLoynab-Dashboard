@@ -12,7 +12,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Camera, Check, ChevronDown, ChevronUp, CircleDollarSign, Clapperboard, Euro, HelpCircle, ListChecks, Lock, Plus, Users } from 'lucide-react'
+import { Camera, Check, ChevronDown, ChevronRight, ChevronUp, CircleDollarSign, Clapperboard, Euro, HelpCircle, ListChecks, Lock, Plus, Users } from 'lucide-react'
 import LogoFrame from '../components/LogoFrame'
 import { useToast } from '../context/ToastContext'
 import { useGemerkt, istGemerkt } from '../lib/merken'
@@ -51,7 +51,7 @@ export default function Monate() {
   const [videos, setVideos] = useGemerkt<MonatsVideo[]>('monate.videos', [])
   const [drehtage, setDrehtage] = useGemerkt<MonatsDrehtag[]>('monate.drehtage', [])
   const [aufgaben, setAufgaben] = useGemerkt<MonatsAufgabe[]>('monate.aufgaben', [])
-  const [ansicht, setAnsicht] = useState<'kunden' | 'videos' | 'kalender' | 'todos' | 'check'>('kunden')
+  const [ansicht, setAnsicht] = useState<'kunden' | 'videos' | 'kalender' | 'todos' | 'check'>('videos')
   const [tagOffen, setTagOffen] = useState<string | null>(null)
   const [drehFuer, setDrehFuer] = useState<string>('')
   const [laedt, setLaedt] = useState(() => !istGemerkt('monate.kunden'))
@@ -241,8 +241,8 @@ export default function Monate() {
       </div>
 
       <div className="n-segment eng" role="tablist" aria-label="Ansicht">
+        <button className={ansicht === 'videos' ? 'on' : ''} onClick={() => setAnsicht('videos')}>Kunden & Videos <small>{vz.length}</small></button>
         <button className={ansicht === 'kunden' ? 'on' : ''} onClick={() => setAnsicht('kunden')}>Geld <small>{geld.length}</small></button>
-        <button className={ansicht === 'videos' ? 'on' : ''} onClick={() => setAnsicht('videos')}>Videos <small>{vz.length}</small></button>
         <button className={ansicht === 'kalender' ? 'on' : ''} onClick={() => setAnsicht('kalender')}>Kalender <small>{postsImMonat}</small></button>
         <button className={ansicht === 'todos' ? 'on' : ''} onClick={() => setAnsicht('todos')}>To-dos <small>{todos.length}</small></button>
         <button className={ansicht === 'check' ? 'on' : ''} onClick={() => setAnsicht('check')}>Prüfen</button>
@@ -307,6 +307,8 @@ export default function Monate() {
             <VideoZeileUI key={v.kunde.id} v={v} offen={offen === 'v' + v.kunde.id}
               onToggle={() => setOffen(offen === 'v' + v.kunde.id ? null : 'v' + v.kunde.id)}
               onPlanen={() => navigate(`/client/${v.kunde.id}?plan=${key}`)}
+              onKunde={() => navigate(`/client/${v.kunde.id}`)}
+              onVideo={(id) => navigate(`/client/${v.kunde.id}?video=${id}&open=1`)}
               onGepostet={key === heuteKey ? async () => {
                 const ok = await ausfuehren(schnellGepostet(v.kunde.id), 'Video gepostet – Link, Zahlen und Titel werden geholt')
                 if (ok) setTimeout(() => laden(), 100_000)
@@ -592,8 +594,10 @@ function TodoZeile({ t, onAnlegen, onDrehtag, onKunde }: {
 }
 
 // ============================ Videos je Kunde ============================
-function VideoZeileUI({ v, offen, onToggle, onPlanen, onZiel, onGepostet }: {
+function VideoZeileUI({ v, offen, onToggle, onPlanen, onZiel, onGepostet, onKunde, onVideo }: {
   v: VideoZeile
+  onKunde: () => void
+  onVideo: (id: string) => void
   offen: boolean
   onToggle: () => void
   onPlanen: () => void
@@ -640,13 +644,15 @@ function VideoZeileUI({ v, offen, onToggle, onPlanen, onZiel, onGepostet }: {
           <div className="m-knoepfe">
             {onGepostet && <button className="n-tun glut" onClick={onGepostet}>Video gepostet</button>}
             {fehlt > 0 && <button className="n-tun" onClick={onPlanen}>{fehlt} Posting-Tage planen</button>}
+            <button className="n-tun" onClick={onKunde}>Kundenakte</button>
           </div>
           <div className="m-videos">
             {[...v.gepostet, ...v.geplant].map((x) => (
-              <div key={x.id} className="m-video">
+              <button key={x.id} type="button" className="m-video m-video-knopf" onClick={() => onVideo(x.id)}>
                 <span className={`m-punkt ${x.status === 'posted' ? 'gruen' : ''}`} />
                 <span className="m-vtitel">{x.title || 'Video'}<small>{datum(x)}{x.status === 'posted' ? ' · gepostet' : ''}</small></span>
-              </div>
+                <ChevronRight className="n-chevron" />
+              </button>
             ))}
             {da === 0 && <p className="p-fuss" style={{ margin: 0 }}>Noch keine Videos.</p>}
           </div>

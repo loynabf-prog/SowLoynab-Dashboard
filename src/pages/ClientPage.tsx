@@ -42,7 +42,7 @@ function ohneLeereKanal<T extends { channel_id?: string | null }>(row: T): T {
 import { klartext, lookupVideo, statsPatch } from '../lib/apify'
 import { ABGEBROCHEN, betriebFuerPosten } from '../lib/betriebWahl'
 import { Aktion, Aktionen } from '../components/AppIcon'
-import { Plus, Check, CalendarRange, Pencil, Pause, Play, UserRound } from 'lucide-react'
+import { Plus, Check, CalendarRange, CalendarDays, Lightbulb, Pencil, Pause, Play, UserRound } from 'lucide-react'
 import { seit } from '../lib/format'
 import { getPackages, mengeText, type Package } from '../lib/packages'
 import { monatsplan, monatsKey, type Monatsplan } from '../lib/monatsplan'
@@ -620,29 +620,7 @@ export default function ClientPage() {
           loadVideos()
           setTimeout(() => loadVideos(), 100_000)
         }} />
-        <Aktion icon={CalendarRange} titel="Monat" onClick={() => setPlanOffen(true)} />
         <Aktion icon={Pencil} titel="Bearbeiten" onClick={() => setEditClient(true)} />
-        {istPausiert(client) ? (
-          <Aktion icon={Play} titel="Weiter" onClick={async () => {
-            const { error } = await updateRow('clients', { pausiert_seit: null, pause_grund: null }, 'id', client.id)
-            if (error) { setError(error.message); return }
-            toast('Läuft wieder')
-            loadClient()
-          }} />
-        ) : (
-          <Aktion icon={Pause} titel="Pause" onClick={() => setPauseOffen(true)} />
-        )}
-        {/* Wer schneidet diesen Kunden? Tippen wechselt zum anderen. */}
-        {teamAktiv.length > 1 && (
-          <Aktion icon={UserRound} titel={teamAktiv.find((m) => m.id === client.zustaendig_id)?.name ?? 'Zuständig'} onClick={async () => {
-            const i = teamAktiv.findIndex((m) => m.id === client.zustaendig_id)
-            const neu = teamAktiv[(i + 1) % teamAktiv.length]
-            const { error } = await updateRow('clients', { zustaendig_id: neu.id }, 'id', client.id)
-            if (error) { setError(error.message); return }
-            toast(`${neu.name} schneidet ${client.name}`)
-            loadClient()
-          }} />
-        )}
       </Aktionen>
 
       {istPausiert(client) && (
@@ -651,12 +629,6 @@ export default function ClientPage() {
         </div>
       )}
 
-      <ClientCockpit
-        client={client}
-        plan={monatsplan(videos, mengeFuer(client.monthly_quota, monatsKey(), mengen))}
-        accounts={accounts}
-        onPlanen={() => setPlanOffen(true)}
-      />
 
       {/* Dieser Monat auf einen Blick: wann wir posten, was raus ist, wie es
           ankommt -- ohne erst Tabs durchzuklicken. */}
@@ -683,33 +655,19 @@ export default function ClientPage() {
       <div className="client-tabs">
         <div className="seg tabs-main">
           <button className={`seg-btn ${tab === 'board' ? 'on' : ''}`} onClick={() => setTab('board')}>
-            In Umsetzung
+            Videos
             <span className="col-count">{boardVideos.length}</span>
-          </button>
-          <button className={`seg-btn ${tab === 'termine' ? 'on' : ''}`} onClick={() => setTab('termine')}>
-            Termine
-            <span className="col-count">{termine.length}</span>
           </button>
           <button className={`seg-btn ${tab === 'analyse' ? 'on' : ''}`} onClick={() => setTab('analyse')}>
             Analyse
             <span className="col-count">{postedVideos.length}</span>
           </button>
-        </div>
-
-        <div className="tabs-side">
-          <span className="tabs-side-label">Vorrat</span>
-          <Link className="side-tab" to={`/medien?kunde=${id}`}>
-            Medien
-          </Link>
-          <button className={`side-tab ${tab === 'pool' ? 'on' : ''}`} onClick={() => setTab('pool')}>
-            Ideenspeicher
+          <button className={`seg-btn ${tab === 'pool' ? 'on' : ''}`} onClick={() => setTab('pool')}>
+            Ideen
             <span className="col-count">{sichtbareIdeen.length}</span>
           </button>
-          <button className={`side-tab ${tab === 'inspiration' ? 'on' : ''}`} onClick={() => setTab('inspiration')}>
-            Inspiration
-            <span className="col-count">{inspirations.length}</span>
-          </button>
         </div>
+
       </div>
 
       {/* Kanal-Filter. Erscheint nur, wenn der Kunde wirklich zwei Betriebe
@@ -1007,10 +965,42 @@ export default function ClientPage() {
         <div className="section-block">
           <button className="mehr-klappe" onClick={() => setMehrOffen((o) => !o)}>
             {mehrOffen ? <ChevronUp size={16} className="chev" /> : <ChevronDown size={16} className="chev" />} Mehr zum Kunden
-            <span className="muted">Vertrag · Verlauf</span>
+            <span className="muted">Monatsplan · Pause · Zuständig · Termine · Inspiration · Vertrag · Verlauf</span>
           </button>
           {mehrOffen && (
             <div className="mehr-inhalt">
+              <Aktionen>
+        <Aktion icon={CalendarRange} titel="Monat" onClick={() => setPlanOffen(true)} />
+        {istPausiert(client) ? (
+          <Aktion icon={Play} titel="Weiter" onClick={async () => {
+            const { error } = await updateRow('clients', { pausiert_seit: null, pause_grund: null }, 'id', client.id)
+            if (error) { setError(error.message); return }
+            toast('Läuft wieder')
+            loadClient()
+          }} />
+        ) : (
+          <Aktion icon={Pause} titel="Pause" onClick={() => setPauseOffen(true)} />
+        )}
+        {/* Wer schneidet diesen Kunden? Tippen wechselt zum anderen. */}
+        {teamAktiv.length > 1 && (
+          <Aktion icon={UserRound} titel={teamAktiv.find((m) => m.id === client.zustaendig_id)?.name ?? 'Zuständig'} onClick={async () => {
+            const i = teamAktiv.findIndex((m) => m.id === client.zustaendig_id)
+            const neu = teamAktiv[(i + 1) % teamAktiv.length]
+            const { error } = await updateRow('clients', { zustaendig_id: neu.id }, 'id', client.id)
+            if (error) { setError(error.message); return }
+            toast(`${neu.name} schneidet ${client.name}`)
+            loadClient()
+          }} />
+        )}
+                <Aktion icon={CalendarDays} titel={`Termine${termine.length ? ` (${termine.length})` : ''}`} onClick={() => setTab('termine')} />
+                <Aktion icon={Lightbulb} titel="Inspiration" onClick={() => setTab('inspiration')} />
+              </Aktionen>
+              <ClientCockpit
+        client={client}
+        plan={monatsplan(videos, mengeFuer(client.monthly_quota, monatsKey(), mengen))}
+        accounts={accounts}
+        onPlanen={() => setPlanOffen(true)}
+      />
               <ContractCard client={client} />
               <div className="section-block">
                 <h2 className="section-title">Verlauf</h2>

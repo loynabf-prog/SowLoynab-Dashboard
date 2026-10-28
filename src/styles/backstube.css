@@ -342,3 +342,104 @@ i.st-gegessen { background: var(--st-gegessen); }
 .fb-strecke { display: block; padding: 0; }
 .fb-innen { position: relative; display: flex; align-items: flex-start; gap: 8px; width: max-content; min-width: 100%; padding: 34px 4px 38px; }
 .fb-band { width: auto; min-width: 0; left: 0; right: 0; }
+
+/* ============================================================================
+   Imbissküche (28.10.2026): dunkler Arbeitsmodus, Neon-Schild, Bons an der
+   Schiene, Standbilder auf den Pizzen, Wärmelampe über der Ausgabe.
+   ========================================================================== */
+.bs.bs-kueche {
+  --bs-grund: #0e0a08;
+  --bs-karte: #17110d;
+  --bs-rand: rgba(255, 196, 150, 0.10);
+  --bs-text: #f6ece2;
+  --bs-leise: #a8968a;
+  background:
+    radial-gradient(900px 420px at 50% -140px, rgba(255, 95, 31, 0.22), transparent 70%),
+    radial-gradient(700px 500px at 100% 100%, rgba(255, 60, 120, 0.06), transparent 70%),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.012) 0 2px, transparent 2px 4px),
+    var(--bs-grund);
+  color: var(--bs-text);
+}
+.bs-kueche .bs-rund { background: #1d1611; border-color: var(--bs-rand); color: var(--bs-text); }
+.bs-kueche .bs-schalter { background: rgba(255, 255, 255, 0.06); }
+.bs-kueche .bs-schalter button.an { background: #2a201a; color: var(--bs-text); box-shadow: none; }
+
+/* Neon-Schild */
+.bs-neon {
+  font-family: 'Arial Rounded MT Bold', 'Avenir Next', -apple-system, sans-serif;
+  font-size: 40px !important; font-weight: 900 !important; letter-spacing: 0.08em !important;
+  color: #ffe6d4 !important;
+  text-shadow: 0 0 4px #fff3e8, 0 0 10px #ff8a4f, 0 0 22px #ff5f1f, 0 0 44px #ff3d00, 0 0 80px rgba(255, 61, 0, .6);
+  animation: bs-neon 6s infinite;
+}
+@keyframes bs-neon {
+  0%, 18%, 22%, 25%, 53%, 57%, 100% { opacity: 1; }
+  20%, 24%, 55% { opacity: .55; text-shadow: 0 0 2px #fff3e8, 0 0 6px #ff8a4f; }
+}
+@media (prefers-reduced-motion: reduce) { .bs-neon { animation: none; } }
+@media (max-width: 520px) { .bs-neon { font-size: 30px !important; } }
+
+/* Bahnen */
+.bs-kueche .fb { background: linear-gradient(180deg, #1a130f, #140f0c); border-color: var(--bs-rand); box-shadow: 0 20px 50px -30px rgba(0, 0, 0, .9), inset 0 1px 0 rgba(255, 255, 255, .04); }
+.bs-kueche .fb-station { background: #1f1813; border-color: rgba(255, 196, 150, .09); }
+.bs-kueche .fb-pizza:hover { background: rgba(255, 255, 255, .05); }
+.bs-kueche .fb-teig { background: rgba(230, 214, 189, .08); color: #c9b59a; }
+.bs-kueche .fb-pfeil { color: rgba(255, 196, 150, .25); }
+.bs-kueche .fb-band { background: #0a0705; }
+.bs-kueche .fb-band span { background: repeating-linear-gradient(90deg, #3b3029 0 14px, #1c1612 14px 28px); }
+.bs-kueche .fb-ausgabe { background: rgba(255, 178, 63, .07); border-color: rgba(255, 178, 63, .3); }
+.bs-kueche .fb-raus { background: #241b14; border-color: rgba(255, 178, 63, .35); }
+.bs-kueche .fb-teller { background: rgba(52, 199, 89, .07); border-color: rgba(52, 199, 89, .25); }
+.bs-kueche .fb-zurueck-text { background: #17110d; color: #ffb23f; }
+.bs-kueche .bs-zustand.z-leer { background: rgba(255, 59, 48, .15); color: #ff7a6e; }
+.bs-kueche .bs-zustand.z-wartet { background: rgba(255, 178, 63, .15); color: #ffc46b; }
+.bs-kueche .bs-zustand.z-an { background: rgba(255, 95, 31, .2); color: #ff9a64; }
+.bs-kueche .fb-ofen { box-shadow: inset 0 0 0 5px #2e231c, inset 0 0 0 6px #4a382c, inset 0 16px 34px rgba(0, 0, 0, .7), 0 0 60px -10px rgba(255, 95, 31, .35); }
+.bs-kueche .fb-ofen.an { box-shadow: inset 0 0 0 5px #2e231c, inset 0 0 0 6px #6b4a33, inset 0 16px 34px rgba(0, 0, 0, .55), 0 0 90px -6px rgba(255, 95, 31, .65); }
+
+/* Bons an der Schiene */
+.fb-schiene { height: 6px; margin: 2px -12px 6px; border-radius: 3px; background: linear-gradient(180deg, #8c8c8c, #4b4b4b); box-shadow: 0 2px 4px rgba(0, 0, 0, .5); }
+.fb-bons { display: flex; flex-direction: column; gap: 8px; }
+.fb-bon { position: relative; display: flex; flex-direction: column; gap: 2px; padding: 8px 10px 9px; border: none; border-radius: 2px 2px 6px 6px; text-align: left;
+  background: #fbf7ee; color: #1d1a16 !important; font-family: 'Courier New', ui-monospace, monospace;
+  transform: rotate(var(--kipp, 0deg)); transform-origin: top center;
+  box-shadow: 0 6px 14px -6px rgba(0, 0, 0, .7);
+  -webkit-mask: radial-gradient(4px at 50% 100%, transparent 98%, #000) 0 0 / 10px 100% repeat-x; }
+.fb-bon::before { content: ''; position: absolute; top: -5px; left: 50%; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #ff9a64, #c43d00); box-shadow: 0 1px 2px rgba(0, 0, 0, .5); }
+.fb-bon:active { transform: rotate(0deg) scale(.98); }
+.fb-bon-kopf { display: flex; justify-content: space-between; font-size: 10.5px; font-weight: 700; letter-spacing: .06em; border-bottom: 1px dashed #c9bfae; padding-bottom: 3px; margin-bottom: 2px; }
+.fb-bon-kopf b { color: #c43d00; }
+.fb-bon-titel { font-size: 12.5px; font-weight: 700; line-height: 1.2; }
+.fb-bon-kunde { font-size: 10.5px; color: #6f665c; }
+.fb-bon-text { font-size: 10.5px; color: #4b443c; line-height: 1.25; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+
+/* Wärmelampe über der Ausgabe */
+.fb-ausgabe { overflow: visible; }
+.fb-lampe { position: absolute; top: -34px; left: 50%; width: 90px; margin-left: -45px; height: 22px; border-radius: 0 0 45px 45px; background: linear-gradient(180deg, #3a2c22, #251b14); box-shadow: 0 2px 6px rgba(0, 0, 0, .6); z-index: 2; }
+.fb-lampe i { position: absolute; left: 50%; top: 18px; width: 210px; margin-left: -105px; height: 140px; pointer-events: none; opacity: 0;
+  background: radial-gradient(60% 70% at 50% 0%, rgba(255, 70, 20, .45), rgba(255, 120, 40, .12) 55%, transparent 75%); transition: opacity .8s; }
+.fb-lampe.an { background: linear-gradient(180deg, #4a3326, #2a1d15); }
+.fb-lampe.an::after { content: ''; position: absolute; left: 12px; right: 12px; bottom: 2px; height: 5px; border-radius: 3px; background: #ff5a1f; box-shadow: 0 0 12px 3px rgba(255, 90, 31, .8); animation: bs-lampe 1.8s ease-in-out infinite; }
+.fb-lampe.an i { opacity: 1; animation: bs-lampe 1.8s ease-in-out infinite; }
+@keyframes bs-lampe { 0%, 100% { opacity: .75; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .fb-lampe.an::after, .fb-lampe.an i { animation: none; } }
+
+/* Standbilder auf den Pizzen */
+.bs-pizza-mitte.mit-bild { width: 82%; height: 82%; }
+.bs-pizza-logo { position: absolute; right: -2px; bottom: -2px; width: 40%; height: 40%; border-radius: 50%; overflow: hidden; background: #fff; box-shadow: 0 0 0 2px #17110d; }
+.bs-pizza-logo img { width: 100%; height: 100%; object-fit: cover; }
+
+/* Bestellungen im Dunkeln */
+.bs-kueche .bs-theke { background: #17110d; border-color: var(--bs-rand); }
+.bs-kueche .bs-bestellung { background: #1f1813; border-color: rgba(255, 196, 150, .09); color: var(--bs-text); }
+.bs-kueche .bs-logo { background: #fff; border-color: transparent; }
+.bs-kueche .bs-balken { background: rgba(255, 255, 255, .08); }
+.bs-kueche .bs-best-zahl b { color: var(--bs-text); }
+.bs-kueche .bs-fehler { color: #ff7a6e; }
+@media (max-width: 520px) {
+  .bs-kueche .bs-kopf { flex-wrap: wrap; row-gap: 10px; }
+  .bs-kueche .bs-titel { flex: 1 1 auto; }
+  .bs-neon { font-size: 26px !important; letter-spacing: .06em !important; }
+  .bs-kueche .bs-schalter { order: 3; width: 100%; }
+  .bs-kueche .bs-schalter button { flex: 1; }
+}

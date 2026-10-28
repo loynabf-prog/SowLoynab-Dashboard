@@ -1,14 +1,14 @@
 // Die Schale der App: Handy-Leiste unten, Seitenleiste am Desktop.
 // ---------------------------------------------------------------------------
-// Unten genau vier Ziele und in der Mitte der Knopf fuer Neues -- zwei links,
-// zwei rechts, symmetrisch. Alles andere liegt auf der Seite "Mehr"
+// Unten fuenf Ziele (Heute, Ofen, Kalender, Monat, Analyse), "Neu" oben im
+// Kopf. Alles andere liegt auf der Seite "Mehr"
 // (pages/Mehr.tsx), erreichbar ueber das Profilbild oben rechts: sieben
 // Bereiche, jede Seite mit einem Satz. Welche Seite wohin gehoert, steht in
 // lib/bereiche.ts -- wer einem Mitglied nur bestimmte Bereiche gibt, sieht
 // dort auch nur diese.
 
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
-import { Sun, CalendarDays, Users, Plus, Search, Sparkles, CalendarRange, LayoutGrid } from 'lucide-react'
+import { Sun, CalendarDays, Plus, Search, Sparkles, CalendarRange, LayoutGrid, Flame, BarChart3 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useIdentity } from '../context/IdentityContext'
 import { useTeam } from '../context/TeamContext'
@@ -25,14 +25,21 @@ import BetriebWahl from './BetriebWahl'
 
 interface Ziel { to: string; label: string; icon: LucideIcon; end?: boolean; auch?: string[] }
 
-/** Die vier Hauptziele -- in dieser Reihenfolge, links zwei, rechts zwei. */
+/**
+ * Die fuenf Hauptziele (Fassie, 28.10.2026): so arbeiten wir wirklich --
+ * Heute (was muss raus), Ofen (Schnitt), Kalender (Posting), Monat (Kunden,
+ * Videoanzahl, alles antippbar), Analyse. Alles andere liegt unter "Mehr".
+ */
 const HAUPT: Ziel[] = [
   { to: '/', label: 'Heute', icon: Sun, end: true },
-  { to: '/plan', label: 'Plan', icon: CalendarDays, auch: ['/posting'] },
-  // Monate statt Produktion (Fassie, 20.10.2026): der Monatsueberblick ist wichtiger.
-  { to: '/monate', label: 'Monate', icon: CalendarRange },
-  { to: '/kunden', label: 'Kunden', icon: Users, auch: ['/client'] },
+  { to: '/ofen', label: 'Ofen', icon: Flame },
+  { to: '/plan', label: 'Kalender', icon: CalendarDays, auch: ['/posting'] },
+  { to: '/monate', label: 'Monat', icon: CalendarRange, auch: ['/client', '/kunden'] },
+  { to: '/analyse', label: 'Analyse', icon: BarChart3, auch: ['/leistung'] },
 ]
+
+/** Am Desktop unter den Hauptzielen: nur das, was wir noch ab und zu brauchen. */
+const NEBEN = ['/kunden', '/lexikon', '/aufgaben']
 
 function aktiv(z: Ziel, pfad: string): boolean {
   if (z.end) return pfad === z.to
@@ -48,9 +55,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const ich = memberId ? byId(memberId) : undefined
   const bereiche = sichtbareBereiche(ich?.bereiche)
   // Seitenleiste am Desktop: alles ausser den Hauptzielen, gruppiert nach Bereich.
-  const gruppen = bereiche
-    .map((b) => ({ titel: b.label, seiten: b.seiten.filter((s) => !HAUPT_PFADE.includes(s.to)) }))
-    .filter((g) => g.seiten.length > 0)
+  const neben = bereiche.flatMap((b) => b.seiten).filter((s) => NEBEN.includes(s.to) && !HAUPT_PFADE.includes(s.to))
+  const gruppen = neben.length ? [{ titel: 'Mehr', seiten: neben }] : []
   const breit = location.pathname.startsWith('/client/') || location.pathname === '/kalender' || location.pathname.startsWith('/chat')
   const chat = location.pathname.startsWith('/chat')
   const animKey = location.pathname.startsWith('/client/') ? 'client' : chat ? 'chat' : location.pathname
@@ -72,6 +78,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         {gruppen.map((g) => (
           <div key={g.titel}>
             <div className="n-seite-titel">{g.titel}</div>
+            <NavLink to="/mehr" className={({ isActive }) => `n-seite-link ${isActive ? 'on' : ''}`}><LayoutGrid strokeWidth={2} />Alles</NavLink>
             {g.seiten.map((s) => {
               const I = symbolVon(s.to)
               return (
@@ -88,6 +95,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <header className="n-kopf">
         <Link to="/" className="n-marke"><i>S&amp;L</i>Sow &amp; Loynab</Link>
         <span className="n-spacer" />
+        <button className="n-kopf-knopf n-kopf-neu" onClick={neu} aria-label="Neu anlegen" title="Neu">
+          <Plus size={22} strokeWidth={2.4} />
+        </button>
         <button className="n-kopf-knopf" onClick={() => window.dispatchEvent(new Event('open-assistent'))} aria-label="Assistent" title="Assistent (⌘J)">
           <Sparkles size={21} strokeWidth={2} />
         </button>
@@ -111,11 +121,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <div className="page" key={animKey}>{children}</div>
       </main>
 
-      {/* Handy: fuenf gleich breite Spalten -- zwei, Neu, zwei */}
+      {/* Handy: fuenf gleich breite Spalten; "Neu" sitzt oben im Kopf */}
       <nav className="n-leiste" aria-label="Hauptnavigation">
-        {HAUPT.slice(0, 2).map((z) => <Tab key={z.to} z={z} pfad={location.pathname} />)}
-        <button className="n-neu" onClick={neu} aria-label="Neu anlegen"><Plus strokeWidth={2.6} /></button>
-        {HAUPT.slice(2).map((z) => <Tab key={z.to} z={z} pfad={location.pathname} />)}
+        {HAUPT.map((z) => <Tab key={z.to} z={z} pfad={location.pathname} />)}
       </nav>
 
       <AssistentButton />
