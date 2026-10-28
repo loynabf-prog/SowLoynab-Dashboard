@@ -1,7 +1,7 @@
 // Vorschau: geschnittene Videos der eigenen Kunden (seit 27.10.2026 schneidet
 // jeder seine Kunden mit Claude komplett selbst).
 //
-//   Vorschau ansehen -> "Fertig"       (bereit zum Posten, Ordner nach 4 Fertig)
+//   Vorschau ansehen -> "Fertig"       (beste Datei nach 3 Zum Posten, Ordner ins Archiv)
 //                    -> "Ändern"       (Wunsch reiht sich ein, Claude arbeitet nacheinander ab)
 //                    -> "An <Name>"    (nur bei Problemen: an den anderen weitergeben)
 //

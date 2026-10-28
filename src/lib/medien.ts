@@ -7,6 +7,8 @@
 import { rufeFunktion } from './funktion'
 
 export const BASIS = '/Sow & Loynab Media'
+/** Hintergrund: gepostete Videos, Projekte, uebriges Drehmaterial (online-only, seit 28.10.2026) */
+export const ARCHIV = '/Sow & Loynab Archiv'
 
 export interface Eintrag {
   name: string
@@ -34,6 +36,8 @@ export const dropbox = {
   suche: (query: string, pfad: string) => rufe<{ eintraege: Eintrag[] }>('search', { query, pfad }).then((r) => r.eintraege),
   verschieben: (pfade: string[], nach: string) =>
     rufe<{ ergebnis: { pfad: string; ok: boolean; neu?: string; fehler?: string }[] }>('move', { pfade, nach }).then((r) => r.ergebnis),
+  /** An einen genauen Zielpfad (auch mit neuem Namen) verschieben. */
+  umbenennen: (von: string, nach: string) => rufe<{ neu: string }>('rename', { von, nach }).then((r) => r.neu),
 }
 
 /** Ordner zuerst, dann nach Name -- Drehtag-Ordner ("2026-10_...") neueste oben. */

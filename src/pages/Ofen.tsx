@@ -201,9 +201,9 @@ export default function Ofen() {
   )
 }
 
-function alsPruef(p: Pizza): PruefVideo {
+function alsPruef(p: Pizza): PruefVideo & { scheduled_date?: string | null } {
   return {
-    id: p.video.id, title: p.video.title, client_id: p.video.client_id, dropbox_pfad: p.video.dropbox_pfad ?? null,
+    id: p.video.id, title: p.video.title, client_id: p.video.client_id, dropbox_pfad: p.video.dropbox_pfad ?? null, scheduled_date: p.video.scheduled_date,
     produktion_stufe: p.video.produktion_stufe ?? null, bearbeiter_id: p.video.bearbeiter_id ?? null,
     clients: p.video.clients ? { name: p.video.clients.name, logo_url: p.video.clients.logo_url, zustaendig_id: p.video.clients.zustaendig_id } : null,
   }

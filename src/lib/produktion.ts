@@ -1,8 +1,10 @@
 // Produktions-Auftraege: Drehtag abschliessen -> Automatik sortiert und schneidet.
 // ---------------------------------------------------------------------------
 // Dropbox (seit 22.10.2026): der Ordner ist der Status.
-//   1 Eingang/<Kunde> -> 2 Im Schnitt/<Kunde> - <Idee> (Freigabe durch Fassie) -> 3 Feinschliff/<Kunde> - <Idee>
-//   -> 4 Fertig/<Kunde> - <Idee>.mp4 -> Kunden/<Kunde>/Videos/<Datum> <Idee>
+//   1 Briefkasten/<Kunde>  (nach dem Drehtag alles rein -- der Briefkasten-Waechter startet die Automatik)
+//   -> 2 In Arbeit/<Kunde> - <Idee>  (ein Ordner pro Video: Medien, Projekt, Vorschau, NOTIZEN)
+//   -> 3 Zum Posten/<Kunde> - <Idee>.mp4  (beste Qualitaet, bis ueberall gepostet)
+//   -> /Sow & Loynab Archiv/<Kunde>/<Datum> <Idee>  (Hintergrund, online-only; seit 28.10.2026)
 // Kundenordner (clients.dropbox_ordner): /Sow & Loynab Media/Kunden/<Kunde>
 // Ein Auftrag entsteht, wenn jemand im CRM "Drehtag abschliessen" tippt.
 // Abgeholt wird er vom stuendlichen Automatik-Lauf auf dem Schnitt-PC
@@ -29,13 +31,12 @@ export interface Auftrag {
 }
 
 export const STUFEN = {
-  eingang: '1 Eingang',
-  schnitt: '2 Im Schnitt',
-  feinschliff: '3 Feinschliff',
-  fertig: '4 Fertig',
+  eingang: '1 Briefkasten',
+  schnitt: '2 In Arbeit',
+  posten: '3 Zum Posten',
 } as const
 
-/** Eingang eines Kunden: <Basis>/1 Eingang/<Kunde>, aus dem Kundenordner <Basis>/Kunden/<Kunde>. */
+/** Briefkasten eines Kunden: <Basis>/1 Briefkasten/<Kunde>, aus dem Kundenordner <Basis>/Kunden/<Kunde>. */
 export function eingangVon(ordner: string): string {
   const o = ordner.replace(/\/+$/, '')
   const i = o.lastIndexOf('/')
@@ -49,8 +50,8 @@ export function statusText(a: Pick<Auftrag, 'status' | 'schritt' | 'notiz'>): st
   switch (a.status) {
     case 'wartet': return 'Wartet auf die Automatik – startet gleich'
     case 'laeuft': return a.schritt ? `Läuft: ${a.schritt}` : 'Wird sortiert und geschnitten'
-    case 'feinschliff': return a.schritt || 'Wartet auf Freigabe bzw. liegt bei Lion'
-    case 'fertig': return 'Fertig – alles im Fertig-Ordner'
+    case 'feinschliff': return a.schritt || 'Sortiert – Videos liegen in der Backstube'
+    case 'fertig': return 'Fertig – alles sortiert'
     case 'fehler': return a.notiz ? `Hängt: ${a.notiz}` : 'Hängt – bitte kurz reinschauen'
   }
 }

@@ -1,11 +1,11 @@
 // Drehtag in der Kundenakte: Rohmaterial hochladen, Drehtag abschliessen,
 // und sehen, wo die Videos in der Kette stehen.
 //
-//   1. "Rohmaterial hochladen" oeffnet 1 Eingang/<Kunde> in Dropbox
+//   1. "Rohmaterial hochladen" oeffnet 1 Briefkasten/<Kunde> in Dropbox
 //   2. Clips aus den Kamera-Uploads dort hineinschieben
 //   3. "Drehtag abschliessen" -> Auftrag; die Automatik sortiert und schneidet,
 //      Fassie gibt jedes Video unter Produktion frei (oder laesst aendern),
-//      dann bekommt Lion den Feinschliff im Chat (3 Feinschliff), fertige Exporte landen in 4 Fertig
+//      Servieren legt die beste Datei nach 3 Zum Posten, der Arbeitsordner geht ins Archiv
 
 import { useCallback, useEffect, useState } from 'react'
 import { Check, Clapperboard, ExternalLink, Loader2, Upload } from 'lucide-react'

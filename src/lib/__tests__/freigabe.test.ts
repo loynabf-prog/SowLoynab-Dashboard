@@ -1,16 +1,24 @@
 import { describe, it, expect } from 'vitest'
-import { feinschliffPfad, offeneRunde, platzInSchlange, vorschauPfad, type Aenderung } from '../freigabe'
+import { archivZiel, besteDatei, offeneRunde, platzInSchlange, vorschauPfad, type Aenderung } from '../freigabe'
 
 const a = (id: string, video_id: string, status: Aenderung['status'], created_at: string): Aenderung =>
   ({ id, video_id, status, created_at, wunsch: 'x', notiz: null, erledigt_am: null })
 
 describe('freigabe', () => {
-  it('Zielordner in 3 Feinschliff behaelt den Namen', () => {
-    expect(feinschliffPfad('/Sow & Loynab Media/2 Im Schnitt/U-Act Michel - Nacken/'))
-      .toBe('/Sow & Loynab Media/3 Feinschliff/U-Act Michel - Nacken')
+  it('Archiv: Kunde/Datum Idee', () => {
+    expect(archivZiel('/Sow & Loynab Media/2 In Arbeit/U-Act Michel - Nacken/', 'Michel Uact', '2026-10-30'))
+      .toBe('/Sow & Loynab Archiv/U-Act Michel/2026-10-30 Nacken')
+    expect(archivZiel('/Sow & Loynab Media/2 In Arbeit/Waffeln', 'Schleckofatz', '2026-10-30')).toBe('/Sow & Loynab Archiv/Schleckofatz/2026-10-30 Waffeln')
+  })
+  it('beste Datei: volle Qualitaet vor Export vor Vorschau', () => {
+    const e = (name: string, geaendert = '2026-10-28') => ({ name, pfad: '/x/' + name, art: 'video' as const, geaendert, groesse: 1 })
+    expect(besteDatei([e('Vorschau.mp4'), e('Export_v2.mp4'), e('Export_v3_volle_Qualitaet.mp4')])).toBe('/x/Export_v3_volle_Qualitaet.mp4')
+    expect(besteDatei([e('Vorschau.mp4'), e('Export_v1.mp4', '2026-10-01'), e('Export_v2.mp4', '2026-10-02')])).toBe('/x/Export_v2.mp4')
+    expect(besteDatei([e('Vorschau.mp4')])).toBe('/x/Vorschau.mp4')
+    expect(besteDatei([])).toBeNull()
   })
   it('Vorschau liegt im Video-Ordner', () => {
-    expect(vorschauPfad('/Sow & Loynab Media/2 Im Schnitt/X - Y')).toBe('/Sow & Loynab Media/2 Im Schnitt/X - Y/Vorschau.mp4')
+    expect(vorschauPfad('/Sow & Loynab Media/2 In Arbeit/X - Y')).toBe('/Sow & Loynab Media/2 In Arbeit/X - Y/Vorschau.mp4')
   })
   it('Warteschlange: aeltester offener Wunsch zuerst, laufender zaehlt mit', () => {
     const liste = [

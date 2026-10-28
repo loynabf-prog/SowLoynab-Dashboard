@@ -27,9 +27,11 @@ const CORS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-// Nur innerhalb des Agentur-Ordners. Private Ordner (Kamera-Uploads,
-// "Fassie Creator") bleiben aus dem Dashboard heraus.
+// Nur innerhalb des Agentur-Ordners und seines Archivs. Private Ordner
+// (Kamera-Uploads, "Fassie Creator") bleiben aus dem Dashboard heraus.
 const BASIS = '/Sow & Loynab Media'
+const ARCHIV = '/Sow & Loynab Archiv'
+const ERLAUBT = [BASIS, ARCHIV].map((b) => b.toLowerCase())
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const ANON = Deno.env.get('SUPABASE_ANON_KEY')!
@@ -51,8 +53,8 @@ function sichererPfad(p: unknown): string {
   const pfad = p.trim().normalize('NFC').replace(/\/+$/, '')
   if (pfad.split('/').includes('..')) throw new Fehler('Ungültiger Pfad')
   const klein = pfad.toLowerCase()
-  if (klein !== BASIS.toLowerCase() && !klein.startsWith(BASIS.toLowerCase() + '/')) {
-    throw new Fehler('Nur Ordner unter „Sow & Loynab Media“ sind erlaubt', 403)
+  if (!ERLAUBT.some((b) => klein === b || klein.startsWith(b + '/'))) {
+    throw new Fehler('Nur Ordner unter „Sow & Loynab Media“ oder im Archiv sind erlaubt', 403)
   }
   return pfad
 }
@@ -252,6 +254,14 @@ Deno.serve(async (req) => {
           }
         }
         return antwort({ ergebnis })
+      }
+
+      // Eine Datei/einen Ordner an einen genauen Zielpfad (mit neuem Namen)
+      case 'rename': {
+        const von = sichererPfad(body.von)
+        const nach = sichererPfad(body.nach)
+        const r = await rpc('files/move_v2', { from_path: von, to_path: nach, autorename: true })
+        return antwort({ neu: r.metadata?.path_display ?? nach })
       }
 
       case 'mkdir': {

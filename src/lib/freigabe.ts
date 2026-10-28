@@ -2,13 +2,14 @@
 // ---------------------------------------------------------------------------
 // Fassie und Lion schneiden je ihre eigenen Kunden mit Claude von Anfang bis
 // Ende (clients.zustaendig_id). Kein Feinschliff mehr durch den anderen.
-//   2 Im Schnitt/<Kunde> - <Idee>   produktion_stufe 'pruefung'
+//   2 In Arbeit/<Kunde> - <Idee>   produktion_stufe 'pruefung'
 //     "Aendern"      -> Wunsch in video_aenderungen, Claude arbeitet nacheinander ab
-//     "Fertig"       -> Ordner nach 4 Fertig, Stufe 'fertig': bereit zum Posten
+//     "Fertig"/"Servieren" -> beste Datei nach 3 Zum Posten, Arbeitsordner ins Archiv
+//                       (/Sow & Loynab Archiv/<Kunde>/<Datum> <Idee>), Stufe 'fertig'
 //     "Weitergeben"  -> nur bei Problemen: Video an den anderen (videos.bearbeiter_id)
 
 import { supabase } from './supabase'
-import { BASIS, dropbox } from './medien'
+import { ARCHIV, BASIS, dropbox, type Eintrag } from './medien'
 
 export interface PruefVideo {
   id: string
@@ -37,13 +38,35 @@ export interface Aenderung {
   erledigt_am: string | null
 }
 
-export const FEINSCHLIFF = `${BASIS}/3 Feinschliff`
-export const FERTIG = `${BASIS}/4 Fertig`
+export const ZUM_POSTEN = `${BASIS}/3 Zum Posten`
 
-/** Zielordner in 3 Feinschliff: gleicher Ordnername wie in 2 Im Schnitt. */
-export function feinschliffPfad(pfad: string): string {
-  const name = pfad.replace(/\/+$/, '').split('/').pop() ?? ''
-  return `${FEINSCHLIFF}/${name}`
+/** Ordnername "Kunde - Idee" aus einem Pfad */
+function ordnerName(pfad: string): string {
+  return pfad.replace(/\/+$/, '').split('/').pop() ?? ''
+}
+
+/**
+ * Die Datei mit der besten Qualitaet im Video-Ordner: volle Qualitaet / Final /
+ * Export vor allem anderen, die Vorschau nur als letzte Wahl; jeweils die neueste.
+ */
+export function besteDatei(eintraege: Pick<Eintrag, 'name' | 'pfad' | 'art' | 'geaendert' | 'groesse'>[]): string | null {
+  const videos = eintraege.filter((e) => e.art === 'video' && /\.(mp4|mov|m4v)$/i.test(e.name))
+  const rang = (n: string) => (/volle.?qualit|final|master/i.test(n) ? 0 : /export/i.test(n) ? 1 : /vorschau|proxy/i.test(n) ? 3 : 2)
+  videos.sort((a, b) => rang(a.name) - rang(b.name) || (b.geaendert ?? '').localeCompare(a.geaendert ?? '') || (b.groesse ?? 0) - (a.groesse ?? 0))
+  return videos[0]?.pfad ?? null
+}
+
+/**
+ * Ziel im Archiv: /Sow & Loynab Archiv/<Kunde>/<Datum> <Idee>. Der Kundenname
+ * kommt aus dem Ordnernamen ("U-Act Michel - Nacken"), damit er zu den
+ * Dropbox-Kundenordnern passt; der CRM-Name ist nur die Notloesung.
+ */
+export function archivZiel(arbeitsordner: string, crmKunde: string, datum: string): string {
+  const name = ordnerName(arbeitsordner)
+  const teil = name.indexOf(' - ')
+  const kunde = teil > 0 ? name.slice(0, teil) : crmKunde
+  const idee = teil > 0 ? name.slice(teil + 3) : name
+  return `${ARCHIV}/${kunde}/${datum} ${idee}`.replace(/\s+/g, ' ').trim()
 }
 
 export function vorschauPfad(pfad: string): string {
@@ -94,38 +117,34 @@ export async function aendern(video: PruefVideo, wunsch: string, memberId: strin
   }
 }
 
-/** Ordner nach 3 Feinschliff, Video umstellen, Aufgabe + Karte fuer Lion, Push an Lion. */
-export async function freigeben(video: PruefVideo, memberId: string | null, lionId: string | null): Promise<void> {
-  if (!video.dropbox_pfad) throw new Error('Kein Dropbox-Ordner hinterlegt')
-  const [r] = await dropbox.verschieben([video.dropbox_pfad], FEINSCHLIFF)
-  if (!r?.ok) throw new Error('Ordner ließ sich nicht verschieben: ' + (r?.fehler ?? 'unbekannt'))
-  const neu = r.neu ?? feinschliffPfad(video.dropbox_pfad)
-  const { error } = await supabase.rpc('video_freigeben', { p_video: video.id, p_neuer_pfad: neu, p_von: memberId })
-  if (error) throw error
-  if (lionId && lionId !== memberId) {
-    try {
-      await supabase.functions.invoke('send-push', {
-        body: {
-          member_id: lionId,
-          title: '🎬 Neuer Feinschliff',
-          body: `${video.title} (${video.clients?.name ?? 'Kunde'}) ist freigegeben und liegt in 3 Feinschliff.`,
-          link: '/chat',
-        },
-      })
-    } catch { /* Push ist optional */ }
-  }
-}
-
-/** Fertig geschnitten: Ordner nach 4 Fertig, Video bereit zum Posten. */
-export async function fertigMachen(video: PruefVideo, memberId: string | null): Promise<void> {
+/**
+ * Servieren (fertig geschnitten): die Datei mit der besten Qualitaet wandert als
+ * "<Kunde> - <Idee>.mp4" nach 3 Zum Posten, der Arbeitsordner ins Archiv.
+ * Video bereit zum Posten. Ist es ueberall gepostet, raeumt die Automatik die
+ * Datei aus 3 Zum Posten ins Archiv dazu.
+ */
+export async function fertigMachen(video: PruefVideo & { scheduled_date?: string | null }, memberId: string | null): Promise<void> {
   let neu: string | null = null
-  if (video.dropbox_pfad) {
-    const [r] = await dropbox.verschieben([video.dropbox_pfad], FERTIG)
-    if (!r?.ok) throw new Error('Ordner ließ sich nicht verschieben: ' + (r?.fehler ?? 'unbekannt'))
-    neu = r.neu ?? `${FERTIG}/${video.dropbox_pfad.replace(/\/+$/, '').split('/').pop()}`
+  let archiv: string | null = null
+  const pfad = video.dropbox_pfad?.replace(/\/+$/, '') ?? null
+  if (pfad) {
+    const kunde = video.clients?.name ?? 'Kunde'
+    const istDatei = /\.(mp4|mov|m4v)$/i.test(pfad)
+    const ordner = istDatei ? pfad.slice(0, pfad.lastIndexOf('/')) : pfad
+    const datei = istDatei ? pfad : besteDatei(await dropbox.liste(ordner))
+    if (datei) {
+      const name = istDatei && ordner.endsWith('/3 Zum Posten') ? ordnerName(datei) : `${ordnerName(ordner)}.mp4`
+      neu = await dropbox.umbenennen(datei, `${ZUM_POSTEN}/${name}`)
+    }
+    // Arbeitsordner nach hinten -- nur, wenn es ein eigener Video-Ordner in "2 In Arbeit" ist
+    if (!istDatei && ordner.includes('/2 In Arbeit/')) {
+      const datum = video.scheduled_date ?? new Date().toISOString().slice(0, 10)
+      archiv = await dropbox.umbenennen(ordner, archivZiel(ordner, kunde, datum))
+    }
   }
   const { error } = await supabase.rpc('video_fertig', { p_video: video.id, p_neuer_pfad: neu, p_von: memberId })
   if (error) throw error
+  if (archiv) await supabase.from('videos').update({ archiv_pfad: archiv }).eq('id', video.id)
 }
 
 /** Nur bei Problemen: Video an den anderen geben (Aufgabe, Chat-Karte, Push). */
