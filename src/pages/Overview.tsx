@@ -15,6 +15,7 @@ import { useNavigate } from 'react-router-dom'
 import LogoFrame from '../components/LogoFrame'
 import Schnellzugriff from '../components/Schnellzugriff'
 import OfenEingang from '../components/OfenEingang'
+import PilotBlock from '../components/PilotBlock'
 import {
   Send, Video, Scissors, CalendarClock, CheckCircle2, MapPin, Camera,
   Clock, ArrowUpRight, Flame, Check, ChevronRight, ChevronDown, Coffee, X,
@@ -284,9 +285,7 @@ export default function Overview() {
             </div>
           </div>
 
-          {/* Freigabe, Aufgaben, Medien, Produktion: direkt erreichbar statt tief in "Mehr" */}
-          <OfenEingang />
-          <Schnellzugriff />
+          {/* Erst das Heutige (Fokus), dann der Pilot (was fehlt, bevor es brennt), dann die Backstube */}
 
           {f ? (
             <Fokus
@@ -314,6 +313,11 @@ export default function Overview() {
               </div>
             </>
           )}
+
+          <div className="n-abschnitt"><h2>Bevor es brennt</h2></div>
+          <PilotBlock />
+          <OfenEingang />
+          <Schnellzugriff />
 
           {tagPlan.rest.length > 0 && (
             <>

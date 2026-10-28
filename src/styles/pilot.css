@@ -1,0 +1,120 @@
+/* Pilot: Empfehlungen, Monatsbalken, Kundenlage ------------------------------ */
+
+/* Dunkle Pilot-Kachel auf Heute (Schwester der Ofen-Kachel) */
+.pl-kachel {
+  position: relative; overflow: hidden; isolation: isolate;
+  border-radius: 22px; background: #17120e; color: #f8efe6;
+  padding: 16px 16px 10px; margin-bottom: 16px;
+}
+.pl-kachel::after {
+  content: ''; position: absolute; inset: -40% -20% auto auto; width: 60%; aspect-ratio: 1; z-index: -1;
+  background: radial-gradient(closest-side, rgba(255, 95, 31, .35), transparent 70%);
+}
+.pl-kachel-kopf { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.pl-kachel-kopf .pl-marke {
+  width: 34px; height: 34px; border-radius: 11px; background: rgba(255, 255, 255, .1); display: grid; place-items: center; color: #ff8a4f; flex: none;
+}
+.pl-kachel-kopf .pl-marke svg { width: 19px; height: 19px; }
+.pl-kachel-kopf strong { font-family: var(--font-head); font-size: 17px; letter-spacing: -0.01em; display: block; }
+.pl-kachel-kopf span { font-size: 13px; opacity: .7; display: block; }
+.pl-kachel-kopf .n-mehr-link { margin-left: auto; color: #ff8a4f; display: inline-flex; align-items: center; gap: 2px; }
+.pl-kachel .n-gruppe { background: rgba(255, 255, 255, .07); }
+.pl-kachel .n-zeile { color: #f8efe6; }
+.pl-kachel .n-zeile:active { background: rgba(255, 255, 255, .06); }
+@media (hover: hover) { .pl-kachel .n-zeile:hover { background: rgba(255, 255, 255, .06); } }
+.pl-kachel .n-gruppe > * + * > .n-zeile::before, .pl-kachel .n-gruppe > .n-zeile + .n-zeile::before { border-top-color: rgba(255, 255, 255, .1); }
+.pl-kachel .n-titel { color: #f8efe6; }
+.pl-kachel .n-unter { color: rgba(255, 255, 255, .62); }
+.pl-kachel .n-tun { background: rgba(255, 255, 255, .14); color: #f8efe6; }
+.pl-kachel .n-tun.stark { background: #fff; color: #17120e; }
+.pl-kachel .n-tun.glut { background: var(--glut); color: #fff; }
+.pl-kachel .pl-ruhig { padding: 6px 2px 10px; font-size: 15px; opacity: .8; }
+.pl-kachel .z-logo-knopf .a-logo { box-shadow: 0 0 0 2px rgba(255, 255, 255, .15); }
+
+/* Zeilen */
+.pl-zeile .pl-warum { white-space: normal; line-height: 1.3; }
+.pl-zeile .pl-titel { white-space: normal; line-height: 1.25; }
+.pl-kachel .pl-warum { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pl-zeile.rot .pl-titel { color: var(--rot); }
+.pl-kachel .pl-zeile.rot .pl-titel { color: #ff6b61; }
+
+/* Monatsbalken */
+.pl-balken { position: relative; height: 8px; border-radius: 999px; background: var(--bg-sunken); overflow: visible; margin: 6px 0 4px; }
+.pl-balken.klein { height: 6px; }
+.pl-balken-ist { height: 100%; border-radius: 999px; background: var(--gruen); transition: width .4s ease; }
+.pl-balken.gelb .pl-balken-ist { background: var(--gelb); }
+.pl-balken.rot .pl-balken-ist { background: var(--rot); }
+.pl-balken.blau .pl-balken-ist { background: #0a84ff; }
+.pl-balken-soll { position: absolute; top: -3px; width: 2px; height: 14px; border-radius: 2px; background: #1d1d1f; opacity: .55; transform: translateX(-1px); }
+
+/* Stufen-Zaehler */
+.pl-stufen { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.pl-stufen span {
+  font-size: 11.5px; color: var(--text-dim); display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 999px; background: var(--bg-sunken); font-weight: 600;
+}
+.pl-stufen span b { font-variant-numeric: tabular-nums; color: var(--text-muted); }
+.pl-stufen span.da { color: var(--text); background: color-mix(in srgb, var(--glut) 12%, transparent); }
+.pl-stufen span.da b { color: var(--glut); }
+
+/* Kundenzeile auf /pilot */
+.pl-kunde {
+  display: flex; align-items: flex-start; gap: 12px; width: 100%; padding: 14px; margin-bottom: 10px;
+  border: none; border-radius: var(--radius); background: var(--bg-card); color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.pl-kunde:active { background: var(--bg-card-hover); }
+.pl-kunde .a-logo { flex: none; }
+.pl-kunde-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.pl-kunde-kopf { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.pl-kunde-kopf strong { font-size: 16px; letter-spacing: -0.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pl-prognose { flex: none; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--gruen); }
+.pl-prognose.gelb { color: var(--gelb); }
+.pl-prognose.rot { color: var(--rot); }
+.pl-satz { font-size: 13.5px; color: var(--text-muted); }
+.pl-kunde .n-chevron { margin-top: 10px; }
+
+/* Streifen in der Kundenakte */
+.pl-streifen { background: var(--bg-card); border-radius: var(--radius); padding: 14px 14px 10px; margin-bottom: 16px; }
+.pl-streifen-kopf { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; }
+.pl-streifen-kopf svg { width: 14px; height: 14px; color: var(--glut); }
+.pl-streifen-kopf .pl-prognose { margin-left: auto; text-transform: none; letter-spacing: 0; }
+.pl-streifen .pl-satz { display: block; font-size: 14px; color: var(--text); margin-top: 2px; }
+.pl-streifen .pl-liste { margin-top: 12px; background: var(--bg); }
+.pl-streifen .n-zeile { padding-left: 10px; padding-right: 10px; min-height: 52px; }
+
+/* Seite /pilot */
+.pl-kopf { display: flex; align-items: center; gap: 12px; margin: 4px 4px 14px; }
+.pl-kopf .pl-marke { width: 44px; height: 44px; border-radius: 14px; background: #17120e; color: #ff8a4f; display: grid; place-items: center; flex: none; }
+.pl-kopf .pl-marke svg { width: 24px; height: 24px; }
+.pl-kopf h1 { margin: 0; font-family: var(--font-head); font-size: 28px; letter-spacing: -0.03em; }
+.pl-kopf p { margin: 0; font-size: 14px; color: var(--text-muted); }
+.pl-leer { padding: 28px 16px; text-align: center; color: var(--text-dim); font-size: 15px; background: var(--bg-card); border-radius: var(--radius); }
+
+@media (max-width: 520px) {
+  .pl-zeile .n-tun { padding: 6px 11px; font-size: 13px; }
+}
+
+/* Anleitung ---------------------------------------------------------------- */
+.an-seite { font-size: 15.5px; line-height: 1.5; }
+.an-intro { background: #17120e; color: #f8efe6; border-radius: var(--radius-lg); padding: 18px; margin-bottom: 18px; }
+.an-intro p { margin: 0; }
+.an-intro p + p { margin-top: 8px; opacity: .8; font-size: 14.5px; }
+.an-kapitel { background: var(--bg-card); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; }
+.an-kapitel h2 { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; font-family: var(--font-head); font-size: 18px; letter-spacing: -0.02em; }
+.an-kapitel h2 .n-ic { width: 28px; height: 28px; border-radius: 8px; }
+.an-kapitel h2 .n-ic svg { width: 16px; height: 16px; }
+.an-text p { margin: 0 0 10px; color: var(--text); }
+.an-text p:last-child { margin-bottom: 0; }
+.an-text ul, .an-text ol { margin: 0 0 10px; padding-left: 20px; }
+.an-text li { margin: 4px 0; }
+.an-text li svg { vertical-align: -2px; margin-right: 4px; color: var(--glut); }
+.an-text code { font-size: 13px; background: var(--bg-sunken); padding: 1px 6px; border-radius: 6px; }
+.an-stufen { list-style: none; padding: 0; margin: 0 0 10px; counter-reset: s; }
+.an-stufen li { display: grid; grid-template-columns: 110px 1fr; gap: 8px; padding: 8px 0; border-top: 0.5px solid var(--sep); }
+.an-stufen li:first-child { border-top: none; }
+.an-stufen li strong { color: var(--glut); }
+.an-stufen li span { color: var(--text-muted); font-size: 14px; }
+.an-routine li { margin: 6px 0; }
+.an-fuss { text-align: center; margin: 18px 0; }
+.an-fuss a { color: var(--glut); font-weight: 600; text-decoration: none; }
+@media (max-width: 420px) { .an-stufen li { grid-template-columns: 1fr; gap: 2px; } }

@@ -2,12 +2,12 @@
 import {
   Sun, CalendarDays, Calendar, ListChecks, MessageCircle, Clapperboard, FolderOpen, Bookmark,
   Users, Target, CalendarRange, ReceiptEuro, Wallet, BarChart3, TrendingUp, UserRound, Mail,
-  Settings, Trash2, Building2, ChevronRight, LayoutGrid, BookOpen, Megaphone, Flame,
+  Settings, Trash2, Building2, ChevronRight, LayoutGrid, BookOpen, Megaphone, Flame, Compass, GraduationCap,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 export const SYMBOL: Record<string, LucideIcon> = {
-  '/': Sun, '/plan': CalendarDays, '/kalender': Calendar, '/aufgaben': ListChecks, '/chat': MessageCircle,
+  '/': Sun, '/pilot': Compass, '/anleitung': GraduationCap, '/plan': CalendarDays, '/kalender': Calendar, '/aufgaben': ListChecks, '/chat': MessageCircle,
   '/ofen': Flame, '/produktion': Clapperboard, '/medien': FolderOpen, '/lexikon': BookOpen, '/inspirationen': Bookmark,
   '/kunden': Users, '/leads': Target, '/brand': Megaphone,
   '/monate': CalendarRange, '/rechnungen': ReceiptEuro, '/finanzen': Wallet, '/firma': Building2,
@@ -18,7 +18,7 @@ export const SYMBOL: Record<string, LucideIcon> = {
 
 /** Farben wie in den iPhone-Einstellungen: ein Farbton je Bereich. */
 export const FARBE: Record<string, string> = {
-  '/': 'glut', '/plan': 'glut', '/kalender': 'rot', '/aufgaben': 'gelb', '/chat': 'gruen',
+  '/': 'glut', '/pilot': 'tinte', '/anleitung': 'blau', '/plan': 'glut', '/kalender': 'rot', '/aufgaben': 'gelb', '/chat': 'gruen',
   '/ofen': 'glut', '/produktion': 'lila', '/medien': 'blau', '/lexikon': 'gelb', '/inspirationen': 'pink',
   '/kunden': 'blau', '/leads': 'tuerkis', '/brand': 'pink',
   '/monate': 'gruen', '/rechnungen': 'gruen', '/finanzen': 'gruen', '/firma': 'gruen',

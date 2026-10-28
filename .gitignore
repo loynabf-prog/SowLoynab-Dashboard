@@ -36,3 +36,4 @@ logs
 # supabase local
 supabase/.branches
 supabase/.temp
+.vorschau/

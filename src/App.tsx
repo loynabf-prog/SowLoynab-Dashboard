@@ -24,6 +24,8 @@ import Settings from './pages/Settings'
 import Firma from './pages/Firma'
 import Chat from './pages/Chat'
 import Mehr from './pages/Mehr'
+import PilotSeite from './pages/Pilot'
+import Anleitung from './pages/Anleitung'
 import PersonalBrand from './pages/PersonalBrand'
 import ContractSign from './pages/ContractSign'
 import Layout from './components/Layout'
@@ -94,6 +96,8 @@ export default function App() {
         <Route path="/firma" element={<Firma />} />
         <Route path="/papierkorb" element={<Trash />} />
         <Route path="/mehr" element={<Mehr />} />
+        <Route path="/pilot" element={<PilotSeite />} />
+        <Route path="/anleitung" element={<Anleitung />} />
         <Route path="/chat" element={<Chat />} />
         <Route path="/chat/:id" element={<Chat />} />
       </Route>

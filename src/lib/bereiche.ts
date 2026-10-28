@@ -44,6 +44,7 @@ export const BEREICHE: Bereich[] = [
   { key: 'alltag', label: 'Alltag', zweck: 'Was heute und diese Woche dran ist',
     seiten: [
       { to: '/', label: 'Heute', was: 'Dein Tag: was jetzt dran ist, abhaken und weiter', end: true, suche: ['start', 'übersicht', 'fokus'] },
+      { to: '/pilot', label: 'Pilot', was: 'Das CRM denkt mit: was fehlt, bevor es brennt — je Kunde mit einem Knopf', suche: ['pilot', 'autopilot', 'empfehlung', 'vorschlag', 'prognose', 'lage', 'drehtag', 'einplanen'] },
       { to: '/plan', label: 'Plan', was: 'Was wann rausgeht — die Seite, die der Kunde sieht', suche: ['posting', 'posts', 'kalender'] },
       { to: '/kalender', label: 'Kalender', was: 'Alle Termine, Drehtage und Aufgaben auf einen Blick', suche: ['termine', 'woche'] },
       { to: '/aufgaben', label: 'Aufgaben', was: 'Offene To-dos, Erinnerungen und wer was macht', suche: ['todo', 'erinnerung', 'tasks'] },
@@ -76,6 +77,7 @@ export const BEREICHE: Bereich[] = [
   { key: 'team', label: 'Team', zweck: 'Wer gehört dazu, Postfach',
     seiten: [
       { to: '/team', label: 'Team', was: 'Mitglieder, wer welche Bereiche sieht, Kalender aufs Handy', suche: ['mitglieder', 'lion', 'bereiche'] },
+      { to: '/anleitung', label: 'Anleitung', was: 'Wie das CRM gedacht ist: Backstube, Pilot, Tagesablauf — zum Nachlesen und für neue Leute', suche: ['anleitung', 'tutorial', 'hilfe', 'erklärung', 'wie funktioniert', 'handbuch'] },
       { to: '/postfach', label: 'Postfach', was: 'Agentur-Mails lesen und beantworten', suche: ['mail', 'e-mail', 'zoho'] },
     ] },
   { key: 'system', label: 'System', zweck: 'Einstellungen und Papierkorb',
