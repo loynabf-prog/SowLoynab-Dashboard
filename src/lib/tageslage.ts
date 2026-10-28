@@ -140,7 +140,7 @@ function videoPunkt(v: LageVideo, heuteIso: string, jetztZeit: string): Punkt {
     text: f.text,
     ampel: f.ampel,
     // Tipp aufs Video = Video-Details in der Kundenakte (Fassie, 24.10.2026)
-    ziel: v.client_id ? `/client/${v.client_id}?video=${v.id}&open=1` : (f.schritt === 'posten' ? '/plan' : '/produktion'),
+    ziel: v.client_id ? `/client/${v.client_id}?video=${v.id}&open=1` : (f.schritt === 'posten' ? '/plan' : '/ofen'),
     clientId: v.client_id ?? null,
     rang: rangVon(v.clients?.client_type),
     frist: f.frist,

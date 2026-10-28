@@ -8,7 +8,6 @@ import Leads from './pages/Leads'
 import Tasks from './pages/Tasks'
 import Calendar from './pages/Calendar'
 import Posting from './pages/Posting'
-import Produktion from './pages/Produktion'
 import Ofen from './pages/Ofen'
 import Medien from './pages/Medien'
 import Finances from './pages/Finances'
@@ -78,7 +77,8 @@ export default function App() {
         <Route path="/aufgaben" element={<Tasks />} />
         <Route path="/plan" element={<Posting />} />
         <Route path="/posting" element={<Navigate to="/plan" replace />} />
-        <Route path="/produktion" element={<Produktion />} />
+        {/* Produktion laeuft seit 28.10.2026 komplett ueber die Backstube */}
+        <Route path="/produktion" element={<Navigate to="/ofen" replace />} />
         <Route path="/medien" element={<Medien />} />
         <Route path="/kalender" element={<Calendar />} />
         <Route path="/leistung" element={<Performance />} />

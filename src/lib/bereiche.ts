@@ -49,11 +49,9 @@ export const BEREICHE: Bereich[] = [
       { to: '/aufgaben', label: 'Aufgaben', was: 'Offene To-dos, Erinnerungen und wer was macht', suche: ['todo', 'erinnerung', 'tasks'] },
       { to: '/chat', label: 'Chat', was: 'Team-Chat mit Lion und Claude, Aufgaben direkt zuweisen', suche: ['nachrichten', 'anstupsen', 'claude'] },
     ] },
-  { key: 'produktion', label: 'Produktion', zweck: 'Drehen, schneiden, freigeben, Material',
+  { key: 'produktion', label: 'Produktion', zweck: 'Backstube, Videoideen und Formate',
     seiten: [
-      { to: '/ofen', label: 'Backstube', was: 'Die Öfen: was gerade geschnitten wird, Bestellzettel, Teller, Bestellungen', suche: ['ofen', 'schnittofen', 'pizza', 'warteschlange', 'schnitt'] },
-      { to: '/produktion', label: 'Produktion', was: 'Videos in Arbeit, Freigaben und was noch gedreht werden muss', reiter: 'produktion', suche: ['schnitt', 'freigabe', 'drehtag'] },
-      { to: '/medien', label: 'Medien', was: 'Rohmaterial und fertige Videos aus der Dropbox durchsuchen', reiter: 'produktion', suche: ['dropbox', 'dateien', 'clips', 'rohmaterial'] },
+      { to: '/ofen', label: 'Backstube', was: 'Die Öfen: was gerade geschnitten wird, Bestellzettel, Teller, Bestellungen', suche: ['ofen', 'schnittofen', 'pizza', 'warteschlange', 'schnitt', 'produktion', 'vorschau', 'freigabe', 'medien'] },
       { to: '/lexikon', label: 'Lexikon', was: 'Formate und Videoideen je Branche — für jeden Kunden etwas aussuchen', suche: ['lexikon', 'formate', 'ideen', 'branche', 'fahrschule'] },
       { to: '/inspirationen', label: 'Inspirationen', was: 'Gespeicherte Videos anderer als Vorlage für eigene Ideen', suche: ['ideen', 'referenz', 'vorlage'] },
     ] },

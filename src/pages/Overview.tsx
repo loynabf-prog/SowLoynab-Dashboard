@@ -15,8 +15,6 @@ import { useNavigate } from 'react-router-dom'
 import LogoFrame from '../components/LogoFrame'
 import Schnellzugriff from '../components/Schnellzugriff'
 import OfenEingang from '../components/OfenEingang'
-import FreigabeKarte from '../components/FreigabeKarte'
-import PipelineKarte from '../components/PipelineKarte'
 import {
   Send, Video, Scissors, CalendarClock, CheckCircle2, MapPin, Camera,
   Clock, ArrowUpRight, Flame, Check, ChevronRight, ChevronDown, Coffee, X,
@@ -289,8 +287,6 @@ export default function Overview() {
           {/* Freigabe, Aufgaben, Medien, Produktion: direkt erreichbar statt tief in "Mehr" */}
           <OfenEingang />
           <Schnellzugriff />
-          <PipelineKarte kompakt />
-          <div id="freigabe" className="h-freigabe"><FreigabeKarte /></div>
 
           {f ? (
             <Fokus

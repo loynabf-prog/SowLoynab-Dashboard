@@ -142,7 +142,7 @@ import type { Punkt } from '../tageslage'
 
 describe('buendeln', () => {
   const pk = (id: string, art: Punkt['art'], kunde: string | null, extra: Partial<Punkt> = {}): Punkt => ({
-    key: 'v-' + id, id, art, titel: id, kunde, zeit: null, text: 'Frist ' + id, ampel: 'rot', ziel: '/produktion',
+    key: 'v-' + id, id, art, titel: id, kunde, zeit: null, text: 'Frist ' + id, ampel: 'rot', ziel: '/ofen',
     clientId: kunde ? 'c-' + kunde : null, ...extra,
   })
   it('macht aus mehreren Dreh-Videos eines Kunden eine Zeile mit Anzahl', () => {
