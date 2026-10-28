@@ -12,7 +12,7 @@
 --   video_aenderungen.fortschritt 0–100, meldet der Bäcker (Automatik)
 --   video_aenderungen.schritt     z. B. "Transkript", "Schnitt", "Untertitel", "Export"
 --
---   schlange_naechster(p_ofen)    nächster Auftrag für genau diesen Ofen
+--   schlange_naechster(ofen)      nächster Auftrag für genau diesen Ofen
 --                                 (ohne Angabe: irgendein Ofen, der gerade frei ist)
 --   schlange_nach_vorne(id)       vordrängeln – innerhalb des eigenen Ofens
 --   schlange_nach_hinten(id)      hinten anstellen – innerhalb des eigenen Ofens
@@ -56,8 +56,7 @@ begin
   return new;
 end$$;
 
-drop trigger if exists trg_video_aenderungen_ofen on video_aenderungen;
-create trigger trg_video_aenderungen_ofen
+create or replace trigger trg_video_aenderungen_ofen
   before insert on video_aenderungen
   for each row execute function video_aenderungen_ofen_setzen();
 
@@ -66,8 +65,9 @@ update video_aenderungen set ofen_id = ofen_von_video(video_id)
  where ofen_id is null and deleted_at is null;
 
 -- Nächster Auftrag: pro Ofen immer nur einer gleichzeitig.
-drop function if exists schlange_naechster();
-create or replace function schlange_naechster(p_ofen uuid default null)
+-- schlange_naechster(ofen)  -> nur dieser Ofen
+-- schlange_naechster()      -> irgendein Ofen, der gerade frei ist (alte Aufrufe)
+create or replace function schlange_naechster(p_ofen uuid)
 returns setof video_aenderungen
 language plpgsql
 set search_path = public
@@ -92,6 +92,12 @@ begin
        set status = 'laeuft', gestartet_am = now(), fortschritt = 0, schritt = 'Vorbereiten'
      where id = n returning *;
 end$$;
+
+create or replace function schlange_naechster()
+returns setof video_aenderungen
+language sql
+set search_path = public
+as $$ select * from schlange_naechster(null::uuid); $$;
 
 -- Vordrängeln: vor alle Wartenden im selben Ofen
 create or replace function schlange_nach_vorne(p_id uuid)
@@ -164,7 +170,6 @@ exception when others then
   return new;  -- Push ist optional, darf den Status nie blockieren
 end$$;
 
-drop trigger if exists trg_video_aenderungen_raus on video_aenderungen;
-create trigger trg_video_aenderungen_raus
+create or replace trigger trg_video_aenderungen_raus
   after update of status on video_aenderungen
   for each row execute function ofen_raus_push();
