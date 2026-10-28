@@ -24,6 +24,11 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
   const link = (event.notification.data && event.notification.data.link) || '/'
+  // Externe Links (z. B. der Claude-Chat zu einem Video) immer direkt oeffnen
+  if (/^https?:\/\//.test(link)) {
+    event.waitUntil(self.clients.openWindow ? self.clients.openWindow(link) : Promise.resolve())
+    return
+  }
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
       for (const client of list) {

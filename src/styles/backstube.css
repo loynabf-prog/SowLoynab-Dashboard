@@ -259,3 +259,86 @@ i.st-gegessen { background: var(--st-gegessen); }
   .bs-drin-titel { font-size: 18px; }
   .bs-ofen { padding: 16px; border-radius: 24px; }
 }
+
+/* ============================================================================
+   Fliessband (Imbiss-Durchlaufofen), 28.10.2026
+   Zutaten -> Schlange -> Ofen-Tunnel -> Ausgabe -> Teller -> Gegessen
+   ========================================================================== */
+.fb-liste { display: flex; flex-direction: column; gap: 18px; max-width: 1400px; margin: 0 auto 26px; }
+.fb { min-width: 0; background: var(--bs-karte); border: 1px solid var(--bs-rand); border-radius: 28px; padding: 18px 18px 10px; box-shadow: 0 1px 2px rgba(60, 40, 20, .04), 0 12px 32px -18px rgba(60, 40, 20, .25); }
+.fb-kopf { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.fb-kopf > i { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.fb-kopf h2 { margin: 0; font-size: 21px; letter-spacing: -0.02em; font-weight: 750; }
+.fb-zahlen { margin-left: auto; font-size: 13px; color: var(--bs-leise); }
+
+.fb-strecke { position: relative; display: flex; align-items: stretch; gap: 8px; overflow-x: auto; padding: 34px 4px 38px; scroll-behavior: smooth; scrollbar-width: thin; }
+.fb-band { position: absolute; left: 0; bottom: 12px; height: 16px; min-width: 100%; width: max-content; right: 0; border-radius: 8px; overflow: hidden; background: #2b2621; box-shadow: inset 0 2px 4px rgba(0, 0, 0, .5); }
+.fb-band span { position: absolute; inset: 3px 0; background: repeating-linear-gradient(90deg, #4a4038 0 14px, #2b2621 14px 28px); }
+.fb-an .fb-band span { animation: fb-laufen 1.4s linear infinite; }
+@keyframes fb-laufen { from { background-position: 0 0; } to { background-position: 28px 0; } }
+@media (prefers-reduced-motion: reduce) { .fb-an .fb-band span { animation: none; } }
+
+.fb-station { position: relative; z-index: 1; flex: none; width: 176px; display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 18px; background: #fbf6ef; border: 1px solid var(--bs-rand); min-height: 200px; }
+.fb-titel { font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; color: var(--bs-leise); }
+.fb-stapel, .fb-reihe { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.fb-pizza { display: flex; align-items: center; gap: 8px; min-width: 0; border: none; background: none; padding: 2px; border-radius: 12px; text-align: left; }
+.fb-pizza:hover { background: rgba(72, 48, 24, .05); }
+.fb-pizza .bs-pizza { width: 36px; height: 36px; }
+.fb-pizza > span:last-child { font-size: 13px; font-weight: 600; line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.fb-nr { width: 16px; flex: none; font-size: 12px; color: var(--bs-leise); font-variant-numeric: tabular-nums; }
+.fb-nix { font-size: 13px; color: var(--bs-leise); }
+.fb-mehr { font-size: 12px; font-weight: 700; color: var(--bs-leise); padding-left: 4px; }
+.fb-teig { margin-top: auto; font-size: 12px; color: #8a7a62; background: rgba(230, 214, 189, .45); border-radius: 10px; padding: 6px 8px; }
+.bs-knopf.klein-glut { margin-top: auto; padding: 8px 12px; font-size: 13px; border-radius: 12px; }
+.fb-pfeil { flex: none; align-self: center; font-size: 30px; line-height: 1; color: rgba(72, 48, 24, .25); font-weight: 300; margin-top: -20px; }
+
+/* Ofen-Tunnel */
+.fb-ofen { position: relative; z-index: 1; isolation: isolate; flex: none; width: 300px; min-height: 200px; border-radius: 26px 26px 12px 12px; overflow: hidden; color: #f8efe6;
+  background: radial-gradient(120% 90% at 50% 120%, #2a1c13 0%, var(--bs-ofen) 60%);
+  box-shadow: inset 0 0 0 5px #2a211b, inset 0 0 0 6px #3a2d24, inset 0 16px 34px rgba(0, 0, 0, .55); }
+.fb-ofen.an .bs-glut { opacity: 1; animation: bs-flackern 2.6s ease-in-out infinite alternate; }
+.fb-ofen.wartet .bs-glut { opacity: .25; }
+.fb-ofen::after { content: ''; position: absolute; left: 10px; right: 10px; bottom: 16px; height: 8px; border-radius: 4px; background: repeating-linear-gradient(90deg, #5a4a3e 0 10px, #3a2d24 10px 20px); opacity: .8; }
+.fb-ofen-dach { position: absolute; top: 10px; left: 0; right: 0; text-align: center; font-size: 10.5px; font-weight: 800; letter-spacing: .3em; color: #ff8a4f; opacity: .8; }
+.fb-ofen-text { position: absolute; top: 32px; left: 16px; right: 16px; display: flex; flex-direction: column; gap: 4px; }
+.fb-ofen-text strong { font-size: 15.5px; line-height: 1.25; text-shadow: 0 1px 10px rgba(0, 0, 0, .6); }
+.fb-ofen-text span { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; color: #ffd9b3; }
+.fb-ofen-text.leer { top: 50%; transform: translateY(-50%); text-align: center; opacity: .8; }
+.fb-im-ofen { position: absolute; bottom: 22px; transform: translateX(-50%); border: none; background: none; padding: 0; transition: left 1.2s ease; filter: drop-shadow(0 4px 14px rgba(255, 120, 40, .55)); }
+.fb-im-ofen .bs-pizza.gross { width: 64px; height: 64px; }
+
+/* Ausgabe */
+.fb-ausgabe { width: 210px; border-color: rgba(255, 178, 63, .45); background: rgba(255, 178, 63, .08); }
+.fb-zurueck { position: absolute; top: -30px; left: -150px; width: 230px; height: 30px; overflow: visible; pointer-events: none; }
+.fb-zurueck path { fill: none; stroke: #ffb23f; stroke-width: 2; stroke-dasharray: 5 4; vector-effect: non-scaling-stroke; }
+.fb-zurueck-text { position: absolute; top: -30px; left: -110px; font-size: 10.5px; font-weight: 700; color: #b06a00; background: var(--bs-karte); padding: 0 6px; border-radius: 6px; }
+.fb-raus { display: flex; flex-direction: column; gap: 4px; padding: 6px; border-radius: 14px; background: var(--bs-karte); border: 1px solid rgba(255, 178, 63, .45); }
+.fb-raus.angebrannt { border-color: rgba(255, 59, 48, .35); }
+.fb-raus-knoepfe { display: flex; gap: 6px; }
+.fb-chat { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 5px; border: none; border-radius: 10px; padding: 7px 8px; background: var(--bs-glut); color: #fff !important; font-size: 12.5px; font-weight: 700; }
+.fb-servieren { width: 34px; flex: none; border: none; border-radius: 10px; background: #34c759; color: #fff !important; display: grid; place-items: center; }
+
+/* Teller, Gegessen */
+.fb-teller { border-color: rgba(52, 199, 89, .35); background: rgba(52, 199, 89, .06); }
+.fb-gegessen { width: 130px; align-items: center; justify-content: center; text-align: center; }
+.fb-gross { font-size: 40px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; }
+.fb-klein { font-size: 12px; color: var(--bs-leise); }
+
+@media (max-width: 520px) {
+  .fb { padding: 14px 12px 6px; border-radius: 22px; }
+  .fb-zahlen { margin-left: 0; width: 100%; }
+}
+.fb-strecke { align-items: flex-start; }
+.fb-ofen { height: 200px; align-self: flex-start; }
+@media (max-width: 520px) {
+  .fb-station { width: 150px; min-height: 180px; }
+  .fb-ausgabe { width: 176px; }
+  .fb-ofen { width: 200px; height: 180px; min-height: 180px; }
+  .fb-ofen-text strong { font-size: 14px; }
+  .fb-pfeil { font-size: 22px; }
+  .fb-zurueck { left: -120px; width: 190px; }
+  .fb-zurueck-text { left: -96px; }
+}
+.fb-strecke { display: block; padding: 0; }
+.fb-innen { position: relative; display: flex; align-items: flex-start; gap: 8px; width: max-content; min-width: 100%; padding: 34px 4px 38px; }
+.fb-band { width: auto; min-width: 0; left: 0; right: 0; }

@@ -51,6 +51,8 @@ export interface BVideo {
   dropbox_pfad?: string | null
   script?: string | null
   notes?: string | null
+  /** Claude-Chat zu diesem Video (Migration 0066) */
+  chat_url?: string | null
   clients?: BKunde | null
 }
 
@@ -197,7 +199,7 @@ export async function ladeBackstube(team: string[]): Promise<Backstube> {
   const seit = new Date(Date.now() - 3 * 86400_000).toISOString()
   const [v, a, m] = await Promise.all([
     supabase.from('videos')
-      .select(`id, title, client_id, status, scheduled_date, prep_shot, produktion_stufe, bearbeiter_id, dropbox_pfad, script, notes, ${KUNDE}`)
+      .select(`id, title, client_id, status, scheduled_date, prep_shot, produktion_stufe, bearbeiter_id, dropbox_pfad, archiv_pfad, script, notes, chat_url, ${KUNDE}`)
       .is('deleted_at', null)
       .or(`status.neq.posted,scheduled_date.gte.${monat}-01`)
       .order('scheduled_date', { ascending: true, nullsFirst: false })
@@ -255,6 +257,30 @@ export async function zettelWeg(id: string): Promise<void> {
 export async function nochmalBacken(id: string): Promise<void> {
   const { error } = await supabase.from('video_aenderungen').update({ status: 'offen', reihenfolge: Date.now() / 1000 }).eq('id', id)
   if (error) throw error
+}
+
+/**
+ * Der Auftrag fuer einen neuen Claude-Chat zu einem Video. Der Chat merkt sich
+ * zuerst selbst im CRM (videos.chat_url), damit jede spaetere Vorschau zu
+ * diesem Video wieder im selben Chat landet. Kurz halten: steckt in einer URL.
+ */
+export function chatAuftrag(v: Pick<BVideo, 'id' | 'title' | 'clients'>): string {
+  const kunde = v.clients?.name ?? 'Kunde'
+  return [
+    `🍕 Vorschau-Chat: ${kunde} – ${v.title} (video_id ${v.id})`,
+    '',
+    '1. Lade den Skill sowloynab-crm.',
+    `2. Merk dir diesen Chat im CRM: recent_chats(n=1) → dessen url → update videos set chat_url = '<url>' where id = '${v.id}'.`,
+    '3. Hol aus dem Video-Ordner (videos.dropbox_pfad, sonst archiv_pfad) NOTIZEN.md und Vorschau.mp4 und zeig mir die Vorschau hier.',
+    '4. Dann sage ich dir meine Änderungen mündlich. Mach daraus einen klaren Bestellzettel in der Backstube (video_aenderungen, art=aenderung, vorne wenn ich es sage). Sage ich „passt“, servierst du (Agentur/Automatik/Pipeline.md, Abschnitt 3.5).',
+    'Alle weiteren Vorschauen zu diesem Video besprechen wir in diesem Chat.',
+  ].join('\n')
+}
+
+/** Link zum Chat des Videos: vorhandener Chat oder ein neuer mit Auftrag. */
+export function chatLink(v: Pick<BVideo, 'id' | 'title' | 'clients' | 'chat_url'>): string {
+  if (v.chat_url && /^https:\/\/claude\.ai\//.test(v.chat_url)) return v.chat_url
+  return `https://claude.ai/new?q=${encodeURIComponent(chatAuftrag(v))}`
 }
 
 /** "seit 12 Min." */

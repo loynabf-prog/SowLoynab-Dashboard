@@ -1,14 +1,16 @@
 // Backstube -- die Ofen-Seite (Fassie, 28.10.2026)
 // Eigene Vollbild-Seite ohne Leiste: der Arbeitsmodus fuer die Produktion.
-// Oben die Oefen (einer pro Person), darunter was rauskommt, was auf dem
-// Teller liegt, belegte Pizzen, Teig und die Bestellungen pro Kunde.
+// Pro Person ein Fliessband (Imbiss-Durchlaufofen): Zutaten -> Schlange ->
+// Ofen (Pizza wandert mit dem Fortschritt durch) -> Ausgabe (zurueck oder
+// weiter) -> Teller -> Gegessen. Pizza aus dem Ofen antippen oeffnet den
+// Claude-Chat zu diesem Video (ein Chat pro Video, videos.chat_url).
 // Logik: lib/backstube.ts. Live per Realtime.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import {
-  ArrowDown, ArrowLeft, ArrowUp, Check, ChevronRight, Flame, Loader2, Play, RotateCcw, X,
+  ArrowDown, ArrowLeft, ArrowUp, Check, ChevronRight, Flame, Loader2, MessageCircle, Play, RotateCcw, X,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useIdentity } from '../context/IdentityContext'
@@ -18,7 +20,7 @@ import { automatikAnstossen } from '../lib/automatik'
 import { dropbox } from '../lib/medien'
 import { aendern, fertigMachen, vorschauPfad, type PruefVideo } from '../lib/freigabe'
 import {
-  STUFEN, aufDenZettel, hintenAnstellen, ladeBackstube, nochmalBacken, seit, vordraengeln, zettelWeg,
+  STUFEN, aufDenZettel, chatLink, hintenAnstellen, ladeBackstube, nochmalBacken, seit, vordraengeln, zettelWeg,
   type Backstube, type OfenStand, type Pizza, type Stufe,
 } from '../lib/backstube'
 import '../styles/backstube.css'
@@ -76,16 +78,17 @@ export default function Ofen() {
     } catch (e) { toast('Ging nicht: ' + (e as Error).message) }
   }
 
+  // Pizza aus dem Ofen: im Claude-Chat besprechen (ein Chat pro Video)
+  function chatOeffnen(p: Pizza) {
+    window.open(chatLink(p.video), '_blank', 'noopener')
+  }
+
   const sichtbar = (b: string | null) => sicht === 'alle' || !memberId || b === memberId
-  const pizzenIn = (s: Stufe) => (daten?.pizzen ?? []).filter((p) => p.stufe === s && sichtbar(p.besitzer))
   const oefen = team
     .filter((m) => sichtbar(m.id))
     .sort((a, b) => (a.id === memberId ? -1 : 0) - (b.id === memberId ? -1 : 0))
     .map((m) => ({ m, stand: daten?.oefen.get(m.id) }))
 
-  const teller = pizzenIn('teller')
-  const belegt = pizzenIn('belegt')
-  const teig = pizzenIn('teig')
   const jetzt = new Date()
 
   return (
@@ -109,32 +112,29 @@ export default function Ofen() {
 
       {daten && (
         <>
-          {/* ------------------------------------------------------- Oefen */}
-          <section className={`bs-oefen n${oefen.length}`}>
-            {oefen.map(({ m, stand }) => (
-              <OfenTuer
-                key={m.id}
-                name={m.id === memberId ? 'Dein Ofen' : `${m.name}s Ofen`}
-                farbe={m.color}
-                stand={stand}
-                naechsteBelegte={pizzenIn('belegt').find((p) => p.besitzer === m.id) ?? null}
-                onPizza={setOffen}
-                onAnwerfen={() => tun(Promise.resolve(), 'Ofen wird angeworfen', `Backstube: ${m.name}s Ofen anwerfen`)}
-                onVorne={(p) => tun(vordraengeln(p.auftrag!.id), 'Vorgedrängelt')}
-                onHinten={(p) => tun(hintenAnstellen(p.auftrag!.id), 'Hinten angestellt')}
-                onNochmal={(id) => tun(nochmalBacken(id), 'Wieder angestellt', 'Backstube: angebrannte Pizza nochmal')}
-              />
-            ))}
-          </section>
-
-          {/* --------------------------------------------------- Teller */}
-          <Reihe stufe="teller" pizzen={teller} onPizza={setOffen} leer="Noch nichts auf dem Teller" />
-
-          {/* ------------------------------------------------- Belegt */}
-          <Reihe stufe="belegt" pizzen={belegt} onPizza={setOffen} leer="Kein belegtes Material – Drehtag abschließen bringt Nachschub" />
-
-          {/* --------------------------------------------------- Teig */}
-          <Reihe stufe="teig" pizzen={teig} onPizza={setOffen} leer="Kein Teig – keine offenen Ideen" klein />
+          {/* ------------------------------------------- Fliessbaender */}
+          <div className="fb-liste">
+            {oefen.map(({ m, stand }) => {
+              const von = (s: Stufe) => (daten?.pizzen ?? []).filter((p) => p.stufe === s && p.besitzer === m.id)
+              return (
+                <Fliessband
+                  key={m.id}
+                  name={m.id === memberId ? 'Dein Ofen' : `${m.name}s Ofen`}
+                  farbe={m.color}
+                  stand={stand}
+                  zutaten={von('belegt')}
+                  teig={von('teig').length}
+                  teller={von('teller')}
+                  gegessen={von('gegessen')}
+                  onPizza={setOffen}
+                  onChat={chatOeffnen}
+                  onServieren={(p) => tun(fertigMachen(alsPruef(p), memberId), '🍕 Serviert – liegt in Zum Posten')}
+                  onAnwerfen={() => tun(Promise.resolve(), 'Ofen wird angeworfen', `Backstube: ${m.name}s Ofen anwerfen`)}
+                  onNochmal={(id) => tun(nochmalBacken(id), 'Wieder angestellt', 'Backstube: angebrannte Pizza nochmal')}
+                />
+              )
+            })}
+          </div>
 
           {/* -------------------------------------------- Bestellungen */}
           <section className="bs-theke">
@@ -178,6 +178,7 @@ export default function Ofen() {
           besitzerName={team.find((m) => m.id === offen.besitzer)?.name ?? null}
           onClose={() => setOffen(null)}
           onKunde={() => navigate(`/client/${offen.video.client_id}?video=${offen.video.id}&open=1`)}
+          onChat={() => chatOeffnen(offen)}
           onZettel={async (text, vorne) => {
             await tun(aufDenZettel(offen, text, vorne, memberId), vorne ? 'Als Nächstes dran' : 'Liegt auf dem Bestellzettel',
               `Backstube: ${offen.video.title} (${offen.video.clients?.name ?? 'Kunde'})`)
@@ -229,157 +230,168 @@ function PizzaRund({ p, gross, ring }: { p: Pizza; gross?: boolean; ring?: numbe
   )
 }
 
-export function OfenTuer({ name, farbe, stand, naechsteBelegte, onPizza, onAnwerfen, onVorne, onHinten, onNochmal }: {
+/** Ein Fliessband pro Ofen: Zutaten -> Schlange -> Ofen -> Ausgabe -> Teller -> Gegessen */
+export function Fliessband({ name, farbe, stand, zutaten, teig, teller, gegessen, onPizza, onChat, onServieren, onAnwerfen, onNochmal }: {
   name: string
   farbe: string
   stand?: OfenStand
-  naechsteBelegte: Pizza | null
+  zutaten: Pizza[]
+  teig: number
+  teller: Pizza[]
+  gegessen: Pizza[]
   onPizza: (p: Pizza) => void
+  onChat: (p: Pizza) => void
+  onServieren: (p: Pizza) => void
   onAnwerfen: () => void
-  onVorne: (p: Pizza) => void
-  onHinten: (p: Pizza) => void
   onNochmal: (auftragId: string) => void
 }) {
   const drin = stand?.imOfen ?? null
-  const schlange = stand?.schlange ?? []
+  const schlange = (stand?.schlange ?? []).filter((p) => p !== drin)
   const raus = stand?.raus ?? []
   const angebrannt = stand?.angebrannt ?? []
   const zustand = drin ? 'an' : schlange.length ? 'wartet' : 'leer'
+  const prozent = Math.max(4, Math.min(96, drin?.auftrag?.fortschritt ?? 0))
+  const strecke = useRef<HTMLDivElement | null>(null)
+  const ofenRef = useRef<HTMLDivElement | null>(null)
+
+  // Auf dem Handy direkt zum Ofen scrollen
+  useEffect(() => {
+    const s = strecke.current, o = ofenRef.current
+    if (s && o && s.scrollWidth > s.clientWidth) s.scrollLeft = Math.max(0, o.offsetLeft - 12)
+  }, [])
 
   return (
-    <article className="bs-ofen">
-      <div className="bs-ofen-name">
+    <section className={`fb fb-${zustand}`}>
+      <header className="fb-kopf">
         <i style={{ background: farbe }} />
         <h2>{name}</h2>
-        <span className={`bs-zustand z-${zustand}`}>
-          {zustand === 'an' ? 'backt' : zustand === 'wartet' ? 'wartet auf Start' : 'leer'}
-        </span>
-      </div>
+        <span className={`bs-zustand z-${zustand}`}>{zustand === 'an' ? 'backt' : zustand === 'wartet' ? 'wartet auf Start' : 'leer'}</span>
+        <span className="fb-zahlen">{schlange.length} in der Schlange · {raus.length} raus · {teller.length} auf dem Teller</span>
+      </header>
 
-      {/* Die Ofenoeffnung */}
-      <div className={`bs-mund ${zustand}`}>
-        <span className="bs-glut" aria-hidden />
-        <span className="bs-funken" aria-hidden><i /><i /><i /><i /><i /></span>
-        {drin ? (
-          <button type="button" className="bs-drin" onClick={() => onPizza(drin)}>
-            <PizzaRund p={drin} gross ring={drin.auftrag?.fortschritt ?? 0} />
-            <span className="bs-drin-text">
-              <span className="bs-drin-titel">{drin.video.title}</span>
-              <span className="bs-drin-unter">{drin.video.clients?.name} · seit {seit(drin.auftrag?.gestartet_am ?? drin.auftrag?.created_at)}</span>
-              <span className="bs-drin-schritt">
-                <Flame size={14} /> {drin.auftrag?.schritt || 'Im Ofen'}
-                {drin.auftrag?.fortschritt != null && <b>{drin.auftrag.fortschritt} %</b>}
-              </span>
-            </span>
-          </button>
-        ) : schlange.length ? (
-          <div className="bs-leer">
-            <span>Nächste Pizza liegt bereit</span>
-            <button type="button" className="bs-knopf glut" onClick={onAnwerfen}><Play size={16} /> Ofen anwerfen</button>
-          </div>
-        ) : (
-          <div className="bs-leer">
-            <span className="bs-leer-gross">Ofen ist leer</span>
-            {naechsteBelegte ? (
-              <button type="button" className="bs-knopf hell" onClick={() => onPizza(naechsteBelegte)}>
-                {naechsteBelegte.video.title} reinschieben <ChevronRight size={16} />
+      <div className="fb-strecke" ref={strecke}>
+       <div className="fb-innen">
+        <div className="fb-band" aria-hidden><span /></div>
+
+        {/* Zutaten */}
+        <div className="fb-station fb-zutaten">
+          <span className="fb-titel">Zutaten</span>
+          <div className="fb-stapel">
+            {zutaten.length === 0 && <span className="fb-nix">Briefkasten leer</span>}
+            {zutaten.slice(0, 6).map((p) => (
+              <button key={p.video.id} type="button" className="fb-pizza" onClick={() => onPizza(p)} title={p.video.title}>
+                <PizzaRund p={p} /><span>{p.video.title}</span>
               </button>
-            ) : <span className="bs-leer-klein">Kein belegtes Material – Zeit für einen Drehtag</span>}
-          </div>
-        )}
-      </div>
-
-      {/* Bestellzettel vor dem Ofen */}
-      <div className="bs-zettel">
-        <div className="bs-abschnitt"><span>Bestellzettel</span><b>{schlange.length}</b></div>
-        {schlange.length === 0 ? (
-          <p className="bs-nix">Keine Pizza wartet. Tipp eine belegte Pizza an und schreib den Zettel.</p>
-        ) : (
-          <ol>
-            {schlange.map((p, i) => (
-              <li key={p.auftrag!.id}>
-                <span className="bs-platz">{i + 1}</span>
-                <button type="button" className="bs-zeile" onClick={() => onPizza(p)}>
-                  <PizzaRund p={p} />
-                  <span className="bs-zeile-text">
-                    <span className="bs-zeile-titel">{p.video.title}</span>
-                    <span className="bs-zeile-unter">{p.auftrag!.art === 'aenderung' ? 'Änderung' : 'Erster Schnitt'} · {p.auftrag!.wunsch}</span>
-                  </span>
-                </button>
-                {p.stufe === 'zettel' && (
-                  <span className="bs-pfeile">
-                    <button type="button" aria-label="Vordrängeln" disabled={i === 0} onClick={() => onVorne(p)}><ArrowUp size={16} strokeWidth={2.4} /></button>
-                    <button type="button" aria-label="Hinten anstellen" disabled={i === schlange.length - 1} onClick={() => onHinten(p)}><ArrowDown size={16} strokeWidth={2.4} /></button>
-                  </span>
-                )}
-              </li>
             ))}
-          </ol>
-        )}
-      </div>
+            {zutaten.length > 6 && <span className="fb-mehr">+{zutaten.length - 6}</span>}
+          </div>
+          {teig > 0 && <span className="fb-teig">{teig} × Teig (Ideen ohne Material)</span>}
+        </div>
 
-      {/* Raus aus dem Ofen: entscheiden */}
-      {(raus.length > 0 || angebrannt.length > 0) && (
-        <div className="bs-raus">
-          <div className="bs-abschnitt"><span>Raus aus dem Ofen</span><b>{raus.length + angebrannt.length}</b></div>
-          <div className="bs-raus-reihe">
-            {raus.map((p) => (
-              <button key={p.video.id} type="button" className="bs-raus-pizza" onClick={() => onPizza(p)}>
-                <PizzaRund p={p} />
-                <span className="bs-raus-titel">{p.video.title}</span>
+        <span className="fb-pfeil" aria-hidden>›</span>
+
+        {/* Schlange */}
+        <div className="fb-station fb-schlange">
+          <span className="fb-titel">Schlange</span>
+          <div className="fb-reihe">
+            {schlange.length === 0 && <span className="fb-nix">leer</span>}
+            {schlange.map((p, i) => (
+              <button key={p.auftrag?.id ?? p.video.id} type="button" className="fb-pizza" onClick={() => onPizza(p)} title={p.auftrag?.wunsch ?? p.video.title}>
+                <b className="fb-nr">{i + 1}</b>
+                <PizzaRund p={p} /><span>{p.video.title}</span>
               </button>
+            ))}
+          </div>
+          {!drin && schlange.length > 0 && (
+            <button type="button" className="bs-knopf glut klein-glut" onClick={onAnwerfen}><Play size={14} /> Anwerfen</button>
+          )}
+        </div>
+
+        {/* Ofen-Tunnel */}
+        <div className={`fb-ofen ${zustand}`} ref={ofenRef}>
+          <span className="bs-glut" aria-hidden />
+          <span className="fb-ofen-dach">OFEN</span>
+          {drin ? (
+            <>
+              <button type="button" className="fb-im-ofen" style={{ left: `${prozent}%` }} onClick={() => onPizza(drin)}>
+                <PizzaRund p={drin} gross />
+              </button>
+              <div className="fb-ofen-text">
+                <strong>{drin.video.title}</strong>
+                <span><Flame size={12} /> {drin.auftrag?.schritt || 'Im Ofen'} · {drin.auftrag?.fortschritt ?? 0} % · seit {seit(drin.auftrag?.gestartet_am ?? drin.auftrag?.created_at)}</span>
+              </div>
+            </>
+          ) : <div className="fb-ofen-text leer"><strong>{schlange.length ? 'Bereit zum Anwerfen' : 'Ofen ist leer'}</strong></div>}
+        </div>
+
+        <span className="fb-pfeil" aria-hidden>›</span>
+
+        {/* Ausgabe: zurueck oder weiter */}
+        <div className="fb-station fb-ausgabe">
+          <span className="fb-titel">Ausgabe</span>
+          <svg className="fb-zurueck" viewBox="0 0 200 40" preserveAspectRatio="none" aria-hidden>
+            <path d="M190 38 C 190 6, 10 6, 10 38" />
+            <path d="M4 30 L10 38 L16 30" />
+          </svg>
+          <span className="fb-zurueck-text">zurück in die Schlange</span>
+          <div className="fb-reihe">
+            {raus.length === 0 && angebrannt.length === 0 && <span className="fb-nix">nichts draußen</span>}
+            {raus.map((p) => (
+              <div key={p.video.id} className="fb-raus">
+                <button type="button" className="fb-pizza" onClick={() => onChat(p)} title="Im Chat besprechen">
+                  <PizzaRund p={p} /><span>{p.video.title}</span>
+                </button>
+                <div className="fb-raus-knoepfe">
+                  <button type="button" className="fb-chat" onClick={() => onChat(p)}><MessageCircle size={14} /> {p.video.chat_url ? 'Chat' : 'Besprechen'}</button>
+                  <button type="button" className="fb-servieren" aria-label="Servieren" onClick={() => onServieren(p)}><Check size={15} /></button>
+                </div>
+              </div>
             ))}
             {angebrannt.map(({ pizza, auftrag }) => (
-              <div key={auftrag.id} className="bs-raus-pizza angebrannt">
-                <PizzaRund p={pizza} />
-                <span className="bs-raus-titel">{pizza.video.title}</span>
-                <small>{auftrag.notiz || 'angebrannt'}</small>
-                <button type="button" className="bs-knopf klein" onClick={() => onNochmal(auftrag.id)}><RotateCcw size={14} /> Nochmal</button>
+              <div key={auftrag.id} className="fb-raus angebrannt">
+                <button type="button" className="fb-pizza" onClick={() => onPizza(pizza)} title={auftrag.notiz ?? 'angebrannt'}>
+                  <PizzaRund p={pizza} /><span>{pizza.video.title}</span>
+                </button>
+                <button type="button" className="fb-chat" onClick={() => onNochmal(auftrag.id)}><RotateCcw size={14} /> Nochmal</button>
               </div>
             ))}
           </div>
         </div>
-      )}
-    </article>
-  )
-}
 
-export function Reihe({ stufe, pizzen, onPizza, leer, klein }: {
-  stufe: Stufe
-  pizzen: Pizza[]
-  onPizza: (p: Pizza) => void
-  leer: string
-  klein?: boolean
-}) {
-  const info = STUFEN.find((s) => s.key === stufe)!
-  return (
-    <section className={`bs-theke ${klein ? 'klein' : ''}`}>
-      <div className="bs-theke-kopf">
-        <h2><i className={`st-${stufe}`} />{info.name}</h2>
-        <span>{pizzen.length} · {info.satz}</span>
-      </div>
-      {pizzen.length === 0 ? <p className="bs-nix">{leer}</p> : (
-        <div className="bs-band">
-          {pizzen.map((p) => (
-            <button key={p.video.id} type="button" className="bs-band-pizza" onClick={() => onPizza(p)}>
-              <PizzaRund p={p} />
-              <span className="bs-band-titel">{p.video.title}</span>
-              <span className="bs-band-unter">
-                {p.video.clients?.name}
-                {p.video.scheduled_date ? ` · ${new Date(p.video.scheduled_date + 'T12:00:00').toLocaleDateString('de-DE', { day: 'numeric', month: 'short' })}` : ''}
-              </span>
-            </button>
-          ))}
+        <span className="fb-pfeil" aria-hidden>›</span>
+
+        {/* Teller */}
+        <div className="fb-station fb-teller">
+          <span className="fb-titel">Teller · zum Posten</span>
+          <div className="fb-reihe">
+            {teller.length === 0 && <span className="fb-nix">leer</span>}
+            {teller.map((p) => (
+              <button key={p.video.id} type="button" className="fb-pizza" onClick={() => onPizza(p)} title={p.video.title}>
+                <PizzaRund p={p} /><span>{p.video.title}</span>
+              </button>
+            ))}
+          </div>
         </div>
-      )}
+
+        <span className="fb-pfeil" aria-hidden>›</span>
+
+        {/* Gegessen */}
+        <div className="fb-station fb-gegessen">
+          <span className="fb-titel">Gegessen</span>
+          <b className="fb-gross">{gegessen.length}</b>
+          <span className="fb-klein">diesen Monat gepostet</span>
+        </div>
+       </div>
+      </div>
     </section>
   )
 }
 
 /* ======================================================================== */
 
-export function PizzaBlatt({ pizza: p, besitzerName, onClose, onKunde, onZettel, onZurueck, onServieren, onVorne, onHinten, onWeg }: {
+export function PizzaBlatt({ pizza: p, besitzerName, onClose, onKunde, onChat, onZettel, onZurueck, onServieren, onVorne, onHinten, onWeg }: {
   pizza: Pizza
+  onChat: () => void
   besitzerName: string | null
   onClose: () => void
   onKunde: () => void
@@ -509,6 +521,7 @@ export function PizzaBlatt({ pizza: p, besitzerName, onClose, onKunde, onZettel,
             </div>
           ) : (
             <div className="bs-knoepfe gross">
+              <button type="button" className="bs-knopf glut" onClick={onChat}><MessageCircle size={18} /> Im Chat besprechen</button>
               <button type="button" className="bs-knopf hell" onClick={() => setZurueck(true)}><RotateCcw size={18} /> Zurück in den Ofen</button>
               <button type="button" className="bs-knopf gruen" disabled={laeuft} onClick={() => los(onServieren)}>
                 {laeuft ? <Loader2 size={18} className="spin" /> : <Check size={18} />} Servieren
