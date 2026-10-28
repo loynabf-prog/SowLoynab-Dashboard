@@ -14,6 +14,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type React
 import { useNavigate } from 'react-router-dom'
 import LogoFrame from '../components/LogoFrame'
 import Schnellzugriff from '../components/Schnellzugriff'
+import OfenEingang from '../components/OfenEingang'
 import FreigabeKarte from '../components/FreigabeKarte'
 import PipelineKarte from '../components/PipelineKarte'
 import {
@@ -286,6 +287,7 @@ export default function Overview() {
           </div>
 
           {/* Freigabe, Aufgaben, Medien, Produktion: direkt erreichbar statt tief in "Mehr" */}
+          <OfenEingang />
           <Schnellzugriff />
           <PipelineKarte kompakt />
           <div id="freigabe" className="h-freigabe"><FreigabeKarte /></div>

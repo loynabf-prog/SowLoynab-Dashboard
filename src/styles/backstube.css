@@ -1,0 +1,261 @@
+/* ============================================================================
+   Backstube -- Ofen-Seite (28.10.2026)
+   Eigene Vollbild-Seite, heller warmer Grund, die Oefen als dunkle
+   Oeffnungen mit Glut. Eine Farbe: Glut-Orange. Stufenfarben nur klein.
+   ========================================================================== */
+
+.bs {
+  --bs-grund: #f6f1ea;
+  --bs-karte: #fffdfa;
+  --bs-rand: rgba(72, 48, 24, 0.10);
+  --bs-text: #1d1a16;
+  --bs-leise: #7a6f63;
+  --bs-glut: #ff5f1f;
+  --bs-ofen: #17120e;
+  --st-teig: #e6d6bd;
+  --st-belegt: #e9a83c;
+  --st-zettel: #9a8f84;
+  --st-ofen: #ff5f1f;
+  --st-raus: #ffb23f;
+  --st-teller: #34c759;
+  --st-gegessen: #2b2621;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background:
+    radial-gradient(1200px 500px at 50% -120px, rgba(255, 95, 31, 0.10), transparent 70%),
+    var(--bs-grund);
+  color: var(--bs-text);
+  padding: max(16px, env(safe-area-inset-top)) 16px calc(40px + env(safe-area-inset-bottom));
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.bs * { box-sizing: border-box; }
+.bs button { font: inherit; color: inherit; cursor: pointer; }
+.bs button:disabled { opacity: .4; cursor: default; }
+.bs .spin { animation: bs-dreh 1s linear infinite; }
+@keyframes bs-dreh { to { transform: rotate(360deg); } }
+
+/* ---------------------------------------------------------------- Kopf */
+.bs-kopf { display: flex; align-items: center; gap: 14px; max-width: 1280px; margin: 0 auto 22px; }
+.bs-rund { width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--bs-rand); background: var(--bs-karte); display: grid; place-items: center; flex: none; }
+.bs-rund svg { width: 20px; height: 20px; }
+.bs-titel { flex: 1; min-width: 0; }
+.bs-ueber { display: block; font-size: 13px; color: var(--bs-leise); font-weight: 500; }
+.bs-titel h1 { margin: 0; font-size: 34px; line-height: 1.05; letter-spacing: -0.03em; font-weight: 800; }
+.bs-schalter { display: flex; background: rgba(72, 48, 24, 0.07); border-radius: 12px; padding: 3px; flex: none; }
+.bs-schalter button { border: none; background: none; padding: 7px 13px; border-radius: 9px; font-size: 14px; font-weight: 600; color: var(--bs-leise); }
+.bs-schalter button.an { background: var(--bs-karte); color: var(--bs-text); box-shadow: 0 1px 3px rgba(0, 0, 0, .08); }
+.bs-fehler { max-width: 1280px; margin: 0 auto 16px; color: #c4361b; }
+.bs-lade { display: grid; place-items: center; height: 50vh; color: var(--bs-leise); }
+
+/* ---------------------------------------------------------------- Oefen */
+.bs-oefen { display: grid; gap: 18px; max-width: 1280px; margin: 0 auto 26px; }
+@media (min-width: 900px) { .bs-oefen.n2, .bs-oefen.n3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.bs-ofen { min-width: 0; background: var(--bs-karte); border: 1px solid var(--bs-rand); border-radius: 28px; padding: 18px; box-shadow: 0 1px 2px rgba(60, 40, 20, .04), 0 12px 32px -18px rgba(60, 40, 20, .25); display: flex; flex-direction: column; gap: 16px; }
+.bs-ofen-name { display: flex; align-items: center; gap: 10px; }
+.bs-ofen-name > i { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.bs-ofen-name h2 { margin: 0; font-size: 21px; letter-spacing: -0.02em; font-weight: 750; flex: 1; }
+.bs-zustand { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; padding: 4px 9px; border-radius: 99px; }
+.bs-zustand.z-an { background: rgba(255, 95, 31, .12); color: var(--bs-glut); }
+.bs-zustand.z-wartet { background: rgba(255, 178, 63, .18); color: #b06a00; }
+.bs-zustand.z-leer { background: rgba(255, 59, 48, .10); color: #d2301f; }
+
+/* Die Ofenoeffnung: Gewoelbe aus dunklem Stein */
+.bs-mund {
+  position: relative; overflow: hidden; isolation: isolate;
+  border-radius: 140px 140px 22px 22px / 110px 110px 22px 22px;
+  background:
+    radial-gradient(120% 90% at 50% 120%, #2a1c13 0%, var(--bs-ofen) 60%),
+    var(--bs-ofen);
+  box-shadow: inset 0 0 0 6px #2a211b, inset 0 0 0 7px #3a2d24, inset 0 18px 40px rgba(0, 0, 0, .6);
+  min-height: 210px; color: #f8efe6; display: flex; align-items: flex-end;
+}
+.bs-glut { position: absolute; inset: 0; z-index: -1; opacity: 0; transition: opacity 1.2s ease;
+  background:
+    radial-gradient(70% 55% at 50% 105%, rgba(255, 140, 40, .95), rgba(255, 80, 20, .55) 45%, transparent 75%),
+    radial-gradient(40% 35% at 30% 100%, rgba(255, 190, 80, .55), transparent 70%),
+    radial-gradient(40% 35% at 72% 100%, rgba(255, 120, 40, .5), transparent 70%); }
+.bs-mund.an .bs-glut { opacity: 1; animation: bs-flackern 2.6s ease-in-out infinite alternate; }
+.bs-mund.wartet .bs-glut { opacity: .28; }
+@keyframes bs-flackern {
+  0% { filter: brightness(.92); transform: scaleY(1); }
+  35% { filter: brightness(1.08); transform: scaleY(1.04); }
+  70% { filter: brightness(.97); transform: scaleY(.98); }
+  100% { filter: brightness(1.1); transform: scaleY(1.03); }
+}
+.bs-funken { position: absolute; inset: 0; z-index: -1; pointer-events: none; display: none; }
+.bs-mund.an .bs-funken { display: block; }
+.bs-funken i { position: absolute; bottom: 10%; width: 3px; height: 3px; border-radius: 50%; background: #ffcf7a; opacity: 0; animation: bs-funke 3.4s ease-in infinite; }
+.bs-funken i:nth-child(1) { left: 22%; animation-delay: .2s; }
+.bs-funken i:nth-child(2) { left: 41%; animation-delay: 1.4s; }
+.bs-funken i:nth-child(3) { left: 58%; animation-delay: .8s; }
+.bs-funken i:nth-child(4) { left: 73%; animation-delay: 2.1s; }
+.bs-funken i:nth-child(5) { left: 33%; animation-delay: 2.8s; }
+@keyframes bs-funke { 0% { transform: translateY(0); opacity: 0; } 15% { opacity: .9; } 100% { transform: translateY(-150px) translateX(12px); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .bs-mund.an .bs-glut { animation: none; }
+  .bs-mund.an .bs-funken { display: none; }
+}
+
+.bs-drin { display: flex; align-items: center; gap: 16px; width: 100%; padding: 22px; border: none; background: none; text-align: left; }
+.bs-drin-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.bs-drin-titel { font-size: 20px; font-weight: 750; letter-spacing: -0.02em; line-height: 1.2; text-shadow: 0 1px 12px rgba(0, 0, 0, .5); }
+.bs-drin-unter { font-size: 14px; opacity: .8; }
+.bs-drin-schritt { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 14px; font-weight: 600; color: #ffd9b3; }
+.bs-drin-schritt b { margin-left: 4px; color: #fff; }
+.bs-leer { width: 100%; padding: 24px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+.bs-leer > span { font-size: 15px; opacity: .85; }
+.bs-leer-gross { font-size: 20px !important; font-weight: 700; opacity: 1 !important; }
+.bs-leer-klein { font-size: 13px !important; opacity: .6 !important; }
+
+/* ---------------------------------------------------------------- Pizza */
+.bs-pizza { position: relative; width: 48px; height: 48px; flex: none; border-radius: 50%; display: grid; place-items: center;
+  background: radial-gradient(circle at 50% 50%, #fff 0 56%, var(--st, var(--st-teig)) 57% 100%);
+  box-shadow: 0 2px 8px rgba(60, 30, 10, .18); }
+.bs-pizza.gross { width: 84px; height: 84px; }
+.bs-pizza-mitte { width: 68%; height: 68%; border-radius: 50%; overflow: hidden; display: grid; place-items: center; background: #fff; font-weight: 800; color: var(--bs-text); }
+.bs-pizza-mitte img { width: 100%; height: 100%; object-fit: cover; }
+.bs-pizza.st-teig { --st: var(--st-teig); }
+.bs-pizza.st-belegt { --st: var(--st-belegt); }
+.bs-pizza.st-zettel { --st: var(--st-zettel); }
+.bs-pizza.st-ofen { --st: var(--st-ofen); }
+.bs-pizza.st-raus { --st: var(--st-raus); }
+.bs-pizza.st-teller { --st: var(--st-teller); }
+.bs-pizza.st-gegessen { --st: var(--st-gegessen); }
+.bs-ring { position: absolute; inset: -7px; width: calc(100% + 14px); height: calc(100% + 14px); transform: rotate(-90deg); }
+.bs-ring circle { fill: none; stroke-width: 5; }
+.bs-ring-bahn { stroke: rgba(255, 255, 255, .15); }
+.bs-ring-wert { stroke: #ffd38a; stroke-linecap: round; transition: stroke-dashoffset .8s ease; }
+
+/* ---------------------------------------------------------- Zettel/Raus */
+.bs-abschnitt { display: flex; align-items: baseline; justify-content: space-between; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--bs-leise); margin-bottom: 8px; }
+.bs-abschnitt b { color: var(--bs-text); font-size: 14px; }
+.bs-nix { margin: 0; font-size: 14px; color: var(--bs-leise); }
+.bs-zettel ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.bs-zettel li { display: flex; align-items: center; gap: 10px; background: #fbf6ef; border: 1px solid var(--bs-rand); border-radius: 16px; padding: 8px 8px 8px 10px; }
+.bs-platz { width: 22px; text-align: center; font-weight: 800; color: var(--bs-leise); font-variant-numeric: tabular-nums; flex: none; }
+.bs-zeile { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; border: none; background: none; padding: 0; text-align: left; }
+.bs-zeile .bs-pizza { width: 38px; height: 38px; }
+.bs-zeile-text { display: flex; flex-direction: column; min-width: 0; }
+.bs-zeile-titel { font-weight: 650; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bs-zeile-unter { font-size: 13px; color: var(--bs-leise); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bs-pfeile { display: flex; gap: 4px; flex: none; }
+.bs-pfeile button { width: 34px; height: 34px; border-radius: 10px; border: 1px solid var(--bs-rand); background: var(--bs-karte); display: grid; place-items: center; }
+
+.bs-raus-reihe { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+.bs-raus-pizza { flex: none; width: 128px; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 10px; border-radius: 18px; border: 1px solid rgba(255, 178, 63, .45); background: rgba(255, 178, 63, .10); text-align: center; }
+.bs-raus-titel { font-size: 13px; font-weight: 650; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.bs-raus-pizza.angebrannt { border-color: rgba(255, 59, 48, .35); background: rgba(255, 59, 48, .06); }
+.bs-raus-pizza small { font-size: 11px; color: #c4361b; line-height: 1.2; }
+
+/* -------------------------------------------------------------- Knoepfe */
+.bs-knopf { display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: none; border-radius: 14px; padding: 11px 16px; font-weight: 650; font-size: 15px; }
+.bs-knopf.glut { background: var(--bs-glut); color: #fff; box-shadow: 0 6px 18px -6px rgba(255, 95, 31, .7); }
+.bs-knopf.hell { background: rgba(72, 48, 24, .07); }
+.bs-mund .bs-knopf.hell { background: rgba(255, 255, 255, .12); color: #fff; }
+.bs-knopf.gruen { background: #34c759; color: #fff; box-shadow: 0 6px 18px -6px rgba(52, 199, 89, .7); }
+.bs-knopf.leise { background: none; color: var(--bs-leise); }
+.bs-knopf.klein { padding: 6px 10px; font-size: 13px; border-radius: 10px; background: var(--bs-karte); border: 1px solid var(--bs-rand); }
+.bs-knopf.breit { width: 100%; }
+.bs-knoepfe { display: flex; gap: 8px; flex-wrap: wrap; }
+.bs-knoepfe.gross .bs-knopf { flex: 1; padding: 16px; font-size: 16px; }
+
+/* ----------------------------------------------------------------- Theke */
+.bs-theke { max-width: 1280px; margin: 0 auto 22px; background: var(--bs-karte); border: 1px solid var(--bs-rand); border-radius: 24px; padding: 18px; }
+.bs-theke.klein { background: transparent; border-style: dashed; }
+.bs-theke-kopf { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.bs-theke-kopf h2 { margin: 0; font-size: 19px; font-weight: 750; letter-spacing: -0.02em; display: flex; align-items: center; gap: 8px; }
+.bs-theke-kopf h2 i, .bs-legende i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.bs-theke-kopf > span { font-size: 13px; color: var(--bs-leise); text-align: right; }
+i.st-teig { background: var(--st-teig); } i.st-belegt { background: var(--st-belegt); } i.st-zettel { background: var(--st-zettel); }
+i.st-ofen { background: var(--st-ofen); } i.st-raus { background: var(--st-raus); } i.st-teller { background: var(--st-teller); }
+i.st-gegessen { background: var(--st-gegessen); }
+
+.bs-band { display: flex; gap: 10px; overflow-x: auto; padding: 2px 2px 6px; scroll-snap-type: x proximity; scrollbar-width: none; }
+.bs-band::-webkit-scrollbar, .bs-raus-reihe::-webkit-scrollbar { display: none; }
+.bs-band-pizza { flex: none; width: 132px; scroll-snap-align: start; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 10px 12px; border: 1px solid var(--bs-rand); border-radius: 18px; background: #fbf6ef; text-align: center; transition: transform .15s ease; }
+.bs-band-pizza:active { transform: scale(.97); }
+.bs-band-pizza .bs-pizza { width: 56px; height: 56px; margin-bottom: 2px; }
+.bs-band-titel { font-size: 13px; font-weight: 650; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.bs-band-unter { font-size: 11.5px; color: var(--bs-leise); }
+.bs-theke.klein .bs-band-pizza { width: 116px; background: transparent; }
+
+/* ---------------------------------------------------------- Bestellungen */
+.bs-bestellungen { display: grid; gap: 8px; }
+@media (min-width: 900px) { .bs-bestellungen { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.bs-bestellung { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--bs-rand); border-radius: 18px; background: #fbf6ef; text-align: left; }
+.bs-logo { width: 42px; height: 42px; border-radius: 12px; overflow: hidden; background: #fff; display: grid; place-items: center; font-weight: 800; flex: none; border: 1px solid var(--bs-rand); }
+.bs-logo img { width: 100%; height: 100%; object-fit: cover; }
+.bs-best-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.bs-best-name { font-weight: 700; font-size: 15px; }
+.bs-balken { display: flex; height: 8px; border-radius: 99px; overflow: hidden; background: rgba(72, 48, 24, .07); }
+.bs-balken i { display: block; height: 100%; }
+.bs-best-zeile { font-size: 12px; color: var(--bs-leise); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bs-best-zahl { font-size: 14px; color: var(--bs-leise); font-variant-numeric: tabular-nums; flex: none; }
+.bs-best-zahl b { font-size: 22px; color: var(--bs-text); font-weight: 800; }
+.bs-legende { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 14px; font-size: 12px; color: var(--bs-leise); }
+.bs-legende span { display: inline-flex; align-items: center; gap: 5px; }
+
+/* ----------------------------------------------------------- Pizza-Blatt */
+.bs-blatt-hinter { position: fixed; inset: 0; z-index: 1000; background: rgba(23, 18, 14, .45); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); display: flex; align-items: flex-end; justify-content: center; animation: bs-ein .2s ease; }
+@media (min-width: 700px) { .bs-blatt-hinter { align-items: center; } }
+@keyframes bs-ein { from { opacity: 0; } }
+.bs-blatt { position: relative; width: 100%; max-width: 560px; max-height: 92vh; overflow-y: auto; background: #fffdfa; color: #1d1a16; border-radius: 28px 28px 0 0; padding: 24px 20px calc(24px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 16px; animation: bs-hoch .25s cubic-bezier(.2, .8, .2, 1);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+  --bs-rand: rgba(72, 48, 24, 0.10); --bs-leise: #7a6f63; --bs-glut: #ff5f1f;
+  --st-teig: #e6d6bd; --st-belegt: #e9a83c; --st-zettel: #9a8f84; --st-ofen: #ff5f1f; --st-raus: #ffb23f; --st-teller: #34c759; --st-gegessen: #2b2621; }
+@media (min-width: 700px) { .bs-blatt { border-radius: 28px; } }
+@keyframes bs-hoch { from { transform: translateY(40px); opacity: 0; } }
+.bs-blatt button { font: inherit; color: inherit; cursor: pointer; }
+.bs-blatt button:disabled { opacity: .4; cursor: default; }
+.bs-blatt .spin { animation: bs-dreh 1s linear infinite; }
+.bs-blatt-zu { position: absolute; top: 14px; right: 14px; width: 34px; height: 34px; border-radius: 50%; border: none; background: rgba(72, 48, 24, .08); display: grid; place-items: center; }
+.bs-blatt-kopf { display: flex; align-items: center; gap: 16px; padding-right: 36px; }
+.bs-blatt-kopf .bs-ring-bahn { stroke: rgba(72, 48, 24, .10); }
+.bs-blatt-kopf .bs-ring-wert { stroke: var(--bs-glut); }
+.bs-blatt-kopf h2 { margin: 4px 0 2px; font-size: 22px; letter-spacing: -0.02em; line-height: 1.2; }
+.bs-blatt-kopf p { margin: 0; font-size: 14px; color: var(--bs-leise); }
+.bs-etikett { display: inline-block; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; padding: 3px 8px; border-radius: 99px; background: rgba(72, 48, 24, .07); }
+.bs-etikett.st-ofen { background: rgba(255, 95, 31, .14); color: #e04a10; }
+.bs-etikett.st-raus { background: rgba(255, 178, 63, .2); color: #a86400; }
+.bs-etikett.st-teller { background: rgba(52, 199, 89, .15); color: #1e8f3e; }
+.bs-etikett.st-belegt { background: rgba(233, 168, 60, .18); color: #9a6205; }
+.bs-film { border-radius: 20px; overflow: hidden; background: #17120e; color: #f8efe6; display: grid; place-items: center; min-height: 200px; max-height: 62vh; }
+.bs-film video { width: 100%; max-height: 62vh; display: block; background: #000; }
+.bs-film > span { font-size: 14px; opacity: .7; }
+.bs-stand { display: flex; flex-direction: column; gap: 10px; }
+.bs-stand p { margin: 0; display: flex; align-items: center; gap: 6px; font-size: 14px; color: var(--bs-leise); }
+.bs-stand-balken { height: 10px; border-radius: 99px; background: rgba(72, 48, 24, .08); overflow: hidden; }
+.bs-stand-balken i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, #ffb23f, #ff5f1f); transition: width .8s ease; }
+.bs-stand blockquote { margin: 0; padding: 12px 14px; border-radius: 14px; background: #fbf6ef; border: 1px solid var(--bs-rand); font-size: 14px; white-space: pre-wrap; }
+.bs-form { display: flex; flex-direction: column; gap: 10px; }
+.bs-form textarea { width: 100%; border-radius: 16px; border: 1px solid var(--bs-rand); background: #fbf6ef; padding: 12px 14px; font: inherit; font-size: 16px; resize: vertical; color: inherit; }
+.bs-form textarea:focus { outline: 2px solid rgba(255, 95, 31, .35); outline-offset: 1px; }
+.bs-vorne { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.bs-vorne input { width: 18px; height: 18px; accent-color: var(--bs-glut); }
+.bs-hinweis { margin: 0; font-size: 13px; color: #9a6205; background: rgba(233, 168, 60, .12); border-radius: 12px; padding: 10px 12px; }
+.bs-skript summary { font-size: 14px; font-weight: 650; cursor: pointer; }
+.bs-skript pre { white-space: pre-wrap; font: inherit; font-size: 13.5px; color: var(--bs-leise); max-height: 200px; overflow: auto; margin: 8px 0 0; }
+.bs-link { align-self: center; display: inline-flex; align-items: center; gap: 4px; border: none; background: none; font-size: 14px; color: var(--bs-leise); padding: 6px; }
+
+/* ------------------------------------------- Eingang auf Produktion/Heute */
+.bs-eingang { position: relative; overflow: hidden; isolation: isolate; display: flex; align-items: center; gap: 14px; width: 100%; padding: 18px; border: none; border-radius: 22px; background: #17120e; color: #f8efe6; text-align: left; cursor: pointer; font: inherit; margin-bottom: 16px; }
+.bs-eingang .bs-glut { opacity: .0; }
+.bs-eingang.an .bs-glut { opacity: .85; animation: bs-flackern 2.6s ease-in-out infinite alternate; }
+.bs-eingang-icon { width: 48px; height: 48px; border-radius: 14px; background: rgba(255, 95, 31, .18); display: grid; place-items: center; color: #ff8a4f; flex: none; }
+.bs-eingang-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.bs-eingang-text strong { font-size: 18px; letter-spacing: -0.01em; }
+.bs-eingang-text span { font-size: 13.5px; opacity: .75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (prefers-reduced-motion: reduce) { .bs-eingang.an .bs-glut { animation: none; } }
+
+/* Handy: Kopf kompakter, Ofen etwas flacher */
+@media (max-width: 520px) {
+  .bs-titel h1 { font-size: 27px; }
+  .bs-ueber { font-size: 12px; }
+  .bs-schalter button { padding: 6px 10px; font-size: 13px; }
+  .bs-mund { min-height: 180px; border-radius: 120px 120px 20px 20px / 90px 90px 20px 20px; }
+  .bs-drin { padding: 18px 16px; gap: 14px; }
+  .bs-drin .bs-pizza.gross { width: 68px; height: 68px; }
+  .bs-drin-titel { font-size: 18px; }
+  .bs-ofen { padding: 16px; border-radius: 24px; }
+}

@@ -9,6 +9,7 @@ import Tasks from './pages/Tasks'
 import Calendar from './pages/Calendar'
 import Posting from './pages/Posting'
 import Produktion from './pages/Produktion'
+import Ofen from './pages/Ofen'
 import Medien from './pages/Medien'
 import Finances from './pages/Finances'
 import Monate from './pages/Monate'
@@ -65,6 +66,8 @@ export default function App() {
         path="/login"
         element={loading ? null : session && !zuruecksetzen ? <Navigate to="/" replace /> : <Login />}
       />
+      {/* Backstube: eigene Vollbild-Seite ohne Leiste (Arbeitsmodus) */}
+      <Route path="/ofen" element={<ProtectedRoute><Ofen /></ProtectedRoute>} />
       <Route element={<Schale />}>
         <Route path="/" element={<Overview />} />
         <Route path="/kunden" element={<Dashboard />} />

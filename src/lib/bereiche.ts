@@ -51,6 +51,7 @@ export const BEREICHE: Bereich[] = [
     ] },
   { key: 'produktion', label: 'Produktion', zweck: 'Drehen, schneiden, freigeben, Material',
     seiten: [
+      { to: '/ofen', label: 'Backstube', was: 'Die Öfen: was gerade geschnitten wird, Bestellzettel, Teller, Bestellungen', suche: ['ofen', 'schnittofen', 'pizza', 'warteschlange', 'schnitt'] },
       { to: '/produktion', label: 'Produktion', was: 'Videos in Arbeit, Freigaben und was noch gedreht werden muss', reiter: 'produktion', suche: ['schnitt', 'freigabe', 'drehtag'] },
       { to: '/medien', label: 'Medien', was: 'Rohmaterial und fertige Videos aus der Dropbox durchsuchen', reiter: 'produktion', suche: ['dropbox', 'dateien', 'clips', 'rohmaterial'] },
       { to: '/lexikon', label: 'Lexikon', was: 'Formate und Videoideen je Branche — für jeden Kunden etwas aussuchen', suche: ['lexikon', 'formate', 'ideen', 'branche', 'fahrschule'] },
