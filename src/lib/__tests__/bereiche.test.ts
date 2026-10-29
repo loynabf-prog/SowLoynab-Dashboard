@@ -22,8 +22,8 @@ describe('sichtbareBereiche', () => {
   it('Hauptziele sind eingetragen', () => {
     for (const p of HAUPT_PFADE) expect(ALLE_SEITEN.some((s) => s.to === p)).toBe(true)
   })
-  it('Reiter: Geld haengt Monate, Rechnungen, Finanzen, Firmendaten zusammen', () => {
-    expect(reiterVon('/rechnungen').map((s) => s.to)).toEqual(['/monate', '/rechnungen', '/finanzen', '/firma'])
+  it('Reiter: Geld haengt Monate, Rechnungen, Finanzen, Firmendaten, Dokumente zusammen', () => {
+    expect(reiterVon('/rechnungen').map((s) => s.to)).toEqual(['/monate', '/rechnungen', '/finanzen', '/firma', '/dokumente'])
     expect(reiterVon('/kalender')).toEqual([])
   })
 })
