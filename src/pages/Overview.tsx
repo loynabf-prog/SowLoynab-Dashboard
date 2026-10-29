@@ -17,8 +17,8 @@ import Schnellzugriff from '../components/Schnellzugriff'
 import OfenEingang from '../components/OfenEingang'
 import PilotBlock from '../components/PilotBlock'
 import {
-  Send, Video, Scissors, CalendarClock, CheckCircle2, MapPin, Camera,
-  Clock, ArrowUpRight, Flame, Check, ChevronRight, ChevronDown, Coffee, X,
+  Send, Video, Scissors, CalendarClock, CheckCircle2, MapPin,
+  Clock, ArrowUpRight, Flame, Check, ChevronRight, ChevronDown, Coffee,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -27,10 +27,9 @@ import { ohnePausierte, type MitPause } from '../lib/pause'
 import { useToast } from '../context/ToastContext'
 import { useIdentity } from '../context/IdentityContext'
 import { useTeam } from '../context/TeamContext'
-import { useAuth } from '../context/AuthContext'
 import { celebrate } from '../lib/confetti'
 import { alsGepostet, vorarbeitSetzen, type VorarbeitKey } from '../lib/videoAktionen'
-import { heute as heuteIso, datumPlus } from '../lib/datum'
+import { heute as heuteIso } from '../lib/datum'
 import { jetztUhrzeit } from '../lib/fristen'
 import { tagesLage, type LageAufgabe, type LageTermin, type LageVideo, type Punkt } from '../lib/tageslage'
 import { gehoertMir, machTag, ringSatz } from '../lib/fokus'
@@ -50,7 +49,6 @@ const SYMBOL: Record<Punkt['art'], { icon: LucideIcon; farbe: string }> = {
   planung: { icon: CalendarClock, farbe: 'gelb' },
   aufgabe: { icon: CheckCircle2, farbe: 'grau' },
   termin: { icon: MapPin, farbe: 'gruen' },
-  drehtag: { icon: Camera, farbe: 'lila' },
 }
 
 /** Was der eine Knopf tut -- und wie er heisst. */
@@ -61,10 +59,9 @@ const TUN: Record<Punkt['art'], { label: string; haken?: VorarbeitKey }> = {
   planung: { label: 'Eingeplant', haken: 'prep_scheduled' },
   aufgabe: { label: 'Erledigt' },
   termin: { label: 'Öffnen' },
-  drehtag: { label: 'Öffnen' },
 }
 
-type MeinVideo = LageVideo & { assignee_ids?: string[] | null; shoot_event_id?: string | null }
+type MeinVideo = LageVideo & { assignee_ids?: string[] | null }
 type MeinTermin = LageTermin & { member_ids?: string[] | null }
 type MeineAufgabe = LageAufgabe & { assignee_ids?: string[] | null }
 
@@ -97,9 +94,6 @@ export default function Overview() {
   const [laedt, setLaedt] = useState(() => !istGemerkt('heute.videos'))
   // Gebuendelte Zeilen, die aufgeklappt sind
   const [offen, setOffen] = useState<string[]>([])
-  // Fuer welche Gruppe gerade ein Drehtag geplant wird
-  const [planen, setPlanen] = useState<Punkt | null>(null)
-  const { user } = useAuth()
 
   const tag = heuteIso()
 
@@ -109,10 +103,10 @@ export default function Overview() {
     // machen, entscheidet die Frist, nicht der Posting-Tag.
     const [v, e, a, gp, ge] = await Promise.all([
       supabase.from('videos')
-        .select('id, title, status, scheduled_date, scheduled_time, prep_shot, prep_edited, prep_scheduled, client_id, shoot_event_id, assignee_ids, clients(name, logo_url, pausiert_seit, client_type)')
+        .select('id, title, status, scheduled_date, scheduled_time, prep_shot, prep_edited, prep_scheduled, client_id, assignee_ids, clients(name, logo_url, pausiert_seit, client_type)')
         .is('deleted_at', null).neq('status', 'posted').limit(500),
       supabase.from('events')
-        .select('id, title, kind, starts_on, starts_at, planned_videos, client_id, member_ids, clients(name, pausiert_seit)')
+        .select('id, title, kind, starts_on, starts_at, client_id, member_ids, clients(name, pausiert_seit)')
         .is('deleted_at', null).eq('starts_on', tag),
       supabase.from('tasks')
         .select('id, title, due_date, due_time, priority, assignee_ids, clients(name, pausiert_seit), leads(name)')
@@ -123,17 +117,9 @@ export default function Overview() {
       supabase.from('tasks').select('id, assignee_ids')
         .is('deleted_at', null).eq('done', true).gte('updated_at', beginn),
     ])
-    // Haengt ein Video an einem Drehtag, zaehlt dessen Datum: dann ist
-    // "noch nicht gedreht" kein Versaeumnis, sondern ein Plan.
     // Pausierte Kunden (0045) gehoeren nicht auf Heute -- da warten wir.
     const roh = ohnePausierte((v.data ?? []) as unknown as (MeinVideo & { clients?: MitPause | null })[]) as MeinVideo[]
-    const drehIds = [...new Set(roh.map((x) => x.shoot_event_id).filter(Boolean))] as string[]
-    let drehTage: Record<string, string> = {}
-    if (drehIds.length > 0) {
-      const { data: d } = await supabase.from('events').select('id, starts_on').in('id', drehIds)
-      drehTage = Object.fromEntries(((d ?? []) as { id: string; starts_on: string }[]).map((x) => [x.id, x.starts_on]))
-    }
-    setVideos(roh.map((x) => ({ ...x, drehtag: x.shoot_event_id ? drehTage[x.shoot_event_id] ?? null : null })))
+    setVideos(roh)
     setTermine(ohnePausierte((e.data ?? []) as unknown as (MeinTermin & { clients?: MitPause | null })[]) as MeinTermin[])
     setAufgaben(ohnePausierte((a.data ?? []) as unknown as (MeineAufgabe & { clients?: MitPause | null })[]) as MeineAufgabe[])
     const mein = (r: { assignee_ids?: string[] | null }) => gehoertMir(r.assignee_ids, memberId)
@@ -167,35 +153,10 @@ export default function Overview() {
     setOffen((o) => (o.includes(p.key) ? o.filter((k) => k !== p.key) : [...o, p.key]))
   }
 
-  async function drehtagAnlegen(p: Punkt, datum: string) {
-    const ohne = (p.gruppe ?? [p]).filter((x) => !x.drehtag)
-    const { data, error } = await supabase.from('events').insert({
-      title: `Dreh ${p.kunde ?? ''}`.trim(),
-      kind: 'dreh',
-      starts_on: datum,
-      client_id: p.clientId ?? null,
-      planned_videos: ohne.length,
-      member_ids: [],
-      created_by: user?.id ?? null,
-    }).select('id').single()
-    if (error || !data) { toast('Konnte Drehtag nicht anlegen: ' + (error?.message ?? '')); return }
-    const { error: e2 } = await supabase.from('videos')
-      .update({ shoot_event_id: (data as { id: string }).id })
-      .in('id', ohne.map((x) => x.id))
-    if (e2) { toast('Drehtag angelegt, Videos nicht verknüpft: ' + e2.message); laden(); return }
-    setPlanen(null)
-    toast(`Drehtag am ${new Date(datum + 'T12:00:00').toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric' })} · ${ohne.length} Videos dran`)
-    window.dispatchEvent(new Event('daten-geaendert'))
-  }
-
   async function tun(p: Punkt) {
-    if (p.gruppe) {
-      if (brauchtDrehtag(p)) setPlanen(p)
-      else aufklappen(p)
-      return
-    }
+    if (p.gruppe) { aufklappen(p); return }
     const was = TUN[p.art]
-    if (p.art === 'termin' || p.art === 'drehtag') { navigate(p.ziel); return }
+    if (p.art === 'termin') { navigate(p.ziel); return }
 
     if (p.art === 'aufgabe') {
       setAufgaben((prev) => prev.filter((x) => x.id !== p.id))
@@ -335,14 +296,6 @@ export default function Overview() {
           )}
         </>
       )}
-      {planen && (
-        <DrehtagPlanen
-          p={planen}
-          heute={tag}
-          onAbbrechen={() => setPlanen(null)}
-          onAnlegen={(d) => drehtagAnlegen(planen, d)}
-        />
-      )}
     </>
   )
 }
@@ -352,49 +305,6 @@ function kurzGrund(p: Punkt): string {
   if (p.gruppe) return `${p.gruppe.length} verpasst`
   if (p.art === 'aufgabe') return 'überfällig'
   return /verpasst/i.test(p.text) ? 'verpasst' : /vorbei/i.test(p.text) ? 'jetzt posten' : 'überfällig'
-}
-
-/** Gruppe mit ungedrehten Videos ohne Drehtag: dann ist "Drehtag planen" der Knopf. */
-function brauchtDrehtag(p: Punkt): boolean {
-  return p.art === 'dreh' && !!p.clientId && (p.gruppe ?? [p]).some((x) => !x.drehtag)
-}
-
-/** Vorschlag: spaetestens zur ersten Drehfrist, aber nicht vor morgen. */
-function vorschlagDatum(p: Punkt, heute: string): string {
-  const morgen = datumPlus(heute, 1)
-  const fristen = (p.gruppe ?? [p]).map((x) => x.frist).filter(Boolean) as string[]
-  const erste = fristen.sort()[0]
-  return erste && erste > morgen ? erste : morgen
-}
-
-function DrehtagPlanen({ p, heute, onAbbrechen, onAnlegen }: {
-  p: Punkt
-  heute: string
-  onAbbrechen: () => void
-  onAnlegen: (datum: string) => Promise<void>
-}) {
-  const [datum, setDatum] = useState(() => vorschlagDatum(p, heute))
-  const [laeuft, setLaeuft] = useState(false)
-  const n = (p.gruppe ?? [p]).filter((x) => !x.drehtag).length
-  return (
-    <div className="n-sheet-hinter" onClick={onAbbrechen}>
-      <div className="n-sheet" role="dialog" aria-label="Drehtag planen" onClick={(e) => e.stopPropagation()}>
-        <div className="n-sheet-kopf">
-          <strong>Drehtag {p.kunde}</strong>
-          <button className="n-sheet-zu" onClick={onAbbrechen} aria-label="Schließen"><X strokeWidth={2.2} /></button>
-        </div>
-        <p className="n-sheet-text">{n} {n === 1 ? 'Video wird' : 'Videos werden'} an diesen Drehtag gehängt. Danach brennt hier nichts mehr.</p>
-        <input className="n-sheet-datum" type="date" value={datum} min={heute} onChange={(e) => setDatum(e.target.value)} />
-        <button
-          className="n-tun stark n-sheet-los"
-          disabled={!datum || laeuft}
-          onClick={async () => { setLaeuft(true); await onAnlegen(datum); setLaeuft(false) }}
-        >
-          {laeuft ? 'Lege an …' : 'Drehtag anlegen'}
-        </button>
-      </div>
-    </div>
-  )
 }
 
 function Fokus({ p, auf, unter, onAufklappen, onTun, onSpaeter, onOeffnen }: {
@@ -409,7 +319,7 @@ function Fokus({ p, auf, unter, onAufklappen, onTun, onSpaeter, onOeffnen }: {
 }) {
   const was = TUN[p.art]
   const I = SYMBOL[p.art].icon
-  const label = p.gruppe ? (brauchtDrehtag(p) ? 'Drehtag planen' : auf ? 'Zuklappen' : 'Videos zeigen') : was.label
+  const label = p.gruppe ? (auf ? 'Zuklappen' : 'Videos zeigen') : was.label
 
   // Wischen wie bei Tinder: nach links = erledigt, nach rechts = spaeter.
   const wisch = useWischen({
@@ -439,7 +349,7 @@ function Fokus({ p, auf, unter, onAufklappen, onTun, onSpaeter, onOeffnen }: {
       <div className="h-fokus-wer">{p.kunde ?? ' '}</div>
       <div className="h-fokus-knoepfe">
         <button className="h-fokus-haupt" onClick={onTun}>
-          {p.gruppe ? (brauchtDrehtag(p) ? <Camera strokeWidth={2.4} /> : <ChevronDown strokeWidth={2.4} />)
+          {p.gruppe ? <ChevronDown strokeWidth={2.4} />
             : was.haken || p.art === 'posten' || p.art === 'aufgabe' ? <Check strokeWidth={2.6} /> : <ArrowUpRight strokeWidth={2.4} />}
           {label}
         </button>
@@ -497,9 +407,9 @@ function Zeile({ p, auf, onTun, onOeffnen }: { p: Punkt; auf?: boolean; onTun: (
   const navigate = useNavigate()
   const s = SYMBOL[p.art]
   const was = p.gruppe
-    ? { label: brauchtDrehtag(p) ? 'Drehtag planen' : auf ? 'Zuklappen' : 'Zeigen' }
+    ? { label: auf ? 'Zuklappen' : 'Zeigen' }
     : TUN[p.art]
-  const nurOeffnen = p.art === 'termin' || p.art === 'drehtag'
+  const nurOeffnen = p.art === 'termin'
   return (
     <div className="n-zeile-wrap" style={{ position: 'relative' }}>
       <div className="n-zeile" role="group">

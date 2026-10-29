@@ -71,13 +71,6 @@ export default function Posting() {
     ])
     if (res.error) { toast('Konnte Videos nicht laden: ' + res.error.message); setLoading(false); return }
     const liste = mitPlattformen((res.data ?? []) as unknown as TagVideo[])
-    // Drehtage dazuholen: ein vergangener Drehtag heisst "gedreht".
-    const ids = [...new Set(liste.map((v) => v.shoot_event_id).filter(Boolean))] as string[]
-    if (ids.length) {
-      const { data: ev } = await supabase.from('events').select('id, starts_on').in('id', ids)
-      const datum = new Map((ev ?? []).map((e: { id: string; starts_on: string }) => [e.id, e.starts_on]))
-      for (const v of liste) if (v.shoot_event_id) v.drehtag = datum.get(v.shoot_event_id) ?? null
-    }
     const { laufend, pausiert: weg } = nachPause(liste as (TagVideo & { clients?: MitPause | null })[])
     setVideos(laufend as TagVideo[])
     setPausiert([...new Set(weg.map((v) => (v.clients as { name?: string } | null)?.name).filter(Boolean))] as string[])
@@ -309,7 +302,7 @@ export default function Posting() {
           })}
 
           {ansicht === 'monat' && (() => {
-            const wochen = monatsKalender(monatKey, videos as never[], [])
+            const wochen = monatsKalender(monatKey, videos as never[])
             const kurz = (n?: string | null) => (n ?? '?').split(/[\s&]+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase()
             return (
               <>

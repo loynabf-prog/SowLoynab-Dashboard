@@ -45,12 +45,10 @@ describe('kundenLage', () => {
 describe('pilot', () => {
   it('Raus kommt vor Rueckstand vor Drehtag', () => {
     const p = pilot({ kunden: [kunde({ name: 'Hajo', ziel: 15, raus: 2 })] })
-    // Der Rueckstand sagt schon "Drehtag planen" -- die Drehtag-Zeile geht darin auf
-    expect(p.empfehlungen.map((x) => x.art)).toEqual(['raus', 'rueckstand', 'ideen'])
+    expect(p.empfehlungen.map((x) => x.art)).toEqual(['raus', 'rueckstand', 'vorrat', 'ideen'])
     expect(p.empfehlungen[0].titel).toBe('2 Videos warten auf dein OK')
     expect(p.empfehlungen[0].warum).toContain('Hajo')
-    expect(p.empfehlungen[1].zahl).toBe(22)
-    expect(p.empfehlungen[1].warum).toContain('Kein Drehtag geplant')
+    expect(p.empfehlungen[2].titel).toBe('22 Videos fehlen für die nächsten 30 Tage')
   })
   it('die eine Aktion sitzt dort, wo es klemmt', () => {
     const a = pilot({ kunden: [kunde({ name: 'A', ziel: 15, fertig_ohne_termin: 2 })] }).empfehlungen.find((x) => x.art === 'rueckstand')!
@@ -58,14 +56,7 @@ describe('pilot', () => {
     const b = pilot({ kunden: [kunde({ name: 'B', ziel: 15, belegt: 3 })] }).empfehlungen.find((x) => x.art === 'rueckstand')!
     expect(b.aktion).toBe('In den Ofen')
     const c = pilot({ kunden: [kunde({ name: 'C', ziel: 15 })] }).empfehlungen.find((x) => x.art === 'rueckstand')!
-    expect(c.aktion).toBe('Drehtag planen')
-  })
-  it('Drehtag vorhanden, aber zu klein', () => {
-    const p = pilot({ kunden: [kunde({ name: 'K', ziel: 0, ziel_naechster: 10, naechster_drehtag: '2026-11-05', drehtag_videos: 4, ideen: 20 })] })
-    const d = p.empfehlungen.find((x) => x.art === 'drehtag_klein')!
-    expect(d).toBeTruthy()
-    expect(d.titel).toBe('Drehtag am 5.11. zu klein')
-    expect(p.empfehlungen.some((x) => x.art === 'ideen')).toBe(false)
+    expect(c.aktion).toBe('Kundenakte')
   })
   it('Ofen leer je Besitzer', () => {
     const p = pilot({ kunden: [

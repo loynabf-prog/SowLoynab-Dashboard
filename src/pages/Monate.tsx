@@ -12,7 +12,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Camera, Check, ChevronDown, ChevronRight, ChevronUp, CircleDollarSign, Clapperboard, Euro, HelpCircle, ListChecks, Lock, Plus, Users } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, ChevronUp, CircleDollarSign, Clapperboard, Euro, HelpCircle, ListChecks, Lock, Plus, Users } from 'lucide-react'
 import LogoFrame from '../components/LogoFrame'
 import { useToast } from '../context/ToastContext'
 import { useGemerkt, istGemerkt } from '../lib/merken'
@@ -24,9 +24,9 @@ import { rangVon } from '../lib/kundenart'
 import {
   ladeMonatsDaten, monatsZeilen, monatsSumme, monatPlus, monatName, monatsKeyVon, istAbgeschlossen, vorlauf,
   speichereEintrag, entferneEintrag, monatSetzen, euro, videoZeilen, videoSumme, geldZeilen,
-  monatsTodos, monatsKalender, drehtagEintragen, monatsCheck, videoGeprueft, ladeAccountsAlle,
+  monatsTodos, monatsKalender, monatsCheck, videoGeprueft, ladeAccountsAlle,
   type KundeFuerMonat, type MonatsEintrag, type MonatsVideo, type MonatsZeile, type MonatStatus,
-  type MonatsDrehtag, type MonatsAufgabe, type MonatsTodo, type Zahlstatus, type VideoZeile,
+  type MonatsAufgabe, type MonatsTodo, type Zahlstatus, type VideoZeile,
 } from '../lib/monate'
 
 // Aktueller Monat ganz links, nach rechts die Zukunft. Vergangenes nur auf Wunsch.
@@ -49,11 +49,9 @@ export default function Monate() {
   const [kunden, setKunden] = useGemerkt<KundeFuerMonat[]>('monate.kunden', [])
   const [eintraege, setEintraege] = useGemerkt<MonatsEintrag[]>('monate.eintraege', [])
   const [videos, setVideos] = useGemerkt<MonatsVideo[]>('monate.videos', [])
-  const [drehtage, setDrehtage] = useGemerkt<MonatsDrehtag[]>('monate.drehtage', [])
   const [aufgaben, setAufgaben] = useGemerkt<MonatsAufgabe[]>('monate.aufgaben', [])
   const [ansicht, setAnsicht] = useState<'kunden' | 'videos' | 'kalender' | 'todos' | 'check'>('videos')
   const [tagOffen, setTagOffen] = useState<string | null>(null)
-  const [drehFuer, setDrehFuer] = useState<string>('')
   const [laedt, setLaedt] = useState(() => !istGemerkt('monate.kunden'))
   const [fehler, setFehler] = useState<string | null>(null)
   const [offen, setOffen] = useState<string | null>(null)
@@ -72,7 +70,6 @@ export default function Monate() {
     setKunden(d.kunden)
     setEintraege(d.eintraege)
     setVideos(d.videos)
-    setDrehtage(d.drehtage)
     setAufgaben(d.aufgaben)
     setLaedt(false)
   }, [von, bis, key])
@@ -103,8 +100,8 @@ export default function Monate() {
   const [vlAlle, setVlAlle] = useState(false)
   const nichtDabei = zeilen.filter((z) => z.nichtDabei)
   const summe = monatsSumme(zeilen)
-  const todos = useMemo(() => monatsTodos(key, zeilen, drehtage, aufgaben, vz), [key, zeilen, drehtage, aufgaben, vz])
-  const kalender = useMemo(() => monatsKalender(key, videos, drehtage), [key, videos, drehtage])
+  const todos = useMemo(() => monatsTodos(key, zeilen, aufgaben, vz), [key, zeilen, aufgaben, vz])
+  const kalender = useMemo(() => monatsKalender(key, videos), [key, videos])
   const kundeName = useMemo(() => new Map(kunden.map((k) => [k.id, k.name])), [kunden])
   const postsImMonat = useMemo(() => videos.filter((v) => (v.scheduled_date ?? '').slice(0, 7) === key).length, [videos, key])
   const zu = istAbgeschlossen(eintraege, key)
@@ -255,14 +252,6 @@ export default function Monate() {
           kundeName={kundeName}
           tagOffen={tagOffen}
           onTag={(t) => setTagOffen(tagOffen === t ? null : t)}
-          kunden={dabei.map((z) => z.kunde)}
-          drehFuer={drehFuer}
-          onDrehFuer={setDrehFuer}
-          onDrehtag={async (clientId, datum, anzahl) => {
-            const ok = await ausfuehren(drehtagEintragen(clientId, kundeName.get(clientId) ?? 'Kunde', datum, anzahl), 'Drehtag eingetragen')
-            if (ok) setTagOffen(datum)
-          }}
-          monat={key}
         />
       )}
 
@@ -275,7 +264,6 @@ export default function Monate() {
           {todos.length === 0 ? <div className="n-leer">{laedt ? 'Lade …' : 'Für diesen Monat ist alles erledigt.'}</div> : todos.map((t) => (
             <TodoZeile key={t.key} t={t} monat={key}
               onAnlegen={() => t.client_id && navigate(`/client/${t.client_id}?plan=${key}`)}
-              onDrehtag={() => { setDrehFuer(t.client_id ?? ''); setAnsicht('kalender') }}
               onKunde={() => { setAnsicht('kunden'); setOffen(t.client_id ?? null) }}
             />
           ))}
@@ -482,22 +470,15 @@ function KundenZeile({
 const WT = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
 
 function Kalender({
-  wochen, heute, kundeName, tagOffen, onTag, kunden, drehFuer, onDrehFuer, onDrehtag, monat,
+  wochen, heute, kundeName, tagOffen, onTag,
 }: {
   wochen: ReturnType<typeof monatsKalender>
   heute: string
   kundeName: Map<string, string>
   tagOffen: string | null
   onTag: (t: string) => void
-  kunden: KundeFuerMonat[]
-  drehFuer: string
-  onDrehFuer: (id: string) => void
-  onDrehtag: (clientId: string, datum: string, anzahl: number | null) => void
-  monat: string
 }) {
   const tag = tagOffen ? wochen.flat().find((t) => t.datum === tagOffen) : null
-  const [datum, setDatum] = useState('')
-  const [anzahl, setAnzahl] = useState('')
   const kurz = (id: string | null) => (kundeName.get(id ?? '') ?? '?').split(/[\s&]+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase()
   return (
     <>
@@ -508,7 +489,6 @@ function Kalender({
             className={`m-kal-tag ${t.imMonat ? '' : 'aussen'} ${t.datum === heute ? 'heute' : ''} ${t.datum === tagOffen ? 'on' : ''}`}>
             <span className="m-kal-zahl">{Number(t.datum.slice(8))}</span>
             <span className="m-kal-inhalt">
-              {t.drehtage.length > 0 && <Camera className="m-kal-dreh" />}
               {t.posts.slice(0, 3).map((v) => (
                 <i key={v.id} className={v.status === 'posted' ? 'gepostet' : ''}>{kurz(v.client_id)}</i>
               ))}
@@ -517,19 +497,12 @@ function Kalender({
           </button>
         ))}
       </div>
-      <p className="p-fuss" style={{ marginTop: 6 }}>Kürzel = Posting des Kunden · Kamera = Drehtag · Tag antippen für Details</p>
+      <p className="p-fuss" style={{ marginTop: 6 }}>Kürzel = Posting des Kunden · Tag antippen für Details</p>
 
       {tag && (
         <>
           <div className="n-abschnitt"><h2>{new Date(tag.datum + 'T12:00:00').toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })}</h2></div>
           <div className="n-gruppe">
-            {tag.drehtage.map((d) => (
-              <div key={d.id} className="n-zeile a-vgl">
-                <span className="n-ic lila"><Camera strokeWidth={2.2} /></span>
-                <span className="n-text"><span className="n-titel">{d.title}</span>
-                  <span className="n-unter">{d.planned_videos ? `${d.planned_videos} Videos geplant` : 'Drehtag'}</span></span>
-              </div>
-            ))}
             {tag.posts.map((v) => (
               <div key={v.id} className="n-zeile a-vgl">
                 <span className={`n-ic ${v.status === 'posted' ? 'gruen' : 'grau'}`}><Clapperboard strokeWidth={2.2} /></span>
@@ -538,24 +511,11 @@ function Kalender({
                 <span className="a-wert dim">{v.status === 'posted' ? 'gepostet' : 'offen'}</span>
               </div>
             ))}
-            {tag.posts.length === 0 && tag.drehtage.length === 0 && <div className="n-leer">An diesem Tag ist nichts geplant.</div>}
+            {tag.posts.length === 0 && <div className="n-leer">An diesem Tag ist nichts geplant.</div>}
           </div>
         </>
       )}
 
-      <div className="n-abschnitt"><h2>Drehtag eintragen</h2><span>ohne Erinnerung</span></div>
-      <div className="n-gruppe m-dreh-form">
-        <select value={drehFuer} onChange={(e) => onDrehFuer(e.target.value)}>
-          <option value="">Kunde wählen …</option>
-          {kunden.map((k) => <option key={k.id} value={k.id}>{k.name}</option>)}
-        </select>
-        <input type="date" value={datum || tagOffen || ''} min={monatPlus(monat, -1) + '-01'} onChange={(e) => setDatum(e.target.value)} />
-        <input type="number" min={0} inputMode="numeric" placeholder="Videos" value={anzahl} onChange={(e) => setAnzahl(e.target.value)} />
-        <button className="n-tun stark" disabled={!drehFuer || !(datum || tagOffen)}
-          onClick={() => { onDrehtag(drehFuer, datum || tagOffen!, anzahl ? Number(anzahl) : null); setAnzahl(''); setDatum('') }}>
-          Eintragen
-        </button>
-      </div>
     </>
   )
 }
@@ -563,22 +523,19 @@ function Kalender({
 // ============================ To-dos ============================
 const TODO_IC = {
   anlegen: { icon: Plus, farbe: 'blau' },
-  drehtag: { icon: Camera, farbe: 'lila' },
   zahlung: { icon: CircleDollarSign, farbe: 'gruen' },
   klaeren: { icon: HelpCircle, farbe: 'gelb' },
   aufgabe: { icon: ListChecks, farbe: 'grau' },
 } as const
 
-function TodoZeile({ t, onAnlegen, onDrehtag, onKunde }: {
+function TodoZeile({ t, onAnlegen, onKunde }: {
   t: MonatsTodo
   monat: string
   onAnlegen: () => void
-  onDrehtag: () => void
   onKunde: () => void
 }) {
   const ic = TODO_IC[t.art]
   const knopf = t.art === 'anlegen' ? { text: 'Planen', tun: onAnlegen }
-    : t.art === 'drehtag' ? { text: 'Eintragen', tun: onDrehtag }
     : t.art === 'zahlung' || t.art === 'klaeren' ? { text: 'Öffnen', tun: onKunde }
     : null
   return (

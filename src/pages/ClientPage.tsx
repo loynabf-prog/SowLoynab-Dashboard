@@ -56,7 +56,6 @@ import { fuehreZusammen, TABELLEN_NAMEN, zaehleUmzug, type MergeZaehlung } from 
 import AccountsEditor from '../components/AccountsEditor'
 import ChannelEditor from '../components/ChannelEditor'
 import TerminModal from '../components/TerminModal'
-import DrehtagModal from '../components/DrehtagModal'
 import type { CalEventRow } from '../lib/types'
 import {
   ladeKanaele, speichereKanaele, zuKanalEntwuerfen, trenntKanaele, kanalVon,
@@ -117,8 +116,7 @@ export default function ClientPage() {
   const [accounts, setAccounts] = useState<ClientAccount[]>([])
   const [kanaele, setKanaele] = useState<Channel[]>([])
   const [termine, setTermine] = useState<CalEventRow[]>([])
-  const [terminOffen, setTerminOffen] = useState<{ row: CalEventRow | null; art?: 'dreh' | 'termin' } | null>(null)
-  const [drehOffen, setDrehOffen] = useState<CalEventRow | null>(null)
+  const [terminOffen, setTerminOffen] = useState<{ row: CalEventRow | null; art?: 'termin' } | null>(null)
   // null = alles zeigen, 'offen' = nur ohne Zuordnung, sonst eine Kanal-Id
   const [kanalFilter, setKanalFilter] = useState<string | null>(null)
   const [flashId, setFlashId] = useState<string | null>(null)
@@ -848,32 +846,26 @@ export default function ClientPage() {
       {tab === 'termine' && (
         <div className="section-block">
           <div className="toolbar-row">
-            <button className="btn btn-primary" onClick={() => setTerminOffen({ row: null, art: 'dreh' })}>
-              Drehtag
-            </button>
-            <button className="btn" onClick={() => setTerminOffen({ row: null, art: 'termin' })}>
+            <button className="btn btn-primary" onClick={() => setTerminOffen({ row: null, art: 'termin' })}>
               Termin
             </button>
           </div>
 
           {termine.length === 0 ? (
             <div className="col-empty" style={{ padding: 30 }}>
-              Noch kein Termin für {client.name}. Ein Drehtag sammelt die Videos, die an
-              dem Tag entstehen — samt Skript. 
+              Noch kein Termin für {client.name}. Drehtage trägst du hier oder im Kalender einfach als Termin ein.
             </div>
           ) : (
             <div className="tm-liste">
               {termine.map((t) => {
-                const istDreh = t.kind === 'dreh'
                 const wann = new Date(t.starts_on + 'T00:00:00')
                 const vorbei = t.starts_on < heute()
                 return (
                   <button
-                    className={`tm-zeile ${istDreh ? 'dreh' : ''} ${vorbei ? 'vorbei' : ''}`}
+                    className={`tm-zeile ${vorbei ? 'vorbei' : ''}`}
                     key={t.id}
-                    onClick={() => (istDreh ? setDrehOffen(t) : setTerminOffen({ row: t }))}
+                    onClick={() => setTerminOffen({ row: t })}
                   >
-                    <span className="tm-ic">{istDreh ? '' : t.kind === 'arbeit' ? '' : t.kind === 'spiel' ? '' : ''}</span>
                     <span className="tm-text">
                       <span className="tm-titel">{t.title}</span>
                       <span className="tm-wann">
@@ -881,13 +873,6 @@ export default function ClientPage() {
                         {t.starts_at && ` · ${t.starts_at.slice(0, 5)} Uhr`}
                       </span>
                     </span>
-                    {istDreh && (
-                      <span className="tm-menge">
-                        {videos.filter((v) => v.shoot_event_id === t.id).length}
-                        {t.planned_videos ? ` / ${t.planned_videos}` : ''}
-                        <small>Videos</small>
-                      </span>
-                    )}
                     <span className="tm-pfeil">›</span>
                   </button>
                 )
@@ -905,16 +890,6 @@ export default function ClientPage() {
           userId={user?.id ?? null}
           onClose={() => setTerminOffen(null)}
           onSaved={() => { setTerminOffen(null); loadTermine(); toast('Gespeichert') }}
-        />
-      )}
-
-      {drehOffen && (
-        <DrehtagModal
-          termin={drehOffen}
-          kundenName={client.name}
-          briefing={client.ai_brief}
-          onClose={() => setDrehOffen(null)}
-          onGeaendert={() => { loadVideos(); loadTermine() }}
         />
       )}
 
@@ -2602,7 +2577,7 @@ function PauseModal({ onClose, onSave }: { onClose: () => void; onSave: (grund: 
     <Modal title="Kunde pausieren" onClose={onClose}>
       <form className="stack" onSubmit={(e) => { e.preventDefault(); setBusy(true); onSave(grund.trim()) }}>
         <p className="muted" style={{ margin: 0 }}>
-          Videos und Drehtage verschwinden von Heute, aus dem Plan und aus der Morgen-Nachricht.
+          Videos und Termine verschwinden von Heute, aus dem Plan und aus der Morgen-Nachricht.
           In der Produktion und hier bleibt alles erhalten. Fortsetzen geht jederzeit mit einem Tipp.
         </p>
         <div>

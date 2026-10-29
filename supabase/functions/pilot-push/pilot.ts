@@ -6,7 +6,9 @@
 //   Monat        Wo steht jeder Kunde gegen sein Monatsziel, und wo waere er
 //                nach Plan? ("Hajo: 0 von 15 -- nach Plan waeren es 9")
 //   Vorrat       Reicht das, was in der Backstube liegt (Teller, Ofen,
-//                Zutaten), fuer die naechsten 30 Tage? Sonst: Drehtag.
+//                Zutaten), fuer die naechsten 30 Tage? Sonst: drehen.
+//                (Drehtage plant ihr selbst im Kalender -- der Pilot legt
+//                keine an, seit 29.10.2026.)
 //   Ideen        Reichen die Ideen fuer den naechsten Drehtag? Sonst: Ideen.
 //   Fluss        Fertige Videos ohne Posting-Tag? Pizzen unter der Lampe?
 //                Ofen leer, obwohl Material da ist?
@@ -80,7 +82,7 @@ export interface Erfolg {
 }
 
 export type EmpfehlungArt =
-  | 'raus' | 'rueckstand' | 'einplanen' | 'drehtag' | 'drehtag_klein' | 'ideen' | 'ofen'
+  | 'raus' | 'rueckstand' | 'einplanen' | 'vorrat' | 'ideen' | 'ofen'
   | 'vertrag' | 'abrechnung' | 'erfolg' | 'links' | 'pause' | 'zahlen' | 'kontrolle'
 
 export type PilotAmpel = 'rot' | 'gelb' | 'gruen' | 'blau'
@@ -265,9 +267,7 @@ export function pilot(e: PilotEingang): Pilot {
           ? ['Einplanen', `/client/${k.client_id}`]
           : n(k.belegt) > 0 && n(k.im_ofen) + n(k.zettel) === 0
             ? ['In den Ofen', '/ofen']
-            : l.fehlt > 0 && !k.naechster_drehtag
-              ? ['Drehtag planen', `/client/${k.client_id}`]
-              : ['Kundenakte', `/client/${k.client_id}`]
+            : ['Kundenakte', `/client/${k.client_id}`]
         aus.push({
           ...basis, key: `rueck-${k.client_id}`, art: 'rueckstand', prio: 90 + bonus, ampel: mitVertrag(k) ? 'rot' : 'gelb', zahl: diff,
           titel: `${n(k.gepostet)} von ${n(k.ziel)} gepostet — nach Plan ${l.soll}`,
@@ -286,23 +286,16 @@ export function pilot(e: PilotEingang): Pilot {
         })
       }
 
-      // --- Vorrat reicht nicht: Drehtag ------------------------------------
+      // --- Vorrat reicht nicht: drehen -------------------------------------
+      // Drehtage plant ihr selbst (Kalender). Der Pilot sagt nur, wie viele
+      // Videos in den naechsten 30 Tagen fehlen -- und ob die Ideen reichen.
       if (l.fehlt > 0) {
-        if (!k.naechster_drehtag) {
-          aus.push({
-            ...basis, key: `dreh-${k.client_id}`, art: 'drehtag', prio: 80 + bonus, ampel: mitVertrag(k) ? 'rot' : 'gelb', zahl: l.fehlt,
-            titel: `${plural(l.fehlt, 'Video fehlt', 'Videos fehlen')} für die nächsten 30 Tage`,
-            warum: `Bestellt ${l.bedarf}, mit Material ${l.vorrat}. Kein Drehtag geplant.`,
-            aktion: 'Drehtag planen', ziel: `/client/${k.client_id}`,
-          })
-        } else if (n(k.drehtag_videos) < l.fehlt) {
-          aus.push({
-            ...basis, key: `drehklein-${k.client_id}`, art: 'drehtag_klein', prio: 60 + bonus, ampel: 'gelb', zahl: l.fehlt - n(k.drehtag_videos),
-            titel: `Drehtag am ${kurzDatum(k.naechster_drehtag)} zu klein`,
-            warum: `${n(k.drehtag_videos)} Videos geplant, ${l.fehlt} fehlen. Lieber mehr an einem Tag drehen als zweimal hinfahren.`,
-            aktion: 'Drehtag öffnen', ziel: `/client/${k.client_id}`,
-          })
-        }
+        aus.push({
+          ...basis, key: `vorrat-${k.client_id}`, art: 'vorrat', prio: 80 + bonus, ampel: mitVertrag(k) ? 'rot' : 'gelb', zahl: l.fehlt,
+          titel: `${plural(l.fehlt, 'Video fehlt', 'Videos fehlen')} für die nächsten 30 Tage`,
+          warum: `Bestellt ${l.bedarf}, mit Material ${l.vorrat}. Das heißt: drehen.`,
+          aktion: 'Kundenakte', ziel: `/client/${k.client_id}`,
+        })
         // --- Ideen reichen nicht fuer den Dreh ---------------------------
         const ideenVorrat = n(k.ideen) + n(k.teig)
         if (ideenVorrat < l.fehlt) {
@@ -436,7 +429,7 @@ export function pilot(e: PilotEingang): Pilot {
   const doppelt = new Set<string>()
   for (const r of aus) {
     if (r.art !== 'rueckstand' || !r.clientId) continue
-    const zwilling = aus.find((x) => x.clientId === r.clientId && ((r.aktion === 'Einplanen' && x.art === 'einplanen') || (r.aktion === 'Drehtag planen' && x.art === 'drehtag')))
+    const zwilling = aus.find((x) => x.clientId === r.clientId && r.aktion === 'Einplanen' && x.art === 'einplanen')
     if (zwilling) { doppelt.add(zwilling.key); r.zahl = zwilling.zahl; r.warum = `${r.warum} ${zwilling.warum}` }
   }
   const liste = aus.filter((x) => !doppelt.has(x.key))

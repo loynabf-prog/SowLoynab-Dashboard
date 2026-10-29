@@ -46,8 +46,6 @@ const SCHRITT_LABEL: Record<Schritt, string> = {
 
 type FristVideo = Pick<Video, 'status' | 'scheduled_date'> &
   Partial<Pick<Video, 'prep_shot' | 'prep_edited' | 'prep_scheduled' | 'scheduled_time'>> & {
-    /** Datum des verknuepften Drehtags (events.starts_on), falls vorhanden. */
-    drehtag?: string | null
     /** Kunde, mitgeladen als clients(client_type) -- fuer "ohne Vertrag". */
     clients?: { name?: string; client_type?: string | null } | null
   }
@@ -66,12 +64,10 @@ export function ohneVertrag(v: { clients?: { client_type?: string | null } | nul
  * wer eingeplant hat, hat auch geschnitten und gedreht. Der Board-Status
  * zaehlt mit, damit alte Videos ohne Haekchen nicht faelschlich rot werden.
  */
-export function stand(v: FristVideo, heuteIso?: string) {
+export function stand(v: FristVideo, _heuteIso?: string) {
   const geplant = !!v.prep_scheduled || v.status === 'planned' || v.status === 'posted'
   const geschnitten = geplant || !!v.prep_edited || v.status === 'ready'
-  // Ein vergangener Drehtag zaehlt als gedreht, auch ohne Haekchen.
-  const drehtagVorbei = !!v.drehtag && !!heuteIso && v.drehtag < heuteIso
-  const gedreht = geschnitten || !!v.prep_shot || drehtagVorbei
+  const gedreht = geschnitten || !!v.prep_shot
   return { gedreht, geschnitten, geplant, gepostet: v.status === 'posted' }
 }
 
@@ -154,15 +150,6 @@ function fristRoh(v: FristVideo, heuteIso: string, jetztZeit?: string): FristInf
       text: NUR_POSTEN
         ? (rest === 0 ? 'Heute posten' : rest === 1 ? 'Morgen posten' : `Posting am ${kurz(tag)}`)
         : rest === 0 ? 'Bereit — heute posten' : 'Fertig eingeplant',
-    }
-  }
-
-  // Noch nicht gedreht, aber ein Drehtag ist eingetragen: das ist ein Plan.
-  if (schritt === 'dreh' && v.drehtag && v.drehtag >= heuteIso) {
-    const passt = v.drehtag <= frist
-    return {
-      ampel: passt ? 'gruen' : 'gelb', schritt, frist, tageBisFrist: rest,
-      text: passt ? `Drehtag am ${kurz(v.drehtag)}` : `Drehtag erst am ${kurz(v.drehtag)} — knapp`,
     }
   }
 

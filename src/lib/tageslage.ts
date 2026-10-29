@@ -19,7 +19,7 @@ import type { VideoStatus } from './types'
 import { datumPlus } from './datum'
 import { rangVon } from './kundenart'
 
-export type Art = 'termin' | 'drehtag' | 'posten' | 'dreh' | 'schnitt' | 'planung' | 'aufgabe'
+export type Art = 'termin' | 'posten' | 'dreh' | 'schnitt' | 'planung' | 'aufgabe'
 
 export interface LageVideo {
   id: string
@@ -32,7 +32,6 @@ export interface LageVideo {
   prep_scheduled?: boolean
   client_id?: string | null
   clients?: { name: string; client_type?: string | null; logo_url?: string | null } | null
-  drehtag?: string | null
 }
 
 export interface LageTermin {
@@ -41,7 +40,6 @@ export interface LageTermin {
   kind: string | null
   starts_on: string
   starts_at?: string | null
-  planned_videos?: number | null
   client_id?: string | null
   clients?: { name: string } | null
 }
@@ -74,8 +72,6 @@ export interface Punkt {
   clientId?: string | null
   /** Frist dieses Schritts ("YYYY-MM-DD"), fuer die Reihenfolge in Gruppen. */
   frist?: string | null
-  /** Nur bei Dreh: haengt das Video schon an einem Drehtag? */
-  drehtag?: string | null
   /** Gebuendelt: die einzelnen Videos dahinter (mind. 2). */
   gruppe?: Punkt[]
   /** Prioritaet der Kundenart (kundenart.ts RANG): 0 zahlend, 1 eigen, 2 Ehrenamt. Aufgaben/Termine 0. */
@@ -111,17 +107,14 @@ export function zeitAus(startsAt?: string | null): string | null {
 }
 
 function terminPunkt(t: LageTermin): Punkt {
-  const dreh = t.kind === 'dreh'
   return {
     key: `e-${t.id}`,
     id: t.id,
-    art: dreh ? 'drehtag' : 'termin',
+    art: 'termin',
     titel: t.title,
     kunde: kundenName(t),
     zeit: zeitAus(t.starts_at),
-    text: dreh
-      ? t.planned_videos ? `Drehtag — ${t.planned_videos} ${t.planned_videos === 1 ? 'Video' : 'Videos'} geplant` : 'Drehtag'
-      : 'Termin',
+    text: 'Termin',
     ampel: 'gruen',
     ziel: t.client_id ? `/client/${t.client_id}` : '/kalender',
   }
@@ -144,7 +137,6 @@ function videoPunkt(v: LageVideo, heuteIso: string, jetztZeit: string): Punkt {
     clientId: v.client_id ?? null,
     rang: rangVon(v.clients?.client_type),
     frist: f.frist,
-    drehtag: v.drehtag ?? null,
   }
 }
 
@@ -232,7 +224,6 @@ export function tagesLage(e: LageEingang, heuteIso: string, jetztZeit: string): 
     if (f.ampel === 'ohne-termin') continue
     // Schneiden laesst sich nur vorziehen, wenn schon gedreht ist.
     if ((f.schritt === 'schnitt' && s.gedreht) || f.schritt === 'planung') vorarbeit.push(p)
-    else if (f.schritt === 'dreh' && v.drehtag) vorarbeit.push(p)
   }
 
   // Vorarbeit: das mit der naechsten Frist zuerst -- das entlastet am meisten.
@@ -262,8 +253,6 @@ const BUENDELBAR: Art[] = ['dreh', 'schnitt', 'planung']
 const VERB: Record<string, string> = { dreh: 'zu drehen', schnitt: 'zu schneiden', planung: 'einzuplanen' }
 const AMPELRANG: Record<string, number> = { rot: 0, gelb: 1, gruen: 2 }
 
-const kurzDatum = (iso: string) => `${iso.slice(8, 10)}.${iso.slice(5, 7)}.`
-
 export function buendeln(punkte: Punkt[]): Punkt[] {
   const gruppen = new Map<string, Punkt[]>()
   const aus: (Punkt | string)[] = []
@@ -281,18 +270,12 @@ export function buendeln(punkte: Punkt[]): Punkt[] {
       (AMPELRANG[a.ampel] ?? 3) - (AMPELRANG[b.ampel] ?? 3)
       || (a.frist ?? '9999').localeCompare(b.frist ?? '9999'))
     const erste = sortiert[0]
-    const ohne = g.filter((p) => !p.drehtag).length
-    const drehtage = [...new Set(g.map((p) => p.drehtag).filter(Boolean))] as string[]
-    let text = erste.text
-    if (erste.art === 'dreh' && ohne === 0 && drehtage.length === 1) text = `Drehtag am ${kurzDatum(drehtage[0])}`
-    else if (erste.art === 'dreh' && ohne > 0 && ohne < g.length) text = `${erste.text} · ${ohne} ohne Drehtag`
     return {
       ...erste,
       key: `g-${x}`,
       titel: `${erste.kunde}: ${g.length} Videos noch ${VERB[erste.art]}`,
       zeit: null,
-      text,
-      drehtag: ohne === 0 ? drehtage[0] ?? null : null,
+      text: erste.text,
       gruppe: sortiert,
     }
   })

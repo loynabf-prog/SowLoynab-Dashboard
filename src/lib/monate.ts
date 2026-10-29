@@ -64,14 +64,6 @@ export interface MonatsVideo {
   produktion_stufe?: string | null
 }
 
-export interface MonatsDrehtag {
-  id: string
-  title: string
-  starts_on: string
-  client_id: string | null
-  planned_videos: number | null
-}
-
 export interface MonatsAufgabe {
   id: string
   title: string
@@ -238,7 +230,7 @@ export function euro(n: number): string {
 
 // --------------------------------------------------------------- Speichern
 export async function ladeMonatsDaten(von: string, bis: string) {
-  const [k, e, v, d, t] = await Promise.all([
+  const [k, e, v, t] = await Promise.all([
     supabase.from('clients')
       .select('id, name, logo_url, monthly_quota, monthly_fee, active, client_type, pausiert_seit')
       .is('deleted_at', null).order('name'),
@@ -248,10 +240,6 @@ export async function ladeMonatsDaten(von: string, bis: string) {
     supabase.from('videos')
       .select('id, client_id, title, status, scheduled_date, scheduled_time, posted_at, abrechnungsmonat, tiktok_url, instagram_url, link_fetch_state, geprueft_am, produktion_stufe')
       .is('deleted_at', null),
-    supabase.from('events')
-      .select('id, title, starts_on, client_id, planned_videos')
-      .eq('kind', 'dreh').is('deleted_at', null)
-      .gte('starts_on', von + '-01').lte('starts_on', monatPlus(bis, 1) + '-01'),
     supabase.from('tasks')
       .select('id, title, due_date, done, client_id')
       .is('deleted_at', null).eq('done', false)
@@ -263,7 +251,6 @@ export async function ladeMonatsDaten(von: string, bis: string) {
     kunden: (k.data ?? []) as KundeFuerMonat[],
     eintraege: ((e.data ?? []) as any[]).map((r) => ({ ...r, quota: Number(r.quota), betrag: r.betrag == null ? null : Number(r.betrag) })) as MonatsEintrag[],
     videos: (v.data ?? []) as MonatsVideo[],
-    drehtage: (d.data ?? []) as MonatsDrehtag[],
     aufgaben: (t.data ?? []) as MonatsAufgabe[],
   }
 }
@@ -312,7 +299,7 @@ export async function videoMonatSetzen(videoId: string, key: string | null): Pro
 }
 
 // ------------------------------------------------------------ To-dos
-export type TodoArt = 'anlegen' | 'drehtag' | 'zahlung' | 'klaeren' | 'aufgabe'
+export type TodoArt = 'anlegen' | 'zahlung' | 'klaeren' | 'aufgabe'
 
 export interface MonatsTodo {
   key: string
@@ -329,7 +316,6 @@ export interface MonatsTodo {
 export function monatsTodos(
   key: string,
   zeilen: MonatsZeile[],
-  drehtage: MonatsDrehtag[],
   aufgaben: MonatsAufgabe[],
   vz: VideoZeile[] = [],
 ): MonatsTodo[] {
@@ -342,15 +328,6 @@ export function monatsTodos(
       out.push({ key: 'a' + v.kunde.id, art: 'anlegen', client_id: v.kunde.id,
         text: `${v.kunde.name}: ${fehlt} ${fehlt === 1 ? 'Video' : 'Videos'} anlegen`,
         unter: `${da} von ${v.ziel} sind gepostet oder haben einen Posting-Tag` })
-    }
-  }
-  for (const v of vz) {
-    if (v.ziel <= 0) continue
-    const z = { kunde: v.kunde }
-    const hat = drehtage.some((d) => d.client_id === z.kunde.id && (d.starts_on.slice(0, 7) === key || d.starts_on.slice(0, 7) === monatPlus(key, -1)))
-    if (!hat) {
-      out.push({ key: 'd' + z.kunde.id, art: 'drehtag', client_id: z.kunde.id,
-        text: `${z.kunde.name}: Drehtag eintragen`, unter: `noch keiner im ${monatName(monatPlus(key, -1), true)} oder ${monatName(key, true)}` })
     }
   }
   for (const z of dabei) {
@@ -379,11 +356,10 @@ export interface KalenderTag {
   datum: string          // YYYY-MM-DD
   imMonat: boolean
   posts: MonatsVideo[]
-  drehtage: MonatsDrehtag[]
 }
 
-/** Wochen des Monats (Mo-So) mit Posts und Drehtagen je Tag. */
-export function monatsKalender(key: string, videos: MonatsVideo[], drehtage: MonatsDrehtag[]): KalenderTag[][] {
+/** Wochen des Monats (Mo-So) mit Posts je Tag. */
+export function monatsKalender(key: string, videos: MonatsVideo[]): KalenderTag[][] {
   const [j, m] = key.split('-').map(Number)
   const erster = new Date(j, m - 1, 1)
   const start = new Date(erster)
@@ -398,7 +374,6 @@ export function monatsKalender(key: string, videos: MonatsVideo[], drehtage: Mon
       woche.push({
         datum: t, imMonat: t.slice(0, 7) === key,
         posts: videos.filter((v) => v.scheduled_date === t),
-        drehtage: drehtage.filter((x) => x.starts_on === t),
       })
       d.setDate(d.getDate() + 1)
     }
@@ -406,13 +381,6 @@ export function monatsKalender(key: string, videos: MonatsVideo[], drehtage: Mon
     if (iso(d).slice(0, 7) !== key) break
   }
   return wochen
-}
-
-export async function drehtagEintragen(clientId: string, name: string, datum: string, videos: number | null): Promise<string | null> {
-  const { error } = await supabase.from('events').insert({
-    title: `Drehtag ${name}`, kind: 'dreh', starts_on: datum, client_id: clientId, planned_videos: videos,
-  })
-  return error ? error.message : null
 }
 
 // ------------------------------------------------------------ Videos (getrennt vom Geld)

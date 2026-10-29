@@ -53,7 +53,7 @@ export default function Anleitung() {
       </>} />
 
       <Kapitel icon={Sun} farbe="glut" titel="2 · Heute" kinder={<>
-        <p>Die Startseite. Oben <strong>die eine Sache, die jetzt dran ist</strong> (Post, Drehtag, Termin) mit einem Knopf. Nach links wischen = erledigt, nach rechts = später.</p>
+        <p>Die Startseite. Oben <strong>die eine Sache, die jetzt dran ist</strong> (Post, Termin) mit einem Knopf. Nach links wischen = erledigt, nach rechts = später.</p>
         <p>Darunter <strong>„Bevor es brennt“</strong>: der Pilot mit seinen drei wichtigsten Vorschlägen, dann die Backstube. Jeder sieht nur seine Kunden.</p>
       </>} />
 
@@ -62,12 +62,12 @@ export default function Anleitung() {
         <ul>
           <li><strong>Monat:</strong> gepostet gegen Ziel — und wo der Kunde heute nach Plan stehen müsste. Die kleine Marke auf dem Balken ist das Soll. Rot nur bei Vertragskunden.</li>
           <li><strong>Prognose:</strong> „bei diesem Tempo 12 von 15“ — gedeckelt durch das, was wirklich an Material da ist.</li>
-          <li><strong>Vorrat für 30 Tage:</strong> Rest dieses Monats plus anteilig der nächste. Reicht Teller + Ofen + Zutaten nicht, braucht es einen <strong>Drehtag</strong>. Reichen die Ideen nicht für den Dreh, braucht es <strong>Ideen</strong>.</li>
+          <li><strong>Vorrat für 30 Tage:</strong> Rest dieses Monats plus anteilig der nächste. Reicht Teller + Ofen + Zutaten nicht, sagt er, wie viele Videos zu drehen sind. Reichen die Ideen nicht für den Dreh, braucht es <strong>Ideen</strong>. Den Drehtag selbst plant ihr wie gewohnt im Kalender.</li>
           <li><strong>Fluss:</strong> fertige Videos ohne Posting-Tag, Pizzen unter der Lampe, ein leerer Ofen bei vollem Kühlschrank.</li>
           <li><strong>Pflege:</strong> fehlende Links, alte Zahlen, Vormonat ohne Rechnung, lange Pausen, auslaufende Verträge.</li>
           <li><strong>Lernen:</strong> läuft ein Video doppelt so gut wie sonst, schlägt er „Mehr davon“ vor und legt die Idee an.</li>
         </ul>
-        <p><strong>Jeder Vorschlag hat genau einen Knopf.</strong> „Einplanen“ verteilt die fertigen Videos selbst auf freie Tage, zur Uhrzeit, die bei diesem Kunden am besten lief. „Drehtag planen“ legt den Drehtag mit der fehlenden Zahl an und hängt die Ideen dran. Die Vorschläge stehen auch morgens als Push auf dem Handy.</p>
+        <p><strong>Jeder Vorschlag hat genau einen Knopf.</strong> „Einplanen“ verteilt die fertigen Videos selbst auf freie Tage, zur Uhrzeit, die bei diesem Kunden am besten lief. Die Vorschläge stehen auch morgens als Push auf dem Handy.</p>
         <p><strong>Kontrollstempel:</strong> Hast du einen Kunden durchgesehen (alle Posts im CRM, Links da, Zahlen geholt), tippst du in der Kundenakte auf „Kontrolle“ und setzt den Stempel „geprüft bis heute“ — oder schließt den Vormonat komplett ab. Alles vor dem Stempel gilt als sauber; der Pilot erinnert nur noch an das, was danach kommt. Steht der Stempel am Monatsende, ist der Monat grün (Haken in der Kundenakte und im Piloten). Posten darf man danach trotzdem.</p>
         <p>Was der Pilot <em>nicht</em> tut: nörgeln. Ist alles im Plan, sagt er „Keine Einwände“ und ist still.</p>
       </>} />
@@ -89,6 +89,7 @@ export default function Anleitung() {
 
       <Kapitel icon={CalendarDays} farbe="glut" titel="6 · Kalender (Plan)" kinder={<>
         <p>Was wann rausgeht — die Seite, die der Kunde sieht. Der Pilot füllt sie: fertige Videos bekommen Tag und Uhrzeit automatisch. Ihr verschiebt nur, wenn euch etwas nicht passt. „Gepostet“ antippen holt Links und erste Zahlen selbst.</p>
+        <p>Drehtage sind einfach Termine im Kalender („Drehtag Hajo“). Nach dem Dreh legt ihr die Videos an (Assistent oder Chat) und schiebt die Clips in den Briefkasten — das CRM macht daraus keine eigene Verwaltung mehr.</p>
       </>} />
 
       <Kapitel icon={CalendarRange} farbe="gruen" titel="7 · Monat" kinder={<>

@@ -68,21 +68,6 @@ describe('fristInfo', () => {
   })
 })
 
-describe('Drehtag', () => {
-  it.skipIf(NUR_POSTEN)('vergangener Drehtag zaehlt als gedreht', () => {
-    const f = fristInfo(v({ drehtag: '2026-10-10' } as Partial<Video>), HEUTE)
-    expect(f.schritt).toBe('schnitt')
-  })
-  it('geplanter Drehtag vor der Frist ist gruen', () => {
-    const f = fristInfo(v({ scheduled_date: '2026-11-30', drehtag: '2026-11-01' } as Partial<Video>), HEUTE)
-    expect(f.ampel).toBe('gruen')
-  })
-  it('ein Drehtag aendert an der Ampel nichts mehr', () => {
-    const f = fristInfo(v({ drehtag: '2026-10-20' } as Partial<Video>), HEUTE)
-    expect(f.ampel).toBe('gruen')
-  })
-})
-
 describe('nachDringlichkeit', () => {
   it('rot vor gelb vor gruen', () => {
     const r = v({ scheduled_date: '2026-10-30' })

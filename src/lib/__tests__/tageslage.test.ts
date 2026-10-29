@@ -40,11 +40,10 @@ describe('tagesLage — was ist heute', () => {
     const l = tagesLage({ ...leer, termine }, HEUTE, JETZT)
     expect(l.heute.map((p) => p.titel)).toEqual(['Abstimmung'])
   })
-  it('kennzeichnet einen Drehtag mit der Videoanzahl', () => {
-    const t: LageTermin = { id: 'e1', title: 'Dreh Herbstkarte', kind: 'dreh', starts_on: HEUTE, planned_videos: 5 }
+  it('ein alter Drehtag-Termin ist ein normaler Termin', () => {
+    const t: LageTermin = { id: 'e1', title: 'Dreh Herbstkarte', kind: 'dreh', starts_on: HEUTE }
     const l = tagesLage({ ...leer, termine: [t] }, HEUTE, JETZT)
-    expect(l.heute[0].art).toBe('drehtag')
-    expect(l.heute[0].text).toContain('5 Videos')
+    expect(l.heute[0].art).toBe('termin')
   })
   it.skipIf(NUR_POSTEN)('holt ein Video nach vorn, dessen Schnitt-Frist heute endet', () => {
     // Posting in 3 Tagen, gedreht aber nicht geschnitten -> Schnitt-Frist ist heute
@@ -162,11 +161,6 @@ describe('buendeln', () => {
     expect(r[0].ampel).toBe('rot')
     expect(r[0].gruppe![0].id).toBe('2')
     expect(r[0].titel).toBe('A: 2 Videos noch zu schneiden')
-  })
-  it('alle am selben Drehtag: sagt das Datum', () => {
-    const r = buendeln([pk('1', 'dreh', 'A', { drehtag: '2026-10-22' }), pk('2', 'dreh', 'A', { drehtag: '2026-10-22' })])
-    expect(r[0].text).toBe('Drehtag am 22.10.')
-    expect(r[0].drehtag).toBe('2026-10-22')
   })
 })
 

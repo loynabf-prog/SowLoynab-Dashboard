@@ -6,16 +6,15 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Eye, CalendarClock, Camera, Lightbulb, Flame, FileText, Link2, PauseCircle,
-  RefreshCw, Sparkles, TrendingDown, X, Check, ChevronRight, ClipboardCheck, type LucideIcon,
+  RefreshCw, Sparkles, TrendingDown, ChevronRight, ClipboardCheck, type LucideIcon,
 } from 'lucide-react'
 import KontrolleSheet from './Kontrolle'
 import LogoFrame from './LogoFrame'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
 import { useIdentity } from '../context/IdentityContext'
-import { heute as heuteIso, datumPlus } from '../lib/datum'
 import { kurzDatum, monatName, type Empfehlung, type KundenLage, type Pilot } from '../lib/pilot'
-import { drehtagAnlegen, einplanen, ladePilot, mehrDavon } from '../lib/pilotAktionen'
+import { einplanen, ladePilot, mehrDavon } from '../lib/pilotAktionen'
 import { supabase } from '../lib/supabase'
 import '../styles/pilot.css'
 
@@ -23,8 +22,7 @@ export const SYMBOL: Record<Empfehlung['art'], { icon: LucideIcon; farbe: string
   raus: { icon: Eye, farbe: 'glut' },
   rueckstand: { icon: TrendingDown, farbe: 'rot' },
   einplanen: { icon: CalendarClock, farbe: 'gelb' },
-  drehtag: { icon: Camera, farbe: 'lila' },
-  drehtag_klein: { icon: Camera, farbe: 'gelb' },
+  vorrat: { icon: Camera, farbe: 'lila' },
   ideen: { icon: Lightbulb, farbe: 'gelb' },
   ofen: { icon: Flame, farbe: 'glut' },
   vertrag: { icon: FileText, farbe: 'gelb' },
@@ -99,7 +97,6 @@ export function PilotListe({ liste, onNeu, ohneKunde, kompakt, leer }: ListeProp
   const { user } = useAuth()
   const { memberId } = useIdentity()
   const [laeuft, setLaeuft] = useState<string | null>(null)
-  const [dreh, setDreh] = useState<Empfehlung | null>(null)
   const [kontrolle, setKontrolle] = useState<Empfehlung | null>(null)
   const [erledigt, setErledigt] = useState<string[]>([])
 
@@ -117,7 +114,6 @@ export function PilotListe({ liste, onNeu, ohneKunde, kompakt, leer }: ListeProp
       onNeu()
       return
     }
-    if (e.art === 'drehtag' || (e.art === 'rueckstand' && e.aktion === 'Drehtag planen')) { setDreh(e); return }
     if (e.art === 'kontrolle' && e.clientId) { setKontrolle(e); return }
     if (e.art === 'erfolg' && e.videoId && e.clientId) {
       setLaeuft(e.key)
@@ -148,17 +144,6 @@ export function PilotListe({ liste, onNeu, ohneKunde, kompakt, leer }: ListeProp
       return
     }
     navigate(e.ziel)
-  }
-
-  async function drehtag(datum: string) {
-    if (!dreh?.clientId || !dreh.kunde) return
-    const anzahl = Math.max(1, dreh.zahl ?? 1)
-    const f = await drehtagAnlegen({ clientId: dreh.clientId, kunde: dreh.kunde, datum, anzahl, userId: user?.id })
-    if (f) { toast('Konnte Drehtag nicht anlegen: ' + f); return }
-    toast(`Drehtag am ${kurzDatum(datum)} · ${anzahl} Videos`)
-    setErledigt((x) => [...x, dreh.key])
-    setDreh(null)
-    onNeu()
   }
 
   const sichtbar = liste.filter((e) => !erledigt.includes(e.key))
@@ -194,34 +179,11 @@ export function PilotListe({ liste, onNeu, ohneKunde, kompakt, leer }: ListeProp
           )
         })}
       </div>
-      {dreh && <DrehtagSheet e={dreh} onZu={() => setDreh(null)} onLos={drehtag} />}
       {kontrolle && kontrolle.clientId && (
         <KontrolleSheet clientId={kontrolle.clientId} kunde={kontrolle.kunde ?? ''} monatsKey={kontrolle.monatsKey}
           onZu={() => setKontrolle(null)} onFertig={() => { setErledigt((x) => [...x, kontrolle.key]); onNeu() }} />
       )}
     </>
-  )
-}
-
-function DrehtagSheet({ e, onZu, onLos }: { e: Empfehlung; onZu: () => void; onLos: (d: string) => Promise<void> }) {
-  const heute = heuteIso()
-  const [datum, setDatum] = useState(datumPlus(heute, 3))
-  const [laeuft, setLaeuft] = useState(false)
-  const n = Math.max(1, e.zahl ?? 1)
-  return (
-    <div className="n-sheet-hinter" onClick={onZu}>
-      <div className="n-sheet" role="dialog" aria-label="Drehtag planen" onClick={(x) => x.stopPropagation()}>
-        <div className="n-sheet-kopf">
-          <strong>Drehtag {e.kunde}</strong>
-          <button className="n-sheet-zu" onClick={onZu} aria-label="Schließen"><X strokeWidth={2.2} /></button>
-        </div>
-        <p className="n-sheet-text">{n} {n === 1 ? 'Video' : 'Videos'} an einem Tag drehen — dann reicht der Vorrat für die nächsten 30 Tage. Die ungedrehten Ideen hängt der Pilot an den Drehtag.</p>
-        <input className="n-sheet-datum" type="date" value={datum} min={heute} onChange={(x) => setDatum(x.target.value)} />
-        <button className="n-tun stark n-sheet-los" disabled={!datum || laeuft} onClick={async () => { setLaeuft(true); await onLos(datum); setLaeuft(false) }}>
-          <Check strokeWidth={2.6} /> {laeuft ? 'Lege an …' : 'Drehtag anlegen'}
-        </button>
-      </div>
-    </div>
   )
 }
 

@@ -5,8 +5,6 @@
 //
 //   einplanen     fertige Videos eines Kunden auf freie Tage verteilen, zur
 //                 Uhrzeit, die bei diesem Kunden am besten lief
-//   drehtagAnlegen  Drehtag mit der fehlenden Videozahl anlegen und die
-//                 ungedrehten Ideen-Videos dranhaengen
 //   mehrDavon     aus einem Video, das doppelt so gut lief, eine neue Idee
 //
 // Dazu ladePilot(): holt die Sicht pilot_kunden und rechnet die Erfolge.
@@ -94,22 +92,6 @@ export async function einplanen(clientId: string): Promise<EinplanErgebnis> {
   }
   window.dispatchEvent(new Event('daten-geaendert'))
   return { anzahl: videos.length, tage: termine, zeit, fehler: null }
-}
-
-/** Drehtag anlegen und ungedrehte Videos des Kunden dranhaengen. */
-export async function drehtagAnlegen(opts: { clientId: string; kunde: string; datum: string; anzahl: number; userId?: string | null }): Promise<string | null> {
-  const { data, error } = await supabase.from('events').insert({
-    title: `Dreh ${opts.kunde}`.trim(), kind: 'dreh', starts_on: opts.datum,
-    client_id: opts.clientId, planned_videos: opts.anzahl, member_ids: [], created_by: opts.userId ?? null,
-  }).select('id').single()
-  if (error || !data) return error?.message ?? 'Konnte Drehtag nicht anlegen'
-  const { data: ohne } = await supabase.from('videos').select('id')
-    .eq('client_id', opts.clientId).is('deleted_at', null).eq('status', 'todo')
-    .is('shoot_event_id', null).or('prep_shot.is.null,prep_shot.eq.false').limit(opts.anzahl)
-  const ids = ((ohne ?? []) as { id: string }[]).map((x) => x.id)
-  if (ids.length) await supabase.from('videos').update({ shoot_event_id: (data as { id: string }).id }).in('id', ids)
-  window.dispatchEvent(new Event('daten-geaendert'))
-  return null
 }
 
 /** Aus einem Erfolg eine Idee machen. */

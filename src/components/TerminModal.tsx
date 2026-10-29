@@ -8,7 +8,7 @@
 // man nichts tun muss.
 
 import { useEffect, useState } from 'react'
-import { Camera, Briefcase, Trophy, Users } from 'lucide-react'
+import { Briefcase, Trophy, Users } from 'lucide-react'
 import Modal from './Modal'
 import { supabase } from '../lib/supabase'
 import { useTeam } from '../context/TeamContext'
@@ -16,7 +16,6 @@ import type { CalEventRow, EventKind } from '../lib/types'
 import { heute } from '../lib/datum'
 
 const ARTEN: { key: EventKind; icon: string; label: string; hinweis: string }[] = [
-  { key: 'dreh', icon: '', label: 'Drehtag', hinweis: 'Der Tag, an dem gedreht wird. Dazu kommen die Videos und ihre Skripte.' },
   { key: 'termin', icon: '', label: 'Termin', hinweis: 'Gespräch, Kennenlernen, Abstimmung — alles ohne Kamera.' },
   { key: 'arbeit', icon: '', label: 'Arbeitszeit', hinweis: 'Hauptjob, Schicht — da geht nichts anderes.' },
   { key: 'spiel', icon: '', label: 'Spiel', hinweis: 'Spielplan, Training.' },
@@ -44,9 +43,9 @@ export default function TerminModal({
   const { members } = useTeam()
   const [kunden, setKunden] = useState<{ id: string; name: string }[]>([])
   const [clientId, setClientId] = useState<string>(termin?.client_id ?? kunde?.id ?? '')
-  const [menge, setMenge] = useState(termin?.planned_videos != null ? String(termin.planned_videos) : '')
   const [title, setTitle] = useState(termin?.title ?? '')
-  const [kind, setKind] = useState<EventKind>(termin?.kind ?? artVorgabe ?? 'termin')
+  // Alte Drehtag-Termine (kind 'dreh') werden als normaler Termin bearbeitet.
+  const [kind, setKind] = useState<EventKind>(termin?.kind === 'dreh' ? 'termin' : (termin?.kind ?? artVorgabe ?? 'termin'))
   const [von, setVon] = useState(termin?.starts_on ?? datum ?? heute())
   const [bis, setBis] = useState(termin?.ends_on ?? '')
   const [startZeit, setStartZeit] = useState(termin?.starts_at?.slice(0, 5) ?? '')
@@ -76,9 +75,6 @@ export default function TerminModal({
       member_ids: wer,
       notes: notes.trim() || null,
       client_id: clientId || null,
-      // Die Zielmenge gibt es nur beim Drehtag -- bei einem Gespraech waere
-      // sie sinnlos und wuerde nur im Weg stehen.
-      planned_videos: kind === 'dreh' && menge ? Number(menge.replace(/[^\d]/g, '')) : null,
     }
     const { error: e1 } = termin
       ? await supabase.from('events').update(daten).eq('id', termin.id)
@@ -117,7 +113,7 @@ export default function TerminModal({
                 className={`art-btn ${kind === a.key ? 'on' : ''}`}
                 onClick={() => setKind(a.key)}
               >
-                <span className="art-icon">{a.key === 'dreh' ? <Camera size={18} /> : a.key === 'arbeit' ? <Briefcase size={18} /> : a.key === 'spiel' ? <Trophy size={18} /> : <Users size={18} />}</span>
+                <span className="art-icon">{a.key === 'arbeit' ? <Briefcase size={18} /> : a.key === 'spiel' ? <Trophy size={18} /> : <Users size={18} />}</span>
                 <span className="art-name">{a.label}</span>
               </button>
             ))}
@@ -133,7 +129,7 @@ export default function TerminModal({
             id="tmtitle"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder={kind === 'arbeit' ? 'z. B. Spätschicht' : kind === 'spiel' ? 'z. B. Auswärtsspiel' : 'z. B. Zahnarzt'}
+            placeholder={kind === 'arbeit' ? 'z. B. Spätschicht' : kind === 'spiel' ? 'z. B. Auswärtsspiel' : 'z. B. Drehtag Hajo'}
             autoFocus
             required
           />
@@ -146,22 +142,6 @@ export default function TerminModal({
             {kunden.map((k) => <option key={k.id} value={k.id}>{k.name}</option>)}
           </select>
         </div>
-
-        {kind === 'dreh' && (
-          <div>
-            <label htmlFor="tmmenge">Wie viele Videos entstehen an dem Tag?</label>
-            <input
-              id="tmmenge"
-              value={menge}
-              onChange={(e) => setMenge(e.target.value)}
-              inputMode="numeric"
-              placeholder="z. B. 5"
-            />
-            <p className="muted" style={{ fontSize: 12, marginTop: 5 }}>
-              Das Ziel. Welche Videos es konkret werden, ordnest du danach im Drehtag zu.
-            </p>
-          </div>
-        )}
 
         {/* Für wen steht weit oben: das ist die Angabe, die entscheidet, wer
             es im Handy-Kalender sieht. */}
