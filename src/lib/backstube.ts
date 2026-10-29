@@ -254,6 +254,22 @@ export async function zettelWeg(id: string): Promise<void> {
 }
 
 /** Angebrannt: nochmal hinten anstellen. */
+/**
+ * Von Hand "wird gerade geschnitten" melden -- wenn ein Chat schneidet, der
+ * sich nicht selbst im Ofen angemeldet hat. Gleiche Funktion wie die Chats
+ * nutzen (ofen_belegen, Migration 0067).
+ */
+export async function vonHandInDenOfen(videoId: string, wunsch = 'Schnitt im Chat (von Hand gemeldet)'): Promise<void> {
+  const { error } = await supabase.rpc('ofen_belegen', { p_video: videoId, p_wunsch: wunsch })
+  if (error) throw error
+}
+
+/** Von Hand aus dem Ofen nehmen: Vorschau gilt als fertig (Raus). */
+export async function vonHandRaus(auftragId: string): Promise<void> {
+  const { error } = await supabase.rpc('ofen_fertig', { p_auftrag: auftragId, p_notiz: 'Von Hand rausgenommen' })
+  if (error) throw error
+}
+
 export async function nochmalBacken(id: string): Promise<void> {
   const { error } = await supabase.from('video_aenderungen').update({ status: 'offen', reihenfolge: Date.now() / 1000 }).eq('id', id)
   if (error) throw error

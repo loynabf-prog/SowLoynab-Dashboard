@@ -443,3 +443,11 @@ i.st-gegessen { background: var(--st-gegessen); }
   .bs-kueche .bs-schalter { order: 3; width: 100%; }
   .bs-kueche .bs-schalter button { flex: 1; }
 }
+
+/* Aktualisieren-Knopf im Kopf */
+.bs-neu { flex: none; }
+.bs-neu svg { transition: transform .3s; }
+.bs-neu.dreht svg { animation: bs-dreh 1s linear infinite; }
+.bs-neu:disabled { opacity: .6; }
+@keyframes bs-dreh { to { transform: rotate(360deg); } }
+.bs-knopf.leise.breit { margin-top: 6px; font-size: 13.5px; }

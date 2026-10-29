@@ -10,7 +10,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import {
-  ArrowDown, ArrowLeft, ArrowUp, Check, ChevronRight, Flame, Loader2, MessageCircle, Play, RotateCcw, X,
+  ArrowDown, ArrowLeft, ArrowUp, Check, ChevronRight, Flame, Loader2, MessageCircle, Play, RotateCcw, RefreshCw, X,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useIdentity } from '../context/IdentityContext'
@@ -20,7 +20,7 @@ import { automatikAnstossen } from '../lib/automatik'
 import { dropbox } from '../lib/medien'
 import { aendern, fertigMachen, vorschauPfad, type PruefVideo } from '../lib/freigabe'
 import {
-  STUFEN, aufDenZettel, chatLink, hintenAnstellen, ladeBackstube, nochmalBacken, seit, vordraengeln, zettelWeg,
+  STUFEN, aufDenZettel, chatLink, hintenAnstellen, ladeBackstube, nochmalBacken, seit, vordraengeln, zettelWeg, vonHandInDenOfen, vonHandRaus,
   type Backstube, type OfenStand, type Pizza, type Stufe,
 } from '../lib/backstube'
 import '../styles/backstube.css'
@@ -66,11 +66,21 @@ export default function Ofen() {
   const team = useMemo(() => members.filter((m) => m.active !== false), [members])
   const teamIds = useMemo(() => team.map((m) => m.id).join(','), [team])
 
+  const [laedt, setLaedt] = useState(false)
+  const [stand, setStand] = useState<Date | null>(null)
   const laden = useCallback(async () => {
     if (!teamIds) return
-    try { setDaten(await ladeBackstube(teamIds.split(','))); setFehler(null) }
+    setLaedt(true)
+    try { setDaten(await ladeBackstube(teamIds.split(','))); setFehler(null); setStand(new Date()) }
     catch (e) { setFehler((e as Error).message) }
+    finally { setLaedt(false) }
   }, [teamIds])
+
+  // Aktualisieren von Hand: neu laden und kurz sagen, was sich getan hat
+  async function aktualisieren() {
+    await laden()
+    toast('Aktualisiert')
+  }
 
   useEffect(() => { laden() }, [laden])
 
@@ -153,6 +163,9 @@ export default function Ofen() {
           <span className="bs-ueber">{jetzt.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
           <h1 className="bs-neon">BACKSTUBE</h1>
         </div>
+        <button type="button" className={`bs-rund bs-neu ${laedt ? 'dreht' : ''}`} aria-label="Aktualisieren" title={stand ? `Stand ${stand.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}` : 'Aktualisieren'} onClick={aktualisieren} disabled={laedt}>
+          <RefreshCw strokeWidth={2.2} />
+        </button>
         <div className="bs-schalter" role="tablist">
           <button type="button" className={sicht === 'alle' ? 'an' : ''} onClick={() => setSicht('alle')}>Beide</button>
           <button type="button" className={sicht === 'meins' ? 'an' : ''} onClick={() => setSicht('meins')}>Meiner</button>
@@ -248,6 +261,8 @@ export default function Ofen() {
           onVorne={() => tun(vordraengeln(offen.auftrag!.id), 'Vorgedrängelt')}
           onHinten={() => tun(hintenAnstellen(offen.auftrag!.id), 'Hinten angestellt')}
           onWeg={async () => { await tun(zettelWeg(offen.auftrag!.id), 'Zettel weggenommen'); setOffen(null) }}
+          onInDenOfen={async () => { await tun(vonHandInDenOfen(offen.video.id), '🔥 Im Ofen – wird geschnitten'); setOffen(null) }}
+          onRaus={async () => { await tun(vonHandRaus(offen.auftrag!.id), 'Rausgenommen – liegt unter der Lampe'); setOffen(null) }}
         />
       )}
     </div>
@@ -448,8 +463,12 @@ export function Fliessband({ name, farbe, stand, zutaten, teig, teller, gegessen
 
 /* ======================================================================== */
 
-export function PizzaBlatt({ pizza: p, besitzerName, onClose, onKunde, onChat, onZettel, onZurueck, onServieren, onVorne, onHinten, onWeg }: {
+export function PizzaBlatt({ pizza: p, besitzerName, onClose, onKunde, onChat, onZettel, onZurueck, onServieren, onVorne, onHinten, onWeg, onInDenOfen, onRaus }: {
   pizza: Pizza
+  /** Von Hand melden: wird gerade (in einem Chat) geschnitten */
+  onInDenOfen?: () => Promise<void>
+  /** Von Hand aus dem Ofen nehmen */
+  onRaus?: () => Promise<void>
   onChat: () => void
   besitzerName: string | null
   onClose: () => void
@@ -534,6 +553,11 @@ export function PizzaBlatt({ pizza: p, besitzerName, onClose, onKunde, onChat, o
             <div className="bs-stand-balken"><i style={{ width: `${Math.max(3, p.auftrag.fortschritt ?? 0)}%` }} /></div>
             <p><Flame size={14} /> {p.auftrag.schritt || 'Im Ofen'} · seit {seit(p.auftrag.gestartet_am ?? p.auftrag.created_at)}</p>
             <blockquote>{p.auftrag.wunsch}</blockquote>
+            {onRaus && (
+              <div className="bs-knoepfe">
+                <button type="button" className="bs-knopf hell" disabled={laeuft} onClick={() => los(onRaus)}><Check size={16} /> Fertig – rausnehmen</button>
+              </div>
+            )}
           </div>
         )}
 
@@ -563,6 +587,11 @@ export function PizzaBlatt({ pizza: p, besitzerName, onClose, onKunde, onChat, o
             <button type="button" className="bs-knopf glut breit" disabled={laeuft || !text.trim()} onClick={() => los(() => onZettel(text, vorne))}>
               {laeuft ? <Loader2 size={16} className="spin" /> : <Flame size={16} />} Auf den Bestellzettel
             </button>
+            {onInDenOfen && (
+              <button type="button" className="bs-knopf leise breit" disabled={laeuft} onClick={() => los(onInDenOfen)}>
+                <Flame size={16} /> Wird gerade im Chat geschnitten – in den Ofen legen
+              </button>
+            )}
           </div>
         )}
 
