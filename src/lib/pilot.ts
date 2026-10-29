@@ -54,6 +54,10 @@ export interface PilotKunde {
   vormonat_status: string | null
   vormonat_zahlstatus: string | null
   vormonat_quota: number | null
+  /** Kontrollstempel (0069): bis wann ist alles geprueft? */
+  geprueft_bis?: string | null
+  monat_geprueft_bis?: string | null
+  vormonat_geprueft_bis?: string | null
 }
 
 /** Ein Video, das zuletzt auffaellig gut lief (Index gegen den eigenen Median). */
@@ -66,7 +70,7 @@ export interface Erfolg {
 
 export type EmpfehlungArt =
   | 'raus' | 'rueckstand' | 'einplanen' | 'drehtag' | 'drehtag_klein' | 'ideen' | 'ofen'
-  | 'vertrag' | 'abrechnung' | 'erfolg' | 'links' | 'pause' | 'zahlen'
+  | 'vertrag' | 'abrechnung' | 'erfolg' | 'links' | 'pause' | 'zahlen' | 'kontrolle'
 
 export type PilotAmpel = 'rot' | 'gelb' | 'gruen' | 'blau'
 
@@ -92,6 +96,8 @@ export interface Empfehlung {
   zahl?: number
   /** Nur bei 'erfolg': das Video. */
   videoId?: string
+  /** Nur bei 'kontrolle': welcher Monat soll abgeschlossen werden? */
+  monatsKey?: string
 }
 
 /** Wo ein Kunde im Monat steht -- fuer Balken und Prognose. */
@@ -114,6 +120,10 @@ export interface KundenLage {
   ampel: PilotAmpel
   satz: string
   pausiert: boolean
+  /** Bis wann ist dieser Monat kontrolliert (null = noch gar nicht)? */
+  geprueftBis: string | null
+  /** Stempel steht auf dem Monatsende: der Monat ist gruen. */
+  gruen: boolean
 }
 
 export interface PilotEingang {
@@ -137,6 +147,11 @@ export function tageImMonat(monat: string): number {
 
 export function tageZwischen(a: string, b: string): number {
   return Math.round((Date.UTC(+b.slice(0, 4), +b.slice(5, 7) - 1, +b.slice(8, 10)) - Date.UTC(+a.slice(0, 4), +a.slice(5, 7) - 1, +a.slice(8, 10))) / 86_400_000)
+}
+
+/** Letzter Tag eines Monats als ISO-Datum. */
+export function monatsEnde(key: string): string {
+  return `${key}-${String(tageImMonat(key)).padStart(2, '0')}`
 }
 
 export const kurzDatum = (iso: string) => `${Number(iso.slice(8, 10))}.${Number(iso.slice(5, 7))}.`
@@ -193,7 +208,11 @@ export function kundenLage(k: PilotKunde, heute = k.heute): KundenLage {
   } else {
     satz = `${gepostet} von ${ziel} · im Plan`
   }
-  return { kunde: k, soll, rest, vorrat, fehlt, bedarf, prognose, monatAnteil, ampel, satz, pausiert }
+  const geprueftBis = k.monat_geprueft_bis ?? null
+  const gruen = !!geprueftBis && geprueftBis >= monatsEnde(k.monat)
+  if (gruen) satz = `${monatName(k.monat)} abgeschlossen ✓ · ${satz}`
+  else if (geprueftBis) satz = `${satz} · geprüft bis ${kurzDatum(geprueftBis)}`
+  return { kunde: k, soll, rest, vorrat, fehlt, bedarf, prognose, monatAnteil, ampel, satz, pausiert, geprueftBis, gruen }
 }
 
 const MONATE = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember']
@@ -310,6 +329,27 @@ export function pilot(e: PilotEingang): Pilot {
         titel: offenRechnung ? `${vormonat}: Rechnung noch nicht raus` : `${vormonat} noch nicht abgeschlossen`,
         warum: offenRechnung ? 'Der Monat ist vorbei, Geld kommt erst mit Rechnung.' : 'Abschließen, dann stimmt die Monatsübersicht.',
         aktion: offenRechnung ? 'Rechnung' : 'Abschließen', ziel: offenRechnung ? '/rechnungen' : '/monate',
+      })
+    }
+
+    // --- Kontrolle: Monat abschliessen -----------------------------------
+    // Vormonat mit Taetigkeit, noch nicht bis zum Monatsende gestempelt --
+    // oder der laufende Monat an seinem letzten Tag.
+    const vormonatKey = datumPlus(k.monat + '-01', -1).slice(0, 7)
+    const vormonatAktiv = n(k.vormonat_quota) > 0 || !!k.vormonat_status
+    if (vormonatAktiv && (k.vormonat_geprueft_bis ?? '') < monatsEnde(vormonatKey)) {
+      aus.push({
+        ...basis, key: `kontr-${k.client_id}-${vormonatKey}`, art: 'kontrolle', prio: 52 + bonus, ampel: 'gelb', monatsKey: vormonatKey,
+        titel: `${monatName(vormonatKey)} noch nicht kontrolliert`,
+        warum: k.vormonat_geprueft_bis ? `Geprüft bis ${kurzDatum(k.vormonat_geprueft_bis)}. Rest prüfen und abschließen.` : 'Alle Posts im CRM, Links da, Zahlen geholt? Dann abschließen — ab dann ist der Monat grün.',
+        aktion: 'Abschließen', ziel: `/client/${k.client_id}`,
+      })
+    } else if ((heute || k.heute) === monatsEnde(k.monat) && n(k.ziel) > 0 && (k.monat_geprueft_bis ?? '') < monatsEnde(k.monat)) {
+      aus.push({
+        ...basis, key: `kontr-${k.client_id}-${k.monat}`, art: 'kontrolle', prio: 52 + bonus, ampel: 'gelb', monatsKey: k.monat,
+        titel: `${monatName(k.monat)} abschließen`,
+        warum: 'Letzter Tag des Monats. Einmal drüberschauen und den Stempel setzen.',
+        aktion: 'Abschließen', ziel: `/client/${k.client_id}`,
       })
     }
 

@@ -68,6 +68,7 @@ export default function Anleitung() {
           <li><strong>Lernen:</strong> läuft ein Video doppelt so gut wie sonst, schlägt er „Mehr davon“ vor und legt die Idee an.</li>
         </ul>
         <p><strong>Jeder Vorschlag hat genau einen Knopf.</strong> „Einplanen“ verteilt die fertigen Videos selbst auf freie Tage, zur Uhrzeit, die bei diesem Kunden am besten lief. „Drehtag planen“ legt den Drehtag mit der fehlenden Zahl an und hängt die Ideen dran. Die Vorschläge stehen auch morgens als Push auf dem Handy.</p>
+        <p><strong>Kontrollstempel:</strong> Hast du einen Kunden durchgesehen (alle Posts im CRM, Links da, Zahlen geholt), tippst du in der Kundenakte auf „Kontrolle“ und setzt den Stempel „geprüft bis heute“ — oder schließt den Vormonat komplett ab. Alles vor dem Stempel gilt als sauber; der Pilot erinnert nur noch an das, was danach kommt. Steht der Stempel am Monatsende, ist der Monat grün (Haken in der Kundenakte und im Piloten). Posten darf man danach trotzdem.</p>
         <p>Was der Pilot <em>nicht</em> tut: nörgeln. Ist alles im Plan, sagt er „Keine Einwände“ und ist still.</p>
       </>} />
 

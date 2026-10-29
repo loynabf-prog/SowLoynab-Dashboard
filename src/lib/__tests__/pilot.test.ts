@@ -84,8 +84,8 @@ describe('pilot', () => {
   })
   it('Vormonat ohne Rechnung', () => {
     const p = pilot({ kunden: [kunde({ name: 'K', ziel: 0, ziel_naechster: 0, vormonat_quota: 10, vormonat_status: 'fest', vormonat_zahlstatus: 'offen' })] })
-    expect(p.empfehlungen[0].art).toBe('abrechnung')
-    expect(p.empfehlungen[0].titel).toBe('September: Rechnung noch nicht raus')
+    const a = p.empfehlungen.find((x) => x.art === 'abrechnung')!
+    expect(a.titel).toBe('September: Rechnung noch nicht raus')
   })
   it('Erfolg wird zur Idee', () => {
     const p = pilot({ kunden: [kunde({ name: 'K', ziel: 0, ziel_naechster: 0 })], erfolge: [{ client_id: 'k', video_id: 'v1', title: 'Waffeln', faktor: 2.4 }, { client_id: 'k', video_id: 'v2', title: 'Lahm', faktor: 1.1 }] })
@@ -99,5 +99,28 @@ describe('pilot', () => {
   it('Push-Zeilen tragen den Kunden voran', () => {
     const p = pilot({ kunden: [kunde({ name: 'Hajo', ziel: 15, raus: 1 })] })
     expect(pushZeilen(p.empfehlungen, 2)).toEqual(['1 Video wartet auf dein OK', 'Hajo: 0 von 15 gepostet — nach Plan 14'])
+  })
+})
+
+describe('Kontrollstempel', () => {
+  it('Vormonat mit Taetigkeit ohne Stempel -> abschliessen', () => {
+    const p = pilot({ kunden: [kunde({ name: 'K', ziel: 0, ziel_naechster: 0, vormonat_quota: 10, vormonat_status: 'abgeschlossen', vormonat_zahlstatus: 'bezahlt' })] })
+    const k = p.empfehlungen.find((x) => x.art === 'kontrolle')!
+    expect(k.titel).toBe('September noch nicht kontrolliert')
+    expect(k.monatsKey).toBe('2026-09')
+  })
+  it('Vormonat gestempelt bis Monatsende -> Ruhe; laufender Monat am letzten Tag', () => {
+    const ruhig = pilot({ kunden: [kunde({ name: 'K', ziel: 0, ziel_naechster: 0, vormonat_quota: 10, vormonat_geprueft_bis: '2026-09-30' })] })
+    expect(ruhig.empfehlungen.some((x) => x.art === 'kontrolle')).toBe(false)
+    const letzter = pilot({ kunden: [kunde({ name: 'K', heute: '2026-10-31', ziel: 10, gepostet: 10, ziel_naechster: 0, monat_geprueft_bis: '2026-10-15' })], heute: '2026-10-31' })
+    expect(letzter.empfehlungen.find((x) => x.art === 'kontrolle')?.titel).toBe('Oktober abschließen')
+  })
+  it('Stempel am Monatsende macht den Monat gruen', () => {
+    const l = kundenLage(kunde({ name: 'K', ziel: 10, gepostet: 10, monat_geprueft_bis: '2026-10-31' }))
+    expect(l.gruen).toBe(true)
+    expect(l.satz).toContain('Oktober abgeschlossen ✓')
+    const t = kundenLage(kunde({ name: 'K', ziel: 10, gepostet: 9, monat_geprueft_bis: '2026-10-15' }))
+    expect(t.gruen).toBe(false)
+    expect(t.satz).toContain('geprüft bis 15.10.')
   })
 })

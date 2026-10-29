@@ -6,14 +6,15 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Eye, CalendarClock, Camera, Lightbulb, Flame, FileText, Link2, PauseCircle,
-  RefreshCw, Sparkles, TrendingDown, X, Check, ChevronRight, type LucideIcon,
+  RefreshCw, Sparkles, TrendingDown, X, Check, ChevronRight, ClipboardCheck, type LucideIcon,
 } from 'lucide-react'
+import KontrolleSheet from './Kontrolle'
 import LogoFrame from './LogoFrame'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
 import { useIdentity } from '../context/IdentityContext'
 import { heute as heuteIso, datumPlus } from '../lib/datum'
-import { kurzDatum, type Empfehlung, type KundenLage, type Pilot } from '../lib/pilot'
+import { kurzDatum, monatName, type Empfehlung, type KundenLage, type Pilot } from '../lib/pilot'
 import { drehtagAnlegen, einplanen, ladePilot, mehrDavon } from '../lib/pilotAktionen'
 import { supabase } from '../lib/supabase'
 import '../styles/pilot.css'
@@ -32,6 +33,7 @@ export const SYMBOL: Record<Empfehlung['art'], { icon: LucideIcon; farbe: string
   links: { icon: Link2, farbe: 'blau' },
   pause: { icon: PauseCircle, farbe: 'grau' },
   zahlen: { icon: RefreshCw, farbe: 'blau' },
+  kontrolle: { icon: ClipboardCheck, farbe: 'gruen' },
 }
 
 /** Laedt den Piloten und hoert auf Aenderungen. */
@@ -98,6 +100,7 @@ export function PilotListe({ liste, onNeu, ohneKunde, kompakt, leer }: ListeProp
   const { memberId } = useIdentity()
   const [laeuft, setLaeuft] = useState<string | null>(null)
   const [dreh, setDreh] = useState<Empfehlung | null>(null)
+  const [kontrolle, setKontrolle] = useState<Empfehlung | null>(null)
   const [erledigt, setErledigt] = useState<string[]>([])
 
   async function tun(e: Empfehlung) {
@@ -115,6 +118,7 @@ export function PilotListe({ liste, onNeu, ohneKunde, kompakt, leer }: ListeProp
       return
     }
     if (e.art === 'drehtag' || (e.art === 'rueckstand' && e.aktion === 'Drehtag planen')) { setDreh(e); return }
+    if (e.art === 'kontrolle' && e.clientId) { setKontrolle(e); return }
     if (e.art === 'erfolg' && e.videoId && e.clientId) {
       setLaeuft(e.key)
       const f = await mehrDavon({ client_id: e.clientId, video_id: e.videoId, title: e.titel.replace(/^„(.*)“ läuft.*$/, '$1'), faktor: e.zahl ?? 2 }, user?.id)
@@ -191,6 +195,10 @@ export function PilotListe({ liste, onNeu, ohneKunde, kompakt, leer }: ListeProp
         })}
       </div>
       {dreh && <DrehtagSheet e={dreh} onZu={() => setDreh(null)} onLos={drehtag} />}
+      {kontrolle && kontrolle.clientId && (
+        <KontrolleSheet clientId={kontrolle.clientId} kunde={kontrolle.kunde ?? ''} monatsKey={kontrolle.monatsKey}
+          onZu={() => setKontrolle(null)} onFertig={() => { setErledigt((x) => [...x, kontrolle.key]); onNeu() }} />
+      )}
     </>
   )
 }
@@ -227,7 +235,8 @@ export function KundenZeile({ l }: { l: KundenLage }) {
       <span className="pl-kunde-text">
         <span className="pl-kunde-kopf">
           <strong>{k.name}</strong>
-          {k.ziel > 0 && !l.pausiert && <span className={`pl-prognose ${l.ampel}`}>{l.prognose} von {k.ziel}</span>}
+          {l.gruen ? <span className="pl-prognose gruen">✓ {monatName(k.monat)}</span>
+            : k.ziel > 0 && !l.pausiert && <span className={`pl-prognose ${l.ampel}`}>{l.prognose} von {k.ziel}</span>}
         </span>
         <LageBalken l={l} />
         <span className="pl-satz">{l.satz}</span>
