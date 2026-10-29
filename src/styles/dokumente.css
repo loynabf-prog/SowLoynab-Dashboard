@@ -1,0 +1,38 @@
+/* Dokumente: der Aktenschrank ------------------------------------------- */
+.dk-oben { display: flex; gap: 8px; margin: 4px 0 12px; }
+.dk-neu { display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; font-size: 15px; }
+.dk-neu svg { width: 17px; height: 17px; }
+.dk-suche {
+  display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 12px;
+  background: var(--bg-card); border: 1px solid var(--sep); margin-bottom: 10px;
+}
+.dk-suche svg { width: 18px; height: 18px; color: var(--text-dim); flex: none; }
+.dk-suche input { flex: 1; border: none; background: none; font: inherit; font-size: 16px; color: var(--text); outline: none; min-width: 0; }
+.dk-suche button { border: none; background: var(--bg-sunken); border-radius: 999px; width: 24px; height: 24px; display: grid; place-items: center; cursor: pointer; color: var(--text); }
+.dk-suche button svg { width: 14px; height: 14px; }
+.dk-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+.dk-chips > button {
+  border: none; border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 13.5px; font-weight: 600;
+  background: var(--bg-card); color: var(--text-muted); cursor: pointer;
+}
+.dk-chips > button.on { background: var(--ink); color: var(--on-ink); }
+.dk-zeile { padding-right: 8px; }
+.dk-zeile .n-titel { white-space: normal; line-height: 1.25; }
+.dk-knoepfe { display: flex; gap: 2px; flex: none; }
+.dk-knoepfe button { border: none; background: none; width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; color: var(--text-muted); cursor: pointer; }
+.dk-knoepfe button:hover { background: var(--bg-sunken); color: var(--text); }
+.dk-knoepfe button.rot:hover { color: var(--rot); }
+.dk-knoepfe button svg { width: 17px; height: 17px; }
+.dk-leer { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 40px 16px; text-align: center; background: var(--bg-card); border-radius: var(--radius); color: var(--text-muted); }
+.dk-leer svg { width: 40px; height: 40px; color: var(--text-dim); margin-bottom: 6px; }
+.dk-leer strong { color: var(--text); font-size: 16px; }
+.dk-leer span { font-size: 14px; }
+.dk-sheet .n-sheet-datum { width: 100%; }
+.dk-gueltig { display: flex; flex-direction: column; gap: 4px; font-size: 13.5px; font-weight: 600; color: var(--text-muted); }
+.dk-gueltig small { font-weight: 500; }
+@media (max-width: 520px) {
+  .dk-knoepfe button { width: 30px; }
+  .dk-knoepfe button:nth-child(1) { display: none; } /* Tipp auf die Zeile oeffnet schon */
+}
+.dk-sheet .spin { animation: dk-dreh 1s linear infinite; }
+@keyframes dk-dreh { to { transform: rotate(360deg); } }

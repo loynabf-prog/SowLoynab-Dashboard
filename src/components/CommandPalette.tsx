@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Search, Users, Target, CheckCircle2, ArrowRight } from 'lucide-react'
+import { Search, Users, Target, CheckCircle2, ArrowRight, FileText } from 'lucide-react'
 import { ALLE_SEITEN, bereichVon } from '../lib/bereiche'
 import { symbolVon } from '../lib/seitenSymbole'
 import { createPortal } from 'react-dom'
@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
 interface Hit {
-  kind: 'client' | 'lead' | 'task' | 'seite'
+  kind: 'client' | 'lead' | 'task' | 'seite' | 'dokument'
   id: string
   label: string
   sub?: string
@@ -58,15 +58,18 @@ export default function CommandPalette() {
     setActive(0)
     setTimeout(() => inputRef.current?.focus(), 40)
     async function load() {
-      const [c, l, t] = await Promise.all([
+      const [c, l, t, d] = await Promise.all([
         supabase.from('clients').select('id, name, handle_ig').is('deleted_at', null).order('name'),
         supabase.from('leads').select('id, name, city, stage').is('deleted_at', null).order('name'),
         supabase.from('tasks').select('id, title, done').is('deleted_at', null).eq('done', false),
+        supabase.from('dokumente').select('id, titel, kategorie, notiz, dateiname').is('deleted_at', null),
       ])
       const list: Hit[] = [...SEITEN]
       for (const x of (c.data ?? []) as any[]) list.push({ kind: 'client', id: x.id, label: x.name, sub: x.handle_ig ? '@' + x.handle_ig.replace(/^@/, '') : 'Kunde', to: `/client/${x.id}`, icon: '' })
       for (const x of (l.data ?? []) as any[]) list.push({ kind: 'lead', id: x.id, label: x.name, sub: x.city || 'Lead', to: '/leads', icon: '' })
       for (const x of (t.data ?? []) as any[]) list.push({ kind: 'task', id: x.id, label: x.title, sub: 'Aufgabe', to: '/aufgaben', icon: '' })
+      // Dokumente: Treffer oeffnet die Datei direkt (?d=<id>)
+      for (const x of (d.data ?? []) as any[]) list.push({ kind: 'dokument', id: x.id, label: x.titel, sub: 'Dokument', to: `/dokumente?d=${x.id}`, icon: '', worte: [x.kategorie, x.notiz, x.dateiname].filter(Boolean).join(' ').toLowerCase() })
       setHits(list)
     }
     load()
@@ -99,7 +102,7 @@ export default function CommandPalette() {
             ref={inputRef}
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Seite, Kunde, Lead oder Aufgabe suchen …"
+            placeholder="Seite, Kunde, Dokument, Lead oder Aufgabe …"
             onKeyDown={(e) => {
               if (e.key === 'ArrowDown') { e.preventDefault(); setActive((a) => Math.min(a + 1, results.length - 1)) }
               else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((a) => Math.max(a - 1, 0)) }
@@ -124,7 +127,7 @@ export default function CommandPalette() {
               onMouseEnter={() => setActive(i)}
               onClick={() => go(h)}
             >
-              <span className="cmd-icon">{h.kind === 'client' ? <Users size={16} /> : h.kind === 'lead' ? <Target size={16} /> : h.kind === 'task' ? <CheckCircle2 size={16} /> : h.kind === 'seite' ? (() => { const I = symbolVon(h.to); return <I size={16} /> })() : <ArrowRight size={16} />}</span>
+              <span className="cmd-icon">{h.kind === 'client' ? <Users size={16} /> : h.kind === 'lead' ? <Target size={16} /> : h.kind === 'task' ? <CheckCircle2 size={16} /> : h.kind === 'dokument' ? <FileText size={16} /> : h.kind === 'seite' ? (() => { const I = symbolVon(h.to); return <I size={16} /> })() : <ArrowRight size={16} />}</span>
               <span className="cmd-label">{h.label}</span>
               <span className="cmd-sub">{h.sub}</span>
             </button>

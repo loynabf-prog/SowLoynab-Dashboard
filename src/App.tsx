@@ -26,6 +26,7 @@ import Chat from './pages/Chat'
 import Mehr from './pages/Mehr'
 import PilotSeite from './pages/Pilot'
 import Anleitung from './pages/Anleitung'
+import Dokumente from './pages/Dokumente'
 import PersonalBrand from './pages/PersonalBrand'
 import ContractSign from './pages/ContractSign'
 import Layout from './components/Layout'
@@ -94,6 +95,7 @@ export default function App() {
         <Route path="/team" element={<Team />} />
         <Route path="/einstellungen" element={<Settings />} />
         <Route path="/firma" element={<Firma />} />
+        <Route path="/dokumente" element={<Dokumente />} />
         <Route path="/papierkorb" element={<Trash />} />
         <Route path="/mehr" element={<Mehr />} />
         <Route path="/pilot" element={<PilotSeite />} />

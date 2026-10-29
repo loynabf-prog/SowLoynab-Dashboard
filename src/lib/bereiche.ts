@@ -68,6 +68,7 @@ export const BEREICHE: Bereich[] = [
       { to: '/rechnungen', label: 'Rechnungen', was: 'Rechnungen schreiben, als PDF senden, bezahlt abhaken', reiter: 'geld', suche: ['invoice', 'pdf', 'mahnung'] },
       { to: '/finanzen', label: 'Finanzen', was: 'Einnahmen, Ausgaben und Fixkosten vom Geschäftskonto', reiter: 'geld', suche: ['konto', 'ausgaben', 'buchungen', 'abos'] },
       { to: '/firma', label: 'Firmendaten', was: 'Steuernummer, USt-IdNr., Adresse, Bank — antippen und kopieren', reiter: 'geld', suche: ['steuernummer', 'ust-id', 'ustid', 'umsatzsteuer', 'adresse', 'iban', 'firma', 'finanzamt', 'unternehmensdaten'] },
+      { to: '/dokumente', label: 'Dokumente', was: 'Gewerbeanmeldung, Steuer, Verträge, Versicherung — Scans und PDFs der Agentur', reiter: 'geld', suche: ['dokumente', 'gewerbeanmeldung', 'scan', 'pdf', 'akten', 'unterlagen', 'bescheid', 'police', 'vertrag', 'ablage'] },
     ] },
   { key: 'analyse', label: 'Analyse', zweck: 'Zahlen der geposteten Videos',
     seiten: [
