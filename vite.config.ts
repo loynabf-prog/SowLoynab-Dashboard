@@ -1,6 +1,7 @@
 /// <reference types="vitest" />
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { fileURLToPath } from 'node:url'
 
 // https://vitejs.dev/config/
 // base wird beim GitHub-Pages-Build auf den Repo-Unterpfad gesetzt
@@ -11,6 +12,15 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+  },
+  // Zwei Apps aus einem Repo: das CRM (index.html) und das Spiel (/spiel/).
+  build: {
+    rollupOptions: {
+      input: {
+        main: fileURLToPath(new URL('./index.html', import.meta.url)),
+        spiel: fileURLToPath(new URL('./spiel/index.html', import.meta.url)),
+      },
+    },
   },
   // Die Tests pruefen reine Rechenlogik, reden also nie mit Supabase. Der
   // Zugang wird trotzdem beim Import geprueft -- deshalb hier Platzhalter,

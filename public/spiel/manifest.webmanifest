@@ -1,0 +1,16 @@
+{
+  "name": "Sow & Loynab — Die Stadt",
+  "short_name": "S&L Stadt",
+  "description": "Die Agentur als Stadt: Level, Quests, Bilanz — echte Arbeit, echte Punkte",
+  "start_url": "/spiel/",
+  "scope": "/spiel/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b0f2a",
+  "theme_color": "#0b0f2a",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
