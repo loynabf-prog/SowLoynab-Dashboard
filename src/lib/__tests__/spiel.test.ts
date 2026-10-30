@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { LEVEL, XP, gebaeudeFuer, levelFuer, spielStand, streakVon, viewsXp, type SKunde, type SVideo } from '../spiel'
+import { LEVEL, XP, gebaeudeFuer, levelFuer, spielStand, streakVon, umsatzStand, viewsXp, type SKunde, type SVideo } from '../spiel'
 
 const k = (x: Partial<SKunde> & { id: string }): SKunde => ({
   name: x.id, client_type: 'zahlend', monthly_fee: 1000, monthly_quota: 10, active: true, pausiert_seit: null, logo_url: null, brand_color: null, ...x,
@@ -54,10 +54,16 @@ describe('spielStand', () => {
     expect(p.bezahlt).toBe(200)
     expect(p.kunden).toBe(1000)    // a hat gepostet, eigen zaehlt nicht
     expect(p.quests).toBe(500)
-    expect(s.xp).toBe(50 + 80 + 75 + 300 + 200 + 1000 + 500)
+    expect(p.umsatz).toBe(100)     // 1000 EUR bezahlt = 10 x 10 XP
+    expect(s.xp).toBe(50 + 80 + 75 + 300 + 200 + 100 + 1000 + 500)
     expect(s.level.name).toBe('Garage')
     expect(s.monate[0].key).toBe('2026-10')
     expect(s.monate.find((m) => m.key === '2026-09')?.umsatz).toBe(1000)
+    // Umsatz: Oktober hat keinen Plan -> Honorar des aktiven Kunden als Schaetzung
+    expect(s.umsatz.monat).toBe('2026-10')
+    expect(s.umsatz.proKunde[0]?.geschaetzt).toBe(true)
+    expect(s.umsatz.gesamtBezahlt).toBe(1000)
+    expect(s.umsatz.vormonat.gestellt).toBe(1000)
   })
   it('Hits ab 5 Videos und 2x Median', () => {
     const videos = [100, 100, 100, 100, 1000].map((views, i) => v({ id: 'v' + i, client_id: 'a', views }))
@@ -85,5 +91,26 @@ describe('Gebaeude', () => {
     expect(gross.fahne).toBe(true)
     expect(klein.fensterAn).toBe(2)
     expect(gross.kurz).toBe('G')
+  })
+})
+
+describe('umsatzStand', () => {
+  it('Monatsplan schlaegt Honorar, nicht-dabei zaehlt nicht, Meilensteine aus dem besten Monat', () => {
+    const u = umsatzStand(
+      [k({ id: 'a', monthly_fee: 1000 }), k({ id: 'b', monthly_fee: 800 }), k({ id: 'c', monthly_fee: 500, pausiert_seit: '2026-10-01' })],
+      [
+        { client_id: 'a', month_key: '2026-10', zahlstatus: 'bezahlt', betrag: 1500, quota: 10 },
+        { client_id: 'b', month_key: '2026-10', zahlstatus: 'offen', betrag: 0, quota: 0, dabei: false },
+        { client_id: 'a', month_key: '2026-09', zahlstatus: 'bezahlt', betrag: 2600, quota: 10 },
+      ],
+      '2026-10-30',
+    )
+    expect(u.gestellt).toBe(1500)        // b bewusst nicht dabei, c pausiert
+    expect(u.bezahlt).toBe(1500)
+    expect(u.gesamtBezahlt).toBe(4100)
+    expect(u.bester).toEqual({ key: '2026-09', betrag: 2600 })
+    expect(u.erreicht).toEqual([2500])
+    expect(u.naechster).toBe(2500)
+    expect(u.fortschritt).toBeCloseTo(0.6)
   })
 })

@@ -1,7 +1,7 @@
 {
-  "name": "Sow & Loynab — Die Stadt",
-  "short_name": "S&L Stadt",
-  "description": "Die Agentur als Stadt: Level, Quests, Bilanz — echte Arbeit, echte Punkte",
+  "name": "Sow & Loynab — Das Studio",
+  "short_name": "S&L Studio",
+  "description": "Das Studio der Agentur: Umsatz, Level, Quests — echte Arbeit, echte Punkte",
   "start_url": "/spiel/",
   "scope": "/spiel/",
   "display": "standalone",

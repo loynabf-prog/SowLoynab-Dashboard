@@ -1,23 +1,48 @@
 // Das Spiel -- eigene Web-App unter /spiel/. Gleiche Anmeldung wie das CRM,
-// gleiche Daten. Drei Reiter: Stadt, Quests, Bilanz.
+// gleiche Daten. Drei Reiter: Studio, Quests, Bilanz.
+//
+// Gesteuert wird nach Umsatz, Level und XP. Das Studio ist der Raum der
+// Agentur in 3D -- jedes Moebelstueck ein Knopf ins CRM.
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Flame, Trophy, Building2, ListChecks, BarChart3, Lock, Check, Plus, X, RefreshCw, Sparkles, ExternalLink, RotateCcw } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Flame, Trophy, Sofa, ListChecks, BarChart3, Lock, Check, Plus, X, RefreshCw, Sparkles, ExternalLink, RotateCcw, ArrowUpRight, Euro } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { celebrate } from '../lib/confetti'
-import { LEVEL, kurzZahl, monatName, type SQuest } from '../lib/spiel'
+import { AUSSTATTUNG, LEVEL, MEILENSTEINE, kurzZahl, monatName, type SQuest, type UmsatzStand } from '../lib/spiel'
 import type { Empfehlung } from '../lib/pilot'
 import { auftragXp, ladeSpiel, questAnlegen, questErledigen, questZurueck, type SpielDaten } from './daten'
-import Stadt from './Stadt'
+import Studio from './Studio'
 import './spiel.css'
 
-type Reiter = 'stadt' | 'quests' | 'bilanz'
+type Reiter = 'studio' | 'quests' | 'bilanz'
+
+const euro = (v: number) => `${Math.round(v).toLocaleString('de-DE')} €`
+
+/** Zahl, die hochzaehlt, wenn sie sich aendert. */
+function useZaehler(ziel: number, dauer = 1100): number {
+  const [wert, setWert] = useState(ziel)
+  const von = useRef(ziel)
+  useEffect(() => {
+    const start = performance.now(), a = von.current
+    if (a === ziel) return
+    let raf = 0
+    const tick = (t: number) => {
+      const x = Math.min(1, (t - start) / dauer), e = 1 - Math.pow(1 - x, 3)
+      setWert(a + (ziel - a) * e)
+      if (x < 1) raf = requestAnimationFrame(tick); else von.current = ziel
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [ziel, dauer])
+  return wert
+}
 
 export default function SpielApp() {
   const [angemeldet, setAngemeldet] = useState<boolean | null>(null)
   const [daten, setDaten] = useState<SpielDaten | null>(null)
   const [fehler, setFehler] = useState<string | null>(null)
-  const [reiter, setReiter] = useState<Reiter>('stadt')
+  const [reiter, setReiter] = useState<Reiter>('studio')
+  const [gewaehlt, setGewaehlt] = useState<string | null>(() => new URLSearchParams(location.search).get('stueck'))
   const [meldung, setMeldung] = useState<string | null>(null)
   const [nacht, setNacht] = useState(() => { const h = new Date().getHours(); return h >= 18 || h < 7 })
 
@@ -38,7 +63,7 @@ export default function SpielApp() {
     return (
       <div className="sp-login">
         <div className="sp-logo">S&amp;L</div>
-        <h1>Die Stadt</h1>
+        <h1>Das Studio</h1>
         <p>Melde dich einmal im CRM an — dann bist du auch hier drin.</p>
         <a className="sp-knopf" href="/">Zum CRM</a>
       </div>
@@ -65,17 +90,26 @@ export default function SpielApp() {
       <div className="sp-xp"><i style={{ width: `${(s?.fortschritt ?? 0) * 100}%` }} /></div>
 
       {fehler && <p className="sp-fehler">{fehler}</p>}
-      {!daten && !fehler && <div className="sp-lade">Baue die Stadt …</div>}
+      {!daten && !fehler && <div className="sp-lade">Schließe das Studio auf …</div>}
 
-      {daten && reiter === 'stadt' && (
-        <main className="sp-inhalt">
-          <Stadt gebaeude={daten.gebaeude} level={daten.stand.level} nacht={nacht} />
+      {daten && reiter === 'studio' && (
+        <main className="sp-inhalt sp-studio">
+          <div className="st-rahmen">
+            <Umsatzband u={daten.stand.umsatz} />
+            <Studio
+              level={daten.stand.level} nacht={nacht} leben={daten.leben} hits={daten.stand.hits.length}
+              offeneQuests={daten.stand.quests.filter((q) => q.status === 'offen' && !q.gesperrt).length}
+              gewaehlt={gewaehlt} onWaehlen={setGewaehlt}
+            />
+            <StueckKarte schluessel={gewaehlt} levelNr={daten.stand.level.nr} onZu={() => setGewaehlt(null)} onReiter={(r) => { setGewaehlt(null); setReiter(r) }} />
+          </div>
           <section className="sp-karte sp-hqkarte">
-            <div className="sp-karte-kopf"><Building2 strokeWidth={2.2} /><strong>Sow &amp; Loynab · {daten.stand.level.name}</strong></div>
+            <div className="sp-karte-kopf"><Sofa strokeWidth={2.2} /><strong>Sow &amp; Loynab · {daten.stand.level.name}</strong></div>
             <p>{daten.stand.level.satz}</p>
             {daten.stand.naechstes && (
               <p className="sp-naechstes">Nächstes Level <strong>{daten.stand.naechstes.name}</strong> bei {daten.stand.naechstes.ab.toLocaleString('de-DE')} XP
-                {daten.stand.naechstes.schaltetFrei ? <> — schaltet frei: <strong>{daten.stand.naechstes.schaltetFrei}</strong></> : null}</p>
+                {daten.stand.naechstes.schaltetFrei ? <> — schaltet frei: <strong>{daten.stand.naechstes.schaltetFrei}</strong></> : null}
+                {' '}· neu im Studio: <strong>{AUSSTATTUNG.filter((x) => x.abLevel === daten.stand.naechstes!.nr).map((x) => x.name).join(', ') || '—'}</strong></p>
             )}
           </section>
           <Auftraege liste={daten.auftraege} />
@@ -89,7 +123,7 @@ export default function SpielApp() {
       {daten && reiter === 'bilanz' && <Bilanz d={daten} />}
 
       <nav className="sp-tabs">
-        <button className={reiter === 'stadt' ? 'an' : ''} onClick={() => setReiter('stadt')}><Building2 strokeWidth={2.2} /><span>Stadt</span></button>
+        <button className={reiter === 'studio' ? 'an' : ''} onClick={() => setReiter('studio')}><Sofa strokeWidth={2.2} /><span>Studio</span></button>
         <button className={reiter === 'quests' ? 'an' : ''} onClick={() => setReiter('quests')}><ListChecks strokeWidth={2.2} /><span>Quests</span>{s && s.quests.some((q) => q.status === 'offen' && !q.gesperrt) && <i />}</button>
         <button className={reiter === 'bilanz' ? 'an' : ''} onClick={() => setReiter('bilanz')}><BarChart3 strokeWidth={2.2} /><span>Bilanz</span></button>
       </nav>
@@ -98,11 +132,52 @@ export default function SpielApp() {
   )
 }
 
+// ---------------------------------------------------------- Umsatzband
+function Umsatzband({ u }: { u: UmsatzStand }) {
+  const gestellt = useZaehler(u.gestellt)
+  const bezahlt = useZaehler(u.bezahlt)
+  return (
+    <div className="st-umsatz">
+      <div className="st-umsatz-zeile">
+        <span className="st-umsatz-monat">{monatName(u.monat)}</span>
+        <strong className="st-umsatz-zahl">{euro(gestellt)}</strong>
+      </div>
+      <div className="st-umsatz-balken"><i style={{ width: `${Math.round(u.fortschritt * 100)}%` }} /></div>
+      <div className="st-umsatz-unten">
+        <span><b>{euro(bezahlt)}</b> bezahlt{u.offen > 0 ? <> · <b>{euro(u.offen)}</b> offen</> : null}</span>
+        <span>{u.naechster ? <>nächstes Ziel <b>{euro(u.naechster)}</b></> : <>alle Ziele erreicht</>}</span>
+      </div>
+    </div>
+  )
+}
+
+// -------------------------------------------------------- Stück-Karte
+function StueckKarte({ schluessel, levelNr, onZu, onReiter }: { schluessel: string | null; levelNr: number; onZu: () => void; onReiter: (r: Reiter) => void }) {
+  const a = AUSSTATTUNG.find((x) => x.key === schluessel)
+  if (!a) return null
+  const gesperrt = a.abLevel > levelNr
+  const level = LEVEL[a.abLevel]
+  const ziel = a.ziel
+  return (
+    <div className="st-karte">
+      <div className="st-karte-text">
+        <strong>{a.name}</strong>
+        <p>{gesperrt ? `Kommt mit Level ${a.abLevel} · ${level?.name ?? ''}. ${a.tut}` : a.tut}</p>
+      </div>
+      {gesperrt ? <span className="sp-schloss"><Lock strokeWidth={2.2} /></span>
+        : ziel.art === 'crm'
+          ? <a className="st-los" href={ziel.pfad} target="_blank" rel="noopener">Öffnen <ArrowUpRight strokeWidth={2.4} /></a>
+          : <button className="st-los" onClick={() => onReiter(ziel.reiter)}>Ansehen <ArrowUpRight strokeWidth={2.4} /></button>}
+      <button className="st-zu" onClick={onZu} aria-label="Schließen"><X strokeWidth={2.2} /></button>
+    </div>
+  )
+}
+
 // ------------------------------------------------------------- Aufträge
 function Auftraege({ liste }: { liste: Empfehlung[] }) {
   const top = liste.filter((e) => e.art !== 'ideen').slice(0, 6)
   if (!top.length) return (
-    <section className="sp-karte"><div className="sp-karte-kopf"><Sparkles strokeWidth={2.2} /><strong>Heute</strong></div><p>Alles im Plan. Die Stadt wächst von selbst weiter.</p></section>
+    <section className="sp-karte"><div className="sp-karte-kopf"><Sparkles strokeWidth={2.2} /><strong>Heute</strong></div><p>Alles im Plan. Das Studio läuft von allein.</p></section>
   )
   return (
     <section className="sp-karte">
@@ -229,8 +304,32 @@ function Bilanz({ d }: { d: SpielDaten }) {
   const s = d.stand
   const [offenMonat, setOffenMonat] = useState<string | null>(null)
   const monate = useMemo(() => s.monate.slice(0, 12), [s.monate])
+  const u = s.umsatz
   return (
     <main className="sp-inhalt">
+      <section className="sp-karte sp-umsatzkarte">
+        <div className="sp-karte-kopf"><Euro strokeWidth={2.2} /><strong>Umsatz · {monatName(u.monat)}</strong></div>
+        <div className="sp-umsatz-gross">{euro(u.gestellt)}</div>
+        <div className="sp-umsatz-klein">
+          <span><b>{euro(u.bezahlt)}</b> bezahlt</span>
+          <span><b>{euro(u.offen)}</b> offen</span>
+          <span>Vormonat <b>{euro(u.vormonat.gestellt)}</b></span>
+          <span>Bisher bezahlt <b>{euro(u.gesamtBezahlt)}</b></span>
+        </div>
+        <ul className="sp-posten">
+          {u.proKunde.map((k) => (
+            <li key={k.id}><span>{k.name}<small>{k.geschaetzt ? 'ohne Monatsplan · Honorar angenommen' : k.zahlstatus === 'bezahlt' ? 'bezahlt' : k.zahlstatus === 'rechnung' ? 'Rechnung raus' : 'offen'}</small></span><strong className={k.zahlstatus === 'bezahlt' ? 'gruen' : ''}>{euro(k.betrag)}</strong></li>
+          ))}
+          {u.proKunde.length === 0 && <li className="leer">Noch kein Umsatz in diesem Monat eingetragen.</li>}
+        </ul>
+        <div className="sp-meilensteine">
+          {MEILENSTEINE.map((m) => (
+            <span key={m} className={u.erreicht.includes(m) ? 'da' : m === u.naechster ? 'naechster' : ''}>{m >= 1000 ? `${m / 1000}k` : m}</span>
+          ))}
+        </div>
+        <p className="sp-fuss">Ziele sind Monatsumsatz (gestellt). Grün = schon mal erreicht, Orange = das nächste.</p>
+      </section>
+
       <section className="sp-karte">
         <div className="sp-karte-kopf"><Trophy strokeWidth={2.2} /><strong>{s.xp.toLocaleString('de-DE')} XP · woher</strong></div>
         <ul className="sp-posten">
@@ -266,7 +365,7 @@ function Bilanz({ d }: { d: SpielDaten }) {
             <div className="sp-monat-zahlen">
               <span><b>{m.videos}</b> Videos{m.rekordVideos ? ' 🏆' : ''}</span>
               <span><b>{kurzZahl(m.views)}</b> Views{m.rekordViews ? ' 🏆' : ''}</span>
-              {m.umsatz > 0 && <span><b>{Math.round(m.umsatz).toLocaleString('de-DE')} €</b> bezahlt</span>}
+              {m.umsatz > 0 && <span><b>{euro(m.umsatz)}</b> bezahlt</span>}
               {m.gruen > 0 && <span><b>{m.gruen}</b> ✓ Monate</span>}
             </div>
           </button>

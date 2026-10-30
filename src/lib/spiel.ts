@@ -19,9 +19,13 @@ export const XP = {
   hit: 150,                 // Video >= 2x so gut wie der typische Post des Kunden
   monatGruen: 300,          // Kontrollstempel steht auf dem Monatsende
   rechnungBezahlt: 200,     // Monat eines Kunden bezahlt
+  je100Euro: 10,            // ... und je 100 EUR, die bezahlt wurden (Umsatz zaehlt)
   neuerKunde: 1000,         // zahlender Kunde mit erstem geposteten Video
   streakWoche: 100,         // je volle Woche Posting-Streak (aktuell)
 } as const
+
+/** Umsatz-Meilensteine je Monat (gestellt), EUR. */
+export const MEILENSTEINE = [2_500, 5_000, 7_500, 10_000, 15_000, 20_000, 30_000, 50_000, 100_000]
 
 export interface Level { nr: number; name: string; ab: number; satz: string; schaltetFrei: string | null }
 
@@ -58,7 +62,36 @@ export interface SKunde {
 }
 
 export interface SKontrolle { client_id: string; month_key: string; geprueft_bis: string }
-export interface SPlan { client_id: string; month_key: string; zahlstatus: string | null; betrag: number | string | null; quota: number | null }
+export interface SPlan {
+  client_id: string
+  month_key: string
+  zahlstatus: string | null
+  betrag: number | string | null
+  quota: number | null
+  /** geplant | unsicher | fest | abgeschlossen */
+  status?: string | null
+  /** false = in diesem Monat bewusst nicht dabei */
+  dabei?: boolean | null
+}
+
+export interface UmsatzKunde { id: string; name: string; betrag: number; zahlstatus: string; geschaetzt: boolean }
+
+export interface UmsatzStand {
+  monat: string
+  /** Was diesen Monat in Rechnung geht (Monatsplan; ohne Plan: Honorar des aktiven Kunden) */
+  gestellt: number
+  bezahlt: number
+  offen: number
+  proKunde: UmsatzKunde[]
+  vormonat: { gestellt: number; bezahlt: number }
+  /** Alles, was je bezahlt wurde */
+  gesamtBezahlt: number
+  bester: { key: string; betrag: number } | null
+  naechster: number | null
+  /** 0..1 dieses Monats bis zum naechsten Meilenstein */
+  fortschritt: number
+  erreicht: number[]
+}
 export interface SQuest {
   id: string
   titel: string
@@ -110,7 +143,99 @@ export interface SpielStand {
   /** Quests, die auf diesem Level sichtbar sind (offen zuerst) */
   quests: (SQuest & { gesperrt: boolean })[]
   rekorde: { label: string; wert: string; wann: string }[]
+  umsatz: UmsatzStand
 }
+
+/** Umsatz: Monatsplaene sind die Wahrheit; fehlt ein Plan, zaehlt das Honorar des aktiven Kunden als Schaetzung. */
+export function umsatzStand(kunden: SKunde[], plaene: SPlan[], heute: string): UmsatzStand {
+  const monat = heute.slice(0, 7)
+  const vm = (() => { const d = new Date(heute + 'T12:00:00Z'); d.setUTCMonth(d.getUTCMonth() - 1); return d.toISOString().slice(0, 7) })()
+  const kundeVon = new Map(kunden.map((k) => [k.id, k]))
+
+  const fuerMonat = (key: string): UmsatzKunde[] => {
+    const aus: UmsatzKunde[] = []
+    const gesehen = new Set<string>()
+    for (const p of plaene) {
+      if (p.month_key !== key || !p.client_id) continue
+      gesehen.add(p.client_id)
+      if (p.dabei === false) continue
+      const betrag = n(p.betrag)
+      if (betrag <= 0) continue
+      aus.push({ id: p.client_id, name: kundeVon.get(p.client_id)?.name ?? '—', betrag, zahlstatus: p.zahlstatus ?? 'offen', geschaetzt: false })
+    }
+    // nur fuer den laufenden Monat schaetzen -- fruehere Monate ohne Plan waren wohl ohne Rechnung
+    if (key === monat) {
+      for (const k of kunden) {
+        if (gesehen.has(k.id) || !k.active || k.client_type !== 'zahlend' || k.pausiert_seit) continue
+        const fee = n(k.monthly_fee)
+        if (fee > 0) aus.push({ id: k.id, name: k.name, betrag: fee, zahlstatus: 'offen', geschaetzt: true })
+      }
+    }
+    return aus.sort((a, b) => b.betrag - a.betrag)
+  }
+
+  const dieser = fuerMonat(monat)
+  const gestellt = dieser.reduce((s, k) => s + k.betrag, 0)
+  const bezahlt = dieser.filter((k) => k.zahlstatus === 'bezahlt').reduce((s, k) => s + k.betrag, 0)
+  const vorher = fuerMonat(vm)
+
+  const jeMonat = new Map<string, number>()
+  let gesamtBezahlt = 0
+  for (const p of plaene) {
+    if (p.dabei === false || !p.client_id) continue
+    const b = n(p.betrag)
+    if (b <= 0) continue
+    jeMonat.set(p.month_key, (jeMonat.get(p.month_key) ?? 0) + b)
+    if (p.zahlstatus === 'bezahlt') gesamtBezahlt += b
+  }
+  jeMonat.set(monat, Math.max(jeMonat.get(monat) ?? 0, gestellt))
+  let bester: UmsatzStand['bester'] = null
+  for (const [key, betrag] of jeMonat) if (!bester || betrag > bester.betrag) bester = { key, betrag }
+
+  const hoechster = Math.max(0, ...jeMonat.values())
+  const erreicht = MEILENSTEINE.filter((m) => hoechster >= m)
+  const naechster = MEILENSTEINE.find((m) => m > gestellt) ?? null
+  const vorheriger = [...MEILENSTEINE].reverse().find((m) => m <= gestellt) ?? 0
+  const fortschritt = naechster ? Math.min(1, (gestellt - vorheriger) / (naechster - vorheriger)) : 1
+
+  return {
+    monat, gestellt, bezahlt, offen: gestellt - bezahlt, proKunde: dieser,
+    vormonat: { gestellt: vorher.reduce((s, k) => s + k.betrag, 0), bezahlt: vorher.filter((k) => k.zahlstatus === 'bezahlt').reduce((s, k) => s + k.betrag, 0) },
+    gesamtBezahlt, bester, naechster, fortschritt, erreicht,
+  }
+}
+
+// ----------------------------------------------------------- Das Studio
+// Jedes Moebelstueck ist ein Knopf ins CRM. Was dasteht, haengt vom Level ab:
+// gesperrte Stuecke stehen als Umriss im Raum, bis das Level erreicht ist.
+
+export type StudioZiel = { art: 'crm'; pfad: string } | { art: 'reiter'; reiter: 'quests' | 'bilanz' }
+
+export interface Ausstattung {
+  key: string
+  name: string
+  /** Was man damit im CRM macht -- ein Satz */
+  tut: string
+  abLevel: number
+  ziel: StudioZiel
+}
+
+export const AUSSTATTUNG: Ausstattung[] = [
+  { key: 'schreibtisch', name: 'Schreibtisch', tut: 'Der Pilot: was heute ansteht, bevor es brennt.', abLevel: 0, ziel: { art: 'crm', pfad: '/pilot' } },
+  { key: 'ofen', name: 'Backstube', tut: 'Was gerade geschnitten wird — und was fertig zum Posten ist.', abLevel: 0, ziel: { art: 'crm', pfad: '/ofen' } },
+  { key: 'kalender', name: 'Posting-Plan', tut: 'Welches Video wann rausgeht.', abLevel: 0, ziel: { art: 'crm', pfad: '/plan' } },
+  { key: 'pinnwand', name: 'Pinnwand', tut: 'Quests und Meilensteine der Agentur.', abLevel: 0, ziel: { art: 'reiter', reiter: 'quests' } },
+  { key: 'kundenwand', name: 'Kundenwand', tut: 'Alle Kunden, alle Akten.', abLevel: 1, ziel: { art: 'crm', pfad: '/kunden' } },
+  { key: 'aktenschrank', name: 'Aktenschrank', tut: 'Dokumente der Agentur: Gewerbeanmeldung, Verträge, Scans.', abLevel: 1, ziel: { art: 'crm', pfad: '/dokumente' } },
+  { key: 'pflanze', name: 'Monstera', tut: 'Steht einfach da. Wächst mit.', abLevel: 1, ziel: { art: 'crm', pfad: '/' } },
+  { key: 'kasse', name: 'Kasse', tut: 'Umsatz: gestellt, bezahlt, offen — und die Monate.', abLevel: 2, ziel: { art: 'reiter', reiter: 'bilanz' } },
+  { key: 'kaffee', name: 'Kaffeemaschine', tut: 'Der Kalender: Termine, Drehtage, Deadlines.', abLevel: 2, ziel: { art: 'crm', pfad: '/kalender' } },
+  { key: 'neon', name: 'Neon-Schild', tut: 'Die Personal Brand: eure eigenen Videos.', abLevel: 3, ziel: { art: 'crm', pfad: '/brand' } },
+  { key: 'pokale', name: 'Pokalregal', tut: 'Hits und Rekorde — Videos, die 2× besser liefen als sonst.', abLevel: 3, ziel: { art: 'reiter', reiter: 'bilanz' } },
+  { key: 'sofa', name: 'Lounge', tut: 'Das Team.', abLevel: 4, ziel: { art: 'crm', pfad: '/team' } },
+  { key: 'tisch2', name: 'Zweiter Schreibtisch', tut: 'Für den ersten Mitarbeiter.', abLevel: 4, ziel: { art: 'crm', pfad: '/team' } },
+  { key: 'konferenz', name: 'Konferenztisch', tut: 'Firma: Verträge, Zahlen, Einstellungen.', abLevel: 5, ziel: { art: 'crm', pfad: '/firma' } },
+]
 
 const n = (v: unknown): number => (typeof v === 'number' ? v : Number(v ?? 0)) || 0
 
@@ -206,8 +331,10 @@ export function spielStand(e: SpielEingang): SpielStand {
   posten.push({ key: 'gruen', label: 'Monate abgeschlossen', anzahl: gruene.length, xp: gruene.length * XP.monatGruen })
 
   // --- Rechnungen bezahlt ----------------------------------------------------
-  const bezahlt = e.plaene.filter((p) => p.zahlstatus === 'bezahlt')
+  const bezahlt = e.plaene.filter((p) => p.zahlstatus === 'bezahlt' && p.dabei !== false)
   posten.push({ key: 'bezahlt', label: 'Rechnungen bezahlt', anzahl: bezahlt.length, xp: bezahlt.length * XP.rechnungBezahlt })
+  const umsatz = umsatzStand(e.kunden, e.plaene, e.heute)
+  posten.push({ key: 'umsatz', label: 'Umsatz bezahlt (je 100 €)', anzahl: Math.round(umsatz.gesamtBezahlt), xp: Math.floor(umsatz.gesamtBezahlt / 100) * XP.je100Euro })
 
   // --- Kunden: zahlend mit mindestens einem Post ----------------------------
   const zahlend = e.kunden.filter((k) => k.client_type === 'zahlend' && gepostet.some((v) => v.client_id === k.id))
@@ -244,7 +371,7 @@ export function spielStand(e: SpielEingang): SpielStand {
   for (const p of e.plaene) {
     if (!p.client_id) continue
     const b = bilanz(p.month_key)
-    if (p.zahlstatus === 'bezahlt') { b.umsatz += n(p.betrag); b.xp += XP.rechnungBezahlt }
+    if (p.zahlstatus === 'bezahlt' && p.dabei !== false) { b.umsatz += n(p.betrag); b.xp += XP.rechnungBezahlt + Math.floor(n(p.betrag) / 100) * XP.je100Euro }
   }
   const monate = [...monatMap.values()].sort((a, b) => b.key.localeCompare(a.key))
   const maxViews = Math.max(0, ...monate.map((m) => m.views))
@@ -265,7 +392,9 @@ export function spielStand(e: SpielEingang): SpielStand {
   if (bm) rekorde.push({ label: 'Bester Monat', wert: `${kurzZahl(bm.views)} Views · ${bm.videos} Videos`, wann: bm.key })
   rekorde.push({ label: 'Längster Streak', wert: `${st.beste} ${st.beste === 1 ? 'Tag' : 'Tage'}`, wann: '' })
 
-  return { xp, level, naechstes, fortschritt, posten, streak: st.aktuell, streakBeste: st.beste, heuteGepostet: st.heute, hits, monate, quests, rekorde }
+  if (umsatz.bester) rekorde.push({ label: 'Bester Umsatz-Monat', wert: `${Math.round(umsatz.bester.betrag).toLocaleString('de-DE')} €`, wann: umsatz.bester.key })
+
+  return { xp, level, naechstes, fortschritt, posten, streak: st.aktuell, streakBeste: st.beste, heuteGepostet: st.heute, hits, monate, quests, rekorde, umsatz }
 }
 
 export function kurzZahl(v: number): string {
