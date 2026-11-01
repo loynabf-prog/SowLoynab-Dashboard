@@ -8,7 +8,8 @@
 //   genau eine Person   -> deren Spur (privat / eigener Termin)
 //   leer oder beide     -> Agentur (betrifft uns beide)
 //
-// Oben ein Monat mit farbigen Punkten je Spur, darunter die Tage ab dem
+// Farbe eines Termins = Kategorie (lib/kalender.ts), Spalte = wessen Termin.
+// Oben ein Monat mit farbigen Punkten je Kategorie, darunter die Tage ab dem
 // gewaehlten Tag mit drei Spalten nebeneinander. Leere Spalte = "frei".
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -19,12 +20,13 @@ import { useTeam } from '../context/TeamContext'
 import TerminModal from '../components/TerminModal'
 import type { CalEventRow } from '../lib/types'
 import { heute as heuteIso } from '../lib/datum'
+import { KATEGORIEN, farbeVon, kategorieVon } from '../lib/kalender'
 import '../styles/kalender.css'
 
 const MONATE = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember']
 const WT = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
 const AGENTUR = 'agentur'
-const AGENTUR_FARBE = '#ff6a1f'
+const SPUR_FARBE = '#1d1d1f'
 
 function iso(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -57,8 +59,9 @@ export default function Calendar() {
   const [modal, setModal] = useState<{ termin: CalEventRow | null; datum?: string; wer?: string[] } | null>(null)
 
   const spuren: Spur[] = useMemo(() => [
-    ...members.map((m) => ({ key: m.id, name: (m.name ?? '').split(' ')[0] || 'Person', farbe: m.color || '#8e8e93' })),
-    { key: AGENTUR, name: 'Agentur', farbe: AGENTUR_FARBE },
+    // Spalten neutral -- Farbe gehoert der Kategorie
+    ...members.map((m) => ({ key: m.id, name: (m.name ?? '').split(' ')[0] || 'Person', farbe: SPUR_FARBE })),
+    { key: AGENTUR, name: 'Agentur', farbe: SPUR_FARBE },
   ], [members])
   const personen = useMemo(() => members.map((m) => m.id), [members])
   const sichtbar = spuren.filter((s) => !aus.includes(s.key))
@@ -68,7 +71,7 @@ export default function Calendar() {
   const bisTag = [plus(rasterStart, 41), plus(tag, 14)].sort()[1]
   const laden = useCallback(async () => {
     const { data } = await supabase.from('events')
-      .select('id, title, kind, client_id, clients(name), starts_on, ends_on, starts_at, ends_at, member_ids, notes, deleted_at')
+      .select('id, title, kind, kategorie, client_id, clients(name), starts_on, ends_on, starts_at, ends_at, member_ids, notes, deleted_at')
       .is('deleted_at', null)
       .lte('starts_on', bisTag)
       .or(`ends_on.gte.${rasterStart},and(ends_on.is.null,starts_on.gte.${rasterStart})`)
@@ -129,7 +132,8 @@ export default function Calendar() {
         <div className="kal-raster">
           {WT.map((w) => <span key={w} className="kal-wt">{w}</span>)}
           {zellen.map((z) => {
-            const punkte = sichtbar.filter((s) => amTag(z, s.key).length > 0)
+            const farben = [...new Set(sichtbar.flatMap((s) => amTag(z, s.key)).map((e) => kategorieVon(e)))]
+            const punkte = KATEGORIEN.filter((k) => farben.includes(k.key)).slice(0, 4).map((k) => ({ key: k.key, farbe: k.farbe }))
             return (
               <button key={z} className={`kal-zelle ${z.slice(0, 7) !== monat ? 'fremd' : ''} ${z === heute ? 'heute' : ''} ${z === tag ? 'gewaehlt' : ''}`} onClick={() => waehlen(z)}>
                 <span className="kal-nr">{Number(z.slice(8))}</span>
@@ -162,7 +166,7 @@ export default function Calendar() {
                 return (
                   <div key={s.key} className="kal-spalte" onClick={(e) => { if (e.target === e.currentTarget) setModal({ termin: null, datum: t, wer: s.key === AGENTUR ? [] : [s.key] }) }}>
                     {liste.map((e) => (
-                      <button key={e.id} className="kal-termin" style={{ ['--f' as string]: s.farbe }} onClick={() => setModal({ termin: e })}>
+                      <button key={e.id} className="kal-termin" style={{ ['--f' as string]: farbeVon(e) }} onClick={() => setModal({ termin: e })}>
                         <small>{e.starts_at ? `${e.starts_at.slice(0, 5)}${e.ends_at ? '–' + e.ends_at.slice(0, 5) : ''}` : e.ends_on && e.ends_on !== e.starts_on ? 'mehrtägig' : 'ganztägig'}</small>
                         <strong>{e.title}</strong>
                         {e.clients?.name && <span>{e.clients.name}</span>}
@@ -176,6 +180,7 @@ export default function Calendar() {
           )
         })}
       </div>
+      <div className="kal-legende">{KATEGORIEN.map((k) => <span key={k.key}><i style={{ background: k.farbe }} />{k.name}</span>)}</div>
       <p className="kal-hinweis">Tipp auf eine leere Stelle = neuer Termin in dieser Spalte. Agentur-Termine betreffen euch beide.</p>
 
       {modal && (

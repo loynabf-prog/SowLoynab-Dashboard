@@ -225,6 +225,8 @@ export interface CalEventRow {
   ends_at: string | null
   /** Leer heisst "gilt fuer alle" -- der haeufigere Fall. */
   member_ids: string[]
+  /** Farbe/Art im Kalender (0072): kunde | sport | privat | ehrenamt | uni | arbeit | termin */
+  kategorie?: string | null
   notes: string | null
   deleted_at: string | null
   created_by: string | null

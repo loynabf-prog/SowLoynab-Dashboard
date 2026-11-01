@@ -8,18 +8,13 @@
 // man nichts tun muss.
 
 import { useEffect, useState } from 'react'
-import { Briefcase, Trophy, Users } from 'lucide-react'
 import Modal from './Modal'
 import { supabase } from '../lib/supabase'
 import { useTeam } from '../context/TeamContext'
 import type { CalEventRow, EventKind } from '../lib/types'
 import { heute } from '../lib/datum'
+import { KATEGORIEN, kategorieVon, type Kategorie } from '../lib/kalender'
 
-const ARTEN: { key: EventKind; icon: string; label: string; hinweis: string }[] = [
-  { key: 'termin', icon: '', label: 'Termin', hinweis: 'Gespräch, Kennenlernen, Abstimmung — alles ohne Kamera.' },
-  { key: 'arbeit', icon: '', label: 'Arbeitszeit', hinweis: 'Hauptjob, Schicht — da geht nichts anderes.' },
-  { key: 'spiel', icon: '', label: 'Spiel', hinweis: 'Spielplan, Training.' },
-]
 
 export default function TerminModal({
   termin,
@@ -55,6 +50,7 @@ export default function TerminModal({
   const [endZeit, setEndZeit] = useState(termin?.ends_at?.slice(0, 5) ?? '')
   const [wer, setWer] = useState<string[]>(termin?.member_ids ?? werVorgabe ?? [])
   const [notes, setNotes] = useState(termin?.notes ?? '')
+  const [kategorie, setKategorie] = useState<Kategorie>(() => kategorieVon({ kategorie: termin?.kategorie, kind: termin?.kind ?? artVorgabe, client_id: termin?.client_id ?? kunde?.id }))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -78,6 +74,7 @@ export default function TerminModal({
       member_ids: wer,
       notes: notes.trim() || null,
       client_id: clientId || null,
+      kategorie,
     }
     const { error: e1 } = termin
       ? await supabase.from('events').update(daten).eq('id', termin.id)
@@ -107,23 +104,20 @@ export default function TerminModal({
         {error && <div className="error-box">{error}</div>}
 
         <div>
-          <label>Art</label>
-          <div className="art-wahl">
-            {ARTEN.map((a) => (
+          <label>Kategorie</label>
+          <div className="wer-wahl">
+            {KATEGORIEN.map((k) => (
               <button
                 type="button"
-                key={a.key}
-                className={`art-btn ${kind === a.key ? 'on' : ''}`}
-                onClick={() => setKind(a.key)}
+                key={k.key}
+                className={`wer-btn ${kategorie === k.key ? 'on' : ''}`}
+                style={kategorie === k.key ? { background: k.farbe, borderColor: k.farbe, color: '#fff' } : { borderColor: k.farbe, color: k.farbe }}
+                onClick={() => { setKategorie(k.key); setKind(k.key === 'sport' ? 'spiel' : k.key === 'arbeit' ? 'arbeit' : 'termin') }}
               >
-                <span className="art-icon">{a.key === 'arbeit' ? <Briefcase size={18} /> : a.key === 'spiel' ? <Trophy size={18} /> : <Users size={18} />}</span>
-                <span className="art-name">{a.label}</span>
+                {k.name}
               </button>
             ))}
           </div>
-          <p className="muted" style={{ fontSize: 12, marginTop: 5 }}>
-            {ARTEN.find((a) => a.key === kind)?.hinweis}
-          </p>
         </div>
 
         <div>
