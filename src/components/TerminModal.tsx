@@ -22,6 +22,7 @@ export default function TerminModal({
   kunde,
   artVorgabe,
   werVorgabe,
+  zeitVorgabe,
   userId,
   onClose,
   onSaved,
@@ -34,6 +35,8 @@ export default function TerminModal({
   artVorgabe?: EventKind
   /** Vorbelegt "fuer wen" (Tipp in eine Kalenderspalte): [] = Agentur. */
   werVorgabe?: string[]
+  /** Vorbelegte Uhrzeit (Tipp in die Zeitleiste), "HH:MM". */
+  zeitVorgabe?: string
   userId: string | null
   onClose: () => void
   onSaved: () => void
@@ -46,8 +49,8 @@ export default function TerminModal({
   const [kind, setKind] = useState<EventKind>(termin?.kind === 'dreh' ? 'termin' : (termin?.kind ?? artVorgabe ?? 'termin'))
   const [von, setVon] = useState(termin?.starts_on ?? datum ?? heute())
   const [bis, setBis] = useState(termin?.ends_on ?? '')
-  const [startZeit, setStartZeit] = useState(termin?.starts_at?.slice(0, 5) ?? '')
-  const [endZeit, setEndZeit] = useState(termin?.ends_at?.slice(0, 5) ?? '')
+  const [startZeit, setStartZeit] = useState(termin?.starts_at?.slice(0, 5) ?? zeitVorgabe ?? '')
+  const [endZeit, setEndZeit] = useState(termin?.ends_at?.slice(0, 5) ?? (zeitVorgabe ? `${String(Number(zeitVorgabe.slice(0, 2)) + 1).padStart(2, '0')}${zeitVorgabe.slice(2)}` : ''))
   const [wer, setWer] = useState<string[]>(termin?.member_ids ?? werVorgabe ?? [])
   const [notes, setNotes] = useState(termin?.notes ?? '')
   const [kategorie, setKategorie] = useState<Kategorie>(() => kategorieVon({ kategorie: termin?.kategorie, kind: termin?.kind ?? artVorgabe, client_id: termin?.client_id ?? kunde?.id }))

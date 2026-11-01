@@ -53,10 +53,10 @@ export default function Calendar() {
   const { members } = useTeam()
   const heute = heuteIso()
   const [monat, setMonat] = useState(() => heute.slice(0, 7))
-  const [tag, setTag] = useState(heute)
+  const [tag, setTag] = useState(() => new URLSearchParams(location.search).get('tag') ?? heute)
   const [termine, setTermine] = useState<CalEventRow[]>([])
   const [aus, setAus] = useState<string[]>([])
-  const [modal, setModal] = useState<{ termin: CalEventRow | null; datum?: string; wer?: string[] } | null>(null)
+  const [modal, setModal] = useState<{ termin: CalEventRow | null; datum?: string; wer?: string[]; zeit?: string } | null>(null)
 
   const spuren: Spur[] = useMemo(() => [
     // Spalten neutral -- Farbe gehoert der Kategorie
@@ -100,7 +100,6 @@ export default function Calendar() {
   }
   function waehlen(t: string) { setTag(t); if (t.slice(0, 7) !== monat) setMonat(t.slice(0, 7)) }
 
-  const tage = useMemo(() => Array.from({ length: 7 }, (_, i) => plus(tag, i)), [tag])
 
   return (
     <div className="kal">
@@ -127,7 +126,10 @@ export default function Calendar() {
         <div className="kal-monat-kopf">
           <button onClick={() => monatWechseln(-1)} aria-label="Vorheriger Monat"><ChevronLeft /></button>
           <strong>{MONATE[m - 1]} {j}</strong>
-          <button onClick={() => monatWechseln(1)} aria-label="Nächster Monat"><ChevronRight /></button>
+          <span className="kal-monat-rechts">
+            {tag !== heute && <button className="kal-heute" onClick={() => waehlen(heute)}>Heute</button>}
+            <button onClick={() => monatWechseln(1)} aria-label="Nächster Monat"><ChevronRight /></button>
+          </span>
         </div>
         <div className="kal-raster">
           {WT.map((w) => <span key={w} className="kal-wt">{w}</span>)}
@@ -142,57 +144,111 @@ export default function Calendar() {
             )
           })}
         </div>
-        {tag !== heute && <button className="kal-heute" onClick={() => waehlen(heute)}>Heute</button>}
       </section>
 
-      {/* Die naechsten 7 Tage, drei Spuren nebeneinander */}
-      <div className="kal-tage" style={{ ['--spalten' as string]: sichtbar.length || 1 }}>
-        <div className="kal-tage-kopf">
-          <span />
-          {sichtbar.map((s) => <span key={s.key} style={{ color: s.farbe }}>{s.name}</span>)}
-        </div>
-        {tage.map((t) => {
-          const d = ausIso(t)
-          const alleFrei = sichtbar.every((s) => amTag(t, s.key).length === 0)
-          return (
-            <section key={t} className={`kal-tag ${t === heute ? 'heute' : ''}`}>
-              <div className="kal-tag-datum">
-                <strong>{WT[(d.getDay() + 6) % 7]}</strong>
-                <span>{d.getDate()}.{d.getMonth() + 1}.</span>
-                {alleFrei && <em>frei</em>}
-              </div>
-              {sichtbar.map((s) => {
-                const liste = amTag(t, s.key)
-                return (
-                  <div key={s.key} className="kal-spalte" onClick={(e) => { if (e.target === e.currentTarget) setModal({ termin: null, datum: t, wer: s.key === AGENTUR ? [] : [s.key] }) }}>
-                    {liste.map((e) => (
-                      <button key={e.id} className="kal-termin" style={{ ['--f' as string]: farbeVon(e) }} onClick={() => setModal({ termin: e })}>
-                        <small>{e.starts_at ? `${e.starts_at.slice(0, 5)}${e.ends_at ? '–' + e.ends_at.slice(0, 5) : ''}` : e.ends_on && e.ends_on !== e.starts_on ? 'mehrtägig' : 'ganztägig'}</small>
-                        <strong>{e.title}</strong>
-                        {e.clients?.name && <span>{e.clients.name}</span>}
-                      </button>
-                    ))}
-                    {liste.length === 0 && !alleFrei && <span className="kal-frei">frei</span>}
-                  </div>
-                )
-              })}
-            </section>
-          )
-        })}
-      </div>
+      {/* Der Tag: Zeitleiste 5-20 Uhr (Fassie, 01.11.2026). Agentur = volle
+          Breite, Fassie = linke Haelfte, Lion = rechte Haelfte. */}
+      <Tagesplan
+        tag={tag} heute={heute} termine={termine.filter((e) => liegtAn(e, tag))} personen={personen} spuren={spuren} sichtbar={sichtbar.map((s) => s.key)}
+        onTag={waehlen} onTermin={(e) => setModal({ termin: e })}
+        onNeu={(spur, zeit) => setModal({ termin: null, datum: tag, wer: spur === AGENTUR ? [] : [spur], zeit })}
+      />
       <div className="kal-legende">{KATEGORIEN.map((k) => <span key={k.key}><i style={{ background: k.farbe }} />{k.name}</span>)}</div>
-      <p className="kal-hinweis">Tipp auf eine leere Stelle = neuer Termin in dieser Spalte. Agentur-Termine betreffen euch beide.</p>
+      <p className="kal-hinweis">Volle Breite = Agentur (beide). Links = nur Fassie, rechts = nur Lion. Tipp auf eine freie Stelle = neuer Termin zu dieser Zeit.</p>
 
       {modal && (
         <TerminModal
           termin={modal.termin}
           datum={modal.datum}
           werVorgabe={modal.wer}
+          zeitVorgabe={modal.zeit}
           userId={session?.user?.id ?? null}
           onClose={() => setModal(null)}
           onSaved={() => { setModal(null); laden() }}
         />
       )}
     </div>
+  )
+}
+
+// ------------------------------------------------------------- Tagesplan
+const VON = 5, BIS = 20, STUNDE = 60 // px je Stunde
+
+function minuten(t: string | null | undefined): number | null {
+  if (!t) return null
+  const [h, m] = t.split(':').map(Number)
+  return h * 60 + (m || 0)
+}
+
+function Tagesplan({ tag, heute, termine, personen, spuren, sichtbar, onTag, onTermin, onNeu }: {
+  tag: string; heute: string; termine: CalEventRow[]; personen: string[]; spuren: Spur[]; sichtbar: string[]
+  onTag: (t: string) => void; onTermin: (e: CalEventRow) => void; onNeu: (spur: string, zeit: string) => void
+}) {
+  const [ganz, setGanz] = useState(false)
+  const von = ganz ? 0 : VON, bis = ganz ? 24 : BIS
+  const d = ausIso(tag)
+  const mitZeit = termine.filter((e) => e.starts_at && sichtbar.includes(spurVon(e.member_ids, personen)))
+  const ganztags = termine.filter((e) => !e.starts_at && sichtbar.includes(spurVon(e.member_ids, personen)))
+  const [ich, er] = personen
+  const lage = (e: CalEventRow): { left: string; right: string } => {
+    const s = spurVon(e.member_ids, personen)
+    if (s === AGENTUR) return { left: '0', right: '0' }
+    return s === ich ? { left: '0', right: '50%' } : s === er ? { left: '50%', right: '0' } : { left: '0', right: '0' }
+  }
+  // Was ausserhalb 5-20 liegt, aber heute dran ist
+  const ausserhalb = !ganz && mitZeit.some((e) => (minuten(e.starts_at)! < VON * 60) || ((minuten(e.ends_at) ?? minuten(e.starts_at)! + 60) > BIS * 60))
+  const jetzt = tag === heute ? new Date().getHours() * 60 + new Date().getMinutes() : null
+  const frei = mitZeit.length === 0 && ganztags.length === 0
+
+  function klick(ev: React.MouseEvent<HTMLDivElement>) {
+    if (ev.target !== ev.currentTarget) return
+    const r = ev.currentTarget.getBoundingClientRect()
+    const min = von * 60 + Math.floor(((ev.clientY - r.top) / STUNDE) * 60 / 30) * 30
+    const spur = personen.length >= 2 ? ((ev.clientX - r.left) / r.width < 0.5 ? ich : er) : AGENTUR
+    onNeu(spur, `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`)
+  }
+
+  return (
+    <section className="kal-tagplan">
+      <div className="kal-tagplan-kopf">
+        <button onClick={() => onTag(plus(tag, -1))} aria-label="Vortag"><ChevronLeft /></button>
+        <div className="kal-tagplan-titel">
+          <strong>{tag === heute ? 'Heute' : tag === plus(heute, 1) ? 'Morgen' : WT[(d.getDay() + 6) % 7]}</strong>
+          <span>{d.getDate()}. {MONATE[d.getMonth()]}{frei ? ' · frei' : ''}</span>
+        </div>
+        <button onClick={() => onTag(plus(tag, 1))} aria-label="Folgetag"><ChevronRight /></button>
+      </div>
+      {ganztags.length > 0 && (
+        <div className="kal-ganztags">
+          {ganztags.map((e) => <button key={e.id} style={{ ['--f' as string]: farbeVon(e) }} onClick={() => onTermin(e)}>{e.title}</button>)}
+        </div>
+      )}
+      <div className="kal-spalten-kopf">
+        {personen.length >= 2 ? <><span>{spuren.find((s) => s.key === ich)?.name}</span><span>{spuren.find((s) => s.key === er)?.name}</span></> : <span>Agentur</span>}
+      </div>
+      <div className="kal-zeit">
+        <div className="kal-stunden">
+          {Array.from({ length: bis - von + 1 }, (_, i) => <span key={i} style={{ top: i * STUNDE }}>{String(von + i).padStart(2, '0')}</span>)}
+        </div>
+        <div className="kal-raster-zeit" style={{ height: (bis - von) * STUNDE }} onClick={klick}>
+          {Array.from({ length: bis - von }, (_, i) => <i key={i} className="kal-linie" style={{ top: i * STUNDE }} />)}
+          <i className="kal-mitte" />
+          {jetzt != null && jetzt >= von * 60 && jetzt <= bis * 60 && <i className="kal-jetzt" style={{ top: ((jetzt - von * 60) / 60) * STUNDE }} />}
+          {mitZeit.map((e) => {
+            const a = Math.max(von * 60, minuten(e.starts_at)!)
+            const z = Math.min(bis * 60, minuten(e.ends_at) ?? minuten(e.starts_at)! + 60)
+            if (z <= a) return null
+            const top = ((a - von * 60) / 60) * STUNDE, hoehe = Math.max(22, ((z - a) / 60) * STUNDE - 2)
+            return (
+              <button key={e.id} className={`kal-block ${hoehe < 40 ? 'klein' : ''}`} style={{ top, height: hoehe, ...lage(e), ['--f' as string]: farbeVon(e) }} onClick={(ev) => { ev.stopPropagation(); onTermin(e) }}>
+                <strong>{e.title}</strong>
+                <small>{e.starts_at!.slice(0, 5)}{e.ends_at ? `–${e.ends_at.slice(0, 5)}` : ''}{e.clients?.name ? ` · ${e.clients.name}` : ''}</small>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+      <button className="kal-ganz" onClick={() => setGanz((g) => !g)}>{ganz ? 'Nur 5–20 Uhr' : ausserhalb ? 'Ganzer Tag (es gibt Termine außerhalb 5–20 Uhr)' : 'Ganzer Tag anzeigen'}</button>
+    </section>
   )
 }

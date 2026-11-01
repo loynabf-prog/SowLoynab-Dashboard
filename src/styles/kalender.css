@@ -10,7 +10,8 @@
 .kal-spur.an { color: #fff; }
 
 .kal-monat { position: relative; background: var(--bg-card); border-radius: 18px; padding: 12px 12px 10px; margin-bottom: 14px; }
-.kal-monat-kopf { display: flex; align-items: center; justify-content: space-between; padding: 0 2px 8px; }
+.kal-monat-kopf { display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 8px; padding: 0 2px 8px; }
+.kal-monat-kopf > strong { text-align: center; }
 .kal .kal-monat-kopf strong { font-size: 17px; font-weight: 650; color: var(--text); }
 .kal-monat-kopf button { width: 34px; height: 34px; border: none; border-radius: 50%; background: var(--fill-2); color: var(--text); display: grid; place-items: center; cursor: pointer; }
 .kal-monat-kopf button svg { width: 18px; height: 18px; }
@@ -24,7 +25,8 @@
 .kal-zelle.heute.gewaehlt .kal-nr { background: var(--akzent); color: #fff; }
 .kal-punkte { display: flex; gap: 3px; height: 6px; }
 .kal-punkte i { width: 6px; height: 6px; border-radius: 50%; }
-.kal-heute { position: absolute; top: 14px; right: 56px; border: none; border-radius: 999px; padding: 6px 11px; background: var(--akzent-soft); color: var(--akzent-tief); font: inherit; font-size: 13px; font-weight: 650; cursor: pointer; }
+.kal-monat-rechts { display: flex; align-items: center; gap: 6px; }
+.kal-monat-kopf .kal-heute { width: auto; height: auto; border-radius: 999px; border: none; border-radius: 999px; padding: 6px 11px; background: var(--akzent-soft); color: var(--akzent-tief); font: inherit; font-size: 13px; font-weight: 650; cursor: pointer; }
 
 .kal-tage { background: var(--bg-card); border-radius: 18px; overflow: hidden; }
 .kal-tage-kopf, .kal-tag { display: grid; grid-template-columns: 52px repeat(var(--spalten), minmax(0, 1fr)); }
@@ -56,3 +58,32 @@
 .kal-legende { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 12px 4px 0; font-size: 12.5px; color: var(--text-muted); }
 .kal-legende span { display: inline-flex; align-items: center; gap: 5px; }
 .kal-legende i { width: 9px; height: 9px; border-radius: 50%; }
+
+/* Tagesplan: Zeitleiste, Agentur volle Breite, Fassie links, Lion rechts */
+.kal-tagplan { background: var(--bg-card); border-radius: 18px; padding: 10px 12px 12px; }
+.kal-tagplan-kopf { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.kal-tagplan-kopf button { width: 34px; height: 34px; border: none; border-radius: 50%; background: var(--fill-2); color: var(--text); display: grid; place-items: center; cursor: pointer; }
+.kal-tagplan-kopf button svg { width: 18px; height: 18px; }
+.kal-tagplan-titel { text-align: center; }
+.kal .kal-tagplan-titel strong { display: block; font-size: 18px; font-weight: 700; color: var(--text); }
+.kal-tagplan-titel span { font-size: 13px; color: var(--text-muted); }
+.kal-ganztags { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px 44px; }
+.kal-ganztags button { border: none; border-radius: 8px; padding: 6px 10px; font: inherit; font-size: 13px; font-weight: 600; color: var(--text); background: color-mix(in srgb, var(--f) 16%, white); cursor: pointer; }
+.kal-spalten-kopf { display: grid; grid-template-columns: 1fr 1fr; margin: 0 0 4px 44px; font-size: 12.5px; font-weight: 700; color: var(--text-dim); }
+.kal-spalten-kopf span { text-align: center; }
+.kal-spalten-kopf span:only-child { grid-column: 1 / -1; }
+.kal-zeit { display: grid; grid-template-columns: 44px 1fr; }
+.kal-stunden { position: relative; }
+.kal-stunden span { position: absolute; right: 8px; transform: translateY(-50%); font-size: 11px; font-weight: 600; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.kal-raster-zeit { position: relative; border-left: 1px solid var(--sep); cursor: copy; }
+.kal-linie { position: absolute; left: 0; right: 0; border-top: 1px solid var(--sep); }
+.kal-mitte { position: absolute; top: 0; bottom: 0; left: 50%; border-left: 1px dashed var(--sep); }
+.kal-jetzt { position: absolute; left: -4px; right: 0; border-top: 2px solid var(--akzent); z-index: 3; }
+.kal-jetzt::before { content: ''; position: absolute; left: -4px; top: -5px; width: 8px; height: 8px; border-radius: 50%; background: var(--akzent); }
+.kal-block { position: absolute; z-index: 2; margin: 1px 3px; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 5px 8px; border: none; border-radius: 9px; text-align: left; font: inherit; cursor: pointer; overflow: hidden;
+  background: color-mix(in srgb, var(--f) 16%, white); border-left: 4px solid var(--f); }
+.kal .kal-block strong { font-size: 13.5px; font-weight: 650; color: var(--text); line-height: 1.2; }
+.kal-block small { font-size: 11.5px; font-weight: 600; color: var(--f); font-variant-numeric: tabular-nums; }
+.kal-block.klein { padding: 2px 8px; flex-direction: row; align-items: center; gap: 6px; }
+.kal-block.klein strong { font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kal-ganz { margin-top: 10px; width: 100%; border: none; border-radius: 10px; padding: 9px; background: var(--fill-2); color: var(--text-muted); font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; }
