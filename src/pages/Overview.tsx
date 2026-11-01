@@ -39,9 +39,8 @@ function gruss(): string {
   return 'Guten Abend'
 }
 
-const uhr = (iso: string | null): string | null => iso
-  ? new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' }).format(new Date(iso))
-  : null
+/** starts_at ist eine Uhrzeit ("09:00:00"), kein Zeitstempel. */
+const uhr = (t: string | null): string | null => (t ? t.slice(0, 5) : null)
 
 const kurz = (t: string | null | undefined): string | null => (t ? t.slice(0, 5) : null)
 

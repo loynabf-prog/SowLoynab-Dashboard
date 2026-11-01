@@ -1,0 +1,54 @@
+/* Gemeinsamer Kalender: Monat oben, sieben Tage mit drei Spuren darunter. */
+.kal { max-width: 860px; margin: 0 auto; }
+.kal-kopf { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 4px 0 14px; }
+.kal-kopf h1 { margin: 0; font-size: 34px; font-weight: 700; letter-spacing: -0.028em; }
+.kal-neu { display: inline-flex; align-items: center; gap: 5px; border: none; border-radius: 999px; padding: 9px 15px; background: var(--akzent); color: #fff; font: inherit; font-weight: 650; font-size: 15px; cursor: pointer; }
+.kal-neu svg { width: 17px; height: 17px; }
+
+.kal-spuren { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.kal-spur { border: 1.5px solid; border-radius: 999px; padding: 6px 14px; background: transparent; font: inherit; font-size: 14px; font-weight: 650; cursor: pointer; }
+.kal-spur.an { color: #fff; }
+
+.kal-monat { position: relative; background: var(--bg-card); border-radius: 18px; padding: 12px 12px 10px; margin-bottom: 14px; }
+.kal-monat-kopf { display: flex; align-items: center; justify-content: space-between; padding: 0 2px 8px; }
+.kal .kal-monat-kopf strong { font-size: 17px; font-weight: 650; color: var(--text); }
+.kal-monat-kopf button { width: 34px; height: 34px; border: none; border-radius: 50%; background: var(--fill-2); color: var(--text); display: grid; place-items: center; cursor: pointer; }
+.kal-monat-kopf button svg { width: 18px; height: 18px; }
+.kal-raster { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.kal-wt { text-align: center; font-size: 12px; font-weight: 600; color: var(--text-dim); padding: 2px 0 6px; }
+.kal-zelle { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 0 5px; border: none; border-radius: 10px; background: none; cursor: pointer; font: inherit; color: var(--text); min-height: 44px; }
+.kal-zelle.fremd { color: var(--text-dim); opacity: .55; }
+.kal-nr { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 15px; font-weight: 550; font-variant-numeric: tabular-nums; }
+.kal-zelle.heute .kal-nr { color: var(--akzent); font-weight: 750; }
+.kal-zelle.gewaehlt .kal-nr { background: var(--text); color: #fff; }
+.kal-zelle.heute.gewaehlt .kal-nr { background: var(--akzent); color: #fff; }
+.kal-punkte { display: flex; gap: 3px; height: 6px; }
+.kal-punkte i { width: 6px; height: 6px; border-radius: 50%; }
+.kal-heute { position: absolute; top: 14px; right: 56px; border: none; border-radius: 999px; padding: 6px 11px; background: var(--akzent-soft); color: var(--akzent-tief); font: inherit; font-size: 13px; font-weight: 650; cursor: pointer; }
+
+.kal-tage { background: var(--bg-card); border-radius: 18px; overflow: hidden; }
+.kal-tage-kopf, .kal-tag { display: grid; grid-template-columns: 52px repeat(var(--spalten), minmax(0, 1fr)); }
+.kal-tage-kopf { position: sticky; top: 0; z-index: 2; background: var(--bg-card); border-bottom: 1px solid var(--sep); }
+.kal-tage-kopf span { padding: 10px 6px; font-size: 13px; font-weight: 700; text-align: center; }
+.kal-tag + .kal-tag { border-top: 1px solid var(--sep); }
+.kal-tag.heute { background: rgba(255, 106, 31, .04); }
+.kal-tag-datum { display: flex; flex-direction: column; align-items: center; padding: 10px 0; gap: 1px; }
+.kal-tag-datum strong { font-size: 13px; font-weight: 700; color: var(--text-muted); }
+.kal .kal-tag-datum span { font-size: 15px; font-weight: 650; font-variant-numeric: tabular-nums; color: var(--text); }
+.kal .kal-tag.heute .kal-tag-datum strong, .kal .kal-tag.heute .kal-tag-datum span { color: var(--akzent); }
+.kal-tag-datum em { font-style: normal; font-size: 11px; font-weight: 650; color: #34c759; margin-top: 2px; }
+.kal-spalte { min-height: 58px; padding: 6px 4px; display: flex; flex-direction: column; gap: 4px; border-left: 1px solid var(--sep); cursor: copy; }
+.kal-frei { margin: auto; font-size: 12px; color: var(--text-dim); pointer-events: none; }
+.kal-termin { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; width: 100%; text-align: left; border: none; border-radius: 8px; padding: 6px 7px; cursor: pointer; font: inherit;
+  background: color-mix(in srgb, var(--f) 13%, white); color: var(--text); }
+.kal-termin small { font-size: 11px; font-weight: 650; color: var(--f); font-variant-numeric: tabular-nums; }
+.kal .kal-termin strong { color: var(--text); font-size: 13px; font-weight: 600; line-height: 1.25; overflow-wrap: break-word; hyphens: auto; }
+.kal-termin span { font-size: 11.5px; color: var(--text-muted); }
+.kal-hinweis { margin: 10px 4px 0; font-size: 12.5px; color: var(--text-dim); }
+
+@media (max-width: 420px) {
+  .kal-tage-kopf, .kal-tag { grid-template-columns: 42px repeat(var(--spalten), minmax(0, 1fr)); }
+  .kal-termin { padding: 5px; }
+  .kal .kal-termin strong { font-size: 12px; }
+  .kal .kal-tag-datum span { font-size: 13px; }
+}

@@ -46,7 +46,7 @@ export const BEREICHE: Bereich[] = [
       { to: '/', label: 'Heute', was: 'Dein Tag: was jetzt dran ist, abhaken und weiter', end: true, suche: ['start', 'übersicht', 'fokus'] },
       { to: '/pilot', label: 'Pilot', was: 'Das CRM denkt mit: was fehlt, bevor es brennt — je Kunde mit einem Knopf', suche: ['pilot', 'autopilot', 'empfehlung', 'vorschlag', 'prognose', 'lage', 'einplanen'] },
       { to: '/plan', label: 'Plan', was: 'Was wann rausgeht — die Seite, die der Kunde sieht', suche: ['posting', 'posts', 'kalender'] },
-      { to: '/kalender', label: 'Kalender', was: 'Alle Termine und Aufgaben auf einen Blick — Drehtage einfach als Termin eintragen', suche: ['termine', 'woche', 'drehtag'] },
+      { to: '/kalender', label: 'Kalender', was: 'Gemeinsamer Kalender: Fassie, Lion, Agentur — wer wann frei ist', suche: ['termine', 'woche', 'drehtag'] },
       { to: '/aufgaben', label: 'Aufgaben', was: 'Offene To-dos, Erinnerungen und wer was macht', suche: ['todo', 'erinnerung', 'tasks'] },
       { to: '/chat', label: 'Chat', was: 'Team-Chat mit Lion und Claude, Aufgaben direkt zuweisen', suche: ['nachrichten', 'anstupsen', 'claude'] },
     ] },

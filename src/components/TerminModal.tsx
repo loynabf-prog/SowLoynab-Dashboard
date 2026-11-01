@@ -26,6 +26,7 @@ export default function TerminModal({
   datum,
   kunde,
   artVorgabe,
+  werVorgabe,
   userId,
   onClose,
   onSaved,
@@ -36,6 +37,8 @@ export default function TerminModal({
   /** Vorbelegter Kunde, wenn man von einer Kundenseite kommt. */
   kunde?: { id: string; name: string }
   artVorgabe?: EventKind
+  /** Vorbelegt "fuer wen" (Tipp in eine Kalenderspalte): [] = Agentur. */
+  werVorgabe?: string[]
   userId: string | null
   onClose: () => void
   onSaved: () => void
@@ -50,7 +53,7 @@ export default function TerminModal({
   const [bis, setBis] = useState(termin?.ends_on ?? '')
   const [startZeit, setStartZeit] = useState(termin?.starts_at?.slice(0, 5) ?? '')
   const [endZeit, setEndZeit] = useState(termin?.ends_at?.slice(0, 5) ?? '')
-  const [wer, setWer] = useState<string[]>(termin?.member_ids ?? [])
+  const [wer, setWer] = useState<string[]>(termin?.member_ids ?? werVorgabe ?? [])
   const [notes, setNotes] = useState(termin?.notes ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -146,31 +149,35 @@ export default function TerminModal({
         {/* Für wen steht weit oben: das ist die Angabe, die entscheidet, wer
             es im Handy-Kalender sieht. */}
         <div>
-          <label>Für wen?</label>
+          <label>Wessen Termin?</label>
           <div className="wer-wahl">
+            {members.map((m) => {
+              const an = wer.length === 1 && wer[0] === m.id
+              return (
+                <button
+                  type="button"
+                  key={m.id}
+                  className={`wer-btn ${an ? 'on' : ''}`}
+                  style={an ? { background: m.color, borderColor: m.color, color: '#fff' } : undefined}
+                  onClick={() => setWer([m.id])}
+                >
+                  {(m.name ?? '').split(' ')[0]}
+                </button>
+              )
+            })}
             <button
               type="button"
-              className={`wer-btn ${wer.length === 0 ? 'on' : ''}`}
+              className={`wer-btn ${wer.length !== 1 ? 'on' : ''}`}
+              style={wer.length !== 1 ? { background: '#ff6a1f', borderColor: '#ff6a1f', color: '#fff' } : undefined}
               onClick={() => setWer([])}
             >
-              Für alle
+              Agentur
             </button>
-            {members.map((m) => (
-              <button
-                type="button"
-                key={m.id}
-                className={`wer-btn ${wer.includes(m.id) ? 'on' : ''}`}
-                style={wer.includes(m.id) ? { background: m.color, borderColor: m.color, color: '#fff' } : undefined}
-                onClick={() => setWer((w) => (w.includes(m.id) ? w.filter((x) => x !== m.id) : [...w, m.id]))}
-              >
-                {m.name}
-              </button>
-            ))}
           </div>
           <p className="muted" style={{ fontSize: 12, marginTop: 5 }}>
-            {wer.length === 0
-              ? 'Steht in beiden Handy-Kalendern.'
-              : `Steht nur im Kalender von ${members.filter((m) => wer.includes(m.id)).map((m) => m.name).join(' und ') || '—'}.`}
+            {wer.length === 1
+              ? `Privat / eigener Termin von ${members.find((m) => m.id === wer[0])?.name?.split(' ')[0] ?? '—'} — die Person ist da nicht frei.`
+              : 'Agentur-Termin — betrifft euch beide.'}
           </p>
         </div>
 

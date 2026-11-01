@@ -1,430 +1,193 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+// Kalender -- der gemeinsame Kalender von Fassie, Lion und der Agentur.
+// ---------------------------------------------------------------------------
+// Fassie (01.11.2026): "Einmal mit Lions Terminen, einmal mit meinen und dann
+// nochmal mit unseren, also Terminen fuer die Agentur. Damit wir immer
+// wissen, wann wir Zeit haben und wann nicht."
+//
+// Drei Spuren, aus member_ids abgeleitet (kein neues Feld noetig):
+//   genau eine Person   -> deren Spur (privat / eigener Termin)
+//   leer oder beide     -> Agentur (betrifft uns beide)
+//
+// Oben ein Monat mit farbigen Punkten je Spur, darunter die Tage ab dem
+// gewaehlten Tag mit drei Spalten nebeneinander. Leere Spalte = "frei".
+
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import { usePointerBoard } from '../lib/usePointerBoard'
-import { useCategories } from '../context/CategoryContext'
 import { useAuth } from '../context/AuthContext'
-import { useToast } from '../context/ToastContext'
-import Modal from '../components/Modal'
-import TaskModal from '../components/TaskModal'
-import LogoFrame from '../components/LogoFrame'
-import TerminModal from '../components/TerminModal'
 import { useTeam } from '../context/TeamContext'
+import TerminModal from '../components/TerminModal'
 import type { CalEventRow } from '../lib/types'
+import { heute as heuteIso } from '../lib/datum'
+import '../styles/kalender.css'
 
-type ViewMode = 'day' | '3day' | 'week' | 'month'
-type EventKind = 'post' | 'task' | 'followup' | 'termin'
-
-interface CalEvent {
-  id?: string
-  date: string // YYYY-MM-DD
-  time: string | null
-  kind: EventKind
-  title: string
-  sub?: string
-  to?: string
-  color?: string // Kategorie-Farbe (Aufgaben) bzw. Mitglieds-Farbe (Termine)
-  logo?: string | null // Kunden-Logo (Posts)
-  /** Nur bei Terminen: der Datensatz, damit das Fenster ihn bearbeiten kann. */
-  row?: CalEventRow
-}
-
-const MONTHS = [
-  'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
-  'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember',
-]
-const WEEKDAYS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
-const VIEWS: { key: ViewMode; label: string }[] = [
-  { key: 'day', label: 'Tag' },
-  { key: '3day', label: '3 Tage' },
-  { key: 'week', label: 'Woche' },
-  { key: 'month', label: 'Monat' },
-]
+const MONATE = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember']
+const WT = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
+const AGENTUR = 'agentur'
+const AGENTUR_FARBE = '#ff6a1f'
 
 function iso(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
-function addDays(d: Date, n: number): Date {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n)
-}
-function mondayOf(d: Date): Date {
-  return addDays(d, -((d.getDay() + 6) % 7))
+function ausIso(s: string): Date { return new Date(s + 'T12:00:00') }
+function plus(s: string, n: number): string { const d = ausIso(s); d.setDate(d.getDate() + n); return iso(d) }
+function montag(d: Date): Date { const x = new Date(d); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x }
+
+export interface Spur { key: string; name: string; farbe: string }
+
+/** Zu welcher Spur gehoert ein Termin? */
+export function spurVon(member_ids: string[] | null | undefined, personen: string[]): string {
+  const ids = (member_ids ?? []).filter((m) => personen.includes(m))
+  return ids.length === 1 ? ids[0] : AGENTUR
 }
 
-interface Option { id: string; name: string }
+/** Liegt der Termin an diesem Tag? (mehrtaegige Termine eingeschlossen) */
+export function liegtAn(t: Pick<CalEventRow, 'starts_on' | 'ends_on'>, tag: string): boolean {
+  return t.starts_on <= tag && (t.ends_on ?? t.starts_on) >= tag
+}
 
 export default function Calendar() {
-  const navigate = useNavigate()
-  const { byId } = useCategories()
+  const { session } = useAuth()
   const { members } = useTeam()
-  const [terminOffen, setTerminOffen] = useState<{ row: CalEventRow | null; datum?: string } | null>(null)
-  const { user } = useAuth()
-  const { toast } = useToast()
-  const today = new Date()
-  const [view, setView] = useState<ViewMode>(() => {
-    try { return (localStorage.getItem('cal-view') as ViewMode) || 'week' } catch { return 'week' }
-  })
-  const [anchor, setAnchor] = useState<Date>(today)
-  const [events, setEvents] = useState<CalEvent[]>([])
-  const [error, setError] = useState<string | null>(null)
-  const [dayOpen, setDayOpen] = useState<string | null>(null)   // Tagesübersicht (ISO)
-  const [addFor, setAddFor] = useState<string | null>(null)      // neue Aufgabe für Tag (ISO)
-  const [clientOpts, setClientOpts] = useState<Option[]>([])
-  const [leadOpts, setLeadOpts] = useState<Option[]>([])
-  const containerRef = useRef<HTMLDivElement>(null)
-  const touchX = useRef<number | null>(null)
+  const heute = heuteIso()
+  const [monat, setMonat] = useState(() => heute.slice(0, 7))
+  const [tag, setTag] = useState(heute)
+  const [termine, setTermine] = useState<CalEventRow[]>([])
+  const [aus, setAus] = useState<string[]>([])
+  const [modal, setModal] = useState<{ termin: CalEventRow | null; datum?: string; wer?: string[] } | null>(null)
 
+  const spuren: Spur[] = useMemo(() => [
+    ...members.map((m) => ({ key: m.id, name: (m.name ?? '').split(' ')[0] || 'Person', farbe: m.color || '#8e8e93' })),
+    { key: AGENTUR, name: 'Agentur', farbe: AGENTUR_FARBE },
+  ], [members])
+  const personen = useMemo(() => members.map((m) => m.id), [members])
+  const sichtbar = spuren.filter((s) => !aus.includes(s.key))
+
+  // Laden: Monatsraster (inkl. Raender) bis 14 Tage nach dem gewaehlten Tag
+  const rasterStart = iso(montag(ausIso(monat + '-01')))
+  const bisTag = [plus(rasterStart, 41), plus(tag, 14)].sort()[1]
+  const laden = useCallback(async () => {
+    const { data } = await supabase.from('events')
+      .select('id, title, kind, client_id, clients(name), starts_on, ends_on, starts_at, ends_at, member_ids, notes, deleted_at')
+      .is('deleted_at', null)
+      .lte('starts_on', bisTag)
+      .or(`ends_on.gte.${rasterStart},and(ends_on.is.null,starts_on.gte.${rasterStart})`)
+      .order('starts_on').order('starts_at', { nullsFirst: true })
+    setTermine((data ?? []) as unknown as CalEventRow[])
+  }, [rasterStart, bisTag])
+
+  useEffect(() => { laden() }, [laden])
   useEffect(() => {
-    supabase.from('clients').select('id, name').is('deleted_at', null).order('name').then(({ data }) => setClientOpts((data ?? []) as Option[]))
-    supabase.from('leads').select('id, name').is('deleted_at', null).order('name').then(({ data }) => setLeadOpts((data ?? []) as Option[]))
-  }, [])
+    const ch = supabase.channel('kalender-events')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, () => laden())
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [laden])
 
-  useEffect(() => {
-    try { localStorage.setItem('cal-view', view) } catch { /* Speicher gesperrt -> egal */ }
-  }, [view])
+  const amTag = useCallback((t: string, spur?: string) => termine
+    .filter((e) => liegtAn(e, t) && (!spur || spurVon(e.member_ids, personen) === spur))
+    .sort((a, b) => (a.starts_at ?? '').localeCompare(b.starts_at ?? '')), [termine, personen])
 
-  // Sichtbare Tage je Ansicht
-  const days = useMemo<Date[]>(() => {
-    if (view === 'day') return [anchor]
-    if (view === '3day') return [0, 1, 2].map((i) => addDays(anchor, i))
-    if (view === 'week') {
-      const mon = mondayOf(anchor)
-      return Array.from({ length: 7 }, (_, i) => addDays(mon, i))
-    }
-    // month: 6 Wochen ab Montag vor dem 1.
-    const first = new Date(anchor.getFullYear(), anchor.getMonth(), 1)
-    const start = mondayOf(first)
-    return Array.from({ length: 42 }, (_, i) => addDays(start, i))
-  }, [view, anchor])
-
-  const load = useCallback(async () => {
-    setError(null)
-    const from = iso(days[0])
-    const to = iso(days[days.length - 1])
-    const [vids, tasks, leads, termine] = await Promise.all([
-      supabase
-        .from('videos')
-        .select('*, clients(name, logo_url)')
-        .is('deleted_at', null)
-        .gte('scheduled_date', from)
-        .lte('scheduled_date', to),
-      supabase
-        .from('tasks')
-        .select('*, clients(name), leads(name)')
-        .eq('done', false)
-        .is('deleted_at', null)
-        .gte('due_date', from)
-        .lte('due_date', to),
-      supabase
-        .from('leads')
-        .select('id, name, next_followup')
-        .is('deleted_at', null)
-        .gte('next_followup', from)
-        .lte('next_followup', to),
-      // Termine: Arbeitszeiten, Spiele, alles was den Tag sonst belegt.
-      // Fehlt die Tabelle (Skript 0032), bleibt es einfach leer.
-      supabase
-        .from('events')
-        .select('*')
-        .is('deleted_at', null)
-        .lte('starts_on', to)
-        .gte('starts_on', addDays(new Date(from + 'T00:00:00'), -31).toISOString().slice(0, 10)),
-    ])
-    if (vids.error || tasks.error || leads.error) {
-      setError((vids.error || tasks.error || leads.error)!.message)
-      return
-    }
-    const ev: CalEvent[] = []
-    for (const v of (vids.data ?? []) as any[]) {
-      ev.push({ id: v.id, date: v.scheduled_date, time: v.scheduled_time ?? null, kind: 'post', title: v.title, sub: v.clients?.name, to: `/client/${v.client_id}`, logo: v.clients?.logo_url ?? null, color: byId(v.category)?.color })
-    }
-    for (const t of (tasks.data ?? []) as any[]) {
-      ev.push({ id: t.id, date: t.due_date, time: t.due_time ?? null, kind: 'task', title: t.title, sub: t.clients?.name || t.leads?.name, to: `/aufgaben?open=${t.id}`, color: byId(t.category)?.color })
-    }
-    for (const l of (leads.data ?? []) as any[]) {
-      ev.push({ date: l.next_followup, time: null, kind: 'followup', title: l.name, sub: 'Follow-up', to: '/leads' })
-    }
-    // Ein mehrtaegiger Termin steht an jedem seiner Tage -- sonst sieht man
-    // am Mittwoch nicht, dass der Urlaub noch laeuft.
-    const ICON: Record<string, string> = { arbeit: '', spiel: '', termin: '' }
-    for (const t of (termine.data ?? []) as any[]) {
-      const wer = Array.isArray(t.member_ids) ? t.member_ids : []
-      const farbe = wer.length === 1 ? members.find((m) => m.id === wer[0])?.color : undefined
-      const sub = wer.length === 0
-        ? 'alle'
-        : members.filter((m) => wer.includes(m.id)).map((m) => m.name).join(', ')
-      let tag = t.starts_on
-      const letzter = t.ends_on || t.starts_on
-      let schutz = 0
-      while (tag <= letzter && schutz++ < 400) {
-        if (tag >= from && tag <= to) {
-          ev.push({
-            id: t.id, date: tag, time: t.starts_at ? String(t.starts_at).slice(0, 5) : null,
-            kind: 'termin', title: `${ICON[t.kind] ?? ''} ${t.title}`, sub, color: farbe, row: t as CalEventRow,
-          })
-        }
-        tag = iso(addDays(new Date(tag + 'T00:00:00'), 1))
-      }
-    }
-    setEvents(ev)
-  }, [days, byId, members])
-
-  useEffect(() => { load() }, [load])
-
-  function eventsFor(dIso: string): CalEvent[] {
-    return events
-      .filter((e) => e.date === dIso)
-      .sort((a, b) => (a.time ?? '99').localeCompare(b.time ?? '99'))
+  // Monatsraster
+  const zellen = useMemo(() => Array.from({ length: 42 }, (_, i) => plus(rasterStart, i)), [rasterStart])
+  const [j, m] = monat.split('-').map(Number)
+  function monatWechseln(d: number) {
+    const x = new Date(j, m - 1 + d, 1)
+    setMonat(`${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}`)
   }
+  function waehlen(t: string) { setTag(t); if (t.slice(0, 7) !== monat) setMonat(t.slice(0, 7)) }
 
-  // Post per Drag auf einen anderen Tag verschieben
-  async function reschedule(videoId: string, dateIso: string) {
-    setEvents((prev) => prev.map((e) => (e.kind === 'post' && e.id === videoId ? { ...e, date: dateIso } : e)))
-    await supabase.from('videos').update({ scheduled_date: dateIso }).eq('id', videoId)
-  }
-  const { dragId, drop, startDrag } = usePointerBoard(reschedule)
-
-  function step(dir: number) {
-    if (view === 'day') setAnchor((a) => addDays(a, dir))
-    else if (view === '3day') setAnchor((a) => addDays(a, dir * 3))
-    else if (view === 'week') setAnchor((a) => addDays(a, dir * 7))
-    else setAnchor((a) => new Date(a.getFullYear(), a.getMonth() + dir, 1))
-  }
-
-  function toggleFullscreen() {
-    const el = containerRef.current
-    if (!el) return
-    if (document.fullscreenElement) document.exitFullscreen()
-    else el.requestFullscreen?.()
-  }
-
-  // Titel je Ansicht
-  const title = useMemo(() => {
-    if (view === 'month') return `${MONTHS[anchor.getMonth()]} ${anchor.getFullYear()}`
-    const a = days[0]
-    const b = days[days.length - 1]
-    if (view === 'day') return a.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long' })
-    const fmt = (d: Date) => d.toLocaleDateString('de-DE', { day: '2-digit', month: 'short' })
-    return `${fmt(a)} – ${fmt(b)}`
-  }, [view, anchor, days])
-
-  const todayIso = iso(today)
+  const tage = useMemo(() => Array.from({ length: 7 }, (_, i) => plus(tag, i)), [tag])
 
   return (
-    <div
-      ref={containerRef}
-      className="cal-wrap"
-      onTouchStart={(e) => {
-        // Wisch-Navigation nur, wenn nicht auf einem Termin/Griff gestartet
-        const t = e.target as HTMLElement
-        if (t.closest('[data-card], .vc-grip, .agenda-event, .cal-event')) { touchX.current = null; return }
-        touchX.current = e.touches[0].clientX
-      }}
-      onTouchEnd={(e) => {
-        if (touchX.current == null || dragId) return
-        const dx = e.changedTouches[0].clientX - touchX.current
-        if (Math.abs(dx) > 60) step(dx < 0 ? 1 : -1)
-        touchX.current = null
-      }}
-    >
-      <div className="page-head" style={{ marginBottom: 16 }}>
-        <div>
-          <h1>Kalender</h1>
-          <span className="sub">{title}</span>
-        </div>
-        <div className="spacer" />
-        <div className="seg cal-views">
-          {VIEWS.map((v) => (
-            <button
-              key={v.key}
-              className={`seg-btn ${view === v.key ? 'on' : ''}`}
-              onClick={() => setView(v.key)}
-            >
-              {v.label}
+    <div className="kal">
+      <div className="kal-kopf">
+        <h1>Kalender</h1>
+        <button className="kal-neu" onClick={() => setModal({ termin: null, datum: tag })}><Plus strokeWidth={2.6} /> Termin</button>
+      </div>
+
+      {/* Wer wird angezeigt */}
+      <div className="kal-spuren">
+        {spuren.map((s) => {
+          const an = !aus.includes(s.key)
+          return (
+            <button key={s.key} className={`kal-spur ${an ? 'an' : ''}`} style={an ? { background: s.farbe, borderColor: s.farbe } : { borderColor: s.farbe, color: s.farbe }}
+              onClick={() => setAus((a) => (a.includes(s.key) ? a.filter((x) => x !== s.key) : [...a, s.key]))}>
+              {s.name}
             </button>
-          ))}
-        </div>
+          )
+        })}
       </div>
 
-      <div className="cal-toolbar">
-        <button className="btn btn-sm" onClick={() => step(-1)} aria-label="zurück">←</button>
-        <button className="btn btn-sm btn-ghost" onClick={() => setAnchor(new Date())}>Heute</button>
-        <button className="btn btn-sm" onClick={() => step(1)} aria-label="weiter">→</button>
-        <div className="spacer" />
-        <div className="cal-legend">
-          <span><i className="dot post" /> Post</span>
-          <span><i className="dot task" /> Aufgabe</span>
-          <span><i className="dot followup" /> Follow-up</span>
+      {/* Monat */}
+      <section className="kal-monat">
+        <div className="kal-monat-kopf">
+          <button onClick={() => monatWechseln(-1)} aria-label="Vorheriger Monat"><ChevronLeft /></button>
+          <strong>{MONATE[m - 1]} {j}</strong>
+          <button onClick={() => monatWechseln(1)} aria-label="Nächster Monat"><ChevronRight /></button>
         </div>
-        <button className="btn btn-sm" onClick={() => setTerminOffen({ row: null })} title="Arbeitszeit, Spiel oder Termin eintragen">+ Termin</button>
-        <button className="btn btn-sm" onClick={toggleFullscreen} title="Vollbild / Tafel">Tafel</button>
-      </div>
-
-      {error && <div className="error-box" style={{ marginBottom: 16 }}>{error}</div>}
-
-      {view === 'month' ? (
-        <div className="cal-grid">
-          {WEEKDAYS.map((w) => (
-            <div className="cal-weekday" key={w}>{w}</div>
-          ))}
-          {days.map((d, i) => {
-            const dIso = iso(d)
-            const inMonth = d.getMonth() === anchor.getMonth()
-            const list = eventsFor(dIso)
+        <div className="kal-raster">
+          {WT.map((w) => <span key={w} className="kal-wt">{w}</span>)}
+          {zellen.map((z) => {
+            const punkte = sichtbar.filter((s) => amTag(z, s.key).length > 0)
             return (
-              <div className={`cal-cell clickable ${inMonth ? '' : 'muted-cell'} ${dIso === todayIso ? 'today' : ''}`} key={i} onClick={() => setDayOpen(dIso)}>
-                <div className="cal-daynum">{d.getDate()}</div>
-                <div className="cal-events">
-                  {list.map((e, j) => (
-                    <button key={j} className={`cal-event ${e.kind}`} style={e.color ? { borderLeft: `3px solid ${e.color}` } : undefined}
-                      onClick={(ev) => { ev.stopPropagation(); e.to && navigate(e.to) }} title={e.title}>
-                      {e.kind === 'post' && <PostLogo name={e.sub ?? ''} logo={e.logo ?? null} ring={e.color} xs />}
-                      <span className="cal-event-t">{e.title}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <button key={z} className={`kal-zelle ${z.slice(0, 7) !== monat ? 'fremd' : ''} ${z === heute ? 'heute' : ''} ${z === tag ? 'gewaehlt' : ''}`} onClick={() => waehlen(z)}>
+                <span className="kal-nr">{Number(z.slice(8))}</span>
+                <span className="kal-punkte">{punkte.map((s) => <i key={s.key} style={{ background: s.farbe }} />)}</span>
+              </button>
             )
           })}
         </div>
-      ) : (
-        <div className={`cal-agenda cols-${days.length}`}>
-          {days.map((d, i) => {
-            const dIso = iso(d)
-            const list = eventsFor(dIso)
-            const isToday = dIso === todayIso
-            return (
-              <div
-                className={`agenda-col ${isToday ? 'today' : ''} ${drop?.lane === dIso && dragId ? 'drop-active' : ''}`}
-                key={i}
-                data-lane={dIso}
-              >
-                <div className="agenda-head clickable" onClick={() => setDayOpen(dIso)} title="Tag öffnen">
-                  <span className="agenda-wd">{WEEKDAYS[(d.getDay() + 6) % 7]}</span>
-                  <span className="agenda-day">{d.getDate()}. {MONTHS[d.getMonth()].slice(0, 3)}</span>
-                  {isToday && <span className="agenda-today">Heute</span>}
-                  <span className="agenda-add" onClick={(e) => { e.stopPropagation(); setAddFor(dIso) }} title="Aufgabe für diesen Tag">+</span>
-                </div>
-                <div className="agenda-body">
-                  {list.length === 0 && <div className="col-empty">{dragId ? 'hierher' : '—'}</div>}
-                  {list.map((e, j) =>
-                    e.kind === 'post' && e.id ? (
-                      <div className={`agenda-event-wrap ${dragId === e.id ? 'ghost-source' : ''}`} key={e.id} data-card={e.id}>
-                        <span className="cal-grip" data-drag-handle onPointerDown={(ev) => startDrag(ev, e.id!, dIso)}>⠿</span>
-                        <button className={`agenda-event ${e.kind}`} onClick={() => e.to && navigate(e.to)}>
-                          <PostLogo name={e.sub ?? ''} logo={e.logo ?? null} ring={e.color} />
-                          <span className="ev-body">
-                            {e.time && <span className="ev-time">{e.time.slice(0, 5)}</span>}
-                            <span className="ev-title">{e.title}</span>
-                            {e.sub && <span className="ev-sub">{e.sub}</span>}
-                          </span>
-                        </button>
-                      </div>
-                    ) : (
-                      <button key={j} className={`agenda-event ${e.kind}`} style={e.color ? { borderLeftColor: e.color } : undefined} onClick={() => e.to && navigate(e.to)}>
-                        {e.time && <span className="ev-time">{e.time.slice(0, 5)}</span>}
-                        <span className="ev-title">{e.title}</span>
-                        {e.sub && <span className="ev-sub">{e.sub}</span>}
+        {tag !== heute && <button className="kal-heute" onClick={() => waehlen(heute)}>Heute</button>}
+      </section>
+
+      {/* Die naechsten 7 Tage, drei Spuren nebeneinander */}
+      <div className="kal-tage" style={{ ['--spalten' as string]: sichtbar.length || 1 }}>
+        <div className="kal-tage-kopf">
+          <span />
+          {sichtbar.map((s) => <span key={s.key} style={{ color: s.farbe }}>{s.name}</span>)}
+        </div>
+        {tage.map((t) => {
+          const d = ausIso(t)
+          const alleFrei = sichtbar.every((s) => amTag(t, s.key).length === 0)
+          return (
+            <section key={t} className={`kal-tag ${t === heute ? 'heute' : ''}`}>
+              <div className="kal-tag-datum">
+                <strong>{WT[(d.getDay() + 6) % 7]}</strong>
+                <span>{d.getDate()}.{d.getMonth() + 1}.</span>
+                {alleFrei && <em>frei</em>}
+              </div>
+              {sichtbar.map((s) => {
+                const liste = amTag(t, s.key)
+                return (
+                  <div key={s.key} className="kal-spalte" onClick={(e) => { if (e.target === e.currentTarget) setModal({ termin: null, datum: t, wer: s.key === AGENTUR ? [] : [s.key] }) }}>
+                    {liste.map((e) => (
+                      <button key={e.id} className="kal-termin" style={{ ['--f' as string]: s.farbe }} onClick={() => setModal({ termin: e })}>
+                        <small>{e.starts_at ? `${e.starts_at.slice(0, 5)}${e.ends_at ? '–' + e.ends_at.slice(0, 5) : ''}` : e.ends_on && e.ends_on !== e.starts_on ? 'mehrtägig' : 'ganztägig'}</small>
+                        <strong>{e.title}</strong>
+                        {e.clients?.name && <span>{e.clients.name}</span>}
                       </button>
-                    ),
-                  )}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
+                    ))}
+                    {liste.length === 0 && !alleFrei && <span className="kal-frei">frei</span>}
+                  </div>
+                )
+              })}
+            </section>
+          )
+        })}
+      </div>
+      <p className="kal-hinweis">Tipp auf eine leere Stelle = neuer Termin in dieser Spalte. Agentur-Termine betreffen euch beide.</p>
 
-      {dayOpen && (
-        <DayModal
-          dIso={dayOpen}
-          events={eventsFor(dayOpen)}
-          onClose={() => setDayOpen(null)}
-          onNavigate={(to) => { setDayOpen(null); navigate(to) }}
-          onAdd={() => { const d = dayOpen; setDayOpen(null); setAddFor(d) }}
-          onTermin={(row) => { setDayOpen(null); setTerminOffen({ row }) }}
-          onNeuerTermin={() => { const d = dayOpen; setDayOpen(null); setTerminOffen({ row: null, datum: d }) }}
-          color={(e) => e.color}
-        />
-      )}
-
-      {terminOffen && (
+      {modal && (
         <TerminModal
-          termin={terminOffen.row}
-          datum={terminOffen.datum}
-          userId={user?.id ?? null}
-          onClose={() => setTerminOffen(null)}
-          onSaved={() => { setTerminOffen(null); load(); toast('Gespeichert') }}
-        />
-      )}
-
-      {addFor && (
-        <TaskModal
-          task={null}
-          userId={user?.id ?? null}
-          clients={clientOpts}
-          leads={leadOpts}
-          defaults={{ due_date: addFor }}
-          onClose={() => setAddFor(null)}
-          onSaved={() => { setAddFor(null); load(); toast('Aufgabe angelegt') }}
+          termin={modal.termin}
+          datum={modal.datum}
+          werVorgabe={modal.wer}
+          userId={session?.user?.id ?? null}
+          onClose={() => setModal(null)}
+          onSaved={() => { setModal(null); laden() }}
         />
       )}
     </div>
-  )
-}
-
-// Kunden-Logo mit optionalem Kategorie-Ring (z. B. Rot = dringend)
-function PostLogo({ name, logo, ring, xs }: { name: string; logo: string | null; ring?: string; xs?: boolean }) {
-  return (
-    <span className={`post-logo ${xs ? 'xs' : ''}`} style={ring ? { boxShadow: `0 0 0 1px var(--bg-card), 0 0 0 3px ${ring}` } : undefined}>
-      <LogoFrame name={name} logoUrl={logo} className={xs ? 'cal-logo-xs' : 'cal-logo'} />
-    </span>
-  )
-}
-
-function DayModal({
-  dIso, events, onClose, onNavigate, onAdd, onTermin, onNeuerTermin, color,
-}: {
-  dIso: string
-  events: CalEvent[]
-  onClose: () => void
-  onNavigate: (to: string) => void
-  onAdd: () => void
-  onTermin: (row: CalEventRow) => void
-  onNeuerTermin: () => void
-  color: (e: CalEvent) => string | undefined
-}) {
-  const title = new Date(dIso + 'T00:00:00').toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })
-  const KIND: Record<EventKind, string> = { post: 'Post', task: 'Aufgabe', followup: 'Follow-up', termin: 'Termin' }
-  return (
-    <Modal title={title} onClose={onClose}>
-      <div className="stack">
-        {events.length === 0 ? (
-          <div className="col-empty">Nichts geplant an diesem Tag.</div>
-        ) : (
-          <div className="day-list">
-            {events.map((e, i) => (
-              <button
-                key={i}
-                className={`day-ev ${e.kind}`}
-                style={color(e) ? { borderLeftColor: color(e) } : undefined}
-                onClick={() => (e.row ? onTermin(e.row) : e.to && onNavigate(e.to))}
-              >
-                {e.kind === 'post' && <PostLogo name={e.sub ?? ''} logo={e.logo ?? null} ring={color(e)} />}
-                <span className="day-ev-kind">{e.time ? e.time.slice(0, 5) : KIND[e.kind]}</span>
-                <span className="day-ev-title">{e.title}</span>
-                {e.sub && <span className="day-ev-sub">{e.sub}</span>}
-              </button>
-            ))}
-          </div>
-        )}
-        <div className="modal-actions" style={{ flexWrap: 'wrap', gap: 8 }}>
-          <button type="button" className="btn btn-ghost" onClick={onClose}>Schließen</button>
-          <div className="spacer" />
-          <button type="button" className="btn btn-sm" onClick={onNeuerTermin}>+ Termin</button>
-          <button type="button" className="btn btn-sm btn-primary" onClick={onAdd}>+ Aufgabe</button>
-        </div>
-      </div>
-    </Modal>
   )
 }
