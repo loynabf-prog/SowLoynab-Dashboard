@@ -8,7 +8,7 @@
 // dort auch nur diese.
 
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
-import { Sun, CalendarDays, Plus, Search, Sparkles, CalendarRange, LayoutGrid, Flame, BarChart3 } from 'lucide-react'
+import { Sun, CalendarDays, Plus, Search, Sparkles, CalendarRange, LayoutGrid, Flame, Send } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useIdentity } from '../context/IdentityContext'
 import { useTeam } from '../context/TeamContext'
@@ -27,19 +27,19 @@ interface Ziel { to: string; label: string; icon: LucideIcon; end?: boolean; auc
 
 /**
  * Die fuenf Hauptziele (Fassie, 28.10.2026): so arbeiten wir wirklich --
- * Heute (was muss raus), Ofen (Schnitt), Kalender (Posting), Monat (Kunden,
- * Videoanzahl, alles antippbar), Analyse. Alles andere liegt unter "Mehr".
+ * Heute (was muss raus), Ofen (Schnitt), Plan (Posting), Kalender (wer wann
+ * frei ist, 01.11.2026), Monat. Analyse und alles andere liegt unter "Mehr".
  */
 const HAUPT: Ziel[] = [
   { to: '/', label: 'Heute', icon: Sun, end: true },
   { to: '/ofen', label: 'Ofen', icon: Flame },
-  { to: '/plan', label: 'Kalender', icon: CalendarDays, auch: ['/posting'] },
+  { to: '/plan', label: 'Plan', icon: Send, auch: ['/posting'] },
+  { to: '/kalender', label: 'Kalender', icon: CalendarDays },
   { to: '/monate', label: 'Monat', icon: CalendarRange, auch: ['/client', '/kunden'] },
-  { to: '/analyse', label: 'Analyse', icon: BarChart3, auch: ['/leistung'] },
 ]
 
 /** Am Desktop unter den Hauptzielen: nur das, was wir noch ab und zu brauchen. */
-const NEBEN = ['/kunden', '/lexikon', '/aufgaben']
+const NEBEN = ['/kunden', '/analyse', '/lexikon', '/aufgaben']
 
 function aktiv(z: Ziel, pfad: string): boolean {
   if (z.end) return pfad === z.to
