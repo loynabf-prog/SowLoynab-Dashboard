@@ -1,0 +1,36 @@
+/* Werkstatt: Videos aussuchen, im Chat schneiden. */
+.wk { max-width: 760px; margin: 0 auto; padding-bottom: 80px; }
+.wk-kopf { margin: 4px 0 14px; }
+.wk-kopf h1 { margin: 0; font-size: 34px; font-weight: 700; letter-spacing: -0.028em; color: var(--text); }
+.wk-kopf p { margin: 4px 0 0; font-size: 15px; color: var(--text-muted); }
+.wk-block { background: var(--bg-card); border-radius: 18px; margin-bottom: 12px; overflow: hidden; }
+.wk-block-kopf { display: flex; align-items: center; gap: 8px; padding: 14px 16px 10px; }
+.wk-block-kopf svg { width: 18px; height: 18px; color: var(--akzent); }
+.wk-block-kopf h2 { margin: 0; font-size: 17px; font-weight: 650; color: var(--text); }
+.wk-block-kopf span { margin-left: auto; font-size: 13px; color: var(--text-dim); }
+.wk-leer { padding: 10px 16px 18px; color: var(--text-dim); font-size: 14.5px; }
+.wk-kunde-kopf { display: flex; align-items: center; gap: 8px; padding: 10px 16px 4px; border-top: 1px solid var(--sep); }
+.wk .wk-kunde-kopf strong { font-size: 14px; font-weight: 650; color: var(--text); }
+.wk-kunde-kopf small { color: var(--text-dim); font-size: 12.5px; }
+.wk-liste { display: flex; flex-direction: column; }
+.wk-zeile { display: flex; align-items: center; gap: 10px; padding: 9px 12px 9px 14px; text-decoration: none; color: inherit; }
+.wk-zeile + .wk-zeile { border-top: 1px solid var(--sep); }
+.wk-zeile.an { background: var(--akzent-soft); }
+.wk-zeile.ohne .wk-text strong { color: var(--text-muted); }
+.wk-logo { width: 34px; height: 34px; border-radius: 9px; flex: none; }
+.wk-logo.klein { width: 24px !important; height: 24px !important; border-radius: 6px; }
+.wk-logo.klein .logo-fallback { font-size: 9px; }
+.wk-haken { flex: none; width: 34px; height: 34px; border: none; background: none; color: var(--text-dim); display: grid; place-items: center; cursor: pointer; padding: 0; }
+.wk-haken svg { width: 22px; height: 22px; }
+.wk-zeile.an .wk-haken { color: var(--akzent); }
+.wk-text { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; border: none; background: none; padding: 0; text-align: left; font: inherit; cursor: pointer; }
+.wk .wk-text strong { font-size: 15px; font-weight: 600; color: var(--text); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wk-text small { font-size: 12.5px; color: var(--text-muted); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wk-auf { flex: none; width: 32px; height: 32px; border: none; border-radius: 50%; background: none; color: var(--text-dim); display: grid; place-items: center; cursor: pointer; }
+.wk-auf svg { width: 16px; height: 16px; }
+.wk-chat { flex: none; display: inline-flex; align-items: center; gap: 5px; padding: 7px 12px; border-radius: 999px; background: var(--akzent); color: #fff; font-size: 13.5px; font-weight: 650; }
+.wk-chat svg { width: 15px; height: 15px; }
+.wk-leiste { position: fixed; left: 12px; right: 12px; bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 10px); z-index: 20; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 10px 10px 16px; border-radius: 16px; background: #1d1d1f; color: #fff; box-shadow: 0 12px 30px -10px rgba(0, 0, 0, .5); font-size: 14.5px; font-weight: 600; }
+@media (min-width: 900px) { .wk-leiste { left: 272px; bottom: 20px; max-width: 736px; } }
+.wk-los { display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: 999px; padding: 10px 16px; background: var(--akzent); color: #fff; font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; }
+.wk-los svg { width: 17px; height: 17px; }

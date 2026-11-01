@@ -8,11 +8,11 @@
 // dort auch nur diese.
 
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
-import { Sun, CalendarDays, Plus, Search, Sparkles, CalendarRange, LayoutGrid, Flame, Send } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
+import { Plus, Search, Sparkles, LayoutGrid } from 'lucide-react'
 import { useIdentity } from '../context/IdentityContext'
 import { useTeam } from '../context/TeamContext'
 import { HAUPT_PFADE, sichtbareBereiche } from '../lib/bereiche'
+import { RAEUME, raumVon } from '../lib/raeume'
 import { symbolVon } from '../lib/seitenSymbole'
 import AssistentButton from './AssistentButton'
 import NudgeCenter from './NudgeCenter'
@@ -23,28 +23,14 @@ import UpdatePrompt from './UpdatePrompt'
 import NutzungsMesser from './NutzungsMesser'
 import BetriebWahl from './BetriebWahl'
 
-interface Ziel { to: string; label: string; icon: LucideIcon; end?: boolean; auch?: string[] }
-
 /**
- * Die fuenf Hauptziele (Fassie, 28.10.2026): so arbeiten wir wirklich --
- * Heute (was muss raus), Ofen (Schnitt), Plan (Posting), Kalender (wer wann
- * frei ist, 01.11.2026), Monat. Analyse und alles andere liegt unter "Mehr".
+ * Die vier Raeume (Fassie, 01.11.2026): Heute, Kunden, Zahlen, Werkstatt.
+ * Unten in der Leiste und links in der Seitenleiste stehen nur die vier;
+ * jeder Raum hat oben seine Reiter (lib/raeume.ts).
  */
-const HAUPT: Ziel[] = [
-  { to: '/', label: 'Heute', icon: Sun, end: true },
-  { to: '/ofen', label: 'Videos', icon: Flame, auch: ['/videos'] },
-  { to: '/plan', label: 'Plan', icon: Send, auch: ['/posting'] },
-  { to: '/kalender', label: 'Kalender', icon: CalendarDays },
-  { to: '/monate', label: 'Monat', icon: CalendarRange, auch: ['/client', '/kunden'] },
-]
 
-/** Am Desktop unter den Hauptzielen: nur das, was wir noch ab und zu brauchen. */
-const NEBEN = ['/kunden', '/analyse', '/lexikon', '/aufgaben']
-
-function aktiv(z: Ziel, pfad: string): boolean {
-  if (z.end) return pfad === z.to
-  return [z.to, ...(z.auch ?? [])].some((p) => pfad === p || pfad.startsWith(p + '/'))
-}
+/** Am Desktop unter den Raeumen: nur das, was wir noch ab und zu brauchen. */
+const NEBEN = ['/aufgaben', '/team']
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { memberId } = useIdentity()
@@ -54,6 +40,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   const ich = memberId ? byId(memberId) : undefined
   const bereiche = sichtbareBereiche(ich?.bereiche)
+  const raum = raumVon(location.pathname)
   // Seitenleiste am Desktop: alles ausser den Hauptzielen, gruppiert nach Bereich.
   const neben = bereiche.flatMap((b) => b.seiten).filter((s) => NEBEN.includes(s.to) && !HAUPT_PFADE.includes(s.to))
   const gruppen = neben.length ? [{ titel: 'Mehr', seiten: neben }] : []
@@ -70,10 +57,17 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <aside className="n-seite" aria-label="Navigation">
         <Link to="/" className="n-marke"><i>S&amp;L</i>Sow &amp; Loynab</Link>
         <button className="n-seite-neu" onClick={neu}><Plus size={17} strokeWidth={2.4} />Neu</button>
-        {HAUPT.map((z) => (
-          <NavLink key={z.to} to={z.to} end={z.end} className={() => `n-seite-link ${aktiv(z, location.pathname) ? 'on' : ''}`}>
-            <z.icon strokeWidth={2} />{z.label}
-          </NavLink>
+        {RAEUME.map((r) => (
+          <div key={r.key} className={`n-seite-raum ${raum?.key === r.key ? 'on' : ''}`}>
+            <NavLink to={r.reiter[0].to} end={r.reiter[0].end} className={() => `n-seite-link ${raum?.key === r.key ? 'on' : ''}`}>
+              <r.icon strokeWidth={2} />{r.label}
+            </NavLink>
+            {raum?.key === r.key && r.reiter.length > 1 && (
+              <div className="n-seite-unter">
+                {r.reiter.map((x) => <NavLink key={x.to} to={x.to} end={x.end} className={({ isActive }) => (isActive ? 'on' : '')}>{x.label}</NavLink>)}
+              </div>
+            )}
+          </div>
         ))}
         {gruppen.map((g) => (
           <div key={g.titel}>
@@ -118,12 +112,25 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </header>
 
       <main className={`n-inhalt ${breit ? 'breit' : ''} ${chat ? 'chat' : ''}`}>
+        {raum && raum.reiter.length > 1 && !location.pathname.startsWith('/client/') && (
+          <nav className="n-segment n-raum-reiter" aria-label={raum.label}>
+            {raum.reiter.map((x) => <NavLink key={x.to} to={x.to} end={x.end} className={({ isActive }) => (isActive ? 'on' : '')}>{x.label}</NavLink>)}
+          </nav>
+        )}
         <div className="page" key={animKey}>{children}</div>
       </main>
 
       {/* Handy: fuenf gleich breite Spalten; "Neu" sitzt oben im Kopf */}
       <nav className="n-leiste" aria-label="Hauptnavigation">
-        {HAUPT.map((z) => <Tab key={z.to} z={z} pfad={location.pathname} />)}
+        {RAEUME.map((r) => {
+          const on = raum?.key === r.key
+          return (
+            <NavLink key={r.key} to={r.reiter[0].to} end={r.reiter[0].end} className={() => `n-tab ${on ? 'on' : ''}`} aria-current={on ? 'page' : undefined}>
+              <r.icon strokeWidth={on ? 2.3 : 1.9} />
+              <span>{r.label}</span>
+            </NavLink>
+          )
+        })}
       </nav>
 
       <AssistentButton />
@@ -133,15 +140,5 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <NutzungsMesser />
       <BetriebWahl />
     </div>
-  )
-}
-
-function Tab({ z, pfad }: { z: Ziel; pfad: string }) {
-  const on = aktiv(z, pfad)
-  return (
-    <NavLink to={z.to} end={z.end} className={() => `n-tab ${on ? 'on' : ''}`} aria-current={on ? 'page' : undefined}>
-      <z.icon strokeWidth={on ? 2.3 : 1.9} />
-      <span>{z.label}</span>
-    </NavLink>
   )
 }

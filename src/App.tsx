@@ -9,6 +9,8 @@ import Tasks from './pages/Tasks'
 import Calendar from './pages/Calendar'
 import Posting from './pages/Posting'
 import Ofen from './pages/Ofen'
+import Werkstatt from './pages/Werkstatt'
+import Umsatz from './pages/Umsatz'
 import Medien from './pages/Medien'
 import Finances from './pages/Finances'
 import Monate from './pages/Monate'
@@ -72,6 +74,8 @@ export default function App() {
         {/* Videos (frueher Backstube): Fertig -> Bereit zum Posten -> Gepostet */}
         <Route path="/ofen" element={<Ofen />} />
         <Route path="/videos" element={<Ofen />} />
+        <Route path="/werkstatt" element={<Werkstatt />} />
+        <Route path="/umsatz" element={<Umsatz />} />
         <Route path="/" element={<Overview />} />
         <Route path="/kunden" element={<Dashboard />} />
         <Route path="/brand" element={<PersonalBrand />} />

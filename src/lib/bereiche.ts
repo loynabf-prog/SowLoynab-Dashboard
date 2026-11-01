@@ -37,8 +37,8 @@ export interface Bereich {
   seiten: Seite[]
 }
 
-/** Die fuenf Hauptziele unten (01.11.2026): Heute, Ofen, Plan, Kalender, Monat. */
-export const HAUPT_PFADE = ['/', '/ofen', '/plan', '/kalender', '/monate']
+/** Was in den vier Raeumen (lib/raeume.ts) als Reiter steht -- "Mehr" zeigt es nicht nochmal. */
+export const HAUPT_PFADE = ['/', '/ofen', '/plan', '/kalender', '/kunden', '/leads', '/monate', '/dokumente', '/analyse', '/umsatz', '/werkstatt', '/lexikon']
 
 export const BEREICHE: Bereich[] = [
   { key: 'alltag', label: 'Alltag', zweck: 'Was heute und diese Woche dran ist',
@@ -52,6 +52,7 @@ export const BEREICHE: Bereich[] = [
     ] },
   { key: 'produktion', label: 'Produktion', zweck: 'Backstube, Videoideen und Formate',
     seiten: [
+      { to: '/werkstatt', label: 'Werkstatt', was: 'Videos aussuchen und im Chat mit Claude schneiden', suche: ['schneiden', 'schnitt', 'werkstatt', 'chat', 'produktion'] },
       { to: '/ofen', label: 'Videos', was: 'Fertige Videos übernehmen, bearbeiten, bereit zum Posten, gepostet', suche: ['ofen', 'schnittofen', 'pizza', 'warteschlange', 'schnitt', 'produktion', 'vorschau', 'freigabe', 'medien'] },
       { to: '/lexikon', label: 'Lexikon', was: 'Formate und Videoideen je Branche — für jeden Kunden etwas aussuchen', suche: ['lexikon', 'formate', 'ideen', 'branche', 'fahrschule'] },
       { to: '/inspirationen', label: 'Inspirationen', was: 'Gespeicherte Videos anderer als Vorlage für eigene Ideen', suche: ['ideen', 'referenz', 'vorlage'] },
@@ -73,6 +74,7 @@ export const BEREICHE: Bereich[] = [
   { key: 'analyse', label: 'Analyse', zweck: 'Zahlen der geposteten Videos',
     seiten: [
       { to: '/analyse', label: 'Analyse', was: 'Was bei unseren Videos funktioniert: Views, beste Zeiten, Top-Videos', reiter: 'analyse', suche: ['statistik', 'views', 'reichweite', 'zahlen'] },
+      { to: '/umsatz', label: 'Umsatz', was: 'Umsatz des Monats: gestellt, bezahlt, offen — und die Meilensteine', reiter: 'analyse', suche: ['umsatz', 'geld', 'einnahmen', 'meilenstein'] },
       { to: '/leistung', label: 'Leistung', was: 'Zahlen je Video nachtragen, wenn sie nicht automatisch kamen', reiter: 'analyse', suche: ['nachtragen', 'aufrufe', 'likes'] },
     ] },
   { key: 'team', label: 'Team', zweck: 'Wer gehört dazu, Postfach',

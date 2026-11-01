@@ -1400,3 +1400,11 @@ a.n-zeile { text-decoration: none; }
 .m-video-knopf { width: 100%; border: none; background: none; text-align: left; cursor: pointer; font: inherit; color: inherit; border-radius: 10px; padding: 6px 4px; }
 .m-video-knopf:hover { background: var(--bg-card-hover); }
 .m-video-knopf .n-chevron { margin-left: auto; width: 16px; height: 16px; }
+
+/* Die vier Raeume: Reiter oben im Inhalt, Unterpunkte in der Seitenleiste */
+.n-raum-reiter { margin: 2px 0 14px; }
+@media (min-width: 900px) { .n-raum-reiter { display: none; } }
+.n-seite-unter { display: flex; flex-direction: column; gap: 1px; margin: 2px 0 6px 30px; }
+.n-seite-unter a { padding: 6px 10px; border-radius: 8px; font-size: 13.5px; color: var(--text-muted); text-decoration: none; }
+.n-seite-unter a:hover { background: var(--bg-sunken); }
+.n-seite-unter a.on { color: var(--glut); font-weight: 600; }
