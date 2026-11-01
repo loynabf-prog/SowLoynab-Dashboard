@@ -87,3 +87,14 @@
 .kal-block.klein { padding: 2px 8px; flex-direction: row; align-items: center; gap: 6px; }
 .kal-block.klein strong { font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .kal-ganz { margin-top: 10px; width: 100%; border: none; border-radius: 10px; padding: 9px; background: var(--fill-2); color: var(--text-muted); font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; }
+
+/* kompakt (Startseite): kleinere Stunden, Blöcke einzeilig */
+.kal-tagplan.kompakt .kal-spalten-kopf { margin-left: 38px; font-size: 11.5px; }
+.kal-tagplan.kompakt .kal-zeit { grid-template-columns: 38px 1fr; }
+.kal-tagplan.kompakt .kal-stunden span { font-size: 10px; right: 6px; }
+.kal-tagplan.kompakt .kal-block { padding: 3px 7px; margin: 1px 2px; border-radius: 7px; border-left-width: 3px; flex-direction: row; align-items: flex-start; justify-content: flex-start; gap: 6px; }
+.kal-tagplan.kompakt .kal-block strong { font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.kal-tagplan.kompakt .kal-block small { font-size: 11px; white-space: nowrap; }
+.kal-tagplan.kompakt .kal-block.klein strong { font-size: 11.5px; }
+.kal-tagplan.kompakt .kal-ganztags { margin-left: 38px; }
+.kal-tagplan.kompakt .kal-ganz { margin-top: 8px; padding: 7px; font-size: 12.5px; }

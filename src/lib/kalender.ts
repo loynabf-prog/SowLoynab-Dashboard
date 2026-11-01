@@ -26,3 +26,27 @@ export function farbeVon(t: Parameters<typeof kategorieVon>[0]): string {
   const k = kategorieVon(t)
   return KATEGORIEN.find((x) => x.key === k)!.farbe
 }
+
+// ---------------------------------------------------------- Spuren & Tage
+export const AGENTUR = 'agentur'
+export const MONATE = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember']
+export const WT = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
+
+export interface Spur { key: string; name: string; farbe: string }
+
+/** Zu welcher Spur gehoert ein Termin? Genau eine Person = deren Spur, sonst Agentur. */
+export function spurVon(member_ids: string[] | null | undefined, personen: string[]): string {
+  const ids = (member_ids ?? []).filter((m) => personen.includes(m))
+  return ids.length === 1 ? ids[0] : AGENTUR
+}
+
+/** Liegt der Termin an diesem Tag? (mehrtaegige Termine eingeschlossen) */
+export function liegtAn(t: { starts_on: string; ends_on: string | null }, tag: string): boolean {
+  return t.starts_on <= tag && (t.ends_on ?? t.starts_on) >= tag
+}
+
+export function iso(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+export function ausIso(s: string): Date { return new Date(s + 'T12:00:00') }
+export function plus(s: string, n: number): string { const d = ausIso(s); d.setDate(d.getDate() + n); return iso(d) }

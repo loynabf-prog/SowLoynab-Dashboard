@@ -1,0 +1,94 @@
+// Tagesplan: ein Tag als Zeitleiste 5-20 Uhr. Agentur = volle Breite,
+// Fassie = links, Lion = rechts. Im Kalender gross mit Pfeilen, auf der
+// Startseite kompakt (kleinere Stunden, keine Pfeile).
+
+import { useState } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import type { CalEventRow } from '../lib/types'
+import { AGENTUR, MONATE, WT, ausIso, farbeVon, plus, spurVon, type Spur } from '../lib/kalender'
+
+const VON = 5, BIS = 20
+
+function minuten(t: string | null | undefined): number | null {
+  if (!t) return null
+  const [h, m] = t.split(':').map(Number)
+  return h * 60 + (m || 0)
+}
+
+export default function Tagesplan({ tag, heute, termine, personen, spuren, sichtbar, onTag, onTermin, onNeu, kompakt }: {
+  tag: string; heute: string; termine: CalEventRow[]; personen: string[]; spuren: Spur[]; sichtbar: string[]
+  onTag?: (t: string) => void; onTermin: (e: CalEventRow) => void; onNeu: (spur: string, zeit: string) => void
+  /** Startseite: kleiner, ohne Pfeile und ohne Ganzer-Tag-Knopf */
+  kompakt?: boolean
+}) {
+  const STUNDE = kompakt ? 26 : 60
+  const [ganz, setGanz] = useState(false)
+  const von = ganz ? 0 : VON, bis = ganz ? 24 : BIS
+  const d = ausIso(tag)
+  const mitZeit = termine.filter((e) => e.starts_at && sichtbar.includes(spurVon(e.member_ids, personen)))
+  const ganztags = termine.filter((e) => !e.starts_at && sichtbar.includes(spurVon(e.member_ids, personen)))
+  const [ich, er] = personen
+  const lage = (e: CalEventRow): { left: string; right: string } => {
+    const s = spurVon(e.member_ids, personen)
+    if (s === AGENTUR) return { left: '0', right: '0' }
+    return s === ich ? { left: '0', right: '50%' } : s === er ? { left: '50%', right: '0' } : { left: '0', right: '0' }
+  }
+  // Was ausserhalb 5-20 liegt, aber heute dran ist
+  const ausserhalb = !ganz && mitZeit.some((e) => (minuten(e.starts_at)! < VON * 60) || ((minuten(e.ends_at) ?? minuten(e.starts_at)! + 60) > BIS * 60))
+  const jetzt = tag === heute ? new Date().getHours() * 60 + new Date().getMinutes() : null
+  const frei = mitZeit.length === 0 && ganztags.length === 0
+
+  function klick(ev: React.MouseEvent<HTMLDivElement>) {
+    if (ev.target !== ev.currentTarget) return
+    const r = ev.currentTarget.getBoundingClientRect()
+    const min = von * 60 + Math.floor(((ev.clientY - r.top) / STUNDE) * 60 / 30) * 30
+    const spur = personen.length >= 2 ? ((ev.clientX - r.left) / r.width < 0.5 ? ich : er) : AGENTUR
+    onNeu(spur, `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`)
+  }
+
+  return (
+    <section className={`kal-tagplan ${kompakt ? 'kompakt' : ''}`}>
+      {!kompakt && onTag && (
+        <div className="kal-tagplan-kopf">
+          <button onClick={() => onTag(plus(tag, -1))} aria-label="Vortag"><ChevronLeft /></button>
+          <div className="kal-tagplan-titel">
+            <strong>{tag === heute ? 'Heute' : tag === plus(heute, 1) ? 'Morgen' : WT[(d.getDay() + 6) % 7]}</strong>
+            <span>{d.getDate()}. {MONATE[d.getMonth()]}{frei ? ' · frei' : ''}</span>
+          </div>
+          <button onClick={() => onTag(plus(tag, 1))} aria-label="Folgetag"><ChevronRight /></button>
+        </div>
+      )}
+      {ganztags.length > 0 && (
+        <div className="kal-ganztags">
+          {ganztags.map((e) => <button key={e.id} style={{ ['--f' as string]: farbeVon(e) }} onClick={() => onTermin(e)}>{e.title}</button>)}
+        </div>
+      )}
+      <div className="kal-spalten-kopf">
+        {personen.length >= 2 ? <><span>{spuren.find((s) => s.key === ich)?.name}</span><span>{spuren.find((s) => s.key === er)?.name}</span></> : <span>Agentur</span>}
+      </div>
+      <div className="kal-zeit">
+        <div className="kal-stunden">
+          {Array.from({ length: bis - von + 1 }, (_, i) => <span key={i} style={{ top: i * STUNDE }}>{String(von + i).padStart(2, '0')}</span>)}
+        </div>
+        <div className="kal-raster-zeit" style={{ height: (bis - von) * STUNDE }} onClick={klick}>
+          {Array.from({ length: bis - von }, (_, i) => <i key={i} className="kal-linie" style={{ top: i * STUNDE }} />)}
+          <i className="kal-mitte" />
+          {jetzt != null && jetzt >= von * 60 && jetzt <= bis * 60 && <i className="kal-jetzt" style={{ top: ((jetzt - von * 60) / 60) * STUNDE }} />}
+          {mitZeit.map((e) => {
+            const a = Math.max(von * 60, minuten(e.starts_at)!)
+            const z = Math.min(bis * 60, minuten(e.ends_at) ?? minuten(e.starts_at)! + 60)
+            if (z <= a) return null
+            const top = ((a - von * 60) / 60) * STUNDE, hoehe = Math.max(22, ((z - a) / 60) * STUNDE - 2)
+            return (
+              <button key={e.id} className={`kal-block ${hoehe < 40 ? 'klein' : ''}`} style={{ top, height: hoehe, ...lage(e), ['--f' as string]: farbeVon(e) }} onClick={(ev) => { ev.stopPropagation(); onTermin(e) }}>
+                <strong>{e.title}</strong>
+                <small>{e.starts_at!.slice(0, 5)}{e.ends_at ? `–${e.ends_at.slice(0, 5)}` : ''}{e.clients?.name ? ` · ${e.clients.name}` : ''}</small>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+      {(!kompakt || ausserhalb) && <button className="kal-ganz" onClick={() => setGanz((g) => !g)}>{ganz ? 'Nur 5–20 Uhr' : ausserhalb ? 'Ganzer Tag (es gibt Termine außerhalb 5–20 Uhr)' : 'Ganzer Tag anzeigen'}</button>}
+    </section>
+  )
+}

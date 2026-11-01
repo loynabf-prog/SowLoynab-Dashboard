@@ -14,6 +14,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Send, CalendarDays, CheckCircle2, Check, ChevronRight } from 'lucide-react'
+import Tagesplan from '../components/Tagesplan'
+import { AGENTUR, liegtAn, type Spur } from '../lib/kalender'
+import type { CalEventRow } from '../lib/types'
+import '../styles/kalender.css'
 import type { LucideIcon } from 'lucide-react'
 import LogoFrame from '../components/LogoFrame'
 import { supabase } from '../lib/supabase'
@@ -28,7 +32,7 @@ import { jetztUhrzeit } from '../lib/fristen'
 import '../styles/start.css'
 
 interface Post { id: string; title: string | null; scheduled_date: string; scheduled_time: string | null; client_id: string; kunde: string; logo: string | null }
-interface Termin { id: string; title: string; starts_at: string | null; client_id: string | null; kunde: string | null }
+type Termin = CalEventRow
 interface Aufgabe { id: string; title: string; due_date: string; due_time: string | null; kunde: string | null }
 
 function gruss(): string {
@@ -39,8 +43,6 @@ function gruss(): string {
   return 'Guten Abend'
 }
 
-/** starts_at ist eine Uhrzeit ("09:00:00"), kein Zeitstempel. */
-const uhr = (t: string | null): string | null => (t ? t.slice(0, 5) : null)
 
 const kurz = (t: string | null | undefined): string | null => (t ? t.slice(0, 5) : null)
 
@@ -48,7 +50,9 @@ export default function Overview() {
   const navigate = useNavigate()
   const { toast } = useToast()
   const { memberId } = useIdentity()
-  const { byId } = useTeam()
+  const { byId, members } = useTeam()
+  const personen = useMemo(() => members.map((m) => m.id), [members])
+  const spuren: Spur[] = useMemo(() => [...members.map((m) => ({ key: m.id, name: (m.name ?? '').split(' ')[0], farbe: '#1d1d1f' })), { key: AGENTUR, name: 'Agentur', farbe: '#1d1d1f' }], [members])
   const [posts, setPosts] = useGemerkt<Post[]>('start.posts', [])
   const [termine, setTermine] = useGemerkt<Termin[]>('start.termine', [])
   const [aufgaben, setAufgaben] = useGemerkt<Aufgabe[]>('start.aufgaben', [])
@@ -64,8 +68,9 @@ export default function Overview() {
         .not('scheduled_date', 'is', null).lte('scheduled_date', tag)
         .order('scheduled_date').order('scheduled_time', { nullsFirst: false }),
       supabase.from('events')
-        .select('id, title, starts_at, client_id, clients(name)')
-        .is('deleted_at', null).eq('starts_on', tag).order('starts_at', { nullsFirst: true }),
+        .select('id, title, kind, kategorie, client_id, clients(name), starts_on, ends_on, starts_at, ends_at, member_ids, notes, deleted_at')
+        .is('deleted_at', null).lte('starts_on', tag).or(`ends_on.gte.${tag},and(ends_on.is.null,starts_on.eq.${tag})`)
+        .order('starts_at', { nullsFirst: true }),
       supabase.from('tasks')
         .select('id, title, due_date, due_time, clients(name)')
         .eq('done', false).is('deleted_at', null)
@@ -79,8 +84,7 @@ export default function Overview() {
       .map((x) => ({ id: x.id, title: x.title, scheduled_date: x.scheduled_date, scheduled_time: x.scheduled_time, client_id: x.client_id, kunde: x.clients?.name ?? '', logo: x.clients?.logo_url ?? null }))
       // Verpasste zuerst, dann nach Uhrzeit
       .sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date) || (a.scheduled_time ?? '99').localeCompare(b.scheduled_time ?? '99')))
-    setTermine(((e.data ?? []) as unknown as (Omit<Termin, 'kunde'> & MitKunde)[])
-      .map((x) => ({ id: x.id, title: x.title, starts_at: x.starts_at, client_id: x.client_id, kunde: x.clients?.name ?? null })))
+    setTermine(((e.data ?? []) as unknown as CalEventRow[]).filter((x) => liegtAn(x, tag)))
     setAufgaben(((a.data ?? []) as unknown as (Omit<Aufgabe, 'kunde'> & MitKunde)[])
       .map((x) => ({ id: x.id, title: x.title, due_date: x.due_date, due_time: x.due_time, kunde: x.clients?.name ?? null })))
     setLaedt(false)
@@ -149,20 +153,17 @@ export default function Overview() {
             })}
           </Block>
 
-          <Block icon={CalendarDays} titel="Termine" leer="Keiner">
-            {termine.map((t) => (
-              <div className="st-zeile" key={t.id}>
-                <button className="st-klick" onClick={() => navigate(t.client_id ? `/client/${t.client_id}` : '/kalender')}>
-                  <span className="st-text">
-                    <strong>{t.title}</strong>
-                    {t.kunde && <small>{t.kunde}</small>}
-                  </span>
-                  <span className="st-zeit">{uhr(t.starts_at) ?? 'ganztägig'}</span>
-                  <ChevronRight className="st-pfeil" />
-                </button>
-              </div>
-            ))}
-          </Block>
+          <section className="st-block da st-tag">
+            <div className="st-kopf">
+              <span className="st-ic"><CalendarDays strokeWidth={2.2} /></span>
+              <h2>Tagesplan</h2>
+              <button className="st-mehr" onClick={() => navigate('/kalender')}>Kalender <ChevronRight strokeWidth={2.4} /></button>
+            </div>
+            <Tagesplan
+              kompakt tag={tag} heute={tag} termine={termine} personen={personen} spuren={spuren} sichtbar={[...personen, AGENTUR]}
+              onTermin={() => navigate(`/kalender?tag=${tag}`)} onNeu={() => navigate(`/kalender?tag=${tag}`)}
+            />
+          </section>
 
           <Block icon={CheckCircle2} titel="Aufgaben" leer="Keine">
             {aufgaben.map((a) => (
