@@ -2,7 +2,7 @@
 // Fassie = links, Lion = rechts. Im Kalender gross mit Pfeilen, auf der
 // Startseite kompakt (kleinere Stunden, keine Pfeile).
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import type { CalEventRow } from '../lib/types'
 import { AGENTUR, MONATE, WT, ausIso, farbeVon, plus, spurVon, type Spur } from '../lib/kalender'
@@ -35,6 +35,10 @@ export default function Tagesplan({ tag, heute, termine, personen, spuren, sicht
   }
   // Was ausserhalb 5-20 liegt, aber heute dran ist
   const ausserhalb = !ganz && mitZeit.some((e) => (minuten(e.starts_at)! < VON * 60) || ((minuten(e.ends_at) ?? minuten(e.starts_at)! + 60) > BIS * 60))
+  // Jetzt-Linie wandert jede Minute mit
+  const [tick, setTick] = useState(0)
+  useEffect(() => { const t = window.setInterval(() => setTick((x) => x + 1), 60_000); return () => window.clearInterval(t) }, [])
+  void tick
   const jetzt = tag === heute ? new Date().getHours() * 60 + new Date().getMinutes() : null
   const frei = mitZeit.length === 0 && ganztags.length === 0
 
