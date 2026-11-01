@@ -68,9 +68,10 @@ export default function App() {
         path="/login"
         element={loading ? null : session && !zuruecksetzen ? <Navigate to="/" replace /> : <Login />}
       />
-      {/* Backstube: eigene Vollbild-Seite ohne Leiste (Arbeitsmodus) */}
-      <Route path="/ofen" element={<ProtectedRoute><Ofen /></ProtectedRoute>} />
       <Route element={<Schale />}>
+        {/* Videos (frueher Backstube): Fertig -> Bereit zum Posten -> Gepostet */}
+        <Route path="/ofen" element={<Ofen />} />
+        <Route path="/videos" element={<Ofen />} />
         <Route path="/" element={<Overview />} />
         <Route path="/kunden" element={<Dashboard />} />
         <Route path="/brand" element={<PersonalBrand />} />

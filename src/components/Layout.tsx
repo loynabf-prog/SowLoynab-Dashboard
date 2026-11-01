@@ -32,7 +32,7 @@ interface Ziel { to: string; label: string; icon: LucideIcon; end?: boolean; auc
  */
 const HAUPT: Ziel[] = [
   { to: '/', label: 'Heute', icon: Sun, end: true },
-  { to: '/ofen', label: 'Ofen', icon: Flame },
+  { to: '/ofen', label: 'Videos', icon: Flame, auch: ['/videos'] },
   { to: '/plan', label: 'Plan', icon: Send, auch: ['/posting'] },
   { to: '/kalender', label: 'Kalender', icon: CalendarDays },
   { to: '/monate', label: 'Monat', icon: CalendarRange, auch: ['/client', '/kunden'] },

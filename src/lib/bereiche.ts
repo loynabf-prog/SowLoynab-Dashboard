@@ -52,7 +52,7 @@ export const BEREICHE: Bereich[] = [
     ] },
   { key: 'produktion', label: 'Produktion', zweck: 'Backstube, Videoideen und Formate',
     seiten: [
-      { to: '/ofen', label: 'Backstube', was: 'Die Öfen: was gerade geschnitten wird, Bestellzettel, Teller, Bestellungen', suche: ['ofen', 'schnittofen', 'pizza', 'warteschlange', 'schnitt', 'produktion', 'vorschau', 'freigabe', 'medien'] },
+      { to: '/ofen', label: 'Videos', was: 'Fertige Videos übernehmen, bearbeiten, bereit zum Posten, gepostet', suche: ['ofen', 'schnittofen', 'pizza', 'warteschlange', 'schnitt', 'produktion', 'vorschau', 'freigabe', 'medien'] },
       { to: '/lexikon', label: 'Lexikon', was: 'Formate und Videoideen je Branche — für jeden Kunden etwas aussuchen', suche: ['lexikon', 'formate', 'ideen', 'branche', 'fahrschule'] },
       { to: '/inspirationen', label: 'Inspirationen', was: 'Gespeicherte Videos anderer als Vorlage für eigene Ideen', suche: ['ideen', 'referenz', 'vorlage'] },
     ] },
