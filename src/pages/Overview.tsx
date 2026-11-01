@@ -1,38 +1,35 @@
-// Heute: die eine Seite, die sagt, was JETZT dran ist.
-// ---------------------------------------------------------------------------
-// Nie eine Wand aus Aufgaben. Oben die eine Sache, die jetzt dran ist, mit
-// genau einem Knopf. Darunter drei, die danach kommen. Der Rest liegt hinter
-// "Alle anzeigen". Ein Tagesring zaehlt bis zum Tagesziel (hoechstens fuenf
-// Sachen) -- damit es immer etwas zu tun gibt, aber nie zu viel.
+// Heute -- die Startseite. Nur drei Fragen, sonst nichts:
+//   1. Ist heute was zu posten (fuer unsere KPI-Kunden)?
+//   2. Haben wir heute einen Termin?
+//   3. Ist heute eine Aufgabe faellig?
+// Wenn ja: steht da, mit einem Knopf. Wenn nein: "Nichts". Fertig.
 //
-// Jeder sieht seinen Tag: was Lion zugeordnet ist, steht nicht bei Fassie.
-// Was niemandem zugeordnet ist, sehen beide (lib/fokus.ts).
+// Fassie (01.11.2026): "Das CRM ist viel zu sehr ausgebaut ... auf der
+// Startseite soll wirklich unsere wichtigste Sache zu sehen sein."
 //
-// Die Einstufung kommt aus tageslage.ts, die Fristen aus fristen.ts.
+// KPI-Kunden = Kunden mit Monatsziel (pilot_kunden.ziel > 0), nicht pausiert.
+// Verpasste Posts dieser Kunden (Termin war vor heute) stehen mit drin --
+// die sind ja auch heute zu posten.
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import LogoFrame from '../components/LogoFrame'
-import Schnellzugriff from '../components/Schnellzugriff'
-import OfenEingang from '../components/OfenEingang'
-import PilotBlock from '../components/PilotBlock'
-import {
-  Send, Video, Scissors, CalendarClock, CheckCircle2, MapPin,
-  Clock, ArrowUpRight, Flame, Check, ChevronRight, ChevronDown, Coffee,
-} from 'lucide-react'
+import { Send, CalendarDays, CheckCircle2, Check, ChevronRight } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import LogoFrame from '../components/LogoFrame'
 import { supabase } from '../lib/supabase'
 import { useGemerkt, istGemerkt } from '../lib/merken'
-import { ohnePausierte, type MitPause } from '../lib/pause'
 import { useToast } from '../context/ToastContext'
 import { useIdentity } from '../context/IdentityContext'
 import { useTeam } from '../context/TeamContext'
 import { celebrate } from '../lib/confetti'
-import { alsGepostet, vorarbeitSetzen, type VorarbeitKey } from '../lib/videoAktionen'
+import { alsGepostet } from '../lib/videoAktionen'
 import { heute as heuteIso } from '../lib/datum'
 import { jetztUhrzeit } from '../lib/fristen'
-import { tagesLage, type LageAufgabe, type LageTermin, type LageVideo, type Punkt } from '../lib/tageslage'
-import { gehoertMir, machTag, ringSatz } from '../lib/fokus'
+import '../styles/start.css'
+
+interface Post { id: string; title: string | null; scheduled_date: string; scheduled_time: string | null; client_id: string; kunde: string; logo: string | null }
+interface Termin { id: string; title: string; starts_at: string | null; client_id: string | null; kunde: string | null }
+interface Aufgabe { id: string; title: string; due_date: string; due_time: string | null; kunde: string | null }
 
 function gruss(): string {
   const h = Number(jetztUhrzeit().slice(0, 2))
@@ -42,396 +39,162 @@ function gruss(): string {
   return 'Guten Abend'
 }
 
-const SYMBOL: Record<Punkt['art'], { icon: LucideIcon; farbe: string }> = {
-  posten: { icon: Send, farbe: 'glut' },
-  dreh: { icon: Video, farbe: 'lila' },
-  schnitt: { icon: Scissors, farbe: 'blau' },
-  planung: { icon: CalendarClock, farbe: 'gelb' },
-  aufgabe: { icon: CheckCircle2, farbe: 'grau' },
-  termin: { icon: MapPin, farbe: 'gruen' },
-}
+const uhr = (iso: string | null): string | null => iso
+  ? new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' }).format(new Date(iso))
+  : null
 
-/** Was der eine Knopf tut -- und wie er heisst. */
-const TUN: Record<Punkt['art'], { label: string; haken?: VorarbeitKey }> = {
-  posten: { label: 'Gepostet' },
-  dreh: { label: 'Gedreht', haken: 'prep_shot' },
-  schnitt: { label: 'Geschnitten', haken: 'prep_edited' },
-  planung: { label: 'Eingeplant', haken: 'prep_scheduled' },
-  aufgabe: { label: 'Erledigt' },
-  termin: { label: 'Öffnen' },
-}
-
-type MeinVideo = LageVideo & { assignee_ids?: string[] | null }
-type MeinTermin = LageTermin & { member_ids?: string[] | null }
-type MeineAufgabe = LageAufgabe & { assignee_ids?: string[] | null }
-
-// Abgehakte Vorarbeit zaehlt mit zum Tagesziel. Sie steht nirgends mit
-// Datum in der Datenbank, also merkt sich das Geraet den Tageszaehler.
-function haekchenHeute(tag: string): number {
-  try { return Number(localStorage.getItem('sl-haken-' + tag) ?? 0) || 0 } catch { return 0 }
-}
-function haekchenPlus(tag: string): void {
-  try { localStorage.setItem('sl-haken-' + tag, String(haekchenHeute(tag) + 1)) } catch { /* egal */ }
-}
-
-/** Mitternacht in Ortszeit als ISO-Zeitpunkt. */
-function tagesBeginn(tag: string): string {
-  return new Date(tag + 'T00:00:00').toISOString()
-}
+const kurz = (t: string | null | undefined): string | null => (t ? t.slice(0, 5) : null)
 
 export default function Overview() {
   const navigate = useNavigate()
   const { toast } = useToast()
   const { memberId } = useIdentity()
   const { byId } = useTeam()
-  const [videos, setVideos] = useGemerkt<MeinVideo[]>('heute.videos', [])
-  const [termine, setTermine] = useGemerkt<MeinTermin[]>('heute.termine', [])
-  const [aufgaben, setAufgaben] = useGemerkt<MeineAufgabe[]>('heute.aufgaben', [])
-  const [erledigtDb, setErledigtDb] = useState(0)
-  const [haken, setHaken] = useState(0)
-  const [spaeter, setSpaeter] = useState<string[]>([])
-  const [alle, setAlle] = useState(false)
-  const [laedt, setLaedt] = useState(() => !istGemerkt('heute.videos'))
-  // Gebuendelte Zeilen, die aufgeklappt sind
-  const [offen, setOffen] = useState<string[]>([])
-
+  const [posts, setPosts] = useGemerkt<Post[]>('start.posts', [])
+  const [termine, setTermine] = useGemerkt<Termin[]>('start.termine', [])
+  const [aufgaben, setAufgaben] = useGemerkt<Aufgabe[]>('start.aufgaben', [])
+  const [laedt, setLaedt] = useState(() => !istGemerkt('start.posts'))
   const tag = heuteIso()
 
   const laden = useCallback(async () => {
-    const beginn = tagesBeginn(tag)
-    // Alle offenen Videos, nicht nur die von heute: welche heute Arbeit
-    // machen, entscheidet die Frist, nicht der Posting-Tag.
-    const [v, e, a, gp, ge] = await Promise.all([
+    const [k, v, e, a] = await Promise.all([
+      supabase.from('pilot_kunden').select('client_id, ziel, pausiert_seit'),
       supabase.from('videos')
-        .select('id, title, status, scheduled_date, scheduled_time, prep_shot, prep_edited, prep_scheduled, client_id, assignee_ids, clients(name, logo_url, pausiert_seit, client_type)')
-        .is('deleted_at', null).neq('status', 'posted').limit(500),
+        .select('id, title, scheduled_date, scheduled_time, client_id, clients(name, logo_url)')
+        .is('deleted_at', null).neq('status', 'posted')
+        .not('scheduled_date', 'is', null).lte('scheduled_date', tag)
+        .order('scheduled_date').order('scheduled_time', { nullsFirst: false }),
       supabase.from('events')
-        .select('id, title, kind, starts_on, starts_at, client_id, member_ids, clients(name, pausiert_seit)')
-        .is('deleted_at', null).eq('starts_on', tag),
+        .select('id, title, starts_at, client_id, clients(name)')
+        .is('deleted_at', null).eq('starts_on', tag).order('starts_at', { nullsFirst: true }),
       supabase.from('tasks')
-        .select('id, title, due_date, due_time, priority, assignee_ids, clients(name, pausiert_seit), leads(name)')
+        .select('id, title, due_date, due_time, clients(name)')
         .eq('done', false).is('deleted_at', null)
-        .not('due_date', 'is', null).lte('due_date', tag),
-      supabase.from('videos').select('id, assignee_ids')
-        .is('deleted_at', null).eq('status', 'posted').gte('posted_at', beginn),
-      supabase.from('tasks').select('id, assignee_ids')
-        .is('deleted_at', null).eq('done', true).gte('updated_at', beginn),
+        .not('due_date', 'is', null).lte('due_date', tag).order('due_date'),
     ])
-    // Pausierte Kunden (0045) gehoeren nicht auf Heute -- da warten wir.
-    const roh = ohnePausierte((v.data ?? []) as unknown as (MeinVideo & { clients?: MitPause | null })[]) as MeinVideo[]
-    setVideos(roh)
-    setTermine(ohnePausierte((e.data ?? []) as unknown as (MeinTermin & { clients?: MitPause | null })[]) as MeinTermin[])
-    setAufgaben(ohnePausierte((a.data ?? []) as unknown as (MeineAufgabe & { clients?: MitPause | null })[]) as MeineAufgabe[])
-    const mein = (r: { assignee_ids?: string[] | null }) => gehoertMir(r.assignee_ids, memberId)
-    setErledigtDb(((gp.data ?? []) as { assignee_ids?: string[] | null }[]).filter(mein).length
-      + ((ge.data ?? []) as { assignee_ids?: string[] | null }[]).filter(mein).length)
-    setHaken(haekchenHeute(tag))
+    const kpi = new Set(((k.data ?? []) as { client_id: string; ziel: number | null; pausiert_seit: string | null }[])
+      .filter((x) => (x.ziel ?? 0) > 0 && !x.pausiert_seit).map((x) => x.client_id))
+    type MitKunde = { clients?: { name?: string; logo_url?: string | null } | null }
+    setPosts(((v.data ?? []) as unknown as (Omit<Post, 'kunde' | 'logo'> & MitKunde)[])
+      .filter((x) => kpi.has(x.client_id))
+      .map((x) => ({ id: x.id, title: x.title, scheduled_date: x.scheduled_date, scheduled_time: x.scheduled_time, client_id: x.client_id, kunde: x.clients?.name ?? '', logo: x.clients?.logo_url ?? null }))
+      // Verpasste zuerst, dann nach Uhrzeit
+      .sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date) || (a.scheduled_time ?? '99').localeCompare(b.scheduled_time ?? '99')))
+    setTermine(((e.data ?? []) as unknown as (Omit<Termin, 'kunde'> & MitKunde)[])
+      .map((x) => ({ id: x.id, title: x.title, starts_at: x.starts_at, client_id: x.client_id, kunde: x.clients?.name ?? null })))
+    setAufgaben(((a.data ?? []) as unknown as (Omit<Aufgabe, 'kunde'> & MitKunde)[])
+      .map((x) => ({ id: x.id, title: x.title, due_date: x.due_date, due_time: x.due_time, kunde: x.clients?.name ?? null })))
     setLaedt(false)
-  }, [tag, memberId])
+  }, [tag])
 
   useEffect(() => { laden() }, [laden])
-  // Der Assistent oder ein anderes Fenster hat etwas geaendert.
   useEffect(() => {
     const neu = () => laden()
     window.addEventListener('daten-geaendert', neu)
     return () => window.removeEventListener('daten-geaendert', neu)
   }, [laden])
 
-  // Nur, was mir gehoert.
-  const lage = useMemo(() => tagesLage({
-    videos: videos.filter((x) => gehoertMir(x.assignee_ids, memberId)),
-    termine: termine.filter((x) => gehoertMir(x.member_ids, memberId)),
-    aufgaben: aufgaben.filter((x) => gehoertMir(x.assignee_ids, memberId)),
-  }, tag, jetztUhrzeit()), [videos, termine, aufgaben, tag, memberId])
-
-  const geschafft = erledigtDb + haken
-  const tagPlan = useMemo(() => machTag(lage, spaeter, geschafft), [lage, spaeter, geschafft])
-  const satz = ringSatz(tagPlan)
-
-  // --- Aktionen -------------------------------------------------------------
-  function aufklappen(p: Punkt) {
-    setOffen((o) => (o.includes(p.key) ? o.filter((k) => k !== p.key) : [...o, p.key]))
+  async function gepostet(p: Post) {
+    setPosts((l) => l.filter((x) => x.id !== p.id))
+    celebrate()
+    const fehler = await alsGepostet({ id: p.id })
+    if (fehler) { toast('Konnte nicht speichern: ' + fehler); laden(); return }
+    toast('Gepostet')
   }
 
-  async function tun(p: Punkt) {
-    if (p.gruppe) { aufklappen(p); return }
-    const was = TUN[p.art]
-    if (p.art === 'termin') { navigate(p.ziel); return }
-
-    if (p.art === 'aufgabe') {
-      setAufgaben((prev) => prev.filter((x) => x.id !== p.id))
-      const { error } = await supabase.from('tasks').update({ done: true }).eq('id', p.id)
-      if (error) { toast('Konnte nicht speichern: ' + error.message); laden(); return }
-      setErledigtDb((n) => n + 1)
-      toast('Erledigt')
-      return
-    }
-
-    const v = videos.find((x) => x.id === p.id)
-    if (!v) return
-    if (p.art === 'posten') {
-      celebrate()
-      setVideos((prev) => prev.filter((x) => x.id !== p.id))
-      const fehler = await alsGepostet({ id: p.id })
-      if (fehler) { toast('Konnte nicht speichern: ' + fehler); laden(); return }
-      setErledigtDb((n) => n + 1)
-      toast('Gepostet — stark!')
-      return
-    }
-
-    if (was.haken) {
-      const { patch, fehler } = await vorarbeitSetzen({ id: p.id, status: v.status }, was.haken, true)
-      if (fehler) { toast('Konnte nicht speichern: ' + fehler); return }
-      setVideos((prev) => prev.map((x) => (x.id === p.id ? { ...x, ...patch } : x)))
-      haekchenPlus(tag)
-      setHaken((n) => n + 1)
-      toast(`${was.label}`)
-    }
-  }
-
-  function spaeterMachen(p: Punkt) {
-    setSpaeter((s) => [...s.filter((k) => k !== p.key), p.key])
-  }
-
-  // --- Darstellung ----------------------------------------------------------
-  function zeile(p: Punkt) {
-    const auf = offen.includes(p.key)
-    return (
-      <Fragment key={p.key}>
-        <Zeile
-          p={p}
-          auf={auf}
-          onTun={() => tun(p)}
-          onOeffnen={() => (p.gruppe ? aufklappen(p) : navigate(p.ziel))}
-        />
-        {p.gruppe && auf && (
-          <div className="n-unterliste">
-            {p.gruppe.map((u) => (
-              <Zeile key={u.key} p={u} onTun={() => tun(u)} onOeffnen={() => navigate(u.ziel)} />
-            ))}
-          </div>
-        )}
-      </Fragment>
-    )
+  async function erledigt(a: Aufgabe) {
+    setAufgaben((l) => l.filter((x) => x.id !== a.id))
+    const { error } = await supabase.from('tasks').update({ done: true }).eq('id', a.id)
+    if (error) { toast('Konnte nicht speichern: ' + error.message); laden(); return }
+    toast('Erledigt')
   }
 
   const name = ((memberId ? byId(memberId)?.name : '') ?? '').trim().split(' ')[0]
   const datum = new Date(tag + 'T12:00:00').toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })
-  const anteil = Math.min(1, tagPlan.geschafft / tagPlan.ziel)
-  const UMFANG = 2 * Math.PI * 27
-  const f = tagPlan.fokus
+  const anzahl = posts.length + termine.length + aufgaben.length
+  const satz = useMemo(() => {
+    if (anzahl === 0) return 'Heute ist nichts dran.'
+    const teile = [
+      posts.length ? `${posts.length} ${posts.length === 1 ? 'Post' : 'Posts'}` : null,
+      termine.length ? `${termine.length} ${termine.length === 1 ? 'Termin' : 'Termine'}` : null,
+      aufgaben.length ? `${aufgaben.length} ${aufgaben.length === 1 ? 'Aufgabe' : 'Aufgaben'}` : null,
+    ].filter(Boolean) as string[]
+    return `Heute: ${teile.length > 1 ? teile.slice(0, -1).join(', ') + ' und ' + teile[teile.length - 1] : teile[0]}.`
+  }, [anzahl, posts.length, termine.length, aufgaben.length])
 
   return (
-    <>
+    <div className="st">
       <div className="h-datum">{datum}</div>
       <h1 className="h-gruss">{gruss()}{name ? `, ${name}` : ''}</h1>
 
-      {laedt ? (
-        <div className="n-leer">Lade …</div>
-      ) : (
+      {laedt ? <div className="st-satz leise">Lade …</div> : (
         <>
-          <div className="h-ring-zeile">
-            <svg className="h-ring" viewBox="0 0 64 64" role="img" aria-label={satz.oben}>
-              <circle className="spur" cx="32" cy="32" r="27" />
-              <circle
-                className="wert" cx="32" cy="32" r="27"
-                strokeDasharray={UMFANG}
-                strokeDashoffset={UMFANG * (1 - anteil)}
-                transform="rotate(-90 32 32)"
-              />
-              <text x="32" y="38" textAnchor="middle">{tagPlan.ruhig && !tagPlan.geschafft ? '' : tagPlan.geschafft}</text>
-            </svg>
-            <div className="h-ring-text">
-              <strong>{satz.oben}</strong>
-            </div>
-          </div>
+          <p className={`st-satz ${anzahl === 0 ? 'ruhig' : ''}`}>{satz}</p>
 
-          {/* Erst das Heutige (Fokus), dann der Pilot (was fehlt, bevor es brennt), dann die Backstube */}
-
-          {f ? (
-            <Fokus
-              p={f}
-              auf={offen.includes(f.key)}
-              unter={(u) => <Zeile key={u.key} p={u} onTun={() => tun(u)} onOeffnen={() => navigate(u.ziel)} />}
-              onAufklappen={() => aufklappen(f)}
-              ruhig={tagPlan.ruhig}
-              onTun={() => tun(f)}
-              onSpaeter={tagPlan.danach.length > 0 ? () => spaeterMachen(f) : undefined}
-              onOeffnen={() => (f.gruppe ? aufklappen(f) : navigate(f.ziel))}
-            />
-          ) : (
-            <div className="h-ruhig">
-              <span className="n-ic gruen"><Coffee strokeWidth={2.2} /></span>
-              <strong>Alles erledigt</strong>
-            </div>
-          )}
-
-          {tagPlan.danach.length > 0 && (
-            <>
-              <div className="n-abschnitt"><h2>Danach</h2></div>
-              <div className="n-gruppe">
-                {tagPlan.danach.map((p) => zeile(p))}
-              </div>
-            </>
-          )}
-
-          <div className="n-abschnitt"><h2>Bevor es brennt</h2></div>
-          <PilotBlock />
-          <OfenEingang />
-          <Schnellzugriff />
-
-          {tagPlan.rest.length > 0 && (
-            <>
-              <div className="n-abschnitt">
-                <h2>{tagPlan.ruhig ? 'Vorarbeit' : 'Offen'}</h2>
-                <span>{tagPlan.rest.length}</span>
-                <button className="n-mehr-link" onClick={() => setAlle((a) => !a)}>{alle ? 'Weniger' : 'Alle anzeigen'}</button>
-              </div>
-              {alle && (
-                <div className="n-gruppe">
-                  {tagPlan.rest.map((p) => zeile(p))}
+          <Block icon={Send} titel="Posten" leer="Nichts">
+            {posts.map((p) => {
+              const verpasst = p.scheduled_date < tag
+              return (
+                <div className="st-zeile" key={p.id}>
+                  <button className="st-klick" onClick={() => navigate(`/client/${p.client_id}?video=${p.id}&open=1`)}>
+                    <LogoFrame name={p.kunde} logoUrl={p.logo} className="st-logo" />
+                    <span className="st-text">
+                      <strong>{p.title || 'Video'}</strong>
+                      <small>{p.kunde}</small>
+                    </span>
+                    {verpasst ? <span className="st-zeit rot">verpasst</span> : kurz(p.scheduled_time) && <span className="st-zeit">{kurz(p.scheduled_time)}</span>}
+                  </button>
+                  <button className="st-tun" onClick={() => gepostet(p)}><Check strokeWidth={2.6} /> Gepostet</button>
                 </div>
-              )}
-            </>
-          )}
+              )
+            })}
+          </Block>
+
+          <Block icon={CalendarDays} titel="Termine" leer="Keiner">
+            {termine.map((t) => (
+              <div className="st-zeile" key={t.id}>
+                <button className="st-klick" onClick={() => navigate(t.client_id ? `/client/${t.client_id}` : '/kalender')}>
+                  <span className="st-text">
+                    <strong>{t.title}</strong>
+                    {t.kunde && <small>{t.kunde}</small>}
+                  </span>
+                  <span className="st-zeit">{uhr(t.starts_at) ?? 'ganztägig'}</span>
+                  <ChevronRight className="st-pfeil" />
+                </button>
+              </div>
+            ))}
+          </Block>
+
+          <Block icon={CheckCircle2} titel="Aufgaben" leer="Keine">
+            {aufgaben.map((a) => (
+              <div className="st-zeile" key={a.id}>
+                <button className="st-klick" onClick={() => navigate('/aufgaben')}>
+                  <span className="st-text">
+                    <strong>{a.title}</strong>
+                    {a.kunde && <small>{a.kunde}</small>}
+                  </span>
+                  {a.due_date < tag ? <span className="st-zeit rot">überfällig</span> : kurz(a.due_time) && <span className="st-zeit">{kurz(a.due_time)}</span>}
+                </button>
+                <button className="st-tun leise" onClick={() => erledigt(a)}><Check strokeWidth={2.6} /> Erledigt</button>
+              </div>
+            ))}
+          </Block>
         </>
       )}
-    </>
-  )
-}
-
-/** Ein, zwei Woerter statt Satz: "verpasst", "überfällig", "3 Videos". */
-function kurzGrund(p: Punkt): string {
-  if (p.gruppe) return `${p.gruppe.length} verpasst`
-  if (p.art === 'aufgabe') return 'überfällig'
-  return /verpasst/i.test(p.text) ? 'verpasst' : /vorbei/i.test(p.text) ? 'jetzt posten' : 'überfällig'
-}
-
-function Fokus({ p, auf, unter, onAufklappen, onTun, onSpaeter, onOeffnen }: {
-  p: Punkt
-  auf: boolean
-  unter: (u: Punkt) => ReactNode
-  onAufklappen: () => void
-  ruhig: boolean
-  onTun: () => void
-  onSpaeter?: () => void
-  onOeffnen: () => void
-}) {
-  const was = TUN[p.art]
-  const I = SYMBOL[p.art].icon
-  const label = p.gruppe ? (auf ? 'Zuklappen' : 'Videos zeigen') : was.label
-
-  // Wischen wie bei Tinder: nach links = erledigt, nach rechts = spaeter.
-  const wisch = useWischen({
-    links: p.gruppe ? undefined : onTun,
-    rechts: onSpaeter,
-  })
-  return (
-    <section
-      className={`h-fokus ${wisch.dx ? 'zieht' : ''}`}
-      key={p.key}
-      aria-label="Jetzt dran"
-      {...wisch.handler}
-      style={{ transform: wisch.dx ? `translateX(${wisch.dx}px) rotate(${wisch.dx / 30}deg)` : undefined }}
-    >
-      {wisch.dx < -30 && !p.gruppe && <span className="h-wisch links" style={{ opacity: Math.min(1, -wisch.dx / 100) }}><Check strokeWidth={3} /> Erledigt</span>}
-      {wisch.dx > 30 && onSpaeter && <span className="h-wisch rechts" style={{ opacity: Math.min(1, wisch.dx / 100) }}><Clock strokeWidth={2.6} /> Später</span>}
-      <div className="h-fokus-oben">
-        <span className="h-fokus-marke">
-          {p.ampel === 'rot' ? <Flame strokeWidth={2.4} /> : <I strokeWidth={2.4} />}
-        </span>
-        {/* Nur was zaehlt: Uhrzeit oder rot "verpasst" -- kein Erklaersatz */}
-        {(p.zeit || p.ampel === 'rot') && (
-          <span className={`h-fokus-grund ${p.ampel === 'rot' ? 'rot' : ''}`}>{p.ampel === 'rot' ? kurzGrund(p) : p.zeit}</span>
-        )}
-      </div>
-      <h2>{p.titel}</h2>
-      <div className="h-fokus-wer">{p.kunde ?? ' '}</div>
-      <div className="h-fokus-knoepfe">
-        <button className="h-fokus-haupt" onClick={onTun}>
-          {p.gruppe ? <ChevronDown strokeWidth={2.4} />
-            : was.haken || p.art === 'posten' || p.art === 'aufgabe' ? <Check strokeWidth={2.6} /> : <ArrowUpRight strokeWidth={2.4} />}
-          {label}
-        </button>
-        {onSpaeter && (
-          <button className="h-fokus-neben" onClick={onSpaeter} aria-label="Später" title="Später — die nächste Sache zuerst">
-            <Clock strokeWidth={2.2} />
-          </button>
-        )}
-        <button className="h-fokus-neben" onClick={p.gruppe ? onAufklappen : onOeffnen} aria-label={p.gruppe ? 'Videos zeigen' : 'Öffnen'} title={p.gruppe ? 'Videos zeigen' : 'Öffnen'}>
-          {p.gruppe ? <ChevronDown strokeWidth={2.2} /> : <ArrowUpRight strokeWidth={2.2} />}
-        </button>
-      </div>
-      {p.gruppe && auf && <div className="n-gruppe h-fokus-liste">{p.gruppe.map(unter)}</div>}
-      {(onSpaeter || !p.gruppe) && <div className="h-wisch-hinweis">← erledigt · später →</div>}
-    </section>
-  )
-}
-
-/** Karte seitlich wegwischen. Vertikales Scrollen bleibt frei. */
-function useWischen({ links, rechts }: { links?: () => void; rechts?: () => void }) {
-  const [dx, setDx] = useState(0)
-  const start = useRef<{ x: number; y: number; aktiv: boolean | null } | null>(null)
-  const SCHWELLE = 90
-  const ende = () => {
-    const d = dx
-    start.current = null
-    if (d <= -SCHWELLE && links) { setDx(-500); setTimeout(() => { setDx(0); links() }, 160); return }
-    if (d >= SCHWELLE && rechts) { setDx(500); setTimeout(() => { setDx(0); rechts() }, 160); return }
-    setDx(0)
-  }
-  return {
-    dx,
-    handler: {
-      onPointerDown: (e: React.PointerEvent) => {
-        if ((e.target as HTMLElement).closest('button, a, input')) return
-        start.current = { x: e.clientX, y: e.clientY, aktiv: null }
-      },
-      onPointerMove: (e: React.PointerEvent) => {
-        const s = start.current
-        if (!s) return
-        const ddx = e.clientX - s.x, ddy = e.clientY - s.y
-        if (s.aktiv === null && (Math.abs(ddx) > 8 || Math.abs(ddy) > 8)) s.aktiv = Math.abs(ddx) > Math.abs(ddy)
-        if (!s.aktiv) return
-        // Richtung ohne Aktion nur leicht nachgeben
-        const frei = (ddx < 0 && links) || (ddx > 0 && rechts)
-        setDx(frei ? ddx : ddx / 5)
-      },
-      onPointerUp: ende,
-      onPointerCancel: () => { start.current = null; setDx(0) },
-    },
-  }
-}
-
-function Zeile({ p, auf, onTun, onOeffnen }: { p: Punkt; auf?: boolean; onTun: () => void; onOeffnen: () => void }) {
-  const navigate = useNavigate()
-  const s = SYMBOL[p.art]
-  const was = p.gruppe
-    ? { label: auf ? 'Zuklappen' : 'Zeigen' }
-    : TUN[p.art]
-  const nurOeffnen = p.art === 'termin'
-  return (
-    <div className="n-zeile-wrap" style={{ position: 'relative' }}>
-      <div className="n-zeile" role="group">
-        {/* Tipp aufs Logo = Kundenakte, Tipp auf den Text = das Ding selbst (Video-Details, Termin ...) */}
-        {p.kunde && !p.gruppe ? (
-          <button className="z-logo z-logo-knopf" onClick={() => navigate(p.clientId ? `/client/${p.clientId}` : p.ziel)} aria-label={`${p.kunde} öffnen`} title="Kundenakte">
-            <LogoFrame name={p.kunde} logoUrl={p.logo ?? null} className="a-logo" />
-            <span className={`z-logo-punkt ${p.ampel === 'rot' ? 'rot' : p.ampel === 'gelb' ? 'gelb' : s.farbe}`}><s.icon strokeWidth={2.6} /></span>
-          </button>
-        ) : <span className={`n-ic ${s.farbe}`}><s.icon strokeWidth={2.2} /></span>}
-        <button className="n-zeile-klick" onClick={onOeffnen} aria-label={`${p.titel} öffnen`}>
-          <span className="n-text">
-            <span className="n-titel">{p.titel}</span>
-            {p.kunde && !p.gruppe && <span className="n-unter">{p.kunde}</span>}
-            {p.ampel === 'rot' && <span className="n-grund rot">{kurzGrund(p)}</span>}
-          </span>
-          {p.zeit && <span className="n-zeit">{p.zeit}</span>}
-        </button>
-        {nurOeffnen
-          ? <ChevronRight className="n-chevron" />
-          : <button className="n-tun" onClick={onTun}>{was.label}</button>}
-      </div>
     </div>
+  )
+}
+
+function Block({ icon: I, titel, leer, children }: { icon: LucideIcon; titel: string; leer: string; children: React.ReactNode[] }) {
+  const da = children.length > 0
+  return (
+    <section className={`st-block ${da ? 'da' : 'leer'}`}>
+      <div className="st-kopf">
+        <span className="st-ic"><I strokeWidth={2.2} /></span>
+        <h2>{titel}</h2>
+        {da ? <span className="st-zahl">{children.length}</span> : <span className="st-nichts"><Check strokeWidth={2.6} /> {leer}</span>}
+      </div>
+      {da && <div className="st-liste">{children}</div>}
+    </section>
   )
 }
