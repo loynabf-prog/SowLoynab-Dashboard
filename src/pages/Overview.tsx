@@ -13,7 +13,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Send, CalendarDays, CheckCircle2, Check, ChevronRight } from 'lucide-react'
+import { Send, CheckCircle2, Check } from 'lucide-react'
 import Tagesplan from '../components/Tagesplan'
 import { AGENTUR, liegtAn, plus, type Spur } from '../lib/kalender'
 import { wochenStart } from '../components/WochenLeiste'
@@ -175,11 +175,6 @@ export default function Overview() {
           )}
 
           <section className="st-block da st-tag">
-            <div className="st-kopf">
-              <span className="st-ic"><CalendarDays strokeWidth={2.2} /></span>
-              <h2>Tagesplan</h2>
-              <button className="st-mehr" onClick={() => navigate('/kalender')}>Kalender <ChevronRight strokeWidth={2.4} /></button>
-            </div>
             <Tagesplan
               kompakt tag={planTag} heute={tag} personen={personen} spuren={spuren} sichtbar={[...personen, AGENTUR]}
               termine={planTag === tag && wocheTermine.length === 0 ? termine : wocheTermine.filter((x) => liegtAn(x, planTag))}

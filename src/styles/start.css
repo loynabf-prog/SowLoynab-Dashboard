@@ -41,7 +41,7 @@
 /* Tagesplan auf der Startseite */
 .st-mehr { margin-left: auto; display: inline-flex; align-items: center; gap: 2px; border: none; background: none; color: var(--akzent-tief); font: inherit; font-size: 14px; font-weight: 650; cursor: pointer; }
 .st-mehr svg { width: 16px; height: 16px; }
-.st-tag .kal-tagplan { padding: 0 10px 10px; border-radius: 0; }
+.st-tag .kal-tagplan { padding: 10px 10px 10px; border-radius: 0; }
 
 /* Posten als Wisch-Reihe: ein Post voll, der naechste angeschnitten */
 .st-liste.quer { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-left: 14px; padding: 12px 14px 14px; scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
