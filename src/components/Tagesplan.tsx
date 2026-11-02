@@ -3,9 +3,9 @@
 // Startseite kompakt (kleinere Stunden, keine Pfeile).
 
 import { useEffect, useState } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
 import type { CalEventRow } from '../lib/types'
-import { AGENTUR, MONATE, WT, ausIso, farbeVon, plus, spurVon, type Spur } from '../lib/kalender'
+import { AGENTUR, farbeVon, plus, spurVon, type Spur } from '../lib/kalender'
+import WochenLeiste, { useWischen } from './WochenLeiste'
 
 const VON = 5, BIS = 20
 
@@ -15,16 +15,17 @@ function minuten(t: string | null | undefined): number | null {
   return h * 60 + (m || 0)
 }
 
-export default function Tagesplan({ tag, heute, termine, personen, spuren, sichtbar, onTag, onTermin, onNeu, kompakt }: {
+export default function Tagesplan({ tag, heute, termine, personen, spuren, sichtbar, onTag, onTermin, onNeu, kompakt, hatTermin }: {
   tag: string; heute: string; termine: CalEventRow[]; personen: string[]; spuren: Spur[]; sichtbar: string[]
   onTag?: (t: string) => void; onTermin: (e: CalEventRow) => void; onNeu: (spur: string, zeit: string) => void
+  /** Punkte in der Wochenleiste */
+  hatTermin?: (t: string) => boolean
   /** Startseite: kleiner, ohne Pfeile und ohne Ganzer-Tag-Knopf */
   kompakt?: boolean
 }) {
   const STUNDE = kompakt ? 26 : 60
   const [ganz, setGanz] = useState(false)
   const von = ganz ? 0 : VON, bis = ganz ? 24 : BIS
-  const d = ausIso(tag)
   const mitZeit = termine.filter((e) => e.starts_at && sichtbar.includes(spurVon(e.member_ids, personen)))
   const ganztags = termine.filter((e) => !e.starts_at && sichtbar.includes(spurVon(e.member_ids, personen)))
   const [ich, er] = personen
@@ -40,7 +41,8 @@ export default function Tagesplan({ tag, heute, termine, personen, spuren, sicht
   useEffect(() => { const t = window.setInterval(() => setTick((x) => x + 1), 60_000); return () => window.clearInterval(t) }, [])
   void tick
   const jetzt = tag === heute ? new Date().getHours() * 60 + new Date().getMinutes() : null
-  const frei = mitZeit.length === 0 && ganztags.length === 0
+  // Wischen auf der Zeitleiste = Tag vor/zurueck (wie iPhone)
+  const wisch = useWischen(() => onTag?.(plus(tag, 1)), () => onTag?.(plus(tag, -1)))
 
   function klick(ev: React.MouseEvent<HTMLDivElement>) {
     if (ev.target !== ev.currentTarget) return
@@ -52,16 +54,7 @@ export default function Tagesplan({ tag, heute, termine, personen, spuren, sicht
 
   return (
     <section className={`kal-tagplan ${kompakt ? 'kompakt' : ''}`}>
-      {!kompakt && onTag && (
-        <div className="kal-tagplan-kopf">
-          <button onClick={() => onTag(plus(tag, -1))} aria-label="Vortag"><ChevronLeft /></button>
-          <div className="kal-tagplan-titel">
-            <strong>{tag === heute ? 'Heute' : tag === plus(heute, 1) ? 'Morgen' : WT[(d.getDay() + 6) % 7]}</strong>
-            <span>{d.getDate()}. {MONATE[d.getMonth()]}{frei ? ' · frei' : ''}</span>
-          </div>
-          <button onClick={() => onTag(plus(tag, 1))} aria-label="Folgetag"><ChevronRight /></button>
-        </div>
-      )}
+      {onTag && <WochenLeiste tag={tag} heute={heute} onTag={onTag} hatTermin={hatTermin} />}
       {ganztags.length > 0 && (
         <div className="kal-ganztags">
           {ganztags.map((e) => <button key={e.id} style={{ ['--f' as string]: farbeVon(e) }} onClick={() => onTermin(e)}>{e.title}</button>)}
@@ -70,7 +63,7 @@ export default function Tagesplan({ tag, heute, termine, personen, spuren, sicht
       <div className="kal-spalten-kopf">
         {personen.length >= 2 ? <><span>{spuren.find((s) => s.key === ich)?.name}</span><span>{spuren.find((s) => s.key === er)?.name}</span></> : <span>Agentur</span>}
       </div>
-      <div className="kal-zeit">
+      <div className="kal-zeit" {...(onTag ? wisch : {})}>
         <div className="kal-stunden">
           {Array.from({ length: bis - von + 1 }, (_, i) => <span key={i} style={{ top: i * STUNDE }}>{String(von + i).padStart(2, '0')}</span>)}
         </div>

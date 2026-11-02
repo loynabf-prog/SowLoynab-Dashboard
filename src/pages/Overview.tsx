@@ -15,7 +15,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Send, CalendarDays, CheckCircle2, Check, ChevronRight } from 'lucide-react'
 import Tagesplan from '../components/Tagesplan'
-import { AGENTUR, liegtAn, type Spur } from '../lib/kalender'
+import { AGENTUR, liegtAn, plus, type Spur } from '../lib/kalender'
+import { wochenStart } from '../components/WochenLeiste'
 import type { CalEventRow } from '../lib/types'
 import '../styles/kalender.css'
 import type { LucideIcon } from 'lucide-react'
@@ -58,6 +59,19 @@ export default function Overview() {
   const [aufgaben, setAufgaben] = useGemerkt<Aufgabe[]>('start.aufgaben', [])
   const [laedt, setLaedt] = useState(() => !istGemerkt('start.posts'))
   const tag = heuteIso()
+  // Tagesplan: andere Tage antippen wie im iPhone-Kalender (Fassie, 02.11.2026)
+  const [planTag, setPlanTag] = useState(tag)
+  const [wocheTermine, setWocheTermine] = useState<Termin[]>([])
+  const wo = wochenStart(planTag)
+  const ladenWoche = useCallback(async () => {
+    const bis = plus(wo, 6)
+    const { data } = await supabase.from('events')
+      .select('id, title, kind, kategorie, client_id, clients(name), starts_on, ends_on, starts_at, ends_at, member_ids, notes, deleted_at')
+      .is('deleted_at', null).lte('starts_on', bis).or(`ends_on.gte.${wo},and(ends_on.is.null,starts_on.gte.${wo})`)
+      .order('starts_at', { nullsFirst: true })
+    setWocheTermine((data ?? []) as unknown as Termin[])
+  }, [wo])
+  useEffect(() => { ladenWoche() }, [ladenWoche])
 
   const laden = useCallback(async () => {
     const [k, v, e, a] = await Promise.all([
@@ -92,10 +106,10 @@ export default function Overview() {
 
   useEffect(() => { laden() }, [laden])
   useEffect(() => {
-    const neu = () => laden()
+    const neu = () => { laden(); ladenWoche() }
     window.addEventListener('daten-geaendert', neu)
     return () => window.removeEventListener('daten-geaendert', neu)
-  }, [laden])
+  }, [laden, ladenWoche])
 
   async function gepostet(p: Post) {
     setPosts((l) => l.filter((x) => x.id !== p.id))
@@ -160,8 +174,10 @@ export default function Overview() {
               <button className="st-mehr" onClick={() => navigate('/kalender')}>Kalender <ChevronRight strokeWidth={2.4} /></button>
             </div>
             <Tagesplan
-              kompakt tag={tag} heute={tag} termine={termine} personen={personen} spuren={spuren} sichtbar={[...personen, AGENTUR]}
-              onTermin={() => navigate(`/kalender?tag=${tag}`)} onNeu={() => navigate(`/kalender?tag=${tag}`)}
+              kompakt tag={planTag} heute={tag} personen={personen} spuren={spuren} sichtbar={[...personen, AGENTUR]}
+              termine={planTag === tag && wocheTermine.length === 0 ? termine : wocheTermine.filter((x) => liegtAn(x, planTag))}
+              onTag={setPlanTag} hatTermin={(t) => wocheTermine.some((x) => liegtAn(x, t))}
+              onTermin={() => navigate(`/kalender?tag=${planTag}`)} onNeu={() => navigate(`/kalender?tag=${planTag}`)}
             />
           </section>
 

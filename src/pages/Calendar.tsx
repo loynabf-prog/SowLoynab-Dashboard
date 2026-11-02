@@ -131,6 +131,7 @@ export default function Calendar() {
       <Tagesplan
         tag={tag} heute={heute} termine={termine.filter((e) => liegtAn(e, tag))} personen={personen} spuren={spuren} sichtbar={sichtbar.map((s) => s.key)}
         onTag={waehlen} onTermin={(e) => setModal({ termin: e })}
+        hatTermin={(t) => sichtbar.some((s) => amTag(t, s.key).length > 0)}
         onNeu={(spur, zeit) => setModal({ termin: null, datum: tag, wer: spur === AGENTUR ? [] : [spur], zeit })}
       />
       <div className="kal-legende">{KATEGORIEN.map((k) => <span key={k.key}><i style={{ background: k.farbe }} />{k.name}</span>)}</div>
