@@ -49,11 +49,9 @@ export default function Tagesplan({ tag, heute, termine, personen, spuren, sicht
   const box = useRef<HTMLDivElement>(null)
   const erster = mitZeit.map((e) => minuten(e.starts_at)!).sort((a, b) => a - b)[0]
   const ziel = jetzt != null ? jetzt - 60 : erster != null ? erster - 30 : 8 * 60
-  useLayoutEffect(() => {
-    if (!kompakt || !box.current) return
-    box.current.scrollTop = Math.max(0, ((ziel - von * 60) / 60) * STUNDE)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kompakt, tag, von, erster])
+  const zumZiel = () => { if (kompakt && box.current) box.current.scrollTop = Math.max(0, ((ziel - von * 60) / 60) * STUNDE) }
+  const zielRef = useRef(zumZiel); zielRef.current = zumZiel
+  useLayoutEffect(() => { zielRef.current() }, [kompakt, tag, von, erster])
   // Hoehe: bis knapp ueber die Leiste unten, damit der Plan den Bildschirm fuellt
   useEffect(() => {
     if (!kompakt) return
@@ -63,9 +61,10 @@ export default function Tagesplan({ tag, heute, termine, personen, spuren, sicht
       const unten = (document.querySelector('.n-leiste') as HTMLElement | null)?.offsetHeight ?? 0
       el.style.height = `${Math.max(260, window.innerHeight - oben - unten - 16)}px`
     }
-    passen()
+    // Erst Hoehe setzen, dann zur Uhrzeit springen -- sonst bleibt der Plan beim App-Start bei 5 Uhr
+    passen(); zielRef.current()
     window.addEventListener('resize', passen)
-    const t = window.setTimeout(passen, 400)
+    const t = window.setTimeout(() => { passen(); if (box.current && box.current.scrollTop === 0) zielRef.current() }, 400)
     return () => { window.removeEventListener('resize', passen); window.clearTimeout(t) }
   }, [kompakt, termine.length])
 

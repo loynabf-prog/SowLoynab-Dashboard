@@ -116,16 +116,6 @@ export default function Overview() {
     toast('Erledigt')
   }
 
-  const anzahl = posts.length + termine.length + aufgaben.length
-  const satz = useMemo(() => {
-    if (anzahl === 0) return 'Heute ist nichts dran.'
-    const teile = [
-      posts.length ? `${posts.length} ${posts.length === 1 ? 'Post' : 'Posts'}` : null,
-      termine.length ? `${termine.length} ${termine.length === 1 ? 'Termin' : 'Termine'}` : null,
-      aufgaben.length ? `${aufgaben.length} ${aufgaben.length === 1 ? 'Aufgabe' : 'Aufgaben'}` : null,
-    ].filter(Boolean) as string[]
-    return `Heute: ${teile.length > 1 ? teile.slice(0, -1).join(', ') + ' und ' + teile[teile.length - 1] : teile[0]}.`
-  }, [anzahl, posts.length, termine.length, aufgaben.length])
 
   return (
     <div className="st">
@@ -133,7 +123,6 @@ export default function Overview() {
 
       {laedt ? <div className="st-satz leise">Lade …</div> : (
         <>
-          <p className={`st-satz ${anzahl === 0 ? 'ruhig' : ''}`}>{satz}</p>
 
           {/* Posten ohne Ueberschrift (Fassie, 02.11.2026): die Reihe erklaert
               sich selbst, spart zwei Zeilen fuer den Tagesplan. */}

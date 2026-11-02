@@ -126,5 +126,5 @@
 @media (max-width: 380px) { .wl-nr { width: 32px; height: 32px; font-size: 16px; } }
 
 /* Startseite: Zeitleiste scrollt in sich (Hoehe per JS bis zur Leiste unten) */
-.kal-scroll { overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding-top: 8px; scrollbar-width: none; }
+.kal-scroll { height: 60vh; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding-top: 8px; scrollbar-width: none; }
 .kal-scroll::-webkit-scrollbar { display: none; }
