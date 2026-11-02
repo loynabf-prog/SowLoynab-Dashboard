@@ -28,6 +28,7 @@ import {
 } from '../lib/analyse'
 import LineChart from '../components/LineChart'
 import BereichReiter from '../components/BereichReiter'
+import '../styles/zahlen.css'
 import Modal from '../components/Modal'
 import { zahlenJetztHolen } from '../lib/videoAktionen'
 import { useToast } from '../context/ToastContext'
@@ -184,7 +185,6 @@ export default function Analytics() {
 
   return (
     <>
-      <h1 className="h-gruss">Analyse</h1>
       <BereichReiter />
       {fehler && <div className="n-gruppe"><div className="n-leer">Konnte nicht laden: {fehler}</div></div>}
 
@@ -216,31 +216,29 @@ export default function Analytics() {
         </div>
       )}
 
-      {/* ------------------------------------------------------------ Lage */}
-      <div className="p-lage">
-        <div><strong>{lage.anzahl}</strong><span>Videos</span></div>
-        <div><strong>{kurzZahl(lage.views)}</strong><span>Views</span></div>
-        <div><strong>{kurzZahl(lage.schnitt)}</strong><span>Ø pro Video</span></div>
-      </div>
-      <div className="p-lage">
-        <div title="Likes, Kommentare, Shares und Saves geteilt durch Views (TikTok, Median)">
-          <strong>{prozentText(lage.er)}</strong><span>Engagement</span>
+      {/* ------------------------------------------------------------ Lage
+          Eine grosse Zahl (Views) mit Videos/Ø und Follower darunter, dann
+          die drei Quoten klein (02.11.2026: wie gute Dashboards -- eine
+          Hauptzahl, Rest ruhig). */}
+      <div className="z-held">
+        <div className="z-held-zahl">
+          <strong>{kurzZahl(lage.views)}</strong><span>Views</span>
         </div>
-        <div title="Wie viele Zuschauer das Video weiterschicken (TikTok, Median)">
-          <strong>{prozentText(lage.sr, 2)}</strong><span>Share-Rate</span>
-        </div>
-        <div title="Views geteilt durch Follower beim Posten (Median). Über 1 = über die eigene Community hinaus.">
-          <strong>{lage.vpf == null ? '–' : faktorText(lage.vpf)}</strong><span>pro Follower</span>
-        </div>
-      </div>
-      {follower.summe > 0 && (
-        <div className="a-follower">
-          <span>{kurzZahl(follower.summe)} Follower</span>
-          {follower.plus != null && follower.plus !== 0 && (
-            <b className={follower.plus > 0 ? 'gruen' : 'rot'}>{follower.plus > 0 ? '+' : '−'}{kurzZahl(Math.abs(follower.plus))} in 30 Tagen</b>
+        <div className="z-held-unter">
+          <span><b>{lage.anzahl}</b> Videos</span>
+          <span>Ø <b>{kurzZahl(lage.schnitt)}</b></span>
+          {follower.summe > 0 && (
+            <span><b>{kurzZahl(follower.summe)}</b> Follower{follower.plus != null && follower.plus !== 0 && (
+              <em className={follower.plus > 0 ? 'gruen' : 'rot'}> {follower.plus > 0 ? '+' : '−'}{kurzZahl(Math.abs(follower.plus))}</em>
+            )}</span>
           )}
         </div>
-      )}
+        <div className="z-quoten">
+          <div title="Likes, Kommentare, Shares und Saves geteilt durch Views (TikTok, Median)"><strong>{prozentText(lage.er)}</strong><span>Engagement</span></div>
+          <div title="Wie viele Zuschauer das Video weiterschicken (TikTok, Median)"><strong>{prozentText(lage.sr, 2)}</strong><span>Share-Rate</span></div>
+          <div title="Views geteilt durch Follower beim Posten (Median). Über 1 = über die eigene Community hinaus."><strong>{lage.vpf == null ? '–' : faktorText(lage.vpf)}</strong><span>pro Follower</span></div>
+        </div>
+      </div>
 
       {/* ------------------------------------------------------- Entwicklung */}
       {monate.length > 0 && (
@@ -277,8 +275,61 @@ export default function Analytics() {
         </>
       )}
 
-      {/* -------------------------------------------------------- Beste Zeit */}
-      <div className="n-abschnitt"><h2>Beste Zeit</h2><span>{mitZeit} Videos mit echter Uhrzeit</span></div>
+      {/* ------------------------------------------------------------ Kunden */}
+      {!kunde && (
+        <>
+          <div className="n-abschnitt"><h2>Kunden</h2></div>
+          <div className="n-gruppe">
+            {proKunde.length === 0 ? (
+              <div className="n-leer">{loading ? 'Lade …' : 'Keine Videos in diesem Zeitraum.'}</div>
+            ) : proKunde.map((k) => {
+              const f = follower.proKunde.get(k.id)
+              const fSumme = f ? (f.ig ?? 0) + (f.tt ?? 0) : 0
+              return (
+                <button key={k.id} className="n-zeile" onClick={() => setKunde(k.id)}>
+                  <LogoFrame name={k.kunde.name} logoUrl={k.kunde.logo_url} className="a-logo" />
+                  <span className="n-text">
+                    <span className="n-titel">{k.kunde.name}</span>
+                    <span className="n-unter">{k.anzahl} {k.anzahl === 1 ? 'Video' : 'Videos'} · Ø {kurzZahl(k.views / k.anzahl)} Views{fSumme ? ` · ${kurzZahl(fSumme)} Follower` : ''}</span>
+                  </span>
+                  <span className="a-wert">{kurzZahl(k.views)}</span>
+                  <ChevronRight className="n-chevron" />
+                </button>
+              )
+            })}
+          </div>
+        </>
+      )}
+      {/* -------------------------------------------------------- Top-Videos */}
+      <div className="n-abschnitt"><h2>Top-Videos</h2></div>
+      <div className="n-segment">
+        <button className={sortierung === 'index' ? 'on' : ''} onClick={() => setSortierung('index')}>Über Schnitt</button>
+        <button className={sortierung === 'views' ? 'on' : ''} onClick={() => setSortierung('views')}>Views</button>
+        <button className={sortierung === 'share' ? 'on' : ''} onClick={() => setSortierung('share')}>Geteilt</button>
+      </div>
+      <div className="n-gruppe">
+        {top.length === 0 ? (
+          <div className="n-leer">{loading ? 'Lade …' : 'Noch keine Zahlen in diesem Zeitraum.'}</div>
+        ) : top.map((v) => (
+          <VideoZeile
+            key={v.id}
+            v={v}
+            onOpen={setOffen}
+            kunde={kunde ? null : kundeVon.get(v.client_id)?.name ?? null}
+            wert={sortierung === 'views' ? kurzZahl(v.views) : sortierung === 'index' ? faktorText(idx.get(v.id) ?? null) : prozentText(v.share_rate_tiktok, 2)}
+            unterWert={sortierung === 'index' ? kurzZahl(v.views) + ' Views' : sortierung === 'share' ? kurzZahl(v.views_tiktok) + ' Views' : faktorText(idx.get(v.id) ?? null)}
+          />
+        ))}
+      </div>
+
+      <div className="n-abschnitt"><h2>Erkenntnisse</h2></div>
+      {/* -------------------------------------------------------- Beste Zeit (eingeklappt) */}
+      <details className="z-mehr">
+        <summary>
+          <span className="z-mehr-ic"><Clock strokeWidth={2.2} /></span>
+          <span className="z-mehr-text"><strong>Beste Zeit</strong><small>{beste ? `${TAGE_LANG[beste.tag - 1]} ${BLOECKE.find((b) => b.key === beste.block)!.label.toLowerCase()} · ${faktorText(beste.zelle.index)}` : `${mitZeit} Videos mit echter Uhrzeit`}</small></span>
+          <ChevronRight className="z-mehr-pfeil" />
+        </summary>
       <div className="n-gruppe a-karte">
         {beste ? (
           <p className="a-satz">
@@ -319,9 +370,15 @@ export default function Analytics() {
         </div>
         <p className="a-fuss">1,0× = so gut wie ein typisches Video desselben Kunden. Felder ab 2 Videos.</p>
       </div>
+      </details>
 
-      {/* --------------------------------------------------------- Was wirkt */}
-      <div className="n-abschnitt"><h2>Was wirkt</h2><span>im Vergleich</span></div>
+      {/* --------------------------------------------------------- Was wirkt (eingeklappt) */}
+      <details className="z-mehr">
+        <summary>
+          <span className="z-mehr-ic"><TrendingUp strokeWidth={2.2} /></span>
+          <span className="z-mehr-text"><strong>Was wirkt</strong><small>{(() => { const b = vgl.filter((x) => x.vorteil != null && x.vorteil >= 10).sort((a, c) => (c.vorteil ?? 0) - (a.vorteil ?? 0))[0]; return b ? `${b.titel} · +${b.vorteil} %` : 'Caption, Sound, Länge, Hashtags im Vergleich' })()}</small></span>
+          <ChevronRight className="z-mehr-pfeil" />
+        </summary>
       <div className="n-gruppe">
         {plattform.faktor != null && plattform.n >= 3 && (
           <div className="n-zeile a-vgl">
@@ -359,33 +416,16 @@ export default function Analytics() {
         })}
       </div>
       <p className="p-fuss">Aussagen erst ab 5 Videos je Seite. Caption, Hashtags und Sound füllen sich ab jetzt mit jedem Abruf.</p>
-
-      {/* -------------------------------------------------------- Top-Videos */}
-      <div className="n-abschnitt"><h2>Top-Videos</h2></div>
-      <div className="n-segment">
-        <button className={sortierung === 'index' ? 'on' : ''} onClick={() => setSortierung('index')}>Über Schnitt</button>
-        <button className={sortierung === 'views' ? 'on' : ''} onClick={() => setSortierung('views')}>Views</button>
-        <button className={sortierung === 'share' ? 'on' : ''} onClick={() => setSortierung('share')}>Geteilt</button>
-      </div>
-      <div className="n-gruppe">
-        {top.length === 0 ? (
-          <div className="n-leer">{loading ? 'Lade …' : 'Noch keine Zahlen in diesem Zeitraum.'}</div>
-        ) : top.map((v) => (
-          <VideoZeile
-            key={v.id}
-            v={v}
-            onOpen={setOffen}
-            kunde={kunde ? null : kundeVon.get(v.client_id)?.name ?? null}
-            wert={sortierung === 'views' ? kurzZahl(v.views) : sortierung === 'index' ? faktorText(idx.get(v.id) ?? null) : prozentText(v.share_rate_tiktok, 2)}
-            unterWert={sortierung === 'index' ? kurzZahl(v.views) + ' Views' : sortierung === 'share' ? kurzZahl(v.views_tiktok) + ' Views' : faktorText(idx.get(v.id) ?? null)}
-          />
-        ))}
-      </div>
+      </details>
 
       {/* ------------------------------------------------------ Spaetzuender */}
       {spaet.length > 0 && (
-        <>
-          <div className="n-abschnitt"><h2>Spätzünder</h2><span>wuchsen nach Tag 1 weiter</span></div>
+        <details className="z-mehr">
+          <summary>
+            <span className="z-mehr-ic"><Play strokeWidth={2.2} /></span>
+            <span className="z-mehr-text"><strong>Spätzünder</strong><small>{spaet.length} Videos wuchsen nach Tag 1 weiter</small></span>
+            <ChevronRight className="z-mehr-pfeil" />
+          </summary>
           <div className="n-gruppe">
             {spaet.map(({ video: v, faktor }) => (
               <VideoZeile
@@ -396,13 +436,17 @@ export default function Analytics() {
               />
             ))}
           </div>
-        </>
+        </details>
       )}
 
       {/* ------------------------------------------------------------ Sounds */}
       {sound.length > 0 && (
-        <>
-          <div className="n-abschnitt"><h2>Sounds</h2><span>mehrfach genutzt</span></div>
+        <details className="z-mehr">
+          <summary>
+            <span className="z-mehr-ic"><Music strokeWidth={2.2} /></span>
+            <span className="z-mehr-text"><strong>Sounds</strong><small>{sound.length} mehrfach genutzt</small></span>
+            <ChevronRight className="z-mehr-pfeil" />
+          </summary>
           <div className="n-gruppe">
             {sound.map((s) => (
               <div key={s.sound} className="n-zeile a-vgl">
@@ -415,34 +459,9 @@ export default function Analytics() {
               </div>
             ))}
           </div>
-        </>
+        </details>
       )}
 
-      {/* ------------------------------------------------------------ Kunden */}
-      {!kunde && (
-        <>
-          <div className="n-abschnitt"><h2>Kunden</h2></div>
-          <div className="n-gruppe">
-            {proKunde.length === 0 ? (
-              <div className="n-leer">{loading ? 'Lade …' : 'Keine Videos in diesem Zeitraum.'}</div>
-            ) : proKunde.map((k) => {
-              const f = follower.proKunde.get(k.id)
-              const fSumme = f ? (f.ig ?? 0) + (f.tt ?? 0) : 0
-              return (
-                <button key={k.id} className="n-zeile" onClick={() => setKunde(k.id)}>
-                  <LogoFrame name={k.kunde.name} logoUrl={k.kunde.logo_url} className="a-logo" />
-                  <span className="n-text">
-                    <span className="n-titel">{k.kunde.name}</span>
-                    <span className="n-unter">{k.anzahl} {k.anzahl === 1 ? 'Video' : 'Videos'} · Ø {kurzZahl(k.views / k.anzahl)} Views{fSumme ? ` · ${kurzZahl(fSumme)} Follower` : ''}</span>
-                  </span>
-                  <span className="a-wert">{kurzZahl(k.views)}</span>
-                  <ChevronRight className="n-chevron" />
-                </button>
-              )
-            })}
-          </div>
-        </>
-      )}
       {kunde && (
         <div className="n-abschnitt">
           <button className="n-mehr-link" style={{ marginLeft: 0 }} onClick={() => navigate(`/client/${kunde}`)}>

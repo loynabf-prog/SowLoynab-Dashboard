@@ -34,3 +34,15 @@
 @media (min-width: 900px) { .wk-leiste { left: 272px; bottom: 20px; max-width: 736px; } }
 .wk-los { display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: 999px; padding: 10px 16px; background: var(--akzent); color: #fff; font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; }
 .wk-los svg { width: 17px; height: 17px; }
+
+/* 02.11.2026: Bereit flach oben, Ideen ohne Material eingeklappt je Kunde */
+.wk-block-kopf.leise h2, .wk-block-kopf.leise span { color: var(--text-dim); }
+.wk-klappe { background: var(--bg-card); border-radius: 14px; margin-bottom: 6px; overflow: hidden; }
+.wk-klappe > summary { list-style: none; display: flex; align-items: center; gap: 10px; padding: 10px 12px; cursor: pointer; }
+.wk-klappe > summary::-webkit-details-marker { display: none; }
+.wk-klappe > summary strong { font-size: 15px; font-weight: 650; color: var(--text); }
+.wk-klappe > summary small { flex: 1; min-width: 0; font-size: 13px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wk-klappe-pfeil { flex: none; width: 17px; height: 17px; color: var(--text-dim); transition: transform .2s; }
+.wk-klappe[open] > summary .wk-klappe-pfeil { transform: rotate(90deg); }
+.wk-klappe[open] > summary { border-bottom: 1px solid var(--sep); }
+.wk-klappe .wk-zeile.ohne { width: 100%; border: none; background: none; text-align: left; font: inherit; cursor: pointer; }

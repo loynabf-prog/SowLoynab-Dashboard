@@ -12,7 +12,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Check, ExternalLink, Film, MessageCircle, Scissors, Square, CheckSquare } from 'lucide-react'
+import { Check, ChevronRight, ExternalLink, Film, MessageCircle, Scissors, Square, CheckSquare } from 'lucide-react'
 import LogoFrame from '../components/LogoFrame'
 import { supabase } from '../lib/supabase'
 import { chatLink as chatLinkRoh } from '../lib/backstube'
@@ -112,15 +112,14 @@ export default function Werkstatt() {
     setGewaehlt([])
   }
 
-  const anzahlMaterial = offen.filter(hatMaterial).length
+  // Neu (02.11.2026): oben nur, was sich wirklich schneiden laesst -- flach,
+  // nach Posting-Tag. Reine Ideen ohne Material eingeklappt je Kunde darunter.
+  const bereit = useMemo(() => offen.filter(hatMaterial), [offen])
+  const ideen = useMemo(() => jeKunde.map((k) => ({ ...k, liste: k.liste.filter((v) => !hatMaterial(v)) })).filter((k) => k.liste.length > 0), [jeKunde])
+  const datum = (d: string | null) => d ? new Date(d + 'T12:00:00').toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric' }) : null
 
   return (
     <div className="wk">
-      <div className="wk-kopf">
-        <h1>Werkstatt</h1>
-        <p>Videos anhaken, dann im Chat schneiden. Der Chat meldet sich hier von selbst.</p>
-      </div>
-
       {imSchnitt.length > 0 && (
         <section className="wk-block">
           <div className="wk-block-kopf"><Scissors strokeWidth={2.2} /><h2>Im Schnitt</h2><span>{imSchnitt.length}</span></div>
@@ -140,32 +139,56 @@ export default function Werkstatt() {
       )}
 
       <section className="wk-block">
-        <div className="wk-block-kopf"><Film strokeWidth={2.2} /><h2>Zum Schneiden</h2><span>{anzahlMaterial} mit Material</span></div>
-        {!laedt && offen.length === 0 && <div className="wk-leer">Nichts wartet. Neues Material in die Dropbox, dann steht es hier.</div>}
-        {jeKunde.map((k) => (
-          <div key={k.name} className="wk-kunde">
-            <div className="wk-kunde-kopf"><LogoFrame name={k.name} logoUrl={k.logo} className="wk-logo klein" /><strong>{k.name}</strong><small>{k.liste.length}</small></div>
-            <div className="wk-liste">
-              {k.liste.map((v) => {
-                const an = gewaehlt.includes(v.id)
-                const material = hatMaterial(v)
-                return (
-                  <div key={v.id} className={`wk-zeile ${an ? 'an' : ''} ${material ? '' : 'ohne'}`}>
-                    <button className="wk-haken" onClick={() => umschalten(v.id)} aria-label={an ? 'Abwählen' : 'Auswählen'}>
-                      {an ? <CheckSquare strokeWidth={2.2} /> : <Square strokeWidth={2} />}
-                    </button>
-                    <button className="wk-text" onClick={() => umschalten(v.id)}>
-                      <strong>{v.title || 'Video'}</strong>
-                      <small>{material ? (v.dropbox_pfad || v.archiv_pfad ? 'Material in der Dropbox' : 'gedreht') : 'noch kein Material – nur Idee'}{v.scheduled_date ? ` · geplant ${new Date(v.scheduled_date + 'T12:00:00').toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric' })}` : ''}</small>
-                    </button>
-                    <button className="wk-auf" onClick={() => navigate(`/client/${v.client_id}?video=${v.id}&open=1`)} aria-label="Öffnen"><ExternalLink strokeWidth={2.2} /></button>
-                  </div>
-                )
-              })}
-            </div>
+        <div className="wk-block-kopf"><Film strokeWidth={2.2} /><h2>Bereit zum Schneiden</h2><span>{bereit.length}</span></div>
+        {!laedt && bereit.length === 0 && <div className="wk-leer">Nichts bereit. Sobald Material in der Dropbox liegt, steht das Video hier.</div>}
+        {bereit.length > 0 && (
+          <div className="wk-liste">
+            {bereit.map((v) => {
+              const an = gewaehlt.includes(v.id)
+              return (
+                <div key={v.id} className={`wk-zeile ${an ? 'an' : ''}`}>
+                  <button className="wk-haken" onClick={() => umschalten(v.id)} aria-label={an ? 'Abwählen' : 'Auswählen'}>
+                    {an ? <CheckSquare strokeWidth={2.2} /> : <Square strokeWidth={2} />}
+                  </button>
+                  <LogoFrame name={v.clients?.name ?? ''} logoUrl={v.clients?.logo_url ?? null} className="wk-logo klein" />
+                  <button className="wk-text" onClick={() => umschalten(v.id)}>
+                    <strong>{v.title || 'Video'}</strong>
+                    <small>{v.clients?.name}{datum(v.scheduled_date) ? ` · Post ${datum(v.scheduled_date)}` : ''}{v.dropbox_pfad || v.archiv_pfad ? '' : ' · gedreht'}</small>
+                  </button>
+                  <button className="wk-auf" onClick={() => navigate(`/client/${v.client_id}?video=${v.id}&open=1`)} aria-label="Öffnen"><ExternalLink strokeWidth={2.2} /></button>
+                </div>
+              )
+            })}
           </div>
-        ))}
+        )}
       </section>
+
+      {ideen.length > 0 && (
+        <section className="wk-block wk-ideen">
+          <div className="wk-block-kopf leise"><h2>Noch ohne Material</h2><span>{ideen.reduce((n, k) => n + k.liste.length, 0)}</span></div>
+          {ideen.map((k) => (
+            <details key={k.name} className="wk-klappe">
+              <summary>
+                <LogoFrame name={k.name} logoUrl={k.logo} className="wk-logo klein" />
+                <strong>{k.name}</strong>
+                <small>{k.liste.length} {k.liste.length === 1 ? 'Idee' : 'Ideen'}{datum(k.liste[0].scheduled_date) ? ` · nächste ${datum(k.liste[0].scheduled_date)}` : ''}</small>
+                <ChevronRight className="wk-klappe-pfeil" />
+              </summary>
+              <div className="wk-liste">
+                {k.liste.map((v) => (
+                  <button key={v.id} className="wk-zeile ohne" onClick={() => navigate(`/client/${v.client_id}?video=${v.id}&open=1`)}>
+                    <span className="wk-text">
+                      <strong>{v.title || 'Video'}</strong>
+                      <small>{datum(v.scheduled_date) ? `Post ${datum(v.scheduled_date)}` : 'ohne Termin'}</small>
+                    </span>
+                    <ChevronRight className="wk-klappe-pfeil" />
+                  </button>
+                ))}
+              </div>
+            </details>
+          ))}
+        </section>
+      )}
 
       {gewaehlt.length > 0 && (
         <div className="wk-leiste">

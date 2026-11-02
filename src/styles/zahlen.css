@@ -1,0 +1,30 @@
+/* Zahlen-Uebersicht (02.11.2026): eine Hauptzahl oben, Quoten klein,
+   Entwicklung + Kunden + Top-Videos offen, Erkenntnisse eingeklappt. */
+.z-held { background: var(--bg-card); border-radius: 18px; padding: 16px 16px 4px; margin: 0 0 6px; }
+.z-held-zahl { display: flex; align-items: baseline; gap: 8px; }
+.z-held-zahl strong { font-family: var(--font-head); font-size: 40px; font-weight: 750; letter-spacing: -0.035em; line-height: 1.05; color: var(--text); font-variant-numeric: tabular-nums; }
+.z-held-zahl span { font-size: 16px; font-weight: 600; color: var(--text-muted); }
+.z-held-unter { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 6px 0 12px; font-size: 14px; color: var(--text-muted); }
+.z-held-unter b { color: var(--text); font-weight: 650; font-variant-numeric: tabular-nums; }
+.z-held-unter em { font-style: normal; font-weight: 650; }
+.z-held-unter em.gruen { color: #34c759; }
+.z-held-unter em.rot { color: #ff3b30; }
+.z-quoten { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--sep); margin: 0 -16px; }
+.z-quoten > div { padding: 10px 16px 12px; display: flex; flex-direction: column; gap: 1px; }
+.z-quoten > div + div { border-left: 1px solid var(--sep); }
+.z-quoten strong { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text); }
+.z-quoten span { font-size: 12px; font-weight: 500; color: var(--text-muted); }
+
+.z-mehr { background: var(--bg-card); border-radius: 18px; margin-bottom: 8px; overflow: hidden; }
+.z-mehr > summary { list-style: none; display: flex; align-items: center; gap: 12px; padding: 12px 14px; cursor: pointer; }
+.z-mehr > summary::-webkit-details-marker { display: none; }
+.z-mehr-ic { flex: none; width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--akzent-soft); color: var(--akzent); }
+.z-mehr-ic svg { width: 18px; height: 18px; }
+.z-mehr-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.z-mehr-text strong { font-size: 15.5px; font-weight: 650; color: var(--text); }
+.z-mehr-text small { font-size: 13px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.z-mehr-pfeil { flex: none; width: 18px; height: 18px; color: var(--text-dim); transition: transform .2s; }
+.z-mehr[open] .z-mehr-pfeil { transform: rotate(90deg); }
+.z-mehr[open] > summary { border-bottom: 1px solid var(--sep); }
+.z-mehr > .n-gruppe, .z-mehr > .a-karte { margin: 0; border-radius: 0; box-shadow: none; }
+.z-mehr > .p-fuss { padding: 0 14px 12px; }
