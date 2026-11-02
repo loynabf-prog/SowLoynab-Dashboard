@@ -56,7 +56,7 @@ export default function Overview() {
   const ladenWoche = useCallback(async () => {
     const bis = plus(wo, 6)
     const { data } = await supabase.from('events')
-      .select('id, title, kind, kategorie, client_id, clients(name), starts_on, ends_on, starts_at, ends_at, member_ids, notes, deleted_at')
+      .select('id, title, kind, kategorie, client_id, clients(name, brand_color), starts_on, ends_on, starts_at, ends_at, member_ids, notes, deleted_at')
       .is('deleted_at', null).lte('starts_on', bis).or(`ends_on.gte.${wo},and(ends_on.is.null,starts_on.gte.${wo})`)
       .order('starts_at', { nullsFirst: true })
     setWocheTermine((data ?? []) as unknown as Termin[])
@@ -72,7 +72,7 @@ export default function Overview() {
         .not('scheduled_date', 'is', null).lte('scheduled_date', tag)
         .order('scheduled_date').order('scheduled_time', { nullsFirst: false }),
       supabase.from('events')
-        .select('id, title, kind, kategorie, client_id, clients(name), starts_on, ends_on, starts_at, ends_at, member_ids, notes, deleted_at')
+        .select('id, title, kind, kategorie, client_id, clients(name, brand_color), starts_on, ends_on, starts_at, ends_at, member_ids, notes, deleted_at')
         .is('deleted_at', null).lte('starts_on', tag).or(`ends_on.gte.${tag},and(ends_on.is.null,starts_on.eq.${tag})`)
         .order('starts_at', { nullsFirst: true }),
       supabase.from('tasks')

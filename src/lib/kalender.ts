@@ -8,7 +8,7 @@ export const KATEGORIEN: { key: Kategorie; name: string; farbe: string }[] = [
   { key: 'termin', name: 'Termin', farbe: '#30b0c7' },
   { key: 'sport', name: 'Sport', farbe: '#0a84ff' },
   { key: 'privat', name: 'Privat', farbe: '#af52de' },
-  { key: 'ehrenamt', name: 'Ehrenamt', farbe: '#34c759' },
+  { key: 'ehrenamt', name: 'Ehrenamt', farbe: '#5ac8fa' },
   { key: 'uni', name: 'Uni', farbe: '#5856d6' },
   { key: 'arbeit', name: 'Arbeit', farbe: '#8e8e93' },
 ]
@@ -25,6 +25,29 @@ export function kategorieVon(t: { kategorie?: string | null; kind?: string | nul
 export function farbeVon(t: Parameters<typeof kategorieVon>[0]): string {
   const k = kategorieVon(t)
   return KATEGORIEN.find((x) => x.key === k)!.farbe
+}
+
+// ---------------------------------------------------------- Terminfarbe
+// Fassie (02.11.2026): Kundentermin = Farbe des Kunden (clients.brand_color,
+// z. B. Hajo orange, Schleckofatz pink, Kraftfeld silber). Sport, Uni und
+// Ehrenamt behalten ihre Kategoriefarbe. Alles andere nach wessen Termin:
+// Fassie privat = schwarz, Lion = Navy, beide (Agentur) = dunkles Orange.
+export const AGENTUR_FARBE = '#b5400c'
+const PERSON_FARBE: Record<string, string> = { fassie: '#1d1d1f', lion: '#1b2a4e' }
+const EIGENE_KATEGORIEN: Kategorie[] = ['sport', 'uni', 'ehrenamt']
+
+export function terminFarbe(
+  t: { kategorie?: string | null; kind?: string | null; client_id?: string | null; member_ids?: string[] | null; clients?: { brand_color?: string | null } | null },
+  spuren: { key: string; name: string }[],
+): string {
+  if (t.clients?.brand_color) return t.clients.brand_color
+  const k = kategorieVon(t)
+  if (EIGENE_KATEGORIEN.includes(k)) return KATEGORIEN.find((x) => x.key === k)!.farbe
+  const personen = spuren.filter((s) => s.key !== AGENTUR).map((s) => s.key)
+  const spur = spurVon(t.member_ids, personen)
+  if (spur === AGENTUR) return AGENTUR_FARBE
+  const name = (spuren.find((s) => s.key === spur)?.name ?? '').toLowerCase()
+  return PERSON_FARBE[name] ?? AGENTUR_FARBE
 }
 
 // ---------------------------------------------------------- Spuren & Tage

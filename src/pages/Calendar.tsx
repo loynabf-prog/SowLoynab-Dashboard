@@ -21,7 +21,7 @@ import TerminModal from '../components/TerminModal'
 import Tagesplan from '../components/Tagesplan'
 import type { CalEventRow } from '../lib/types'
 import { heute as heuteIso } from '../lib/datum'
-import { AGENTUR, KATEGORIEN, MONATE, WT, ausIso, iso, kategorieVon, liegtAn, plus, spurVon, type Spur } from '../lib/kalender'
+import { AGENTUR, AGENTUR_FARBE, KATEGORIEN, MONATE, WT, ausIso, iso, liegtAn, plus, spurVon, terminFarbe, type Spur } from '../lib/kalender'
 import '../styles/kalender.css'
 
 const SPUR_FARBE = '#1d1d1f'
@@ -51,7 +51,7 @@ export default function Calendar() {
   const bisTag = [plus(rasterStart, 41), plus(tag, 14)].sort()[1]
   const laden = useCallback(async () => {
     const { data } = await supabase.from('events')
-      .select('id, title, kind, kategorie, client_id, clients(name), starts_on, ends_on, starts_at, ends_at, member_ids, notes, deleted_at')
+      .select('id, title, kind, kategorie, client_id, clients(name, brand_color), starts_on, ends_on, starts_at, ends_at, member_ids, notes, deleted_at')
       .is('deleted_at', null)
       .lte('starts_on', bisTag)
       .or(`ends_on.gte.${rasterStart},and(ends_on.is.null,starts_on.gte.${rasterStart})`)
@@ -70,6 +70,17 @@ export default function Calendar() {
   const amTag = useCallback((t: string, spur?: string) => termine
     .filter((e) => liegtAn(e, t) && (!spur || spurVon(e.member_ids, personen) === spur))
     .sort((a, b) => (a.starts_at ?? '').localeCompare(b.starts_at ?? '')), [termine, personen])
+
+  // Legende: wer (Fassie, Lion, Agentur), Sport/Uni/Ehrenamt und die Kunden dieses Monats
+  const legende = useMemo(() => {
+    const l: { name: string; farbe: string }[] = []
+    for (const s of spuren) l.push({ name: s.key === AGENTUR ? 'Agentur' : s.name, farbe: s.key === AGENTUR ? AGENTUR_FARBE : terminFarbe({ member_ids: [s.key] }, spuren) })
+    for (const k of KATEGORIEN.filter((x) => ['sport', 'uni', 'ehrenamt'].includes(x.key))) l.push({ name: k.name, farbe: k.farbe })
+    const kunden = new Map<string, string>()
+    for (const e of termine) if (e.clients?.brand_color && e.clients.name) kunden.set(e.clients.name, e.clients.brand_color)
+    for (const [name, farbe] of kunden) l.push({ name, farbe })
+    return l
+  }, [spuren, termine])
 
   // Monatsraster
   const zellen = useMemo(() => Array.from({ length: 42 }, (_, i) => plus(rasterStart, i)), [rasterStart])
@@ -114,8 +125,7 @@ export default function Calendar() {
         <div className="kal-raster">
           {WT.map((w) => <span key={w} className="kal-wt">{w}</span>)}
           {zellen.map((z) => {
-            const farben = [...new Set(sichtbar.flatMap((s) => amTag(z, s.key)).map((e) => kategorieVon(e)))]
-            const punkte = KATEGORIEN.filter((k) => farben.includes(k.key)).slice(0, 4).map((k) => ({ key: k.key, farbe: k.farbe }))
+            const punkte = [...new Set(sichtbar.flatMap((s) => amTag(z, s.key)).map((e) => terminFarbe(e, spuren)))].slice(0, 4).map((f) => ({ key: f, farbe: f }))
             return (
               <button key={z} className={`kal-zelle ${z.slice(0, 7) !== monat ? 'fremd' : ''} ${z === heute ? 'heute' : ''} ${z === tag ? 'gewaehlt' : ''}`} onClick={() => waehlen(z)}>
                 <span className="kal-nr">{Number(z.slice(8))}</span>
@@ -134,7 +144,7 @@ export default function Calendar() {
         hatTermin={(t) => sichtbar.some((s) => amTag(t, s.key).length > 0)}
         onNeu={(spur, zeit) => setModal({ termin: null, datum: tag, wer: spur === AGENTUR ? [] : [spur], zeit })}
       />
-      <div className="kal-legende">{KATEGORIEN.map((k) => <span key={k.key}><i style={{ background: k.farbe }} />{k.name}</span>)}</div>
+      <div className="kal-legende">{legende.map((k) => <span key={k.name}><i style={{ background: k.farbe }} />{k.name}</span>)}</div>
       <p className="kal-hinweis">Volle Breite = Agentur (beide). Links = nur Fassie, rechts = nur Lion. Tipp auf eine freie Stelle = neuer Termin zu dieser Zeit.</p>
 
       {modal && (

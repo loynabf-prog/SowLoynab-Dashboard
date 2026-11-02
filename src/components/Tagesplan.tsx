@@ -4,7 +4,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { CalEventRow } from '../lib/types'
-import { AGENTUR, farbeVon, plus, spurVon, type Spur } from '../lib/kalender'
+import { AGENTUR, plus, spurVon, terminFarbe, type Spur } from '../lib/kalender'
 import WochenLeiste, { useWischen } from './WochenLeiste'
 
 const VON = 5, BIS = 20
@@ -81,7 +81,7 @@ export default function Tagesplan({ tag, heute, termine, personen, spuren, sicht
       {onTag && <WochenLeiste tag={tag} heute={heute} onTag={onTag} hatTermin={hatTermin} />}
       {ganztags.length > 0 && (
         <div className="kal-ganztags">
-          {ganztags.map((e) => <button key={e.id} style={{ ['--f' as string]: farbeVon(e) }} onClick={() => onTermin(e)}>{e.title}</button>)}
+          {ganztags.map((e) => <button key={e.id} style={{ ['--f' as string]: terminFarbe(e, spuren) }} onClick={() => onTermin(e)}>{e.title}</button>)}
         </div>
       )}
       <div className="kal-spalten-kopf">
@@ -102,7 +102,7 @@ export default function Tagesplan({ tag, heute, termine, personen, spuren, sicht
             if (z <= a) return null
             const top = ((a - von * 60) / 60) * STUNDE, hoehe = Math.max(22, ((z - a) / 60) * STUNDE - 2)
             return (
-              <button key={e.id} className={`kal-block ${hoehe < (kompakt ? 30 : 40) ? 'klein' : ''}`} style={{ top, height: hoehe, ...lage(e), ['--f' as string]: farbeVon(e) }} onClick={(ev) => { ev.stopPropagation(); onTermin(e) }}>
+              <button key={e.id} className={`kal-block ${hoehe < (kompakt ? 30 : 40) ? 'klein' : ''}`} style={{ top, height: hoehe, ...lage(e), ['--f' as string]: terminFarbe(e, spuren) }} onClick={(ev) => { ev.stopPropagation(); onTermin(e) }}>
                 <strong>{e.title}</strong>
                 <small>{e.starts_at!.slice(0, 5)}{e.ends_at ? `–${e.ends_at.slice(0, 5)}` : ''}{e.clients?.name ? ` · ${e.clients.name}` : ''}</small>
               </button>

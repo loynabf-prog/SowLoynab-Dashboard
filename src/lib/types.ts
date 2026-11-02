@@ -218,7 +218,7 @@ export interface CalEventRow {
   client_id?: string | null
   /** Nur beim Drehtag: wie viele Videos an dem Tag entstehen sollen. */
   planned_videos?: number | null
-  clients?: { name: string } | null
+  clients?: { name: string; brand_color?: string | null } | null
   starts_on: string
   ends_on: string | null
   starts_at: string | null
