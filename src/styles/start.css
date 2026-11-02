@@ -52,3 +52,7 @@
 .st-liste.quer::after { content: ''; flex: 0 0 4px; }
 .st-liste.quer .st-text small b { font-weight: 650; color: var(--text); font-variant-numeric: tabular-nums; }
 .st-liste.quer .st-text small b.rot { color: #ff3b30; }
+.st-posten .st-liste.quer { border-top: none; padding-top: 12px; }
+.st-leise-zeile { display: flex; align-items: center; gap: 8px; margin: 0 4px 12px; font-size: 14px; font-weight: 600; color: var(--text-dim); }
+.st-leise-zeile svg { width: 16px; height: 16px; }
+.st-leise-zeile svg:last-child { color: #34c759; }

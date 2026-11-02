@@ -7,6 +7,7 @@
 // lib/bereiche.ts -- wer einem Mitglied nur bestimmte Bereiche gibt, sieht
 // dort auch nur diese.
 
+import { useEffect, useState } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { Plus, Search, Sparkles, LayoutGrid } from 'lucide-react'
 import { useIdentity } from '../context/IdentityContext'
@@ -51,8 +52,36 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   const neu = () => window.dispatchEvent(new Event('open-quickadd'))
 
+  // Kopf auf "Heute" (Handy): startet versteckt, kommt beim Runterziehen
+  // oben am Seitenanfang, verschwindet beim Weiterscrollen wieder.
+  // Fassie (02.11.2026): "Wir kennen ja die App ... wenn wir es brauchen,
+  // ziehen wir es runter."
+  const kopfWeg = location.pathname === '/'
+  const [kopfOffen, setKopfOffen] = useState(false)
+  useEffect(() => { setKopfOffen(false) }, [location.pathname])
+  useEffect(() => {
+    if (!kopfWeg) return
+    let startY: number | null = null
+    let letzteY = window.scrollY
+    const start = (e: TouchEvent) => { startY = window.scrollY <= 2 ? e.touches[0].clientY : null }
+    const zug = (e: TouchEvent) => { if (startY != null && e.touches[0].clientY - startY > 45) { setKopfOffen(true); startY = null } }
+    const scroll = () => {
+      const y = window.scrollY
+      if (y > letzteY + 6 && y > 30) setKopfOffen(false)
+      letzteY = y
+    }
+    window.addEventListener('touchstart', start, { passive: true })
+    window.addEventListener('touchmove', zug, { passive: true })
+    window.addEventListener('scroll', scroll, { passive: true })
+    return () => {
+      window.removeEventListener('touchstart', start)
+      window.removeEventListener('touchmove', zug)
+      window.removeEventListener('scroll', scroll)
+    }
+  }, [kopfWeg])
+
   return (
-    <div className="n-schale">
+    <div className={`n-schale ${kopfWeg ? 'kopf-weg' : ''}`}>
       {/* Desktop: Seitenleiste */}
       <aside className="n-seite" aria-label="Navigation">
         <Link to="/" className="n-marke"><i>S&amp;L</i>Sow &amp; Loynab</Link>
@@ -86,7 +115,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Kopf: Marke links (Handy), rechts die wenigen Werkzeuge */}
-      <header className="n-kopf">
+      <header className={`n-kopf ${kopfWeg ? 'versteckt' : ''} ${kopfWeg && kopfOffen ? 'offen' : ''}`}>
         <Link to="/" className="n-marke"><i>S&amp;L</i>Sow &amp; Loynab</Link>
         <span className="n-spacer" />
         <button className="n-kopf-knopf n-kopf-neu" onClick={neu} aria-label="Neu anlegen" title="Neu">

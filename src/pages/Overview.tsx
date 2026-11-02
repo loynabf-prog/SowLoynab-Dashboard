@@ -148,7 +148,13 @@ export default function Overview() {
         <>
           <p className={`st-satz ${anzahl === 0 ? 'ruhig' : ''}`}>{satz}</p>
 
-          <Block icon={Send} titel="Posten" leer="Nichts" quer>
+          {/* Posten ohne Ueberschrift (Fassie, 02.11.2026): die Reihe erklaert
+              sich selbst, spart zwei Zeilen fuer den Tagesplan. */}
+          {posts.length === 0 ? (
+            <div className="st-leise-zeile"><Send strokeWidth={2.2} /> Heute nichts zu posten <Check strokeWidth={2.6} /></div>
+          ) : (
+          <section className="st-block da st-posten">
+          <div className={`st-liste quer ${posts.length === 1 ? 'einzeln' : ''}`}>
             {posts.map((p) => {
               const verpasst = p.scheduled_date < tag
               return (
@@ -164,7 +170,9 @@ export default function Overview() {
                 </div>
               )
             })}
-          </Block>
+          </div>
+          </section>
+          )}
 
           <section className="st-block da st-tag">
             <div className="st-kopf">
