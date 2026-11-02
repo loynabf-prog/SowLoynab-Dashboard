@@ -63,7 +63,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     if (!kopfWeg) return
     let startY: number | null = null
     let letzteY = window.scrollY
-    const start = (e: TouchEvent) => { startY = window.scrollY <= 2 ? e.touches[0].clientY : null }
+    const start = (e: TouchEvent) => {
+      // Im Kalender, der selbst scrollt: nur aufziehen, wenn der schon ganz oben ist
+      const innen = (e.target as Element | null)?.closest?.('.kal-scroll') as HTMLElement | null
+      startY = window.scrollY <= 2 && (!innen || innen.scrollTop <= 0) ? e.touches[0].clientY : null
+    }
     const zug = (e: TouchEvent) => { if (startY != null && e.touches[0].clientY - startY > 45) { setKopfOffen(true); startY = null } }
     const scroll = () => {
       const y = window.scrollY

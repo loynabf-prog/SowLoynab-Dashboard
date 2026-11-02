@@ -2,7 +2,7 @@
 // Fassie = links, Lion = rechts. Im Kalender gross mit Pfeilen, auf der
 // Startseite kompakt (kleinere Stunden, keine Pfeile).
 
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { CalEventRow } from '../lib/types'
 import { AGENTUR, farbeVon, plus, spurVon, type Spur } from '../lib/kalender'
 import WochenLeiste, { useWischen } from './WochenLeiste'
@@ -44,6 +44,31 @@ export default function Tagesplan({ tag, heute, termine, personen, spuren, sicht
   // Wischen auf der Zeitleiste = Tag vor/zurueck (wie iPhone)
   const wisch = useWischen(() => onTag?.(plus(tag, 1)), () => onTag?.(plus(tag, -1)))
 
+  // Startseite: Zeitleiste scrollt in sich und beginnt eine Stunde vor jetzt
+  // (bzw. kurz vor dem ersten Termin an anderen Tagen). Fassie, 02.11.2026.
+  const box = useRef<HTMLDivElement>(null)
+  const erster = mitZeit.map((e) => minuten(e.starts_at)!).sort((a, b) => a - b)[0]
+  const ziel = jetzt != null ? jetzt - 60 : erster != null ? erster - 30 : 8 * 60
+  useLayoutEffect(() => {
+    if (!kompakt || !box.current) return
+    box.current.scrollTop = Math.max(0, ((ziel - von * 60) / 60) * STUNDE)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kompakt, tag, von, erster])
+  // Hoehe: bis knapp ueber die Leiste unten, damit der Plan den Bildschirm fuellt
+  useEffect(() => {
+    if (!kompakt) return
+    const passen = () => {
+      const el = box.current; if (!el) return
+      const oben = el.getBoundingClientRect().top + window.scrollY
+      const unten = (document.querySelector('.n-leiste') as HTMLElement | null)?.offsetHeight ?? 0
+      el.style.height = `${Math.max(260, window.innerHeight - oben - unten - 16)}px`
+    }
+    passen()
+    window.addEventListener('resize', passen)
+    const t = window.setTimeout(passen, 400)
+    return () => { window.removeEventListener('resize', passen); window.clearTimeout(t) }
+  }, [kompakt, termine.length])
+
   function klick(ev: React.MouseEvent<HTMLDivElement>) {
     if (ev.target !== ev.currentTarget) return
     const r = ev.currentTarget.getBoundingClientRect()
@@ -63,6 +88,7 @@ export default function Tagesplan({ tag, heute, termine, personen, spuren, sicht
       <div className="kal-spalten-kopf">
         {personen.length >= 2 ? <><span>{spuren.find((s) => s.key === ich)?.name}</span><span>{spuren.find((s) => s.key === er)?.name}</span></> : <span>Agentur</span>}
       </div>
+      <div className={kompakt ? 'kal-scroll' : undefined} ref={box}>
       <div className="kal-zeit" {...(onTag ? wisch : {})}>
         <div className="kal-stunden">
           {Array.from({ length: bis - von + 1 }, (_, i) => <span key={i} style={{ top: i * STUNDE }}>{String(von + i).padStart(2, '0')}</span>)}
@@ -84,6 +110,7 @@ export default function Tagesplan({ tag, heute, termine, personen, spuren, sicht
             )
           })}
         </div>
+      </div>
       </div>
       {(!kompakt || ausserhalb) && <button className="kal-ganz" onClick={() => setGanz((g) => !g)}>{ganz ? 'Nur 5–20 Uhr' : ausserhalb ? 'Ganzer Tag (es gibt Termine außerhalb 5–20 Uhr)' : 'Ganzer Tag anzeigen'}</button>}
     </section>
