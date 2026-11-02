@@ -11,7 +11,7 @@
 // Verpasste Posts dieser Kunden (Termin war vor heute) stehen mit drin --
 // die sind ja auch heute zu posten.
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Send, CheckCircle2, Check } from 'lucide-react'
 import Tagesplan from '../components/Tagesplan'
@@ -28,6 +28,7 @@ import { useTeam } from '../context/TeamContext'
 import { celebrate } from '../lib/confetti'
 import { alsGepostet } from '../lib/videoAktionen'
 import { heute as heuteIso } from '../lib/datum'
+import { tagesplanTag, jetztMinuten } from '../lib/tagesplanTag'
 import '../styles/start.css'
 
 interface Post { id: string; title: string | null; scheduled_date: string; scheduled_time: string | null; client_id: string; kunde: string; logo: string | null }
@@ -50,7 +51,11 @@ export default function Overview() {
   const [laedt, setLaedt] = useState(() => !istGemerkt('start.posts'))
   const tag = heuteIso()
   // Tagesplan: andere Tage antippen wie im iPhone-Kalender (Fassie, 02.11.2026)
-  const [planTag, setPlanTag] = useState(tag)
+  const [planTag, setPlanTagRoh] = useState(tag)
+  // Ab 20 Uhr ohne aktiven Termin direkt morgen zeigen (Fassie, 02.11.2026).
+  // Hat jemand selbst einen Tag angetippt, bleibt der stehen.
+  const selbstGewaehlt = useRef(false)
+  const setPlanTag = useCallback((t: string) => { selbstGewaehlt.current = true; setPlanTagRoh(t) }, [])
   const [wocheTermine, setWocheTermine] = useState<Termin[]>([])
   const wo = wochenStart(planTag)
   const ladenWoche = useCallback(async () => {
@@ -95,6 +100,12 @@ export default function Overview() {
   }, [tag])
 
   useEffect(() => { laden() }, [laden])
+  useEffect(() => {
+    const pruefen = () => { if (!selbstGewaehlt.current) setPlanTagRoh(tagesplanTag(termine, tag, jetztMinuten())) }
+    pruefen()
+    const id = window.setInterval(pruefen, 60_000)
+    return () => window.clearInterval(id)
+  }, [termine, tag])
   useEffect(() => {
     const neu = () => { laden(); ladenWoche() }
     window.addEventListener('daten-geaendert', neu)
