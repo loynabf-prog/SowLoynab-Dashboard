@@ -281,3 +281,44 @@ export function letzterStandJeAccount(
   }
   return out
 }
+
+/**
+ * Gesamtzeilen ohne die Accounts, die erst spaeter zu einem Kunden dazukamen.
+ * ---------------------------------------------------------------------------
+ * Fassie (02.11.2026): Bei der Personal Brand kamen @fassielo und @homemeal
+ * dazu -- die Analyse zeigte das als "+607 Tsd. Follower in 30 Tagen".
+ * Fuer Vergleiche ueber die Zeit (Zuwachs, Kurve) zaehlt ein Account erst,
+ * wenn er von Anfang an mitgemessen wurde: "neu" ist ein Account, dessen
+ * erste Zeile spaeter liegt als die erste Account-Zeile seines Kunden. Seine
+ * Werte werden aus den Gesamtzeilen ab seinem ersten Tag abgezogen.
+ * Die aktuelle Gesamtzahl bleibt davon unberuehrt (die kommt aus nurGesamt).
+ */
+export function ohneNeueAccounts<T extends { client_id: string; captured_on: string; account_id?: string | null; followers_ig: number | null; followers_tiktok: number | null }>(zeilen: T[]): T[] {
+  const konten = nurAccounts(zeilen)
+  const ersterKunde = new Map<string, string>()
+  const ersterKonto = new Map<string, { kunde: string; tag: string }>()
+  for (const z of konten) {
+    const k = ersterKunde.get(z.client_id); if (!k || z.captured_on < k) ersterKunde.set(z.client_id, z.captured_on)
+    const a = ersterKonto.get(z.account_id!); if (!a || z.captured_on < a.tag) ersterKonto.set(z.account_id!, { kunde: z.client_id, tag: z.captured_on })
+  }
+  const neu = new Set([...ersterKonto.entries()].filter(([, a]) => a.tag > (ersterKunde.get(a.kunde) ?? a.tag)).map(([id]) => id))
+  if (neu.size === 0) return nurGesamt(zeilen)
+  // je Kunde + Tag: was die neuen Accounts an dem Tag beitragen
+  const abzug = new Map<string, { ig: number; tt: number }>()
+  for (const z of konten) {
+    if (!neu.has(z.account_id!)) continue
+    const key = z.client_id + '|' + z.captured_on
+    const a = abzug.get(key) ?? { ig: 0, tt: 0 }
+    a.ig += z.followers_ig ?? 0; a.tt += z.followers_tiktok ?? 0
+    abzug.set(key, a)
+  }
+  return nurGesamt(zeilen).map((z) => {
+    const a = abzug.get(z.client_id + '|' + z.captured_on)
+    if (!a) return z
+    return {
+      ...z,
+      followers_ig: z.followers_ig == null ? null : Math.max(0, z.followers_ig - a.ig),
+      followers_tiktok: z.followers_tiktok == null ? null : Math.max(0, z.followers_tiktok - a.tt),
+    }
+  })
+}

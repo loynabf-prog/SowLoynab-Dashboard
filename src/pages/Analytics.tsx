@@ -17,7 +17,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Play, TrendingUp, Music, Clock, ChevronRight, RefreshCw, ExternalLink } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import { nurGesamt } from '../lib/accounts'
+import { nurGesamt, ohneNeueAccounts } from '../lib/accounts'
 import { MARKEN, markeVon, type Marke } from '../lib/marken'
 import LogoFrame from '../components/LogoFrame'
 import {
@@ -53,6 +53,8 @@ export default function Analytics() {
   const [roh, setRoh] = useState<AnalyseVideo[]>([])
   const [kunden, setKunden] = useState<Kunde[]>([])
   const [stats, setStats] = useState<StatRow[]>([])
+  // Fuer Vergleiche ueber die Zeit: ohne Accounts, die erst spaeter dazukamen
+  const [statsVergleich, setStatsVergleich] = useState<StatRow[]>([])
   const [loading, setLoading] = useState(true)
   const [fehler, setFehler] = useState<string | null>(null)
   const [zeitraum, setZeitraum] = useState<(typeof ZEITRAEUME)[number]['key']>('90')
@@ -73,6 +75,7 @@ export default function Analytics() {
       setRoh(((v.data ?? []) as Record<string, unknown>[]).map(normalisiere))
       setKunden((k.data ?? []) as Kunde[])
       setStats(nurGesamt((s.data ?? []) as StatRow[]))
+      setStatsVergleich(ohneNeueAccounts((s.data ?? []) as StatRow[]))
       setLoading(false)
     }), [])
 
@@ -111,35 +114,41 @@ export default function Analytics() {
     return { anzahl: videos.length, views, schnitt: videos.length ? views / videos.length : null, er, sr, vpf }
   }, [videos])
 
-  // Follower: letzter bekannter Stand je Plattform und Kunde + Veraenderung in 30 Tagen
+  // Follower: letzter bekannter Stand je Plattform und Kunde + Veraenderung in 30 Tagen.
+  // Gesamtzahl aus allen Accounts, Zuwachs nur aus Accounts, die vor 30 Tagen
+  // schon mitgemessen wurden (sonst zaehlt ein neu verknuepfter Account als Zuwachs).
   const follower = useMemo(() => {
     const relevant = new Set(kunde ? [kunde] : [...kundeVon.keys()].filter((id) => marke === 'alle' || markeVon(kundeVon.get(id)?.brand) === marke))
     const grenze = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10)
-    const jetzt = new Map<string, { ig: number | null; tt: number | null }>()
-    const vorher = new Map<string, { ig: number | null; tt: number | null }>()
-    for (const r of stats) {
-      if (!relevant.has(r.client_id)) continue
-      const a = jetzt.get(r.client_id) ?? { ig: null, tt: null }
-      jetzt.set(r.client_id, { ig: r.followers_ig ?? a.ig, tt: r.followers_tiktok ?? a.tt })
-      if (r.captured_on <= grenze) {
-        const b = vorher.get(r.client_id) ?? { ig: null, tt: null }
-        vorher.set(r.client_id, { ig: r.followers_ig ?? b.ig, tt: r.followers_tiktok ?? b.tt })
+    const stand = (zeilen: StatRow[]) => {
+      const jetzt = new Map<string, { ig: number | null; tt: number | null }>()
+      const vorher = new Map<string, { ig: number | null; tt: number | null }>()
+      for (const r of zeilen) {
+        if (!relevant.has(r.client_id)) continue
+        const a = jetzt.get(r.client_id) ?? { ig: null, tt: null }
+        jetzt.set(r.client_id, { ig: r.followers_ig ?? a.ig, tt: r.followers_tiktok ?? a.tt })
+        if (r.captured_on <= grenze) {
+          const b = vorher.get(r.client_id) ?? { ig: null, tt: null }
+          vorher.set(r.client_id, { ig: r.followers_ig ?? b.ig, tt: r.followers_tiktok ?? b.tt })
+        }
       }
+      return { jetzt, vorher }
     }
-    let summe = 0, alt = 0, vergleichbar = false
-    for (const [id, w] of jetzt) {
-      summe += (w.ig ?? 0) + (w.tt ?? 0)
-      const v = vorher.get(id)
-      if (v && (v.ig != null || v.tt != null)) {
-        vergleichbar = true
-        // nur Plattformen vergleichen, die es damals schon gab
-        alt += (v.ig != null ? v.ig : w.ig ?? 0) + (v.tt != null ? v.tt : w.tt ?? 0)
-      } else {
-        alt += (w.ig ?? 0) + (w.tt ?? 0)
-      }
+    const voll = stand(stats)
+    let summe = 0
+    for (const w of voll.jetzt.values()) summe += (w.ig ?? 0) + (w.tt ?? 0)
+    const vgl = stand(statsVergleich)
+    let neuSumme = 0, alt = 0, vergleichbar = false
+    for (const [id, w] of vgl.jetzt) {
+      const v = vgl.vorher.get(id)
+      if (!v || (v.ig == null && v.tt == null)) continue
+      vergleichbar = true
+      // nur Plattformen vergleichen, die es damals schon gab
+      if (v.ig != null) { neuSumme += w.ig ?? 0; alt += v.ig }
+      if (v.tt != null) { neuSumme += w.tt ?? 0; alt += v.tt }
     }
-    return { summe, plus: vergleichbar ? summe - alt : null, proKunde: jetzt }
-  }, [stats, kunde, marke, kundeVon])
+    return { summe, plus: vergleichbar ? neuSumme - alt : null, proKunde: voll.jetzt }
+  }, [stats, statsVergleich, kunde, marke, kundeVon])
 
   // ------------------------------------------------------- Auswertungen
   const raster = useMemo(() => zeitRaster(videos, idx), [videos, idx])
@@ -169,8 +178,8 @@ export default function Analytics() {
   const fKurve = useMemo(() => {
     const relevant = new Set(kunde ? [kunde] : [...kundeVon.keys()].filter((id) => marke === 'alle' || markeVon(kundeVon.get(id)?.brand) === marke))
     const ab = tage == null ? null : new Date(Date.now() - tage * 86_400_000).toISOString().slice(0, 10)
-    return followerVerlauf(stats, relevant, ab)
-  }, [stats, kunde, marke, kundeVon, tage])
+    return followerVerlauf(statsVergleich, relevant, ab)
+  }, [statsVergleich, kunde, marke, kundeVon, tage])
 
   const maxIndex = useMemo(() => {
     let m = 1

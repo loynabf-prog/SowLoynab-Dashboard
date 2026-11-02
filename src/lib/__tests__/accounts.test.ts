@@ -161,3 +161,21 @@ describe('profilQuelle', () => {
     expect(profilQuelle([])).toBeNull()
   })
 })
+
+import { ohneNeueAccounts } from '../accounts'
+describe('ohneNeueAccounts', () => {
+  it('zieht spaeter verknuepfte Accounts aus den Gesamtzeilen ab', () => {
+    const z = [
+      { client_id: 'k', captured_on: '2026-10-01', account_id: null, followers_ig: 700, followers_tiktok: 490 },
+      { client_id: 'k', captured_on: '2026-10-12', account_id: 'a', followers_ig: 718, followers_tiktok: null },
+      { client_id: 'k', captured_on: '2026-10-12', account_id: null, followers_ig: 718, followers_tiktok: 494 },
+      { client_id: 'k', captured_on: '2026-11-02', account_id: 'a', followers_ig: 796, followers_tiktok: null },
+      { client_id: 'k', captured_on: '2026-11-02', account_id: 'neu', followers_ig: 13499, followers_tiktok: 577600 },
+      { client_id: 'k', captured_on: '2026-11-02', account_id: null, followers_ig: 14295, followers_tiktok: 578095 },
+    ]
+    const r = ohneNeueAccounts(z)
+    expect(r).toHaveLength(3)
+    expect(r[2]).toMatchObject({ followers_ig: 796, followers_tiktok: 495 })
+    expect(r[0]).toMatchObject({ followers_ig: 700 })
+  })
+})
