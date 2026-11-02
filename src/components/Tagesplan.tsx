@@ -23,7 +23,7 @@ export default function Tagesplan({ tag, heute, termine, personen, spuren, sicht
   /** Startseite: kleiner, ohne Pfeile und ohne Ganzer-Tag-Knopf */
   kompakt?: boolean
 }) {
-  const STUNDE = kompakt ? 26 : 60
+  const STUNDE = kompakt ? 36 : 60
   const [ganz, setGanz] = useState(false)
   const von = ganz ? 0 : VON, bis = ganz ? 24 : BIS
   const mitZeit = termine.filter((e) => e.starts_at && sichtbar.includes(spurVon(e.member_ids, personen)))
@@ -77,7 +77,7 @@ export default function Tagesplan({ tag, heute, termine, personen, spuren, sicht
             if (z <= a) return null
             const top = ((a - von * 60) / 60) * STUNDE, hoehe = Math.max(22, ((z - a) / 60) * STUNDE - 2)
             return (
-              <button key={e.id} className={`kal-block ${hoehe < 40 ? 'klein' : ''}`} style={{ top, height: hoehe, ...lage(e), ['--f' as string]: farbeVon(e) }} onClick={(ev) => { ev.stopPropagation(); onTermin(e) }}>
+              <button key={e.id} className={`kal-block ${hoehe < (kompakt ? 30 : 40) ? 'klein' : ''}`} style={{ top, height: hoehe, ...lage(e), ['--f' as string]: farbeVon(e) }} onClick={(ev) => { ev.stopPropagation(); onTermin(e) }}>
                 <strong>{e.title}</strong>
                 <small>{e.starts_at!.slice(0, 5)}{e.ends_at ? `–${e.ends_at.slice(0, 5)}` : ''}{e.clients?.name ? ` · ${e.clients.name}` : ''}</small>
               </button>
