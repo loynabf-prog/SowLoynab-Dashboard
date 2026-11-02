@@ -16,6 +16,8 @@ export interface Client {
   active: boolean
   ai_brief: string | null
   brand_notes: string | null
+  /** Markenfarbe (Kalender, Kunden-Ring), z. B. Hajo orange */
+  brand_color?: string | null
   city: string | null
   contact_person: string | null
   phone: string | null

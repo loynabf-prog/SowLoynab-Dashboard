@@ -15,6 +15,7 @@ import LogoFrame from '../components/LogoFrame'
 import LogoCropper from '../components/LogoCropper'
 import { heute } from '../lib/datum'
 import BereichReiter from '../components/BereichReiter'
+import '../styles/kunden.css'
 
 // Die Video-Zahlen kommen nicht mehr aus der Kunden-Abfrage, sondern aus
 // loadCounts() — sonst zaehlt Postgres auch die geloeschten Videos mit.
@@ -119,48 +120,39 @@ export default function Dashboard() {
         || a.c.name.localeCompare(b.c.name)
     })
 
+  // Monat gesamt: gepostet / Soll ueber alle zahlenden und Ehrenamt-Kunden
+  const sollVon = (c: Client) => sollMonat[c.id] ?? c.monthly_quota ?? 0
+  const laufend = eingestuft.filter((x) => artVon(x.c.client_type) !== 'passiv' && !x.c.pausiert_seit && sollVon(x.c) > 0)
+  const gesamtSoll = laufend.reduce((n, x) => n + sollVon(x.c), 0)
+  const gesamtIst = laufend.reduce((n, x) => n + Math.min(postedMonth[x.c.id] ?? 0, sollVon(x.c)), 0)
+  const monatName = new Date().toLocaleDateString('de-DE', { month: 'long' })
+  const eigen = clients.find((c) => artVon(c.client_type) === 'eigen')
+
   return (
-    <>
-      <div className="page-head">
-        <div>
-          <h1>Kunden</h1>
-          <span className="sub">{loading ? 'Lade …' : `${clients.filter((c) => c.active !== false && artVon(c.client_type) !== 'eigen').length} aktiv`}</span>
+    <div className="ku">
+      {/* Kopf: nur der Monat und "+ Kunde". Titel steht schon im Reiter oben
+          (Fassie, 02.11.2026: alles weg, was wir eh wissen). */}
+      <div className="ku-kopf">
+        <div className="ku-monat">
+          <div className="ku-monat-zeile">
+            <strong>{monatName}</strong>
+            <span>{gesamtIst} von {gesamtSoll} Videos</span>
+          </div>
+          <div className="ku-balken"><i style={{ width: `${gesamtSoll ? Math.round((gesamtIst / gesamtSoll) * 100) : 0}%` }} /></div>
         </div>
-        <Link className="btn btn-sm" to="/monate">Monate</Link>
-        <button className="btn btn-primary btn-sm" onClick={() => setShowAdd(true)}><Plus size={16} strokeWidth={2.4} />Kunde</button>
+        <button className="ku-neu" onClick={() => setShowAdd(true)} aria-label="Kunde anlegen"><Plus strokeWidth={2.6} /></button>
       </div>
       <BereichReiter />
 
-      {/* Unsere eigenen Accounts sind kein Kunde: eigener Bereich */}
-      {clients.some((c) => artVon(c.client_type) === 'eigen') && (
-        <Link to="/brand" className="pb-banner">
-          <span className="pb-banner-ic">S&amp;L</span>
-          <span className="pb-banner-text">
-            <strong>Personal Brand</strong>
-          </span>
-          <ChevronRight className="n-chevron" />
-        </Link>
-      )}
-
-      {error && (
-        <div className="error-box" style={{ maxWidth: 940, margin: '0 auto 20px' }}>
-          {error}
-        </div>
-      )}
-
+      {error && <div className="error-box" style={{ margin: '0 0 16px' }}>{error}</div>}
 
       {!loading && clients.length === 0 && !error && (
         <div className="empty-state">
           <p>Noch keine Kunden angelegt.</p>
-          <button className="btn btn-primary" onClick={() => setShowAdd(true)} style={{ marginTop: 12 }}>
-            + Ersten Kunden anlegen
-          </button>
+          <button className="btn btn-primary" onClick={() => setShowAdd(true)} style={{ marginTop: 12 }}>+ Ersten Kunden anlegen</button>
         </div>
       )}
 
-      {/* Zwei Marken, zwei Welten: fuer Personenmarken entsteht anderer
-          Content als fuer Gastronomie. Nur zeigen, wenn es beide gibt --
-          sonst waere es ein Schalter ohne Wirkung. */}
       {(() => {
         const vorhanden = new Set(clients.map((c) => markeVon(c.brand)))
         if (vorhanden.size < 2) return null
@@ -168,60 +160,48 @@ export default function Dashboard() {
           <div className="seg marken-filter">
             <button className={`seg-btn ${marke === 'alle' ? 'on' : ''}`} onClick={() => setMarke('alle')}>Alle</button>
             {MARKEN.map((m) => (
-              <button key={m.key} className={`seg-btn ${marke === m.key ? 'on' : ''}`} onClick={() => setMarke(m.key)}>
-                {m.kurz}
-              </button>
+              <button key={m.key} className={`seg-btn ${marke === m.key ? 'on' : ''}`} onClick={() => setMarke(m.key)}>{m.kurz}</button>
             ))}
           </div>
         )
       })()}
 
-      {/* Die Art ordnet, die Dringlichkeit sortiert. Zahlende Kunden zuerst,
-          Ehrenamt darunter, Passives ganz unten und abgeblendet — sonst
-          verwaessert das eine das andere. */}
-      {KUNDEN_ARTEN.map((art) => {
+      {/* Je Art eine Karte. Zahlend zuerst, dann Ehrenamt, Personal Brand,
+          Passiv eingeklappt ganz unten. Der Ring ums Logo = Monat erfuellt,
+          in der Farbe des Kunden. */}
+      {KUNDEN_ARTEN.filter((a) => a.key !== 'passiv').map((art) => {
         const gruppe = eingestuft.filter((x) => artVon(x.c.client_type) === art.key)
         if (gruppe.length === 0) return null
-        const akut = gruppe.filter((x) => x.lage.rang === 'akut').length
         return (
-          <div className={`rang-block art-${art.key}`} key={art.key}>
-            <h2 className="section-title">
-              {art.titel}
-              <span className="col-count">{gruppe.length}</span>
-            </h2>
-            <p className="rang-hinweis">
-              {akut > 0
-                ? `${akut} ${akut === 1 ? 'Kunde braucht' : 'Kunden brauchen'} diese Woche etwas von uns.`
-                : art.hinweis}
-            </p>
-            <div className="logo-grid">
-              {gruppe.map(({ c, lage }) => (
-                <Link key={c.id} to={`/client/${c.id}`} className={`logo-tile rang-${lage.rang}`}>
-                  <LogoFrame name={c.name} logoUrl={c.logo_url} />
-                  <div className="tile-body">
-                    <div className="tile-name">{c.name}</div>
-                    <div className="tile-meta">
-                      {(sollMonat[c.id] ?? c.monthly_quota)
-                        ? <span className={`quota-chip ${(postedMonth[c.id] ?? 0) >= (sollMonat[c.id] ?? c.monthly_quota ?? 0) ? 'done' : ''}`}>{postedMonth[c.id] ?? 0}/{sollMonat[c.id] ?? c.monthly_quota} · Monat</span>
-                        : <>{videoCount[c.id] ?? 0} {(videoCount[c.id] ?? 0) === 1 ? 'Video' : 'Videos'}</>}
-                      {lage.rang === 'akut'
-                        ? <span className="gap-chip">{lage.grund}</span>
-                        : <span className="ruhe-chip">{lage.grund}</span>}
-                      {(() => {
-                        const dl = contractDaysLeft(c.contract_end)
-                        if (dl === null || dl > 30) return null
-                        if (dl < 0) return <span className="contract-chip expired">Vertrag abgelaufen</span>
-                        return <span className="contract-chip soon">Vertrag endet {dl === 0 ? 'heute' : dl === 1 ? 'morgen' : `in ${dl} Tg`}</span>
-                      })()}
-                    </div>
-                  </div>
-                  <ChevronRight className="tile-chevron" size={18} />
-                </Link>
-              ))}
+          <section className="ku-gruppe" key={art.key}>
+            <h2 className="ku-titel">{art.key === 'zahlend' ? 'Kunden' : 'Ehrenamt & Referenzen'}</h2>
+            <div className="ku-karte">
+              {gruppe.map(({ c, lage }) => <KundeZeile key={c.id} c={c} lage={lage} ist={postedMonth[c.id] ?? 0} soll={sollVon(c)} videos={videoCount[c.id] ?? 0} />)}
             </div>
-          </div>
+          </section>
         )
       })}
+
+      {eigen && (
+        <Link to="/brand" className="ku-karte ku-eigen">
+          <span className="ku-ring" style={{ ['--f' as string]: eigen.brand_color || 'var(--akzent)' }}><span className="ku-pb">S&amp;L</span></span>
+          <span className="ku-text"><strong>Personal Brand</strong><small>Unsere eigenen Accounts</small></span>
+          <ChevronRight className="ku-pfeil" />
+        </Link>
+      )}
+
+      {(() => {
+        const passiv = eingestuft.filter((x) => artVon(x.c.client_type) === 'passiv')
+        if (passiv.length === 0) return null
+        return (
+          <details className="ku-passiv">
+            <summary>Passiv · {passiv.length}<ChevronRight /></summary>
+            <div className="ku-karte">
+              {passiv.map(({ c, lage }) => <KundeZeile key={c.id} c={c} lage={lage} ist={0} soll={0} videos={videoCount[c.id] ?? 0} leise />)}
+            </div>
+          </details>
+        )
+      })()}
 
       {showAdd && (
         <AddClientModal
@@ -233,7 +213,37 @@ export default function Dashboard() {
           }}
         />
       )}
-    </>
+    </div>
+  )
+}
+
+/** Eine Kundenzeile: Logo im Fortschrittsring (Farbe des Kunden), Name, eine Zeile Stand. */
+function KundeZeile({ c, lage, ist, soll, videos, leise }: { c: Client; lage: Kundenlage; ist: number; soll: number; videos: number; leise?: boolean }) {
+  const anteil = soll > 0 ? Math.min(1, ist / soll) : 0
+  const dl = contractDaysLeft(c.contract_end)
+  const vertrag = dl === null || dl > 30 ? null : dl < 0 ? 'Vertrag abgelaufen' : `Vertrag endet ${dl === 0 ? 'heute' : dl === 1 ? 'morgen' : `in ${dl} Tg`}`
+  const R = 25, U = 2 * Math.PI * R
+  return (
+    <Link to={`/client/${c.id}`} className={`ku-zeile ${leise ? 'leise' : ''} ${c.pausiert_seit ? 'pause' : ''}`}>
+      <span className="ku-ring" style={{ ['--f' as string]: c.brand_color || 'var(--akzent)' }}>
+        {soll > 0 && (
+          <svg viewBox="0 0 56 56" aria-hidden="true">
+            <circle cx="28" cy="28" r={R} className="ku-ring-grund" />
+            <circle cx="28" cy="28" r={R} className="ku-ring-wert" strokeDasharray={`${anteil * U} ${U}`} />
+          </svg>
+        )}
+        <LogoFrame name={c.name} logoUrl={c.logo_url} className="ku-logo" />
+      </span>
+      <span className="ku-text">
+        <strong>{c.name}</strong>
+        <small>
+          {soll > 0 ? <b className={ist >= soll ? 'gruen' : ''}>{ist}/{soll}</b> : <b>{videos} {videos === 1 ? 'Video' : 'Videos'}</b>}
+          <span className={lage.rang === 'akut' && !leise ? 'akut' : ''}> · {lage.grund}</span>
+        </small>
+        {vertrag && !leise && <em className={dl! < 0 ? 'rot' : ''}>{vertrag}</em>}
+      </span>
+      <ChevronRight className="ku-pfeil" />
+    </Link>
   )
 }
 
