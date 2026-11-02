@@ -42,3 +42,13 @@
 .st-mehr { margin-left: auto; display: inline-flex; align-items: center; gap: 2px; border: none; background: none; color: var(--akzent-tief); font: inherit; font-size: 14px; font-weight: 650; cursor: pointer; }
 .st-mehr svg { width: 16px; height: 16px; }
 .st-tag .kal-tagplan { padding: 0 10px 10px; border-radius: 0; }
+
+/* Posten als Wisch-Reihe: ein Post voll, der naechste angeschnitten */
+.st-liste.quer { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-left: 14px; padding: 12px 14px 14px; scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+.st-liste.quer::-webkit-scrollbar { display: none; }
+.st-liste.quer .st-zeile { flex: 0 0 84%; min-width: 0; scroll-snap-align: start; margin: 0; border: none; border-radius: 14px; background: var(--fill-2); padding: 0 10px 0 0; }
+.st-liste.quer.einzeln .st-zeile { flex-basis: 100%; }
+.st-liste.quer .st-zeile .st-klick, .st-liste.quer .st-zeile + .st-zeile .st-klick { padding: 11px 6px 11px 12px; }
+.st-liste.quer::after { content: ''; flex: 0 0 4px; }
+.st-liste.quer .st-text small b { font-weight: 650; color: var(--text); font-variant-numeric: tabular-nums; }
+.st-liste.quer .st-text small b.rot { color: #ff3b30; }

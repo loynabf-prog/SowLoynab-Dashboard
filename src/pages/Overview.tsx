@@ -148,7 +148,7 @@ export default function Overview() {
         <>
           <p className={`st-satz ${anzahl === 0 ? 'ruhig' : ''}`}>{satz}</p>
 
-          <Block icon={Send} titel="Posten" leer="Nichts">
+          <Block icon={Send} titel="Posten" leer="Nichts" quer>
             {posts.map((p) => {
               const verpasst = p.scheduled_date < tag
               return (
@@ -157,9 +157,8 @@ export default function Overview() {
                     <LogoFrame name={p.kunde} logoUrl={p.logo} className="st-logo" />
                     <span className="st-text">
                       <strong>{p.title || 'Video'}</strong>
-                      <small>{p.kunde}</small>
+                      <small>{verpasst ? <b className="rot">verpasst</b> : kurz(p.scheduled_time) && <b>{kurz(p.scheduled_time)}</b>}{(verpasst || kurz(p.scheduled_time)) ? ' · ' : ''}{p.kunde}</small>
                     </span>
-                    {verpasst ? <span className="st-zeit rot">verpasst</span> : kurz(p.scheduled_time) && <span className="st-zeit">{kurz(p.scheduled_time)}</span>}
                   </button>
                   <button className="st-tun" onClick={() => gepostet(p)}><Check strokeWidth={2.6} /> Gepostet</button>
                 </div>
@@ -201,7 +200,9 @@ export default function Overview() {
   )
 }
 
-function Block({ icon: I, titel, leer, children }: { icon: LucideIcon; titel: string; leer: string; children: React.ReactNode[] }) {
+// quer = seitlich wischbare Reihe (ein Post voll, der naechste angeschnitten),
+// damit der Tagesplan darunter immer ganz zu sehen ist (Fassie, 02.11.2026).
+function Block({ icon: I, titel, leer, children, quer }: { icon: LucideIcon; titel: string; leer: string; children: React.ReactNode[]; quer?: boolean }) {
   const da = children.length > 0
   return (
     <section className={`st-block ${da ? 'da' : 'leer'}`}>
@@ -210,7 +211,7 @@ function Block({ icon: I, titel, leer, children }: { icon: LucideIcon; titel: st
         <h2>{titel}</h2>
         {da ? <span className="st-zahl">{children.length}</span> : <span className="st-nichts"><Check strokeWidth={2.6} /> {leer}</span>}
       </div>
-      {da && <div className="st-liste">{children}</div>}
+      {da && <div className={`st-liste ${quer ? 'quer' : ''} ${quer && children.length === 1 ? 'einzeln' : ''}`}>{children}</div>}
     </section>
   )
 }
