@@ -17,7 +17,8 @@
 .wk-zeile + .wk-zeile { border-top: 1px solid var(--sep); }
 .wk-zeile.an { background: var(--akzent-soft); }
 .wk-zeile.ohne .wk-text strong { color: var(--text-muted); }
-.wk-logo { width: 34px; height: 34px; border-radius: 9px; flex: none; }
+.wk-logo { width: 34px !important; height: 34px !important; min-width: 0 !important; border-radius: 9px; flex: none; overflow: hidden; padding: 0 !important; }
+.wk-logo img { width: 100%; height: 100%; object-fit: cover; }
 .wk-logo.klein { width: 24px !important; height: 24px !important; border-radius: 6px; }
 .wk-logo.klein .logo-fallback { font-size: 9px; }
 .wk-haken { flex: none; width: 34px; height: 34px; border: none; background: none; color: var(--text-dim); display: grid; place-items: center; cursor: pointer; padding: 0; }
