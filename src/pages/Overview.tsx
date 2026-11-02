@@ -24,25 +24,16 @@ import LogoFrame from '../components/LogoFrame'
 import { supabase } from '../lib/supabase'
 import { useGemerkt, istGemerkt } from '../lib/merken'
 import { useToast } from '../context/ToastContext'
-import { useIdentity } from '../context/IdentityContext'
 import { useTeam } from '../context/TeamContext'
 import { celebrate } from '../lib/confetti'
 import { alsGepostet } from '../lib/videoAktionen'
 import { heute as heuteIso } from '../lib/datum'
-import { jetztUhrzeit } from '../lib/fristen'
 import '../styles/start.css'
 
 interface Post { id: string; title: string | null; scheduled_date: string; scheduled_time: string | null; client_id: string; kunde: string; logo: string | null }
 type Termin = CalEventRow
 interface Aufgabe { id: string; title: string; due_date: string; due_time: string | null; kunde: string | null }
 
-function gruss(): string {
-  const h = Number(jetztUhrzeit().slice(0, 2))
-  if (h < 5) return 'Gute Nacht'
-  if (h < 11) return 'Guten Morgen'
-  if (h < 18) return 'Guten Tag'
-  return 'Guten Abend'
-}
 
 
 const kurz = (t: string | null | undefined): string | null => (t ? t.slice(0, 5) : null)
@@ -50,8 +41,7 @@ const kurz = (t: string | null | undefined): string | null => (t ? t.slice(0, 5)
 export default function Overview() {
   const navigate = useNavigate()
   const { toast } = useToast()
-  const { memberId } = useIdentity()
-  const { byId, members } = useTeam()
+  const { members } = useTeam()
   const personen = useMemo(() => members.map((m) => m.id), [members])
   const spuren: Spur[] = useMemo(() => [...members.map((m) => ({ key: m.id, name: (m.name ?? '').split(' ')[0], farbe: '#1d1d1f' })), { key: AGENTUR, name: 'Agentur', farbe: '#1d1d1f' }], [members])
   const [posts, setPosts] = useGemerkt<Post[]>('start.posts', [])
@@ -126,8 +116,6 @@ export default function Overview() {
     toast('Erledigt')
   }
 
-  const name = ((memberId ? byId(memberId)?.name : '') ?? '').trim().split(' ')[0]
-  const datum = new Date(tag + 'T12:00:00').toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })
   const anzahl = posts.length + termine.length + aufgaben.length
   const satz = useMemo(() => {
     if (anzahl === 0) return 'Heute ist nichts dran.'
@@ -141,8 +129,7 @@ export default function Overview() {
 
   return (
     <div className="st">
-      <div className="h-datum">{datum}</div>
-      <h1 className="h-gruss">{gruss()}{name ? `, ${name}` : ''}</h1>
+      {/* Datum und Gruss raus (Fassie, 02.11.2026) -- der Tag steht in der Wochenleiste. */}
 
       {laedt ? <div className="st-satz leise">Lade …</div> : (
         <>

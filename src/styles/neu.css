@@ -1416,3 +1416,8 @@ a.n-zeile { text-decoration: none; }
   .kopf-weg .n-inhalt { padding-top: calc(env(safe-area-inset-top) + 10px); }
   .kopf-weg::before { content: ''; position: fixed; top: 0; left: 0; right: 0; height: env(safe-area-inset-top); background: var(--bg); z-index: 1050; }
 }
+/* Kopf kommt rein -> Inhalt rutscht mit runter, nichts liegt verdeckt darunter */
+@media (max-width: 899px) {
+  .kopf-weg .n-inhalt { transition: padding-top .28s cubic-bezier(.2, .8, .2, 1); }
+  .kopf-weg.kopf-da .n-inhalt { padding-top: calc(env(safe-area-inset-top) + 64px); }
+}

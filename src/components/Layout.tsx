@@ -81,7 +81,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   }, [kopfWeg])
 
   return (
-    <div className={`n-schale ${kopfWeg ? 'kopf-weg' : ''}`}>
+    <div className={`n-schale ${kopfWeg ? 'kopf-weg' : ''} ${kopfWeg && kopfOffen ? 'kopf-da' : ''}`}>
       {/* Desktop: Seitenleiste */}
       <aside className="n-seite" aria-label="Navigation">
         <Link to="/" className="n-marke"><i>S&amp;L</i>Sow &amp; Loynab</Link>
