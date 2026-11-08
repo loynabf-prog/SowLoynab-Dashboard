@@ -1421,3 +1421,4 @@ a.n-zeile { text-decoration: none; }
   .kopf-weg .n-inhalt { transition: padding-top .28s cubic-bezier(.2, .8, .2, 1); }
   .kopf-weg.kopf-da .n-inhalt { padding-top: calc(env(safe-area-inset-top) + 64px); }
 }
+.qa-assistent.qa-scan { background: var(--bg-card); color: var(--text); border: 1px solid var(--sep); }

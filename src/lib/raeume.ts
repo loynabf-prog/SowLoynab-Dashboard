@@ -1,7 +1,7 @@
 // Die vier Raeume des CRM (Fassie, 01.11.2026: "Agentur-System 2.0").
 // ---------------------------------------------------------------------------
 //   Heute      Alltag: was ist heute dran? (Heute, Kalender, Plan, Videos)
-//   Kunden     das eigentliche CRM (Kunden, Pipeline, Monate, Ablage)
+//   Kunden     das eigentliche CRM (Kunden, Pipeline, Monate, Dokumente)
 //   Zahlen     nur Ergebnisse, laeuft im Hintergrund (Analyse, Umsatz)
 //   Werkstatt  Produktion: Videos aussuchen, im Chat schneiden; Ideen
 // Unten in der Leiste stehen genau diese vier. Jeder Raum hat oben seine
@@ -36,7 +36,7 @@ export const RAEUME: Raum[] = [
       { to: '/kunden', label: 'Kunden' },
       { to: '/leads', label: 'Pipeline' },
       { to: '/monate', label: 'Monate' },
-      { to: '/dokumente', label: 'Ablage' },
+      { to: '/dokumente', label: 'Dokumente' },
     ], auch: ['/client/', '/brand', '/firma', '/rechnungen'] },
   { key: 'zahlen', label: 'Zahlen', icon: BarChart3,
     reiter: [

@@ -75,6 +75,14 @@ export default function Dokumente() {
     laden()
   }
 
+  // ?scan=1 vom Plus oben ("Dokument scannen"): Scanner direkt oeffnen
+  useEffect(() => {
+    if (params.get('scan') !== '1') return
+    params.delete('scan'); setParams(params, { replace: true })
+    setScan([])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params])
+
   // ?d=<id> aus der Suche: direkt oeffnen
   useEffect(() => {
     const id = params.get('d')
