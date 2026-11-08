@@ -18,7 +18,7 @@ import BereichReiter from '../components/BereichReiter'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
 import {
-  KATEGORIEN, ablegenUndErkennen, aendern, erkennen, groesseText, ladeDokumente, loeschen, oeffnenUrl, scanZuPdf,
+  KATEGORIEN, ablegenUndErkennen, aendern, erkennen, kannErkennen, groesseText, ladeDokumente, loeschen, oeffnenUrl, scanZuPdf,
   type DokKategorie, type Dokument, type ErkennungsErgebnis,
 } from '../lib/dokumente'
 import '../styles/dokumente.css'
@@ -167,7 +167,7 @@ export default function Dokumente() {
                       <span className="n-titel">{d.titel}</span>
                       {d.erkennung === 'laeuft' ? <span className="n-unter dk-liest"><Sparkles strokeWidth={2.2} /> Claude liest das Dokument …</span>
                       : <>
-                      {d.erkennung === 'fehler' && <span className="n-unter dk-fehler"><AlertCircle strokeWidth={2.2} /> Nicht erkannt – Stift tippen zum Benennen</span>}
+                      {(d.erkennung === 'fehler' || (d.erkennung === 'fertig' && !d.inhalt && !kannErkennen(d.mime ?? ''))) && <span className="n-unter dk-fehler"><AlertCircle strokeWidth={2.2} /> Nicht erkannt – Datei Claude in den Chat schicken (oder Stift tippen)</span>}
                       <span className="n-unter">
                         {[d.betrifft && d.betrifft !== 'agentur' ? (d.betrifft === 'fassie' ? 'Fassie' : 'Lion') : null, d.notiz, groesseText(d.groesse), new Date(d.created_at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }),
                           d.gueltig_bis ? `gültig bis ${new Date(d.gueltig_bis + 'T12:00:00').toLocaleDateString('de-DE')}` : null].filter(Boolean).join(' · ')}

@@ -129,7 +129,7 @@ export async function erkennen(id: string): Promise<ErkennungsErgebnis> {
 /** Hochladen und direkt von Claude erkennen lassen. Titel ist vorlaeufig der Dateiname. */
 export async function ablegenUndErkennen(file: File, userId?: string | null): Promise<{ dok: Dokument; ergebnis: ErkennungsErgebnis | null; fehler: string | null }> {
   const dok = await hochladen({ file, titel: titelAus(file.name) || file.name, kategorie: 'sonstiges', userId, erkennen: kannErkennen(file.type) })
-  if (!kannErkennen(file.type)) return { dok, ergebnis: null, fehler: 'Dateityp kann nicht automatisch gelesen werden – bitte selbst benennen' }
+  if (!kannErkennen(file.type)) return { dok, ergebnis: null, fehler: 'kann ich hier nicht lesen – schick die Datei Claude in den Chat, dann wird sie dort eingepflegt' }
   try { return { dok, ergebnis: await erkennen(dok.id), fehler: null } }
   catch (e) { return { dok, ergebnis: null, fehler: (e as Error).message } }
 }
