@@ -62,14 +62,14 @@ export default function CommandPalette() {
         supabase.from('clients').select('id, name, handle_ig').is('deleted_at', null).order('name'),
         supabase.from('leads').select('id, name, city, stage').is('deleted_at', null).order('name'),
         supabase.from('tasks').select('id, title, done').is('deleted_at', null).eq('done', false),
-        supabase.from('dokumente').select('id, titel, kategorie, notiz, dateiname').is('deleted_at', null),
+        supabase.from('dokumente').select('id, titel, kategorie, notiz, dateiname, inhalt, absender').is('deleted_at', null),
       ])
       const list: Hit[] = [...SEITEN]
       for (const x of (c.data ?? []) as any[]) list.push({ kind: 'client', id: x.id, label: x.name, sub: x.handle_ig ? '@' + x.handle_ig.replace(/^@/, '') : 'Kunde', to: `/client/${x.id}`, icon: '' })
       for (const x of (l.data ?? []) as any[]) list.push({ kind: 'lead', id: x.id, label: x.name, sub: x.city || 'Lead', to: '/leads', icon: '' })
       for (const x of (t.data ?? []) as any[]) list.push({ kind: 'task', id: x.id, label: x.title, sub: 'Aufgabe', to: '/aufgaben', icon: '' })
       // Dokumente: Treffer oeffnet die Datei direkt (?d=<id>)
-      for (const x of (d.data ?? []) as any[]) list.push({ kind: 'dokument', id: x.id, label: x.titel, sub: 'Dokument', to: `/dokumente?d=${x.id}`, icon: '', worte: [x.kategorie, x.notiz, x.dateiname].filter(Boolean).join(' ').toLowerCase() })
+      for (const x of (d.data ?? []) as any[]) list.push({ kind: 'dokument', id: x.id, label: x.titel, sub: 'Dokument', to: `/dokumente?d=${x.id}`, icon: '', worte: [x.kategorie, x.notiz, x.dateiname, x.inhalt, x.absender].filter(Boolean).join(' ').toLowerCase() })
       setHits(list)
     }
     load()

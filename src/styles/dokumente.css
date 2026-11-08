@@ -36,3 +36,28 @@
 }
 .dk-sheet .spin { animation: dk-dreh 1s linear infinite; }
 @keyframes dk-dreh { to { transform: rotate(360deg); } }
+
+/* Scannen + Erkennen (08.11.2026) */
+.dk-zeile .spin, .dk-oben .spin { animation: dk-dreh 1s linear infinite; }
+.dk-liest, .dk-fehler { display: inline-flex; align-items: center; gap: 5px; }
+.dk-liest { color: var(--akzent); font-weight: 600; }
+.dk-fehler { color: var(--rot); font-weight: 600; }
+.dk-liest svg, .dk-fehler svg { width: 14px; height: 14px; }
+.dk-inhalt {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  font-size: 13px; line-height: 1.35; color: var(--text-muted); margin-top: 3px; white-space: normal;
+}
+.dk-inhalt-voll { white-space: pre-wrap; background: var(--bg-sunken); border-radius: 10px; padding: 10px 12px; }
+.dk-frist {
+  display: inline-flex; align-items: center; gap: 5px; align-self: flex-start; margin-top: 4px;
+  font-size: 12.5px; font-weight: 600; padding: 3px 8px; border-radius: 999px;
+  background: var(--bg-sunken); color: var(--text);
+}
+.dk-frist.nah { background: color-mix(in srgb, var(--rot) 14%, transparent); color: var(--rot); }
+.dk-frist svg { width: 13px; height: 13px; }
+.dk-seiten { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; margin: 4px 0 10px; }
+.dk-seite { position: relative; aspect-ratio: 3 / 4; border-radius: 10px; overflow: hidden; background: var(--bg-sunken); }
+.dk-seite img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.dk-seite span { position: absolute; left: 6px; bottom: 6px; background: rgba(0,0,0,.6); color: #fff; font-size: 12px; font-weight: 700; border-radius: 999px; padding: 1px 7px; }
+.dk-seite button { position: absolute; top: 5px; right: 5px; width: 24px; height: 24px; border-radius: 999px; border: none; background: rgba(0,0,0,.6); color: #fff; display: grid; place-items: center; cursor: pointer; }
+.dk-seite button svg { width: 13px; height: 13px; }

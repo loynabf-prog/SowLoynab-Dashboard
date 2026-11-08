@@ -4,20 +4,27 @@
 // da hinterlegen, dass ich sie finde, wenn ich sie suche." Also: hochladen
 // (Foto, Scan, PDF), Titel und Kategorie, fertig. Tipp auf eine Zeile oeffnet
 // die Datei. Alles ist auch ueber die Suche (Cmd+K) findbar.
+//
+// Fassie (08.11.2026): "Dokumente scannen, du schaust dir an, was das ist, und
+// hinterlegst es passend mit Namen." -> Scannen (mehrere Seiten = ein PDF) oder
+// Datei waehlen, Claude liest es (Edge Function dokument-erkennen), vergibt
+// Titel + Kategorie, fasst zusammen, legt bei Fristen eine Erinnerung an und
+// schiebt Rechnungen zusaetzlich in den Dropbox-Buchhaltungseingang.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Plus, Search, FileText, Image as ImageIcon, File, ExternalLink, Share2, Trash2, Pencil, X, Check, Loader2, Camera } from 'lucide-react'
+import { Plus, Search, FileText, Image as ImageIcon, File, ExternalLink, Share2, Trash2, Pencil, X, Check, Loader2, Camera, Sparkles, Images, BellRing, AlertCircle } from 'lucide-react'
 import BereichReiter from '../components/BereichReiter'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
 import {
-  KATEGORIEN, aendern, groesseText, hochladen, kategorieRaten, ladeDokumente, loeschen, oeffnenUrl, titelAus,
-  type DokKategorie, type Dokument,
+  KATEGORIEN, ablegenUndErkennen, aendern, erkennen, groesseText, ladeDokumente, loeschen, oeffnenUrl, scanZuPdf,
+  type DokKategorie, type Dokument, type ErkennungsErgebnis,
 } from '../lib/dokumente'
 import '../styles/dokumente.css'
 
 function Symbol({ d }: { d: Dokument }) {
+  if (d.erkennung === 'laeuft') return <Loader2 className="spin" strokeWidth={2.2} />
   const m = d.mime ?? ''
   if (m.startsWith('image/')) return <ImageIcon strokeWidth={2} />
   if (m.includes('pdf')) return <FileText strokeWidth={2} />
@@ -31,15 +38,42 @@ export default function Dokumente() {
   const [liste, setListe] = useState<Dokument[] | null>(null)
   const [q, setQ] = useState('')
   const [kat, setKat] = useState<DokKategorie | 'alle'>('alle')
-  const [neu, setNeu] = useState<File | null>(null)
+  const [scan, setScan] = useState<File[] | null>(null)
   const [bearbeite, setBearbeite] = useState<Dokument | null>(null)
   const datei = useRef<HTMLInputElement>(null)
-  const kamera = useRef<HTMLInputElement>(null)
 
   const laden = useCallback(async () => {
     try { setListe(await ladeDokumente()) } catch (e) { toast('Konnte Dokumente nicht laden: ' + (e as Error).message) }
   }, [toast])
   useEffect(() => { laden() }, [laden])
+
+  // Solange Claude noch liest (z. B. nach Neuladen der Seite): alle 4 s nachschauen
+  const liestNoch = (liste ?? []).some((d) => d.erkennung === 'laeuft')
+  useEffect(() => {
+    if (!liestNoch) return
+    const t = window.setInterval(laden, 4000)
+    return () => window.clearInterval(t)
+  }, [liestNoch, laden])
+
+  function meldung(e: ErkennungsErgebnis): string {
+    const teile = [`Abgelegt: ${e.titel}`, KATEGORIEN.find((k) => k.key === e.kategorie)?.label]
+    if (e.aufgabe) teile.push(`Erinnerung am ${new Date(e.aufgabe.due_date + 'T12:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}`)
+    if (e.dropbox) teile.push('auch in der Buchhaltung')
+    return teile.filter(Boolean).join(' · ')
+  }
+
+  /** Datei hochladen, Liste sofort zeigen (mit "Claude liest …"), dann Ergebnis melden. */
+  async function ablegen(f: File) {
+    const lauf = ablegenUndErkennen(f, user?.id)
+    window.setTimeout(laden, 600)
+    try {
+      const r = await lauf
+      toast(r.ergebnis ? meldung(r.ergebnis) : `Abgelegt als „${r.dok.titel}“ – ${r.fehler ?? 'bitte selbst benennen'}`)
+    } catch (e) {
+      toast('Hochladen ging nicht: ' + (e as Error).message)
+    }
+    laden()
+  }
 
   // ?d=<id> aus der Suche: direkt oeffnen
   useEffect(() => {
@@ -75,7 +109,7 @@ export default function Dokumente() {
   const gefiltert = useMemo(() => {
     const s = q.trim().toLowerCase()
     return (liste ?? []).filter((d) => (kat === 'alle' || d.kategorie === kat)
-      && (!s || d.titel.toLowerCase().includes(s) || (d.notiz ?? '').toLowerCase().includes(s) || d.dateiname.toLowerCase().includes(s)))
+      && (!s || [d.titel, d.notiz, d.dateiname, d.inhalt, d.absender, d.handlung].some((x) => (x ?? '').toLowerCase().includes(s))))
   }, [liste, q, kat])
 
   const gruppen = useMemo(() => {
@@ -90,15 +124,17 @@ export default function Dokumente() {
       <div className="page-head">
         <div>
           <h1>Dokumente</h1>
-          <span className="sub">Gewerbeanmeldung, Steuer, Verträge — alles an einem Ort, über die Suche findbar</span>
+          <span className="sub">Scannen – Claude liest, benennt und sortiert ein</span>
         </div>
       </div>
 
       <div className="dk-oben">
-        <button className="n-tun stark dk-neu" onClick={() => datei.current?.click()}><Plus strokeWidth={2.6} /> Datei</button>
-        <button className="n-tun dk-neu" onClick={() => kamera.current?.click()}><Camera strokeWidth={2.2} /> Scannen</button>
-        <input ref={datei} type="file" accept="application/pdf,image/*,.doc,.docx,.xls,.xlsx" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) setNeu(f); e.target.value = '' }} />
-        <input ref={kamera} type="file" accept="image/*" capture="environment" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) setNeu(f); e.target.value = '' }} />
+        <button className="n-tun stark dk-neu" onClick={() => setScan([])}><Camera strokeWidth={2.4} /> Scannen</button>
+        <button className="n-tun dk-neu" onClick={() => datei.current?.click()}><Plus strokeWidth={2.6} /> Datei</button>
+        <input ref={datei} type="file" multiple accept="application/pdf,image/*,.doc,.docx,.xls,.xlsx" hidden onChange={(e) => {
+          const fs = Array.from(e.target.files ?? []); e.target.value = ''
+          fs.forEach((f) => { ablegen(f) })
+        }} />
       </div>
 
       <label className="dk-suche">
@@ -129,10 +165,16 @@ export default function Dokumente() {
                   <button className="n-zeile-klick" onClick={() => oeffnen(d)}>
                     <span className="n-text">
                       <span className="n-titel">{d.titel}</span>
+                      {d.erkennung === 'laeuft' ? <span className="n-unter dk-liest"><Sparkles strokeWidth={2.2} /> Claude liest das Dokument …</span>
+                      : <>
+                      {d.erkennung === 'fehler' && <span className="n-unter dk-fehler"><AlertCircle strokeWidth={2.2} /> Nicht erkannt – Stift tippen zum Benennen</span>}
                       <span className="n-unter">
-                        {[d.notiz, groesseText(d.groesse), new Date(d.created_at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+                        {[d.betrifft && d.betrifft !== 'agentur' ? (d.betrifft === 'fassie' ? 'Fassie' : 'Lion') : null, d.notiz, groesseText(d.groesse), new Date(d.created_at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }),
                           d.gueltig_bis ? `gültig bis ${new Date(d.gueltig_bis + 'T12:00:00').toLocaleDateString('de-DE')}` : null].filter(Boolean).join(' · ')}
                       </span>
+                      {d.frist && <span className={`dk-frist ${fristNah(d.frist) ? 'nah' : ''}`}><BellRing strokeWidth={2.4} /> {d.handlung || 'Frist'} · bis {new Date(d.frist + 'T12:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}</span>}
+                      {d.inhalt && <span className="dk-inhalt">{d.inhalt}</span>}
+                      </>}
                     </span>
                   </button>
                   <div className="dk-knoepfe">
@@ -147,16 +189,15 @@ export default function Dokumente() {
           </section>
         ))}
 
-      {neu && (
-        <DokSheet
-          titel="Dokument ablegen"
-          start={{ titel: titelAus(neu.name), kategorie: kategorieRaten(neu.name), notiz: '', gueltig_bis: '' }}
-          datei={neu}
-          onZu={() => setNeu(null)}
-          onLos={async (w) => {
-            await hochladen({ file: neu, titel: w.titel, kategorie: w.kategorie, notiz: w.notiz, gueltigBis: w.gueltig_bis || null, userId: user?.id })
-            toast('Abgelegt: ' + (w.titel || neu.name))
-            setNeu(null); laden()
+      {scan && (
+        <ScanSheet
+          seiten={scan}
+          setSeiten={setScan}
+          onZu={() => setScan(null)}
+          onLos={async () => {
+            const pdf = await scanZuPdf(scan)
+            setScan(null)
+            await ablegen(pdf)
           }}
         />
       )}
@@ -164,6 +205,14 @@ export default function Dokumente() {
         <DokSheet
           titel="Dokument bearbeiten"
           start={{ titel: bearbeite.titel, kategorie: bearbeite.kategorie, notiz: bearbeite.notiz ?? '', gueltig_bis: bearbeite.gueltig_bis ?? '' }}
+          inhalt={bearbeite.inhalt}
+          onNeuErkennen={async () => {
+            const id = bearbeite.id
+            setBearbeite(null)
+            const p = erkennen(id); window.setTimeout(laden, 400)
+            try { toast(meldung(await p)) } catch (e) { toast('Erkennen ging nicht: ' + (e as Error).message) }
+            laden()
+          }}
           onZu={() => setBearbeite(null)}
           onLos={async (w) => {
             await aendern(bearbeite.id, { titel: w.titel, kategorie: w.kategorie, notiz: w.notiz || null, gueltig_bis: w.gueltig_bis || null })
@@ -176,12 +225,64 @@ export default function Dokumente() {
 }
 
 const FARBE: Record<DokKategorie, string> = {
-  behoerde: 'blau', steuer: 'gelb', vertrag: 'lila', versicherung: 'gruen', bank: 'tinte', vorlage: 'glut', sonstiges: 'grau',
+  behoerde: 'blau', steuer: 'gelb', vertrag: 'lila', versicherung: 'gruen', bank: 'tinte', rechnung: 'tuerkis', vorlage: 'glut', privat: 'pink', sonstiges: 'grau',
+}
+
+function fristNah(frist: string): boolean {
+  return new Date(frist + 'T12:00:00').getTime() - Date.now() < 7 * 86400000
+}
+
+/** Mehrere Seiten fotografieren -> ein PDF. */
+function ScanSheet({ seiten, setSeiten, onZu, onLos }: { seiten: File[]; setSeiten: (f: File[]) => void; onZu: () => void; onLos: () => Promise<void> }) {
+  const kamera = useRef<HTMLInputElement>(null)
+  const fotos = useRef<HTMLInputElement>(null)
+  const [laeuft, setLaeuft] = useState(false)
+  const [fehler, setFehler] = useState<string | null>(null)
+  const vorschau = useMemo(() => seiten.map((f) => URL.createObjectURL(f)), [seiten])
+  useEffect(() => () => vorschau.forEach((u) => URL.revokeObjectURL(u)), [vorschau])
+  // Beim Oeffnen direkt die Kamera starten
+  useEffect(() => { if (seiten.length === 0) kamera.current?.click() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const dazu = (fs: FileList | null) => { const neu = Array.from(fs ?? []).filter((f) => f.type.startsWith('image/')); if (neu.length) setSeiten([...seiten, ...neu]) }
+  return (
+    <div className="n-sheet-hinter" onClick={onZu}>
+      <div className="n-sheet dk-sheet" role="dialog" aria-label="Scannen" onClick={(e) => e.stopPropagation()}>
+        <div className="n-sheet-kopf">
+          <strong>Scannen</strong>
+          <button className="n-sheet-zu" onClick={onZu} aria-label="Schließen"><X strokeWidth={2.2} /></button>
+        </div>
+        <p className="n-sheet-text">Jede Seite fotografieren. Claude liest danach alles, gibt dem Dokument einen Namen und sortiert es ein.</p>
+        {seiten.length > 0 && (
+          <div className="dk-seiten">
+            {vorschau.map((u, i) => (
+              <div key={u} className="dk-seite">
+                <img src={u} alt={`Seite ${i + 1}`} />
+                <span>{i + 1}</span>
+                <button onClick={() => setSeiten(seiten.filter((_, j) => j !== i))} aria-label="Seite entfernen"><X strokeWidth={2.6} /></button>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="dk-oben">
+          <button className="n-tun dk-neu" onClick={() => kamera.current?.click()}><Camera strokeWidth={2.2} /> {seiten.length ? 'Seite dazu' : 'Foto machen'}</button>
+          <button className="n-tun dk-neu" onClick={() => fotos.current?.click()}><Images strokeWidth={2.2} /> Aus Fotos</button>
+        </div>
+        <input ref={kamera} type="file" accept="image/*" capture="environment" hidden onChange={(e) => { dazu(e.target.files); e.target.value = '' }} />
+        <input ref={fotos} type="file" accept="image/*" multiple hidden onChange={(e) => { dazu(e.target.files); e.target.value = '' }} />
+        {fehler && <div className="error-box">{fehler}</div>}
+        <button className="n-tun stark n-sheet-los" disabled={laeuft || seiten.length === 0} onClick={async () => {
+          setLaeuft(true); setFehler(null)
+          try { await onLos() } catch (e) { setFehler((e as Error).message); setLaeuft(false) }
+        }}>
+          {laeuft ? <Loader2 className="spin" strokeWidth={2.4} /> : <Sparkles strokeWidth={2.4} />} {seiten.length > 1 ? `${seiten.length} Seiten ablegen` : 'Ablegen'}
+        </button>
+      </div>
+    </div>
+  )
 }
 
 interface Werte { titel: string; kategorie: DokKategorie; notiz: string; gueltig_bis: string }
 
-function DokSheet({ titel, start, datei, onZu, onLos }: { titel: string; start: Werte; datei?: File; onZu: () => void; onLos: (w: Werte) => Promise<void> }) {
+function DokSheet({ titel, start, datei, inhalt, onNeuErkennen, onZu, onLos }: { titel: string; start: Werte; datei?: File; inhalt?: string | null; onNeuErkennen?: () => void; onZu: () => void; onLos: (w: Werte) => Promise<void> }) {
   const [w, setW] = useState<Werte>(start)
   const [laeuft, setLaeuft] = useState(false)
   const [fehler, setFehler] = useState<string | null>(null)
@@ -203,6 +304,8 @@ function DokSheet({ titel, start, datei, onZu, onLos }: { titel: string; start: 
           <span>Gültig bis <small>(optional)</small></span>
           <input type="date" className="n-sheet-datum" value={w.gueltig_bis} onChange={(e) => setW({ ...w, gueltig_bis: e.target.value })} />
         </label>
+        {inhalt && <p className="n-sheet-text dk-inhalt-voll">{inhalt}</p>}
+        {onNeuErkennen && <button className="n-tun dk-neu" onClick={onNeuErkennen}><Sparkles strokeWidth={2.2} /> Von Claude neu erkennen lassen</button>}
         {fehler && <div className="error-box">{fehler}</div>}
         <button className="n-tun stark n-sheet-los" disabled={laeuft || !w.titel.trim()} onClick={async () => {
           setLaeuft(true); setFehler(null)
