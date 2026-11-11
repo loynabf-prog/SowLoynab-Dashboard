@@ -5,16 +5,19 @@
 // Agentur in 3D -- jedes Moebelstueck ein Knopf ins CRM.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Flame, Trophy, Sofa, ListChecks, BarChart3, Lock, Check, Plus, X, RefreshCw, Sparkles, ExternalLink, RotateCcw, ArrowUpRight, Euro } from 'lucide-react'
+import { Flame, Trophy, Sofa, ListChecks, BarChart3, Lock, Check, Plus, X, RefreshCw, Sparkles, ExternalLink, RotateCcw, ArrowUpRight, Euro, Gift, Users, Video, CalendarPlus, UserPlus, Coffee, Trash2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { celebrate } from '../lib/confetti'
-import { AUSSTATTUNG, LEVEL, MEILENSTEINE, kurzZahl, monatName, type SQuest, type UmsatzStand } from '../lib/spiel'
+import { AUSSTATTUNG, LEVEL, MEILENSTEINE, XP, ZIEL_TYPEN, kurzZahl, monatName, type FollowerStand, type SQuest, type UmsatzStand, type ZielStand, type ZielTyp } from '../lib/spiel'
+import { setBetriebFrage, ABGEBROCHEN } from '../lib/betriebWahl'
+import type { Channel } from '../lib/channels'
 import type { Empfehlung } from '../lib/pilot'
-import { auftragXp, ladeSpiel, questAnlegen, questErledigen, questZurueck, type SpielDaten } from './daten'
+import { auftragXp, kundeAnlegen, ladeSpiel, leadAnlegen, questAnlegen, questErledigen, questZurueck, terminAnlegen, videoGepostet, zielAnlegen, zielEinloesen, zielLoeschen, type SpielDaten, type StudioKunde } from './daten'
 import Studio from './Studio'
 import './spiel.css'
 
-type Reiter = 'studio' | 'quests' | 'bilanz'
+type Reiter = 'studio' | 'quests' | 'ziele' | 'bilanz'
+type Plus = 'menue' | 'video' | 'quest' | 'kunde' | 'termin'
 
 const euro = (v: number) => `${Math.round(v).toLocaleString('de-DE')} €`
 
@@ -45,6 +48,13 @@ export default function SpielApp() {
   const [gewaehlt, setGewaehlt] = useState<string | null>(() => new URLSearchParams(location.search).get('stueck'))
   const [meldung, setMeldung] = useState<string | null>(null)
   const [nacht, setNacht] = useState(() => { const h = new Date().getHours(); return h >= 18 || h < 7 })
+  const [plus, setPlus] = useState<Plus | null>(null)
+  // Kunde mit zwei Betrieben (Schleckofatz/Schmackofatz): "Gepostet" fragt nach, welcher.
+  const [betriebe, setBetriebe] = useState<{ kanaele: Channel[]; fertig: (id: string | undefined) => void } | null>(null)
+  useEffect(() => {
+    setBetriebFrage((kanaele) => new Promise((fertig) => setBetriebe({ kanaele, fertig })))
+    return () => setBetriebFrage(null)
+  }, [])
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setAngemeldet(!!data.session))
@@ -58,6 +68,16 @@ export default function SpielApp() {
   useEffect(() => { if (angemeldet) laden() }, [angemeldet, laden])
 
   function sag(t: string) { setMeldung(t); window.setTimeout(() => setMeldung(null), 2600) }
+
+  /** "Video gepostet" -- traegt es echt im CRM ein (Platzhalter fuellen, Link und Zahlen holen). */
+  async function posten(clientId: string, name: string, eigen: boolean): Promise<boolean> {
+    const fehlerText = await videoGepostet(clientId)
+    if (fehlerText) { if (fehlerText !== ABGEBROCHEN) sag('Ging nicht: ' + fehlerText); return false }
+    celebrate()
+    sag(`+${eigen ? XP.eigenesVideo : XP.video} XP · ${name} gepostet`)
+    await laden()
+    return true
+  }
 
   if (angemeldet === false) {
     return (
@@ -96,13 +116,21 @@ export default function SpielApp() {
         <main className="sp-inhalt sp-studio">
           <div className="st-rahmen">
             <Umsatzband u={daten.stand.umsatz} />
+            <div className="st-buehne-huelle">
+            {daten.stand.ort === 'cafe' && (
+              <div className="st-ort"><Coffee strokeWidth={2.2} /> Café{daten.stand.bueroIn != null ? <> · Büro in <b>{daten.stand.bueroIn}</b> {daten.stand.bueroIn === 1 ? 'Tag' : 'Tagen'}</> : null}</div>
+            )}
             <Studio
-              level={daten.stand.level} nacht={nacht} leben={daten.leben} hits={daten.stand.hits.length}
+              level={daten.stand.level} ort={daten.stand.ort} nacht={nacht} leben={daten.leben} hits={daten.stand.hits.length}
               offeneQuests={daten.stand.quests.filter((q) => q.status === 'offen' && !q.gesperrt).length}
               gewaehlt={gewaehlt} onWaehlen={setGewaehlt}
             />
-            <StueckKarte schluessel={gewaehlt} levelNr={daten.stand.level.nr} onZu={() => setGewaehlt(null)} onReiter={(r) => { setGewaehlt(null); setReiter(r) }} />
+            </div>
+            {gewaehlt?.startsWith('kunde:')
+              ? <KundenKarte k={daten.leben.kunden.find((x) => `kunde:${x.id}` === gewaehlt)} onZu={() => setGewaehlt(null)} onPosten={(k) => posten(k.id, k.name, false)} />
+              : <StueckKarte schluessel={gewaehlt} levelNr={daten.stand.level.nr} cafe={daten.stand.ort === 'cafe'} onZu={() => setGewaehlt(null)} onReiter={(r) => { setGewaehlt(null); setReiter(r) }} />}
           </div>
+          <FollowerKarte f={daten.stand.follower} onMehr={() => setReiter('ziele')} />
           <section className="sp-karte sp-hqkarte">
             <div className="sp-karte-kopf"><Sofa strokeWidth={2.2} /><strong>Sow &amp; Loynab · {daten.stand.level.name}</strong></div>
             <p>{daten.stand.level.satz}</p>
@@ -120,13 +148,31 @@ export default function SpielApp() {
         <Quests quests={daten.stand.quests} levelNr={daten.stand.level.nr} onNeu={laden} sag={sag} />
       )}
 
+      {daten && reiter === 'ziele' && <Ziele ziele={daten.stand.ziele} f={daten.stand.follower} onNeu={laden} sag={sag} />}
+
       {daten && reiter === 'bilanz' && <Bilanz d={daten} />}
 
       <nav className="sp-tabs">
         <button className={reiter === 'studio' ? 'an' : ''} onClick={() => setReiter('studio')}><Sofa strokeWidth={2.2} /><span>Studio</span></button>
         <button className={reiter === 'quests' ? 'an' : ''} onClick={() => setReiter('quests')}><ListChecks strokeWidth={2.2} /><span>Quests</span>{s && s.quests.some((q) => q.status === 'offen' && !q.gesperrt) && <i />}</button>
+        <button className="sp-plus" onClick={() => setPlus('menue')} aria-label="Eintragen"><span><Plus strokeWidth={3} /></span></button>
+        <button className={reiter === 'ziele' ? 'an' : ''} onClick={() => setReiter('ziele')}><Gift strokeWidth={2.2} /><span>Ziele</span>{s && s.ziele.some((z) => z.erreicht && !z.eingeloest) && <i />}</button>
         <button className={reiter === 'bilanz' ? 'an' : ''} onClick={() => setReiter('bilanz')}><BarChart3 strokeWidth={2.2} /><span>Bilanz</span></button>
       </nav>
+      {daten && plus && plus !== 'quest' && (
+        <Eintragen art={plus} setArt={setPlus} d={daten} onZu={() => setPlus(null)} onPosten={posten} onFertig={() => { setPlus(null); laden() }} sag={sag} />
+      )}
+      {plus === 'quest' && <NeueQuest onZu={() => setPlus(null)} onFertig={() => { setPlus(null); laden() }} sag={sag} />}
+      {betriebe && (
+        <div className="sp-sheet-hinter" style={{ zIndex: 60 }} onClick={() => { betriebe.fertig(undefined); setBetriebe(null) }}>
+          <div className="sp-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sp-sheet-kopf"><strong>Welcher Betrieb?</strong><button onClick={() => { betriebe.fertig(undefined); setBetriebe(null) }} aria-label="Schließen"><X strokeWidth={2.2} /></button></div>
+            <div className="sp-wahl">
+              {betriebe.kanaele.map((c) => <button key={c.id} onClick={() => { betriebe.fertig(c.id); setBetriebe(null) }}><i style={{ background: c.color }} />{c.name}</button>)}
+            </div>
+          </div>
+        </div>
+      )}
       {meldung && <div className="sp-toast">{meldung}</div>}
     </div>
   )
@@ -152,16 +198,16 @@ function Umsatzband({ u }: { u: UmsatzStand }) {
 }
 
 // -------------------------------------------------------- Stück-Karte
-function StueckKarte({ schluessel, levelNr, onZu, onReiter }: { schluessel: string | null; levelNr: number; onZu: () => void; onReiter: (r: Reiter) => void }) {
+function StueckKarte({ schluessel, levelNr, cafe, onZu, onReiter }: { schluessel: string | null; levelNr: number; cafe: boolean; onZu: () => void; onReiter: (r: Reiter) => void }) {
   const a = AUSSTATTUNG.find((x) => x.key === schluessel)
   if (!a) return null
-  const gesperrt = a.abLevel > levelNr
+  const gesperrt = !cafe && a.abLevel > levelNr
   const level = LEVEL[a.abLevel]
   const ziel = a.ziel
   return (
     <div className="st-karte">
       <div className="st-karte-text">
-        <strong>{a.name}</strong>
+        <strong>{cafe && a.key === 'schreibtisch' ? 'Euer Tisch im Café' : cafe && a.key === 'kaffee' ? 'Theke' : a.name}</strong>
         <p>{gesperrt ? `Kommt mit Level ${a.abLevel} · ${level?.name ?? ''}. ${a.tut}` : a.tut}</p>
       </div>
       {gesperrt ? <span className="sp-schloss"><Lock strokeWidth={2.2} /></span>
@@ -169,6 +215,223 @@ function StueckKarte({ schluessel, levelNr, onZu, onReiter }: { schluessel: stri
           ? <a className="st-los" href={ziel.pfad} target="_blank" rel="noopener">Öffnen <ArrowUpRight strokeWidth={2.4} /></a>
           : <button className="st-los" onClick={() => onReiter(ziel.reiter)}>Ansehen <ArrowUpRight strokeWidth={2.4} /></button>}
       <button className="st-zu" onClick={onZu} aria-label="Schließen"><X strokeWidth={2.2} /></button>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------- Kunden-Karte
+function KundenKarte({ k, onZu, onPosten }: { k: StudioKunde | undefined; onZu: () => void; onPosten: (k: StudioKunde) => Promise<boolean> }) {
+  const [laeuft, setLaeuft] = useState(false)
+  if (!k) return null
+  return (
+    <div className="st-karte st-kunde">
+      <div className="st-karte-text">
+        <strong>{k.name}</strong>
+        <p>{k.ziel > 0 ? `${k.gepostet} von ${k.ziel} Videos diesen Monat` : `${k.gepostet} Videos diesen Monat`}{k.satz ? ` · ${k.satz}` : ''}</p>
+        {k.ziel > 0 && <div className="st-kunde-balken"><i style={{ width: `${Math.min(100, Math.round((k.gepostet / k.ziel) * 100))}%` }} /></div>}
+        <div className="st-kunde-knoepfe">
+          <button className="st-los" disabled={laeuft} onClick={async () => { setLaeuft(true); try { await onPosten(k) } finally { setLaeuft(false) } }}><Video strokeWidth={2.4} /> Video gepostet</button>
+          <a className="st-leise" href={`/client/${k.id}`} target="_blank" rel="noopener">Akte <ArrowUpRight strokeWidth={2.4} /></a>
+        </div>
+      </div>
+      <button className="st-zu" onClick={onZu} aria-label="Schließen"><X strokeWidth={2.2} /></button>
+    </div>
+  )
+}
+
+// -------------------------------------------------------- Follower-Karte
+function FollowerKarte({ f, onMehr }: { f: FollowerStand; onMehr?: () => void }) {
+  const gesamt = useZaehler(f.gesamt)
+  return (
+    <section className="sp-karte sp-follower" onClick={onMehr} role={onMehr ? 'button' : undefined}>
+      <div className="sp-karte-kopf"><Users strokeWidth={2.2} /><strong>Personal Brand</strong><span className="sp-xp-tag">+{XP.je1000Follower.toLocaleString('de-DE')} je 1.000</span></div>
+      <div className="sp-follower-zeile">
+        <strong>{Math.round(gesamt).toLocaleString('de-DE')}</strong>
+        <span>Follower · nächste Marke <b>{f.naechste.toLocaleString('de-DE')}</b></span>
+      </div>
+      <div className="st-umsatz-balken"><i style={{ width: `${Math.round(f.fortschritt * 100)}%` }} /></div>
+      <div className="st-umsatz-unten"><span>TikTok <b>{f.tiktok.toLocaleString('de-DE')}</b> · Instagram <b>{f.instagram.toLocaleString('de-DE')}</b></span><span>{f.marken > 0 ? <><b>{f.marken}</b> {f.marken === 1 ? 'Marke' : 'Marken'} geknackt</> : 'noch keine Marke'}</span></div>
+    </section>
+  )
+}
+
+// ----------------------------------------------------------------- Ziele
+function Ziele({ ziele, f, onNeu, sag }: { ziele: ZielStand[]; f: FollowerStand; onNeu: () => void; sag: (t: string) => void }) {
+  const [neu, setNeu] = useState(false)
+  const [laeuft, setLaeuft] = useState<string | null>(null)
+  const offen = ziele.filter((z) => !z.eingeloest)
+  const fertig = ziele.filter((z) => z.eingeloest)
+
+  async function einloesen(z: ZielStand) {
+    setLaeuft(z.ziel.id)
+    try { await zielEinloesen(z.ziel.id); celebrate(); sag(z.ziel.belohnung ? `Verdient: ${z.ziel.belohnung}` : `Geschafft: ${z.ziel.titel}`); onNeu() }
+    catch (e) { sag('Ging nicht: ' + (e as Error).message) } finally { setLaeuft(null) }
+  }
+
+  return (
+    <main className="sp-inhalt">
+      <FollowerKarte f={f} />
+      <div className="sp-abschnitt"><h2>Ziele</h2><button className="sp-klein" onClick={() => setNeu(true)}><Plus strokeWidth={2.6} /> Ziel</button></div>
+      <ul className="sp-ziele">
+        {offen.map((z) => (
+          <li key={z.ziel.id} className={z.erreicht ? 'da' : ''}>
+            <div className="sp-ziel-kopf">
+              <strong>{z.ziel.titel}</strong>
+              {z.erreicht
+                ? <button className="sp-klein" disabled={laeuft === z.ziel.id} onClick={() => einloesen(z)}><Gift strokeWidth={2.4} /> Einlösen</button>
+                : <span className="sp-schloss"><Lock strokeWidth={2.2} /></span>}
+            </div>
+            {z.ziel.belohnung && <p className="sp-ziel-belohnung"><Gift strokeWidth={2.2} /> {z.ziel.belohnung}</p>}
+            <div className="st-umsatz-balken"><i style={{ width: `${Math.round(z.fortschritt * 100)}%` }} /></div>
+            <div className="sp-ziel-fuss">
+              <small>{z.ziel.typ === 'datum' && z.ziel.datum ? `${new Date(z.ziel.datum + 'T12:00:00').toLocaleDateString('de-DE')} · ${z.text}` : z.text}</small>
+              {!z.ziel.schluessel && <button className="sp-leise" onClick={async () => { if (!window.confirm(`Ziel „${z.ziel.titel}“ entfernen?`)) return; await zielLoeschen(z.ziel.id); onNeu() }} aria-label="Entfernen"><Trash2 strokeWidth={2.2} /></button>}
+            </div>
+          </li>
+        ))}
+        {offen.length === 0 && <li className="leer">Noch keine Ziele. Legt fest, was ihr euch bei welcher Marke gönnt.</li>}
+      </ul>
+      {fertig.length > 0 && (
+        <>
+          <div className="sp-abschnitt"><h2>Eingelöst</h2><span>{fertig.length}</span></div>
+          <ul className="sp-quests fertig">
+            {fertig.map((z) => (
+              <li key={z.ziel.id}>
+                <div className="sp-quest-text"><strong>{z.ziel.titel}</strong><small>{z.ziel.belohnung ? `${z.ziel.belohnung} · ` : ''}{z.ziel.eingeloest_am ? new Date(z.ziel.eingeloest_am).toLocaleDateString('de-DE') : ''}</small></div>
+                <div className="sp-quest-rechts"><button className="sp-leise" onClick={async () => { await zielEinloesen(z.ziel.id, true); onNeu() }} aria-label="Zurücknehmen"><RotateCcw strokeWidth={2.2} /></button></div>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      <p className="sp-fuss">Ein Ziel öffnet sich erst, wenn die echte Zahl stimmt. Einlösen heißt: Ihr habt es euch wirklich gegönnt.</p>
+      {neu && <NeuesZiel onZu={() => setNeu(false)} onFertig={() => { setNeu(false); onNeu() }} sag={sag} />}
+    </main>
+  )
+}
+
+function NeuesZiel({ onZu, onFertig, sag }: { onZu: () => void; onFertig: () => void; sag: (t: string) => void }) {
+  const [titel, setTitel] = useState('')
+  const [belohnung, setBelohnung] = useState('')
+  const [typ, setTyp] = useState<ZielTyp>('follower')
+  const [wert, setWert] = useState('')
+  const [datum, setDatum] = useState('')
+  const [laeuft, setLaeuft] = useState(false)
+  const t = ZIEL_TYPEN.find((x) => x.key === typ)!
+  const zahl = Number(wert.replace(/\./g, '').replace(',', '.'))
+  const gueltig = !!titel.trim() && (typ === 'datum' ? !!datum : zahl > 0)
+  return (
+    <div className="sp-sheet-hinter" onClick={onZu}>
+      <div className="sp-sheet" onClick={(e) => e.stopPropagation()}>
+        <div className="sp-sheet-kopf"><strong>Neues Ziel</strong><button onClick={onZu} aria-label="Schließen"><X strokeWidth={2.2} /></button></div>
+        <input value={titel} onChange={(e) => setTitel(e.target.value)} placeholder="Ziel, z. B. 5.000 Follower" autoFocus />
+        <input value={belohnung} onChange={(e) => setBelohnung(e.target.value)} placeholder="Echte Belohnung, z. B. neue Kamera (optional)" />
+        <div className="sp-chips">
+          {ZIEL_TYPEN.map((x) => <button key={x.key} className={typ === x.key ? 'an' : ''} onClick={() => setTyp(x.key)}>{x.name}</button>)}
+        </div>
+        {typ === 'datum'
+          ? <label>Ab wann <input type="date" value={datum} onChange={(e) => setDatum(e.target.value)} /></label>
+          : <label>Ab wie viel ({t.einheit}) <input inputMode="numeric" value={wert} onChange={(e) => setWert(e.target.value)} placeholder={typ === 'level' ? '3' : '5000'} /></label>}
+        <button className="sp-knopf" disabled={!gueltig || laeuft} onClick={async () => {
+          setLaeuft(true)
+          try { await zielAnlegen({ titel, belohnung, typ, wert: typ === 'datum' ? null : zahl, datum }); sag('Ziel angelegt'); onFertig() }
+          catch (e) { sag('Ging nicht: ' + (e as Error).message) } finally { setLaeuft(false) }
+        }}>Anlegen</button>
+      </div>
+    </div>
+  )
+}
+
+// ------------------------------------------------------------- Eintragen
+// Der Plus-Knopf: was hier eingetragen wird, steht danach echt im CRM.
+function Eintragen({ art, setArt, d, onZu, onPosten, onFertig, sag }: {
+  art: Plus; setArt: (a: Plus) => void; d: SpielDaten; onZu: () => void
+  onPosten: (clientId: string, name: string, eigen: boolean) => Promise<boolean>; onFertig: () => void; sag: (t: string) => void
+}) {
+  const [laeuft, setLaeuft] = useState(false)
+  // Kunde / Lead
+  const [gewonnen, setGewonnen] = useState(false)
+  const [name, setName] = useState('')
+  const [honorar, setHonorar] = useState('')
+  const [videos, setVideos] = useState('')
+  // Termin
+  const [titel, setTitel] = useState('')
+  const [tag, setTag] = useState(d.heute)
+  const [von, setVon] = useState('')
+  const [drehtag, setDrehtag] = useState(false)
+  const [kunde, setKunde] = useState('')
+  const zahl = (v: string) => { const x = Number(v.replace(/\./g, '').replace(',', '.')); return v.trim() && Number.isFinite(x) ? x : null }
+  const kopf = art === 'menue' ? 'Eintragen' : art === 'video' ? 'Video gepostet' : art === 'kunde' ? 'Kunde oder Lead' : 'Termin'
+
+  async function tu(f: () => Promise<void>, ok: string) {
+    setLaeuft(true)
+    try { await f(); sag(ok); onFertig() } catch (e) { sag('Ging nicht: ' + (e as Error).message) } finally { setLaeuft(false) }
+  }
+
+  return (
+    <div className="sp-sheet-hinter" onClick={onZu}>
+      <div className="sp-sheet" onClick={(e) => e.stopPropagation()}>
+        <div className="sp-sheet-kopf"><strong>{kopf}</strong><button onClick={onZu} aria-label="Schließen"><X strokeWidth={2.2} /></button></div>
+
+        {art === 'menue' && (
+          <div className="sp-menue">
+            <button onClick={() => setArt('video')}><Video strokeWidth={2.2} /><span><strong>Video gepostet</strong><small>Zählt sofort im CRM und holt Link und Zahlen</small></span></button>
+            <button onClick={() => setArt('quest')}><ListChecks strokeWidth={2.2} /><span><strong>Quest</strong><small>Aufgabe oder Meilenstein der Agentur</small></span></button>
+            <button onClick={() => setArt('kunde')}><UserPlus strokeWidth={2.2} /><span><strong>Kunde oder Lead</strong><small>Neuer Kontakt oder gewonnener Kunde</small></span></button>
+            <button onClick={() => setArt('termin')}><CalendarPlus strokeWidth={2.2} /><span><strong>Termin oder Drehtag</strong><small>Landet im gemeinsamen Kalender</small></span></button>
+          </div>
+        )}
+
+        {art === 'video' && (
+          <>
+            <p className="sp-sheet-hinweis">Für wen ist es rausgegangen?</p>
+            <div className="sp-wahl">
+              {d.postbar.map((k) => (
+                <button key={k.id} disabled={laeuft} onClick={async () => { setLaeuft(true); try { if (await onPosten(k.id, k.name, k.eigen)) onZu() } finally { setLaeuft(false) } }}>
+                  {k.name}<span className="sp-xp-tag">+{k.eigen ? XP.eigenesVideo : XP.video}</span>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+
+        {art === 'kunde' && (
+          <>
+            <div className="sp-chips">
+              <button className={!gewonnen ? 'an' : ''} onClick={() => setGewonnen(false)}>Lead</button>
+              <button className={gewonnen ? 'an' : ''} onClick={() => setGewonnen(true)}>Kunde gewonnen</button>
+            </div>
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name des Unternehmens" autoFocus />
+            <input inputMode="decimal" value={honorar} onChange={(e) => setHonorar(e.target.value)} placeholder={gewonnen ? 'Honorar netto im Monat (€)' : 'Mögliches Honorar im Monat (€, optional)'} />
+            {gewonnen && <input inputMode="numeric" value={videos} onChange={(e) => setVideos(e.target.value)} placeholder="Videos im Monat" />}
+            <button className="sp-knopf" disabled={!name.trim() || laeuft || (gewonnen && (zahl(honorar) == null || zahl(videos) == null))} onClick={() => gewonnen
+              ? tu(() => kundeAnlegen({ name, honorar: zahl(honorar), videos: zahl(videos), heute: d.heute }), `${name.trim()} ist Kunde`)
+              : tu(() => leadAnlegen({ name, honorar: zahl(honorar) }), `Lead ${name.trim()} angelegt`)}>{gewonnen ? 'Kunde anlegen' : 'Lead anlegen'}</button>
+            {gewonnen && <p className="sp-sheet-hinweis">Die +{XP.neuerKunde.toLocaleString('de-DE')} XP gibt es mit dem ersten geposteten Video.</p>}
+          </>
+        )}
+
+        {art === 'termin' && (
+          <>
+            <div className="sp-chips">
+              <button className={!drehtag ? 'an' : ''} onClick={() => setDrehtag(false)}>Termin</button>
+              <button className={drehtag ? 'an' : ''} onClick={() => setDrehtag(true)}>Drehtag</button>
+            </div>
+            <input value={titel} onChange={(e) => setTitel(e.target.value)} placeholder={drehtag ? 'Titel (leer = „Drehtag“)' : 'Was?'} autoFocus />
+            <label>Tag <input type="date" value={tag} onChange={(e) => setTag(e.target.value)} /></label>
+            <label>Uhrzeit (optional) <input type="time" value={von} onChange={(e) => setVon(e.target.value)} /></label>
+            <label>Kunde (optional)
+              <select value={kunde} onChange={(e) => setKunde(e.target.value)}>
+                <option value="">—</option>
+                {d.postbar.filter((k) => !k.eigen).map((k) => <option key={k.id} value={k.id}>{k.name}</option>)}
+              </select>
+            </label>
+            <button className="sp-knopf" disabled={laeuft || !tag || (!drehtag && !titel.trim())} onClick={() => tu(
+              () => terminAnlegen({ titel: titel.trim() || 'Drehtag', tag, von: von || null, clientId: kunde || null, drehtag }),
+              drehtag ? 'Drehtag steht im Kalender' : 'Termin steht im Kalender')}>Eintragen</button>
+          </>
+        )}
+      </div>
     </div>
   )
 }

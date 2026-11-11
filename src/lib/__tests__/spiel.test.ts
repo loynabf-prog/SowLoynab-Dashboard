@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { LEVEL, XP, gebaeudeFuer, levelFuer, spielStand, streakVon, umsatzStand, viewsXp, type SKunde, type SVideo } from '../spiel'
+import { LEVEL, XP, followerStand, gebaeudeFuer, levelFuer, spielStand, streakVon, tageBis, umsatzStand, viewsXp, zielStand, type SKunde, type SVideo, type SZiel, type ZielWerte } from '../spiel'
 
 const k = (x: Partial<SKunde> & { id: string }): SKunde => ({
   name: x.id, client_type: 'zahlend', monthly_fee: 1000, monthly_quota: 10, active: true, pausiert_seit: null, logo_url: null, brand_color: null, ...x,
@@ -112,5 +112,54 @@ describe('umsatzStand', () => {
     expect(u.erreicht).toEqual([2500])
     expect(u.naechster).toBe(2500)
     expect(u.fortschritt).toBeCloseTo(0.6)
+  })
+})
+
+describe('Tycoon: Follower, Ziele, Ort', () => {
+  const z = (x: Partial<SZiel> & { id: string }): SZiel => ({ titel: x.id, belohnung: null, typ: 'follower', wert: null, datum: null, schluessel: null, eingeloest_am: null, sort: 0, ...x })
+  const w: ZielWerte = { follower: 1302, umsatz: 6850, videos: 128, kunden: 5, level: 2, heute: '2026-11-11' }
+
+  it('Follower: TikTok + Instagram zusammen, je volle 1.000 eine Marke', () => {
+    const f = followerStand({ tiktok: 494, instagram: 808 })
+    expect(f.gesamt).toBe(1302)
+    expect(f.marken).toBe(1)
+    expect(f.naechste).toBe(2000)
+    expect(f.fortschritt).toBeCloseTo(0.302)
+    expect(followerStand(undefined).gesamt).toBe(0)
+  })
+
+  it('Ziel nach Zahl: erreicht erst, wenn die echte Zahl stimmt', () => {
+    expect(zielStand(z({ id: 'a', typ: 'follower', wert: 5000 }), w).erreicht).toBe(false)
+    expect(zielStand(z({ id: 'a', typ: 'follower', wert: 5000 }), w).fortschritt).toBeCloseTo(0.2604)
+    expect(zielStand(z({ id: 'b', typ: 'follower', wert: 1000 }), w).erreicht).toBe(true)
+    expect(zielStand(z({ id: 'c', typ: 'umsatz', wert: 10000 }), w).erreicht).toBe(false)
+    expect(zielStand(z({ id: 'd', typ: 'kunden', wert: 5 }), w).erreicht).toBe(true)
+    expect(zielStand(z({ id: 'e', typ: 'videos', wert: 100, eingeloest_am: '2026-11-01T10:00:00Z' }), w).eingeloest).toBe(true)
+  })
+
+  it('Ziel nach Datum: Countdown, am Tag selbst erreicht', () => {
+    expect(tageBis('2026-11-11', '2026-12-01')).toBe(20)
+    const vor = zielStand(z({ id: 'b', typ: 'datum', datum: '2026-12-01' }), w)
+    expect(vor.erreicht).toBe(false)
+    expect(vor.text).toBe('in 20 Tagen')
+    expect(zielStand(z({ id: 'b', typ: 'datum', datum: '2026-12-01' }), { ...w, heute: '2026-12-01' }).erreicht).toBe(true)
+  })
+
+  it('Ort: Café bis zum Büro-Ziel, danach Büro; ohne Ziel Büro', () => {
+    const basis = { kunden: [k({ id: 'a' })], videos: [v({ id: 'v1', client_id: 'a' })], kontrollen: [], plaene: [], quests: [] }
+    const buero = z({ id: 'b', typ: 'datum', datum: '2026-12-01', schluessel: 'buero' })
+    const vor = spielStand({ ...basis, heute: '2026-11-11', ziele: [buero] })
+    expect(vor.ort).toBe('cafe')
+    expect(vor.bueroIn).toBe(20)
+    const nach = spielStand({ ...basis, heute: '2026-12-01', ziele: [buero] })
+    expect(nach.ort).toBe('buero')
+    expect(nach.bueroIn).toBeNull()
+    expect(spielStand({ ...basis, heute: '2026-11-11' }).ort).toBe('buero')
+  })
+
+  it('Follower bringen XP je volle 1.000', () => {
+    const basis = { kunden: [k({ id: 'a' })], videos: [], kontrollen: [], plaene: [], quests: [], heute: '2026-11-11' }
+    const ohne = spielStand(basis).xp
+    expect(spielStand({ ...basis, follower: { tiktok: 1500, instagram: 700 } }).xp - ohne).toBe(2 * XP.je1000Follower)
   })
 })

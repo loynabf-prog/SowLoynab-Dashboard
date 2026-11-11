@@ -22,6 +22,7 @@ export const XP = {
   je100Euro: 10,            // ... und je 100 EUR, die bezahlt wurden (Umsatz zaehlt)
   neuerKunde: 1000,         // zahlender Kunde mit erstem geposteten Video
   streakWoche: 100,         // je volle Woche Posting-Streak (aktuell)
+  je1000Follower: 1000,     // je volle 1.000 Follower der Personal Brand (TikTok + Instagram)
 } as const
 
 /** Umsatz-Meilensteine je Monat (gestellt), EUR. */
@@ -33,7 +34,7 @@ export const LEVEL: Level[] = [
   { nr: 0, name: 'Garage', ab: 0, satz: 'Zwei Leute, ein Handy, eine Idee.', schaltetFrei: null },
   { nr: 1, name: 'Studio', ab: 3_000, satz: 'Die ersten Kunden zahlen. Es wird ernst.', schaltetFrei: 'Personal Brand' },
   { nr: 2, name: 'Agentur', ab: 8_000, satz: 'Ihr habt einen Namen in Münster.', schaltetFrei: 'Empfehlungsprogramm' },
-  { nr: 3, name: 'Boutique', ab: 16_000, satz: 'Kunden kommen zu euch, nicht umgekehrt.', schaltetFrei: 'Büro suchen' },
+  { nr: 3, name: 'Boutique', ab: 16_000, satz: 'Kunden kommen zu euch, nicht umgekehrt.', schaltetFrei: 'Neon-Schild' },
   { nr: 4, name: 'Haus', ab: 32_000, satz: 'Zu zweit reicht es nicht mehr.', schaltetFrei: 'Erster Mitarbeiter' },
   { nr: 5, name: 'Powerhouse', ab: 64_000, satz: 'Die Agentur, über die man redet.', schaltetFrei: 'Ads-Budget' },
   { nr: 6, name: 'Imperium', ab: 128_000, satz: 'Dreißig Kunden. Das Ziel.', schaltetFrei: null },
@@ -105,6 +106,90 @@ export interface SQuest {
   erledigt_am: string | null
 }
 
+
+// ------------------------------------------------------------------ Ziele
+// Ein Ziel haengt an einem echten Wert. Ist es erreicht, darf es eingeloest
+// werden -- mit der echten Belohnung, die dransteht.
+export type ZielTyp = 'follower' | 'umsatz' | 'videos' | 'kunden' | 'level' | 'datum'
+export const ZIEL_TYPEN: { key: ZielTyp; name: string; einheit: string }[] = [
+  { key: 'follower', name: 'Follower', einheit: 'Follower' },
+  { key: 'umsatz', name: 'Monatsumsatz', einheit: '€ im Monat' },
+  { key: 'videos', name: 'Videos', einheit: 'Videos gepostet' },
+  { key: 'kunden', name: 'Kunden', einheit: 'zahlende Kunden' },
+  { key: 'level', name: 'Level', einheit: 'Level' },
+  { key: 'datum', name: 'Datum', einheit: '' },
+]
+
+export interface SZiel {
+  id: string
+  titel: string
+  belohnung: string | null
+  typ: ZielTyp
+  wert: number | string | null
+  datum: string | null
+  schluessel: string | null
+  eingeloest_am: string | null
+  sort: number
+}
+
+export interface ZielStand {
+  ziel: SZiel
+  ist: number
+  soll: number
+  /** 0..1 */
+  fortschritt: number
+  erreicht: boolean
+  eingeloest: boolean
+  /** "1.302 von 5.000 Follower" bzw. "in 20 Tagen" */
+  text: string
+}
+
+export interface FollowerStand {
+  tiktok: number
+  instagram: number
+  gesamt: number
+  /** volle Tausender, die schon geknackt sind */
+  marken: number
+  naechste: number
+  /** 0..1 bis zur naechsten 1.000er-Marke */
+  fortschritt: number
+}
+
+export function followerStand(f: { tiktok: number; instagram: number } | undefined): FollowerStand {
+  const tiktok = Math.max(0, n(f?.tiktok)), instagram = Math.max(0, n(f?.instagram))
+  const gesamt = tiktok + instagram
+  const marken = Math.floor(gesamt / 1000)
+  return { tiktok, instagram, gesamt, marken, naechste: (marken + 1) * 1000, fortschritt: (gesamt % 1000) / 1000 }
+}
+
+/** Tage von a bis b (beide "YYYY-MM-DD"); negativ, wenn b vor a liegt. */
+export function tageBis(a: string, b: string): number {
+  return Math.round((Date.parse(b + 'T12:00:00Z') - Date.parse(a + 'T12:00:00Z')) / 86_400_000)
+}
+
+export interface ZielWerte { follower: number; umsatz: number; videos: number; kunden: number; level: number; heute: string }
+
+export function zielStand(z: SZiel, w: ZielWerte): ZielStand {
+  const eingeloest = !!z.eingeloest_am
+  if (z.typ === 'datum') {
+    const tage = z.datum ? tageBis(w.heute, z.datum) : 0
+    const erreicht = tage <= 0
+    const text = erreicht ? 'Der Tag ist da' : tage === 1 ? 'morgen' : `in ${tage} Tagen`
+    // Countdown ueber die letzten 60 Tage sichtbar machen
+    return { ziel: z, ist: 0, soll: 0, fortschritt: erreicht ? 1 : Math.max(0, 1 - tage / 60), erreicht, eingeloest, text }
+  }
+  const soll = Math.max(0, n(z.wert))
+  const ist = w[z.typ]
+  const erreicht = soll > 0 ? ist >= soll : true
+  const einheit = ZIEL_TYPEN.find((t) => t.key === z.typ)?.einheit ?? ''
+  const zahl = (v: number) => Math.round(v).toLocaleString('de-DE')
+  const text = z.typ === 'level' ? `Level ${ist} von ${soll}` : `${zahl(Math.min(ist, soll))} von ${zahl(soll)} ${einheit}`
+  return { ziel: z, ist, soll, fortschritt: soll > 0 ? Math.min(1, ist / soll) : 1, erreicht, eingeloest, text }
+}
+
+/** Wo spielt das Studio? Im Cafe, bis das Buero-Ziel (schluessel 'buero') erreicht ist. Ohne so ein Ziel: Buero. */
+export type Ort = 'cafe' | 'buero'
+
 export interface SpielEingang {
   kunden: SKunde[]
   videos: SVideo[]
@@ -112,6 +197,9 @@ export interface SpielEingang {
   plaene: SPlan[]
   quests: SQuest[]
   heute: string
+  /** Follower der Personal Brand (letzter Stand je Plattform) */
+  follower?: { tiktok: number; instagram: number }
+  ziele?: SZiel[]
 }
 
 export interface XpPosten { key: string; label: string; anzahl: number; xp: number }
@@ -136,6 +224,11 @@ export interface SpielStand {
   posten: XpPosten[]
   streak: number
   streakBeste: number
+  follower: FollowerStand
+  ziele: ZielStand[]
+  ort: Ort
+  /** Tage bis zum Einzug (nur im Cafe) */
+  bueroIn: number | null
   /** Heute schon gepostet? */
   heuteGepostet: boolean
   hits: { video: SVideo; faktor: number }[]
@@ -344,6 +437,10 @@ export function spielStand(e: SpielEingang): SpielStand {
   const erledigt = e.quests.filter((q) => q.status === 'erledigt')
   posten.push({ key: 'quests', label: 'Meilensteine & Aufgaben', anzahl: erledigt.length, xp: erledigt.reduce((s, q) => s + n(q.xp), 0) })
 
+  // --- Follower der Personal Brand ------------------------------------------
+  const follower = followerStand(e.follower)
+  posten.push({ key: 'follower', label: 'Follower Personal Brand (je 1.000)', anzahl: follower.gesamt, xp: follower.marken * XP.je1000Follower })
+
   // --- Streak ----------------------------------------------------------------
   const tage = new Set(gepostet.map((v) => tagVon(v.posted_at)).filter(Boolean) as string[])
   const st = streakVon(tage, e.heute)
@@ -394,7 +491,21 @@ export function spielStand(e: SpielEingang): SpielStand {
 
   if (umsatz.bester) rekorde.push({ label: 'Bester Umsatz-Monat', wert: `${Math.round(umsatz.bester.betrag).toLocaleString('de-DE')} €`, wann: umsatz.bester.key })
 
-  return { xp, level, naechstes, fortschritt, posten, streak: st.aktuell, streakBeste: st.beste, heuteGepostet: st.heute, hits, monate, quests, rekorde, umsatz }
+  // --- Ziele -----------------------------------------------------------------
+  const hoechsterUmsatz = Math.max(umsatz.gestellt, umsatz.bester?.betrag ?? 0)
+  const werte: ZielWerte = {
+    follower: follower.gesamt, umsatz: hoechsterUmsatz, videos: gepostet.length,
+    kunden: e.kunden.filter((k) => k.client_type === 'zahlend' && k.active && !k.pausiert_seit).length,
+    level: level.nr, heute: e.heute,
+  }
+  const ziele = (e.ziele ?? [])
+    .map((z) => zielStand(z, werte))
+    .sort((a, b) => Number(a.eingeloest) - Number(b.eingeloest) || Number(b.erreicht) - Number(a.erreicht) || b.fortschritt - a.fortschritt || a.ziel.sort - b.ziel.sort)
+  const buero = ziele.find((z) => z.ziel.schluessel === 'buero')
+  const ort: Ort = buero && !buero.erreicht ? 'cafe' : 'buero'
+  const bueroIn = buero && !buero.erreicht && buero.ziel.datum ? tageBis(e.heute, buero.ziel.datum) : null
+
+  return { xp, level, naechstes, fortschritt, posten, streak: st.aktuell, streakBeste: st.beste, heuteGepostet: st.heute, follower, ziele, ort, bueroIn, hits, monate, quests, rekorde, umsatz }
 }
 
 export function kurzZahl(v: number): string {

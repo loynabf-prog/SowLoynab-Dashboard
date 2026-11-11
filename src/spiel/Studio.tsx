@@ -9,11 +9,13 @@ import { Suspense, createContext, useContext, useEffect, useMemo, useRef, useSta
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { Html, OrbitControls, RoundedBox } from '@react-three/drei'
 import * as THREE from 'three'
-import { AUSSTATTUNG, type Ausstattung, type Level } from '../lib/spiel'
-import type { StudioLeben } from './daten'
+import { AUSSTATTUNG, type Ausstattung, type Level, type Ort } from '../lib/spiel'
+import type { StudioKunde, StudioLeben } from './daten'
 
 export interface StudioProps {
   level: Level
+  /** Cafe (vor dem Einzug) oder Buero */
+  ort: Ort
   nacht: boolean
   leben: StudioLeben
   offeneQuests: number
@@ -486,8 +488,149 @@ function Konferenz() {
   )
 }
 
+
+// ------------------------------------------------------------- Kunden
+// Jeder Kunde steht als kleine Figur in seiner Farbe im Raum. Wippt ruhig,
+// wenn alles laeuft; hat ein Ausrufezeichen ueber dem Kopf, wenn er etwas
+// braucht; traegt ein gruenes Haekchen, wenn der Monat abgeschlossen ist.
+// Der Schluessel einer Figur ist "kunde:<id>" -- die Karte dazu zeigt App.tsx.
+const KUNDEN_PALETTE = ['#ff5f1f', '#0a84ff', '#30d158', '#ffd60a', '#bf5af2', '#ff375f', '#64d2ff', '#ff9f0a', '#5e5ce6']
+
+function Figur({ k, i, position, aktiv, onWaehlen }: { k: StudioKunde; i: number; position: [number, number, number]; aktiv: boolean; onWaehlen: (key: string | null) => void }) {
+  const [hover, setHover] = useState(false)
+  const g = useRef<THREE.Group>(null)
+  const farbe = k.farbe || KUNDEN_PALETTE[i % KUNDEN_PALETTE.length]
+  const ruft = k.ampel === 'rot'
+  useFrame(({ clock }) => {
+    if (!g.current) return
+    const t = clock.elapsedTime * (ruft ? 5 : 1.6) + i * 1.3
+    g.current.position.y = Math.abs(Math.sin(t)) * (ruft ? 0.16 : 0.04)
+    g.current.rotation.y = Math.sin(clock.elapsedTime * 0.5 + i) * 0.35
+  })
+  useEffect(() => { document.body.style.cursor = hover ? 'pointer' : ''; return () => { document.body.style.cursor = '' } }, [hover])
+  const klick = (e: ThreeEvent<MouseEvent>) => { e.stopPropagation(); if (e.delta > 6) return; onWaehlen(aktiv ? null : `kunde:${k.id}`) }
+  return (
+    <group position={position}>
+      <group ref={g} onClick={klick} onPointerOver={(e) => { e.stopPropagation(); setHover(true) }} onPointerOut={() => setHover(false)}>
+        {/* Koerper */}
+        <mesh position={[0, 0.5, 0]} castShadow>
+          <capsuleGeometry args={[0.24, 0.42, 6, 16]} />
+          <Mat color={farbe} roughness={.7} />
+        </mesh>
+        {/* Kopf */}
+        <mesh position={[0, 1.14, 0]} castShadow>
+          <sphereGeometry args={[0.2, 20, 16]} />
+          <Mat color={F.weiss} roughness={.8} />
+        </mesh>
+        {/* Augen */}
+        {[-0.07, 0.07].map((x) => (
+          <mesh key={x} position={[x, 1.17, 0.18]}><sphereGeometry args={[0.025, 8, 8]} /><Mat color={F.schwarz} /></mesh>
+        ))}
+        {ruft && (
+          <group position={[0, 1.62, 0]}>
+            <Kasten p={[0, 0.1, 0]} s={[0.07, 0.24, 0.07]} r={0.03} mat={{ color: F.orange, emissive: F.orange, emissiveIntensity: 1.2 }} />
+            <mesh position={[0, -0.1, 0]}><sphereGeometry args={[0.045, 10, 8]} /><Mat color={F.orange} emissive={F.orange} emissiveIntensity={1.2} /></mesh>
+          </group>
+        )}
+        {!ruft && k.gruen && (
+          <mesh position={[0, 1.55, 0]}><sphereGeometry args={[0.08, 12, 10]} /><Mat color={F.gruen} emissive={F.gruen} emissiveIntensity={.9} /></mesh>
+        )}
+        {/* groessere, unsichtbare Tippflaeche fuers Handy */}
+        <mesh position={[0, 0.75, 0]}><cylinderGeometry args={[0.42, 0.42, 1.6, 10]} /><meshBasicMaterial transparent opacity={0} depthWrite={false} /></mesh>
+      </group>
+      {/* Schatten-Teller */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.012, 0]}><circleGeometry args={[0.3, 20]} /><meshBasicMaterial color="#000" transparent opacity={0.18} depthWrite={false} /></mesh>
+      {(hover || aktiv) && (
+        <Html position={[0, 2.0, 0]} center zIndexRange={[20, 0]} style={{ pointerEvents: 'none' }}>
+          <div className={`st-schild ${aktiv ? 'aktiv' : ''}`}><strong>{k.name}</strong><small>{k.ziel > 0 ? `${k.gepostet} von ${k.ziel} Videos` : `${k.gepostet} Videos`}</small></div>
+        </Html>
+      )}
+    </group>
+  )
+}
+
+/** Stellt die Kunden in einem lockeren Bogen in den freien Teil des Raums. */
+function Kunden({ kunden, plaetze, gewaehlt, onWaehlen }: { kunden: StudioKunde[]; plaetze: [number, number][]; gewaehlt: string | null; onWaehlen: (key: string | null) => void }) {
+  return (
+    <>
+      {kunden.slice(0, plaetze.length).map((k, i) => (
+        <Figur key={k.id} k={k} i={i} position={[plaetze[i][0], 0, plaetze[i][1]]} aktiv={gewaehlt === `kunde:${k.id}`} onWaehlen={onWaehlen} />
+      ))}
+    </>
+  )
+}
+
+const PLAETZE_BUERO: [number, number][] = [[1.2, -1.6], [2.4, -2.6], [0.2, -0.9], [2.9, -1.2], [-3.4, -0.6], [-3.6, 1.2], [1.6, 0.4], [3.0, 0.9], [-0.4, 4.6], [3.2, 4.6]]
+const PLAETZE_CAFE: [number, number][] = [[1.9, 0.7], [-2.3, 0.9], [2.9, -1.0], [-3.2, -1.1], [0.2, 2.6], [2.6, 2.7], [-2.4, 3.0], [4.2, 1.2], [-4.2, 1.4], [0.4, 4.4]]
+
+// ---------------------------------------------------------------- Cafe
+// Vor dem Einzug: ein Tisch im Cafe, zwei Laptops, zwei Kaffee. Mehr braucht
+// es nicht, um eine Agentur zu fuehren.
+function CafeTisch({ nacht, dringend, vorschlaege }: { nacht: boolean; dringend: number; vorschlaege: number }) {
+  const schirm = dringend > 0 ? F.orange : vorschlaege > 0 ? F.blau : F.gruen
+  return (
+    <group>
+      <Zylinder p={[0, 0.76, 0]} r={0.95} h={0.07} mat={{ color: F.holzDunkel, roughness: .55 }} seg={36} />
+      <Zylinder p={[0, 0.38, 0]} r={0.09} h={0.74} mat={{ color: F.schwarz, metalness: .4, roughness: .5 }} />
+      <Zylinder p={[0, 0.03, 0]} r={0.45} h={0.05} mat={{ color: F.schwarz, metalness: .4, roughness: .5 }} seg={28} />
+      {/* zwei Laptops, einander gegenueber */}
+      {[0, Math.PI].map((dreh, i) => (
+        <group key={i} rotation={[0, dreh, 0]}>
+          <group position={[0, 0.8, 0.42]}>
+            <Kasten p={[0, 0.012, 0]} s={[0.6, 0.025, 0.4]} mat={{ color: F.stahl, metalness: .4, roughness: .4 }} />
+            <Kasten p={[0, 0.21, -0.2]} s={[0.6, 0.4, 0.02]} rot={[-0.22, 0, 0]} mat={{ color: F.stahl, metalness: .4, roughness: .4 }} />
+            <mesh position={[0, 0.215, -0.185]} rotation={[-0.22, 0, 0]}>
+              <planeGeometry args={[0.54, 0.34]} />
+              <meshStandardMaterial color={i ? F.orange : schirm} emissive={i ? F.orange : schirm} emissiveIntensity={nacht ? 1.3 : .55} roughness={.3} />
+            </mesh>
+          </group>
+          {/* Tasse */}
+          <Zylinder p={[0.52, 0.86, 0.3]} r={[0.07, 0.055]} h={0.11} mat={{ color: i ? F.orange : F.weiss, roughness: .5 }} seg={14} />
+          {/* Stuhl */}
+          <group position={[0, 0, 1.45]}>
+            <Zylinder p={[0, 0.46, 0]} r={0.3} h={0.07} mat={{ color: i ? '#3b5b6b' : F.eiche, roughness: .8 }} seg={22} />
+            {([[-0.2, -0.2], [0.2, -0.2], [-0.2, 0.2], [0.2, 0.2]] as const).map(([x, z], j) => (
+              <Kasten key={j} p={[x, 0.22, z]} s={[0.05, 0.44, 0.05]} mat={{ color: F.schwarz }} />
+            ))}
+            <Kasten p={[0, 0.82, 0.27]} s={[0.56, 0.5, 0.05]} r={0.04} mat={{ color: i ? '#3b5b6b' : F.eiche, roughness: .8 }} />
+          </group>
+        </group>
+      ))}
+    </group>
+  )
+}
+
+/** Deko: ein leerer Nachbartisch -- es ist ein Cafe, kein Buero. */
+function Nebentisch() {
+  return (
+    <group>
+      <Zylinder p={[0, 0.74, 0]} r={0.55} h={0.05} mat={{ color: F.weiss, roughness: .5 }} seg={28} />
+      <Zylinder p={[0, 0.37, 0]} r={0.06} h={0.72} mat={{ color: F.schwarz, metalness: .4, roughness: .5 }} />
+      <Zylinder p={[0, 0.03, 0]} r={0.32} h={0.05} mat={{ color: F.schwarz, metalness: .4, roughness: .5 }} seg={22} />
+      {[-0.95, 0.95].map((x) => (
+        <group key={x} position={[x, 0, 0]}>
+          <Zylinder p={[0, 0.45, 0]} r={0.26} h={0.06} mat={{ color: F.eiche, roughness: .8 }} seg={20} />
+          <Zylinder p={[0, 0.22, 0]} r={0.04} h={0.44} mat={{ color: F.schwarz }} seg={10} />
+        </group>
+      ))}
+    </group>
+  )
+}
+
+/** Umzugskartons: das Buero kommt. */
+function Kartons() {
+  return (
+    <group>
+      <Kasten p={[0, 0.3, 0]} s={[0.8, 0.6, 0.6]} r={0.02} mat={{ color: '#b98a5a', roughness: 1 }} />
+      <Kasten p={[0.05, 0.85, 0]} s={[0.6, 0.5, 0.5]} r={0.02} rot={[0, 0.3, 0]} mat={{ color: '#c79a68', roughness: 1 }} />
+      <Kasten p={[0.75, 0.22, 0.15]} s={[0.5, 0.44, 0.5]} r={0.02} rot={[0, -0.2, 0]} mat={{ color: '#b07f4f', roughness: 1 }} />
+      <Kasten p={[0, 0.605, 0]} s={[0.82, 0.01, 0.12]} mat={{ color: F.orange }} />
+    </group>
+  )
+}
+
 // ---------------------------------------------------------------- Raum
-function Raum({ nacht }: { nacht: boolean }) {
+function Raum({ nacht, cafe = false }: { nacht: boolean; cafe?: boolean }) {
   const holz = useMemo(holzTextur, [])
   const fenster = useMemo(() => fensterTextur(nacht), [nacht])
   return (
@@ -500,13 +643,13 @@ function Raum({ nacht }: { nacht: boolean }) {
       {/* Sockel unter dem Boden, damit der Raum "steht" */}
       <Kasten p={[0, -0.29, 0]} s={[R * 2 + 0.3, 0.5, R * 2 + 0.3]} r={0.05} mat={{ color: F.leiste, roughness: .9 }} />
       {/* Rueckwand + linke Wand */}
-      <Kasten p={[0, 2.25, -R - 0.15]} s={[R * 2 + 0.3, 4.5, 0.3]} r={0.02} mat={{ color: F.wand, roughness: .95 }} />
-      <Kasten p={[-R - 0.15, 2.25, 0]} s={[0.3, 4.5, R * 2 + 0.3]} r={0.02} mat={{ color: F.wandHell, roughness: .95 }} />
+      <Kasten p={[0, 2.25, -R - 0.15]} s={[R * 2 + 0.3, 4.5, 0.3]} r={0.02} mat={{ color: cafe ? '#5a4033' : F.wand, roughness: .95 }} />
+      <Kasten p={[-R - 0.15, 2.25, 0]} s={[0.3, 4.5, R * 2 + 0.3]} r={0.02} mat={{ color: cafe ? '#6b4d3d' : F.wandHell, roughness: .95 }} />
       {/* Fussleisten */}
       <Kasten p={[0, 0.08, -R + 0.03]} s={[R * 2, 0.16, 0.06]} mat={{ color: F.leiste }} />
       <Kasten p={[-R + 0.03, 0.08, 0]} s={[0.06, 0.16, R * 2]} mat={{ color: F.leiste }} />
-      {/* Teppich */}
-      <group position={[-1.5, 0.011, -2.0]}>
+      {/* Teppich (nur im Buero) */}
+      <group position={[-1.5, 0.011, -2.0]} visible={!cafe}>
         <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow><planeGeometry args={[5.2, 4.2]} /><meshStandardMaterial color={F.teppichRand} roughness={1} /></mesh>
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.002, 0]} receiveShadow><planeGeometry args={[4.8, 3.8]} /><meshStandardMaterial color={F.teppich} roughness={1} /></mesh>
       </group>
@@ -570,9 +713,11 @@ function Licht({ nacht }: { nacht: boolean }) {
 
 // ---------------------------------------------------------------- Szene
 function Szene(p: StudioProps) {
-  const { level, nacht, leben, offeneQuests, hits, gewaehlt, onWaehlen } = p
+  const { level, ort, nacht, leben, offeneQuests, hits, gewaehlt, onWaehlen } = p
   const a = useMemo(() => Object.fromEntries(AUSSTATTUNG.map((x) => [x.key, x])) as Record<string, Ausstattung>, [])
-  const frei = (k: string) => a[k].abLevel <= level.nr
+  const cafe = ort === 'cafe'
+  // Im Cafe gibt es nur, was man mitbringen kann -- das aber ohne Level-Sperre.
+  const frei = (k: string) => cafe || a[k].abLevel <= level.nr
   const st = (key: string, position: [number, number, number], hoch: number, kind: React.ReactNode, rotation?: [number, number, number]) => (
     <Stueck a={a[key]} gesperrt={!frei(key)} hoch={hoch} aktiv={gewaehlt === key} onWaehlen={onWaehlen} position={position} rotation={rotation}>{kind}</Stueck>
   )
@@ -580,24 +725,41 @@ function Szene(p: StudioProps) {
     <>
       <Kamera />
       <Licht nacht={nacht} />
-      <Raum nacht={nacht} />
-      {/* Boden */}
-      {st('schreibtisch', [-1.6, 0, -3.3], 2.2, <Schreibtisch nacht={nacht} dringend={leben.dringend} vorschlaege={leben.vorschlaege} />)}
-      {st('ofen', [4.1, 0, -4.5], 3.2, <Ofen an={leben.imOfen > 0} nacht={nacht} />)}
-      {st('kaffee', [1.3, 0, -5.1], 2.0, <Kaffee nacht={nacht} />)}
-      {st('pflanze', [-4.8, 0, -4.7], 2.4, <Pflanze />)}
-      {st('aktenschrank', [-4.95, 0, 3.4], 2.4, <Aktenschrank voll={leben.dokumente} />)}
-      {st('kasse', [4.3, 0, -0.6], 2.0, <Kasse nacht={nacht} />, [0, -Math.PI / 2, 0])}
-      {st('tisch2', [-1.6, 0, 0.9], 1.9, <Tisch2 />)}
-      {st('sofa', [4.6, 0, 2.9], 1.6, <Sofa />)}
-      {st('konferenz', [1.0, 0, 3.2], 1.6, <Konferenz />)}
-      {/* Rueckwand */}
-      {st('kalender', [-0.3, 2.6, -R + 0.03], 1.0, <Kalender nacht={nacht} />)}
-      {st('neon', [2.2, 3.4, -R + 0.02], 0.9, <Neon nacht={nacht} />)}
-      {/* Linke Wand */}
-      {st('kundenwand', [-R + 0.04, 2.6, -2.9], 1.3, <Kundenwand kunden={leben.kunden} />, [0, Math.PI / 2, 0])}
-      {st('pokale', [-R + 0.2, 1.9, -0.2], 0.7, <Pokale anzahl={hits} />, [0, Math.PI / 2, 0])}
-      {st('pinnwand', [-R + 0.04, 2.5, 1.8], 1.0, <Pinnwand zettel={offeneQuests} />, [0, Math.PI / 2, 0])}
+      <Raum nacht={nacht} cafe={cafe} />
+      {cafe ? (
+        <>
+          {st('schreibtisch', [-0.2, 0, -1.2], 2.0, <CafeTisch nacht={nacht} dringend={leben.dringend} vorschlaege={leben.vorschlaege} />)}
+          {st('kaffee', [1.6, 0, -5.1], 2.0, <Kaffee nacht={nacht} />)}
+          {st('kasse', [3.9, 0, -5.0], 2.0, <Kasse nacht={nacht} />)}
+          {st('pflanze', [-4.8, 0, -4.7], 2.4, <Pflanze />)}
+          {st('kalender', [-0.3, 2.6, -R + 0.03], 1.0, <Kalender nacht={nacht} />)}
+          {st('pinnwand', [-R + 0.04, 2.5, 0.6], 1.0, <Pinnwand zettel={offeneQuests} />, [0, Math.PI / 2, 0])}
+          <group position={[4.0, 0, 3.6]}><Nebentisch /></group>
+          <group position={[-4.3, 0, 4.2]} rotation={[0, 0.4, 0]}><Kartons /></group>
+          <Kunden kunden={leben.kunden} plaetze={PLAETZE_CAFE} gewaehlt={gewaehlt} onWaehlen={onWaehlen} />
+        </>
+      ) : (
+        <>
+          {/* Boden */}
+          {st('schreibtisch', [-1.6, 0, -3.3], 2.2, <Schreibtisch nacht={nacht} dringend={leben.dringend} vorschlaege={leben.vorschlaege} />)}
+          {st('ofen', [4.1, 0, -4.5], 3.2, <Ofen an={leben.imOfen > 0} nacht={nacht} />)}
+          {st('kaffee', [1.3, 0, -5.1], 2.0, <Kaffee nacht={nacht} />)}
+          {st('pflanze', [-4.8, 0, -4.7], 2.4, <Pflanze />)}
+          {st('aktenschrank', [-4.95, 0, 3.4], 2.4, <Aktenschrank voll={leben.dokumente} />)}
+          {st('kasse', [4.3, 0, -0.6], 2.0, <Kasse nacht={nacht} />, [0, -Math.PI / 2, 0])}
+          {st('tisch2', [-1.6, 0, 0.9], 1.9, <Tisch2 />)}
+          {st('sofa', [4.6, 0, 2.9], 1.6, <Sofa />)}
+          {st('konferenz', [1.0, 0, 3.2], 1.6, <Konferenz />)}
+          {/* Rueckwand */}
+          {st('kalender', [-0.3, 2.6, -R + 0.03], 1.0, <Kalender nacht={nacht} />)}
+          {st('neon', [2.2, 3.4, -R + 0.02], 0.9, <Neon nacht={nacht} />)}
+          {/* Linke Wand */}
+          {st('kundenwand', [-R + 0.04, 2.6, -2.9], 1.3, <Kundenwand kunden={leben.kunden} />, [0, Math.PI / 2, 0])}
+          {st('pokale', [-R + 0.2, 1.9, -0.2], 0.7, <Pokale anzahl={hits} />, [0, Math.PI / 2, 0])}
+          {st('pinnwand', [-R + 0.04, 2.5, 1.8], 1.0, <Pinnwand zettel={offeneQuests} />, [0, Math.PI / 2, 0])}
+          <Kunden kunden={leben.kunden} plaetze={PLAETZE_BUERO} gewaehlt={gewaehlt} onWaehlen={onWaehlen} />
+        </>
+      )}
       <OrbitControls
         makeDefault enablePan={false} enableDamping dampingFactor={0.08} target={[-0.2, 1.35, -0.6]}
         minPolarAngle={0.5} maxPolarAngle={1.2} minAzimuthAngle={0.2} maxAzimuthAngle={1.35}
