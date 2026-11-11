@@ -38,3 +38,14 @@ on conflict (schluessel) do nothing;
 -- Die alte Quest "Buero suchen" (ab Level 3) ist ueberholt: das Buero steht zum 1.12. fest.
 update quests set titel = 'Ins Büro einziehen', beschreibung = 'Schlüssel abholen, Tische rein, erstes Video aus dem Büro.', faellig = '2026-12-01', ab_level = 0
 where titel = 'Büro suchen' and status = 'offen' and deleted_at is null;
+
+-- Follower der Personal Brand taeglich holen (statt nur montags): eigener Cron,
+-- der refresh-account-stats mit { "nur_eigen": true } ruft -- zwei Abrufe am Tag.
+-- Uebernimmt Adresse und Schluessel vom bestehenden Wochen-Cron.
+do $$ begin
+  if exists (select 1 from cron.job where jobname = 'refresh-account-stats')
+     and not exists (select 1 from cron.job where jobname = 'spiel-follower') then
+    perform cron.schedule('spiel-follower', '50 5 * * *',
+      (select replace(command, $a$'{}'::jsonb$a$, $b$'{"nur_eigen":true}'::jsonb$b$) from cron.job where jobname = 'refresh-account-stats'));
+  end if;
+end $$;

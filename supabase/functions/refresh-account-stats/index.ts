@@ -138,11 +138,17 @@ Deno.serve(async (req) => {
 
     const supa = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
 
+    // { "nur_eigen": true } (taeglicher Cron "spiel-follower"): nur die Personal
+    // Brand -- die Accounts des eigenen Kunden, deren Handle in der Kundenakte
+    // steht. Das Spiel zaehlt deren Follower; zwei Abrufe am Tag statt aller.
+    let nurEigen = false
+    try { nurEigen = (await req.json())?.nur_eigen === true } catch { /* kein Body */ }
+
     // Nur Accounts lebender Kunden. Der Umweg ueber die Kundenliste ist
     // noetig, weil client_accounts selbst kein deleted_at kennt.
     const { data: clients, error: cErr } = await supa
       .from('clients')
-      .select('id, handle_ig, handle_tiktok')
+      .select('id, handle_ig, handle_tiktok, client_type')
       .is('deleted_at', null)
       // Nur laufende Kunden -- fuer passive/ehemalige zahlen wir nicht mit.
       .eq('active', true)
@@ -167,6 +173,16 @@ Deno.serve(async (req) => {
         if (c.handle_ig) ziele.push({ client_id: c.id, account_id: null, platform: 'instagram', handle: c.handle_ig })
         if (c.handle_tiktok) ziele.push({ client_id: c.id, account_id: null, platform: 'tiktok', handle: c.handle_tiktok })
       }
+    }
+
+    if (nurEigen) {
+      const sauber = (h: unknown) => String(h ?? '').replace(/^@/, '').trim().toLowerCase()
+      const eigene = new Map(((clients ?? []) as any[]).filter((c) => c.client_type === 'eigen').map((c) => [c.id, c]))
+      ziele = ziele.filter((z) => {
+        const c = eigene.get(z.client_id)
+        if (!c) return false
+        return sauber(z.handle) === sauber(z.platform === 'tiktok' ? c.handle_tiktok : c.handle_ig)
+      })
     }
 
     const today = new Date().toISOString().slice(0, 10)
@@ -214,6 +230,8 @@ Deno.serve(async (req) => {
     // mit 900 und 1.100 Followern ergeben hier 2.000 -- so, wie man den
     // Kunden im Gespraech auch beziffert.
     let updated = 0
+    // Im Nur-eigen-Lauf fehlen die uebrigen Accounts des Kunden -- eine Summe waere falsch.
+    if (nurEigen) return json({ nur_eigen: true, accounts: ziele.length, geholt, errors: errors.slice(0, 8) })
     for (const [clientId, teile] of proKunde) {
       await schreibe(supa, clientId, today, null, summe(teile))
       updated++
