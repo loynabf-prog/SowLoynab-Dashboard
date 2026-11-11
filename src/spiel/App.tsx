@@ -5,10 +5,10 @@
 // Agentur in 3D -- jedes Moebelstueck ein Knopf ins CRM.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Flame, Trophy, Sofa, ListChecks, BarChart3, Lock, Check, Plus, X, RefreshCw, Sparkles, ExternalLink, RotateCcw, ArrowUpRight, Euro, Gift, Users, Video, CalendarPlus, UserPlus, Coffee, Trash2, ChevronLeft, Building2 } from 'lucide-react'
+import { Flame, Trophy, ListChecks, BarChart3, Lock, Check, Plus, X, RefreshCw, Sparkles, ExternalLink, RotateCcw, ArrowUpRight, Euro, Gift, Users, Video, CalendarPlus, UserPlus, Coffee, Trash2, ChevronLeft, Building2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { celebrate } from '../lib/confetti'
-import { AUSSTATTUNG, LEVEL, MEILENSTEINE, XP, ZIEL_TYPEN, etagenStand, kurzZahl, monatName, type EtageStand, type FollowerStand, type SQuest, type UmsatzStand, type ZielStand, type ZielTyp } from '../lib/spiel'
+import { AUSSTATTUNG, LEVEL, MEILENSTEINE, XP, ZIEL_TYPEN, etagenStand, kurzZahl, monatName, type EtageStand, type FollowerStand, type SQuest, type ZielStand, type ZielTyp } from '../lib/spiel'
 import { setBetriebFrage, ABGEBROCHEN } from '../lib/betriebWahl'
 import type { Channel } from '../lib/channels'
 import type { Empfehlung } from '../lib/pilot'
@@ -94,7 +94,7 @@ export default function SpielApp() {
   const s = daten?.stand
   const etagen = useMemo(() => (daten ? etagenStand(daten.stand) : []), [daten])
   return (
-    <div className={`sp ${nacht ? 'nacht' : ''}`}>
+    <div className={`sp ${nacht ? 'nacht' : ''} ${daten && reiter === 'studio' ? 'voll' : ''}`}>
       <header className="sp-kopf">
         <div className="sp-level">
           <span className="sp-level-nr">{s ? s.level.nr : '·'}</span>
@@ -115,43 +115,43 @@ export default function SpielApp() {
       {!daten && !fehler && <div className="sp-lade">Schließe das Studio auf …</div>}
 
       {daten && reiter === 'studio' && (
-        <main className="sp-inhalt sp-studio">
-          <div className="st-rahmen">
-            <Umsatzband u={daten.stand.umsatz} />
-            <div className="st-buehne-huelle">
-              {ansicht === 'haus'
-                ? <button className="st-ort wl-zurueck" onClick={() => { setGewaehlt(null); setAnsicht('block') }}><ChevronLeft strokeWidth={2.6} /> Straße</button>
-                : daten.stand.ort === 'cafe' && (
-                  <div className="st-ort"><Coffee strokeWidth={2.2} /> Café{daten.stand.bueroIn != null ? <> · Büro in <b>{daten.stand.bueroIn}</b> {daten.stand.bueroIn === 1 ? 'Tag' : 'Tagen'}</> : null}</div>
-                )}
-              <Welt
-                ansicht={ansicht} onAnsicht={(x) => { setGewaehlt(null); setAnsicht(x) }} etagen={etagen}
-                level={daten.stand.level} nacht={nacht} leben={daten.leben} hits={daten.stand.hits.length}
-                offeneQuests={daten.stand.quests.filter((q) => q.status === 'offen' && !q.gesperrt).length}
-                gewaehlt={gewaehlt} onWaehlen={setGewaehlt} onFrei={() => setPlus('kunde')}
-              />
-              {ansicht === 'block' && !gewaehlt && <div className="wl-tipp">Tippt auf die Agentur, um reinzugehen</div>}
-            </div>
-            {gewaehlt?.startsWith('kunde:')
-              ? <KundenKarte k={daten.leben.kunden.find((x) => `kunde:${x.id}` === gewaehlt)} onZu={() => setGewaehlt(null)} onPosten={(k) => posten(k.id, k.name, false)} />
-              : <StueckKarte schluessel={gewaehlt} levelNr={daten.stand.level.nr} onZu={() => setGewaehlt(null)} onReiter={(r) => { setGewaehlt(null); setReiter(r) }} />}
+        <main className="wl-voll">
+          <Welt
+            ansicht={ansicht} onAnsicht={(x) => { setGewaehlt(null); setAnsicht(x) }} etagen={etagen}
+            level={daten.stand.level} nacht={nacht} leben={daten.leben} hits={daten.stand.hits.length}
+            offeneQuests={daten.stand.quests.filter((q) => q.status === 'offen' && !q.gesperrt).length}
+            gewaehlt={gewaehlt} onWaehlen={setGewaehlt} onFrei={() => setPlus('kunde')}
+          />
+          {/* Anzeigen liegen ueber der Welt -- die Welt selbst fuellt den ganzen Bildschirm */}
+          <div className="wl-hud">
+            {ansicht === 'haus'
+              ? <button className="wl-pille wl-zurueck" onClick={() => { setGewaehlt(null); setAnsicht('block') }}><ChevronLeft strokeWidth={2.6} /> Straße</button>
+              : daten.stand.ort === 'cafe'
+                ? <span className="wl-pille"><Coffee strokeWidth={2.2} /> Café{daten.stand.bueroIn != null ? <> · Büro in <b>{daten.stand.bueroIn}</b> {daten.stand.bueroIn === 1 ? 'Tag' : 'Tagen'}</> : null}</span>
+                : <span />}
+            <span className="wl-hud-rechts">
+              <button className="wl-pille" onClick={() => setReiter('bilanz')} aria-label="Umsatz"><Euro strokeWidth={2.4} /><b>{Math.round(daten.stand.umsatz.gestellt).toLocaleString('de-DE')}</b></button>
+              <button className="wl-pille" onClick={() => setReiter('ziele')} aria-label="Follower"><Users strokeWidth={2.4} /><b>{daten.stand.follower.gesamt.toLocaleString('de-DE')}</b></button>
+            </span>
           </div>
-          <FollowerKarte f={daten.stand.follower} onMehr={() => setReiter('ziele')} />
-          <Bauplan etagen={etagen} levelName={daten.stand.level.name} satz={daten.stand.level.satz} onRein={() => { setAnsicht('haus'); window.scrollTo({ top: 0, behavior: 'smooth' }) }} />
-          <Auftraege liste={daten.auftraege} />
+          {ansicht === 'block' && !gewaehlt && <div className="wl-tipp">Tippt auf die Agentur, um reinzugehen</div>}
+          {gewaehlt?.startsWith('kunde:')
+            ? <KundenKarte k={daten.leben.kunden.find((x) => `kunde:${x.id}` === gewaehlt)} onZu={() => setGewaehlt(null)} onPosten={(k) => posten(k.id, k.name, false)} />
+            : <StueckKarte schluessel={gewaehlt} levelNr={daten.stand.level.nr} onZu={() => setGewaehlt(null)} onReiter={(r) => { setGewaehlt(null); setReiter(r) }} />}
         </main>
       )}
 
       {daten && reiter === 'quests' && (
-        <Quests quests={daten.stand.quests} levelNr={daten.stand.level.nr} onNeu={laden} sag={sag} />
+        <Quests quests={daten.stand.quests} levelNr={daten.stand.level.nr} auftraege={daten.auftraege} onNeu={laden} sag={sag} />
       )}
 
-      {daten && reiter === 'ziele' && <Ziele ziele={daten.stand.ziele} f={daten.stand.follower} onNeu={laden} sag={sag} />}
+      {daten && reiter === 'ziele' && <Ziele ziele={daten.stand.ziele} f={daten.stand.follower} onNeu={laden} sag={sag}
+        bauplan={<Bauplan etagen={etagen} levelName={daten.stand.level.name} satz={daten.stand.level.satz} onRein={() => { setAnsicht('haus'); setReiter('studio') }} />} />}
 
       {daten && reiter === 'bilanz' && <Bilanz d={daten} />}
 
       <nav className="sp-tabs">
-        <button className={reiter === 'studio' ? 'an' : ''} onClick={() => setReiter('studio')}><Sofa strokeWidth={2.2} /><span>Studio</span></button>
+        <button className={reiter === 'studio' ? 'an' : ''} onClick={() => setReiter('studio')}><Building2 strokeWidth={2.2} /><span>Agentur</span></button>
         <button className={reiter === 'quests' ? 'an' : ''} onClick={() => setReiter('quests')}><ListChecks strokeWidth={2.2} /><span>Quests</span>{s && s.quests.some((q) => q.status === 'offen' && !q.gesperrt) && <i />}</button>
         <button className="sp-plus" onClick={() => setPlus('menue')} aria-label="Eintragen"><span><Plus strokeWidth={3} /></span></button>
         <button className={reiter === 'ziele' ? 'an' : ''} onClick={() => setReiter('ziele')}><Gift strokeWidth={2.2} /><span>Ziele</span>{s && s.ziele.some((z) => z.erreicht && !z.eingeloest) && <i />}</button>
@@ -172,25 +172,6 @@ export default function SpielApp() {
         </div>
       )}
       {meldung && <div className="sp-toast">{meldung}</div>}
-    </div>
-  )
-}
-
-// ---------------------------------------------------------- Umsatzband
-function Umsatzband({ u }: { u: UmsatzStand }) {
-  const gestellt = useZaehler(u.gestellt)
-  const bezahlt = useZaehler(u.bezahlt)
-  return (
-    <div className="st-umsatz">
-      <div className="st-umsatz-zeile">
-        <span className="st-umsatz-monat">{monatName(u.monat)}</span>
-        <strong className="st-umsatz-zahl">{euro(gestellt)}</strong>
-      </div>
-      <div className="st-umsatz-balken"><i style={{ width: `${Math.round(u.fortschritt * 100)}%` }} /></div>
-      <div className="st-umsatz-unten">
-        <span><b>{euro(bezahlt)}</b> bezahlt{u.offen > 0 ? <> · <b>{euro(u.offen)}</b> offen</> : null}</span>
-        <span>{u.naechster ? <>nächstes Ziel <b>{euro(u.naechster)}</b></> : <>alle Ziele erreicht</>}</span>
-      </div>
     </div>
   )
 }
@@ -275,7 +256,7 @@ function FollowerKarte({ f, onMehr }: { f: FollowerStand; onMehr?: () => void })
 }
 
 // ----------------------------------------------------------------- Ziele
-function Ziele({ ziele, f, onNeu, sag }: { ziele: ZielStand[]; f: FollowerStand; onNeu: () => void; sag: (t: string) => void }) {
+function Ziele({ ziele, f, bauplan, onNeu, sag }: { ziele: ZielStand[]; f: FollowerStand; bauplan: React.ReactNode; onNeu: () => void; sag: (t: string) => void }) {
   const [neu, setNeu] = useState(false)
   const [laeuft, setLaeuft] = useState<string | null>(null)
   const offen = ziele.filter((z) => !z.eingeloest)
@@ -290,6 +271,7 @@ function Ziele({ ziele, f, onNeu, sag }: { ziele: ZielStand[]; f: FollowerStand;
   return (
     <main className="sp-inhalt">
       <FollowerKarte f={f} />
+      {bauplan}
       <div className="sp-abschnitt"><h2>Ziele</h2><button className="sp-klein" onClick={() => setNeu(true)}><Plus strokeWidth={2.6} /> Ziel</button></div>
       <ul className="sp-ziele">
         {offen.map((z) => (
@@ -481,7 +463,7 @@ function Auftraege({ liste }: { liste: Empfehlung[] }) {
 }
 
 // ---------------------------------------------------------------- Quests
-function Quests({ quests, levelNr, onNeu, sag }: { quests: (SQuest & { gesperrt: boolean })[]; levelNr: number; onNeu: () => void; sag: (t: string) => void }) {
+function Quests({ quests, levelNr, auftraege, onNeu, sag }: { quests: (SQuest & { gesperrt: boolean })[]; levelNr: number; auftraege: Empfehlung[]; onNeu: () => void; sag: (t: string) => void }) {
   const [neu, setNeu] = useState(false)
   const [laeuft, setLaeuft] = useState<string | null>(null)
   const offen = quests.filter((q) => q.status === 'offen')
@@ -499,6 +481,7 @@ function Quests({ quests, levelNr, onNeu, sag }: { quests: (SQuest & { gesperrt:
 
   return (
     <main className="sp-inhalt">
+      <Auftraege liste={auftraege} />
       <div className="sp-abschnitt"><h2>Offen</h2><button className="sp-klein" onClick={() => setNeu(true)}><Plus strokeWidth={2.6} /> Quest</button></div>
       <ul className="sp-quests">
         {offen.map((q) => (

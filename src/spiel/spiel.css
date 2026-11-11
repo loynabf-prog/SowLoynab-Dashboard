@@ -283,12 +283,21 @@ button { font: inherit; }
 .sp-bauplan li.bau b { font-family: var(--sp-kopf); font-size: 13px; color: var(--sp-gold); }
 .sp-bauplan li.spaeter { opacity: .55; }
 
-/* PC: Querformat -- die Welt gross links, die Karten rechts daneben */
-@media (min-width: 1000px) {
-  .sp-studio { max-width: 1500px; display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 16px; align-items: start; }
-  .sp-studio .st-rahmen { grid-column: 1; grid-row: 1 / span 6; position: sticky; top: 12px; margin: 0; }
-  .sp-studio > section { grid-column: 2; margin-bottom: 0; }
-  .sp-studio .st-umsatz { margin: 12px 12px 10px; }
-  .wl-buehne { height: calc(100dvh - 250px); min-height: 480px; max-height: none; }
-  .wl-chip { font-size: 13px; }
-}
+/* Vollbild: auf dem Reiter "Agentur" ist die Welt die ganze App -- Kopf oben, Leiste unten, sonst nur Welt.
+   Handy hoch, PC quer: die Welt richtet sich selbst nach dem Format. */
+.sp.voll { height: 100dvh; min-height: 0; display: flex; flex-direction: column; overflow: hidden; padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+.sp.voll .sp-kopf { padding-bottom: 6px; }
+.sp.voll .sp-xp { margin-bottom: 0; flex: none; }
+.wl-voll { position: relative; flex: 1; min-height: 0; }
+.wl-voll .wl-buehne { height: 100%; }
+.wl-hud { position: absolute; top: 10px; left: 10px; right: 10px; z-index: 3; display: flex; align-items: center; justify-content: space-between; gap: 8px; pointer-events: none; }
+.wl-hud > * { pointer-events: auto; }
+.wl-hud-rechts { display: flex; gap: 6px; }
+.wl-pille { display: inline-flex; align-items: center; gap: 5px; padding: 6px 11px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .14); background: rgba(8, 11, 30, .7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); font: inherit; font-size: 13px; font-weight: 600; color: var(--sp-leise); white-space: nowrap; }
+.wl-pille svg { width: 14px; height: 14px; color: var(--sp-gold); }
+.wl-pille b { color: var(--sp-text); font-variant-numeric: tabular-nums; }
+button.wl-pille { cursor: pointer; }
+.wl-pille.wl-zurueck { color: var(--sp-text); font-weight: 700; }
+.wl-pille.wl-zurueck svg { color: var(--sp-text); }
+.wl-voll .st-karte { max-width: 520px; margin: 0 auto; }
+@media (min-width: 1000px) { .wl-chip { font-size: 13px; } .wl-pille { font-size: 14px; padding: 8px 14px; } }

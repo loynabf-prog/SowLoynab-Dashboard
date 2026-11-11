@@ -295,8 +295,9 @@ function Zentrale({ etagen, level, nacht, onRein }: { etagen: EtageStand[]; leve
 const PLAETZE_HOCH: [number, number][] = [[-4.7, 0.2], [4.7, 0.2], [-3.7, 7.0], [3.7, 7.0], [-4.7, -7.0], [4.7, -7.0], [-3.7, 13.0], [3.7, 13.0], [-3.7, -12.0], [3.7, -12.0]]
 const PLAETZE_QUER: [number, number][] = [[-5.6, 0.2], [5.6, 0.2], [-4.4, 7.0], [4.4, 7.0], [-10.6, 1.4], [10.6, 1.4], [-9.6, 7.6], [9.6, 7.6], [-9.2, -5.4], [9.2, -5.4]]
 
-function blockMass(hoch: boolean, anzahl: number): { plaetze: [number, number][]; breite: number; v0: number; v1: number } {
-  const plaetze = (hoch ? PLAETZE_HOCH : PLAETZE_QUER).slice(0, Math.max(2, anzahl))
+/** fu/fv strecken das Raster, damit der Block das Bild fuellt (hohes Handy: mehr Tiefe, breiter Monitor: mehr Breite). */
+function blockMass(hoch: boolean, anzahl: number, fu = 1, fv = 1): { plaetze: [number, number][]; breite: number; v0: number; v1: number } {
+  const plaetze = (hoch ? PLAETZE_HOCH : PLAETZE_QUER).slice(0, Math.max(2, anzahl)).map(([u, v]) => [u * fu, v * fv] as [number, number])
   const us = plaetze.map((p) => Math.abs(p[0])), vs = plaetze.map((p) => p[1])
   return { plaetze, breite: (Math.max(...us, 3) + 2.6) * 2, v0: Math.min(...vs, -3.5) - 2.8, v1: Math.max(...vs, 3.5) + 2.8 }
 }
@@ -305,20 +306,30 @@ function Block({ etagen, level, nacht, leben, gewaehlt, onWaehlen, onAnsicht, on
   const { camera, size } = useThree()
   const hoch = size.height >= size.width * 0.85
   const kunden = leben.kunden.slice(0, 9)
-  const m = useMemo(() => blockMass(hoch, kunden.length + 1), [hoch, kunden.length])
+  const RAND_OBEN = 5.2 // Platz fuer Haushoehe und Schilder (Welt-Einheiten am Bildschirm)
+  const { m, fv } = useMemo(() => {
+    const n = kunden.length + 1
+    const b = blockMass(hoch, n)
+    const zw = size.width / (b.breite + 0.6), zh = (size.height - 56) / ((b.v1 - b.v0) * 0.577 + RAND_OBEN)
+    // Breite begrenzt (Handy): in die Tiefe strecken. Hoehe begrenzt (PC): in die Breite strecken.
+    const fv = zw < zh ? Math.min(1.5, Math.max(1, ((size.height - 56) / zw - RAND_OBEN) / ((b.v1 - b.v0) * 0.577))) : 1
+    const fu = zh < zw ? Math.min(1.5, Math.max(1, (size.width / zh - 0.6) / b.breite)) : 1
+    return { m: blockMass(hoch, n, fu, fv), fv }
+  }, [hoch, kunden.length, size.width, size.height])
   const tiefe = m.v1 - m.v0, vMitte = (m.v0 + m.v1) / 2
 
   useEffect(() => {
     const cam = camera as THREE.OrthographicCamera
-    const ziel = new THREE.Vector3(...uv(0, vMitte - 0.6, 1.2))
+    // etwas nach hinten zielen: oben liegen die Anzeigen ueber der Welt
+    const ziel = new THREE.Vector3(...uv(0, vMitte - 1.2, 1.2))
     cam.position.set(ziel.x + 14, ziel.y + 14, ziel.z + 14)
     cam.lookAt(ziel)
     // Der Block muss ganz ins Bild: Breite in u, Tiefe in v (von schraeg oben um 0,577 gestaucht) plus Haushoehe
-    cam.zoom = Math.min(size.width / (m.breite + 0.6), size.height / (tiefe * 0.577 + 7.2))
+    cam.zoom = Math.min(size.width / (m.breite + 0.6), (size.height - 56) / (tiefe * 0.577 + RAND_OBEN))
     cam.updateProjectionMatrix()
   }, [camera, size, m.breite, tiefe, vMitte])
 
-  const strassen = [3.6, hoch ? 10.0 : -99].filter((v) => v > m.v0 + 1 && v < m.v1 - 1)
+  const strassen = [3.6 * fv, hoch ? 10.0 * fv : -99].filter((v) => v > m.v0 + 1 && v < m.v1 - 1)
   return (
     <>
       {/* Boden: am Bildschirm ausgerichtet (um 45 Grad gedreht) */}
@@ -335,7 +346,7 @@ function Block({ etagen, level, nacht, leben, gewaehlt, onWaehlen, onAnsicht, on
           </group>
         ))}
         {/* Weg von der Strasse zur Agentur */}
-        <Kasten p={[0, 0.005, 3.0]} s={[1.3, 0.03, 1.4]} r={0.01} mat={{ color: '#cfc6b8', roughness: 1 }} />
+        <Kasten p={[0, 0.005, (2.3 + 3.6 * fv - 0.75) / 2]} s={[1.3, 0.03, Math.max(0.4, 3.6 * fv - 0.75 - 2.3)]} r={0.01} mat={{ color: '#cfc6b8', roughness: 1 }} />
       </group>
 
       <Zentrale etagen={etagen} level={level} nacht={nacht} onRein={() => onAnsicht('haus')} />
