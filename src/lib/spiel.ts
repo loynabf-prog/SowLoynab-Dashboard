@@ -627,3 +627,51 @@ export function etagenStand(s: Pick<SpielStand, 'xp' | 'level' | 'follower' | 'z
     return { etage, frei, fortschritt: frei ? 1 : fortschritt, text: frei ? 'steht' : text }
   })
 }
+
+// ---------------------------------------------------------------- Beute
+// Das Dorf (Fassie, 11.11.2026: "wie Clash of Clans"): echte Arbeit laesst
+// ueber den Gebaeuden XP-Blasen entstehen -- drei Videos gepostet, drei Mal
+// 50 XP ueber dem Laden des Kunden. Erst das Einsammeln zaehlt sie in die
+// Leiste. Gerechnet wird weiter nur aus echten Daten: "jetzt" ist, was die
+// Agentur je Quelle verdient hat; "gesammelt" (Tabelle spiel_beute), was davon
+// schon eingesammelt wurde. Die Differenz liegt als Blase im Dorf.
+
+/** XP je Quelle, wie sie jetzt verdient sind. Summe = stand.xp. */
+export function beuteJetzt(stand: Pick<SpielStand, 'xp' | 'posten'>, videosJeKunde: Record<string, number>, eigenIds: string[]): Record<string, number> {
+  const aus: Record<string, number> = {}
+  for (const [id, anzahl] of Object.entries(videosJeKunde)) {
+    if (eigenIds.includes(id) || anzahl <= 0) continue
+    aus[`kunde:${id}`] = anzahl * XP.video
+  }
+  for (const p of stand.posten) if (p.key !== 'videos') aus[p.key] = p.xp
+  // Sicherheitsnetz: was sich nicht zuordnen laesst, geht an die Zentrale
+  const rest = stand.xp - Object.values(aus).reduce((a, b) => a + b, 0)
+  if (rest !== 0) aus.rest = rest
+  return aus
+}
+
+export interface BeuteOffen { key: string; xp: number }
+
+/** Was verdient, aber noch nicht eingesammelt ist. */
+export function beuteOffen(jetzt: Record<string, number>, gesammelt: Record<string, number>): BeuteOffen[] {
+  return Object.entries(jetzt)
+    .map(([key, xp]) => ({ key, xp: Math.round(xp - (gesammelt[key] ?? 0)) }))
+    .filter((b) => b.xp > 0)
+}
+
+/** Ueber welchem Gebaeude eine Quelle als Blase liegt. Kunden ohne eigenen Laden -> Zentrale. */
+export function beuteOrt(key: string, laeden: string[]): string {
+  if (key.startsWith('kunde:')) return laeden.includes(key.slice(6)) ? key : 'zentrale'
+  if (key === 'eigene' || key === 'follower') return 'turm'
+  if (key === 'gruen' || key === 'bezahlt' || key === 'umsatz') return 'bank'
+  if (key === 'quests') return 'brett'
+  return 'zentrale'
+}
+
+/** Ein Laden waechst mit den Videos, die fuer den Kunden je gepostet wurden. */
+export const LADEN_STUFEN = [0, 10, 25, 50, 100]
+export function ladenStufe(videos: number): { stufe: number; naechste: number | null } {
+  let stufe = 1
+  LADEN_STUFEN.forEach((ab, i) => { if (videos >= ab) stufe = i + 1 })
+  return { stufe, naechste: LADEN_STUFEN[stufe] ?? null }
+}

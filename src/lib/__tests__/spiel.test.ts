@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { ETAGEN, LEVEL, XP, etagenStand, followerStand, gebaeudeFuer, levelFuer, spielStand, streakVon, tageBis, umsatzStand, viewsXp, zielStand, type SKunde, type SVideo, type SZiel, type ZielWerte } from '../spiel'
+import { ETAGEN, LEVEL, XP, beuteJetzt, beuteOffen, beuteOrt, etagenStand, ladenStufe, followerStand, gebaeudeFuer, levelFuer, spielStand, streakVon, tageBis, umsatzStand, viewsXp, zielStand, type SKunde, type SVideo, type SZiel, type ZielWerte } from '../spiel'
 
 const k = (x: Partial<SKunde> & { id: string }): SKunde => ({
   name: x.id, client_type: 'zahlend', monthly_fee: 1000, monthly_quota: 10, active: true, pausiert_seit: null, logo_url: null, brand_color: null, ...x,
@@ -192,5 +192,41 @@ describe('Das Haus: Etagen', () => {
     const studio = e.find((x) => x.etage.key === 'studio')!
     expect(studio.frei).toBe(false)
     expect(studio.text).toBe('wartet auf die Etage darunter')
+  })
+})
+
+describe('Das Dorf: Beute einsammeln', () => {
+  const basis = { kunden: [k({ id: 'a' }), k({ id: 'eigen', client_type: 'eigen' })], kontrollen: [], plaene: [], quests: [], heute: '2026-11-11' }
+  const videos = [v({ id: 'v1', client_id: 'a' }), v({ id: 'v2', client_id: 'a' }), v({ id: 'v3', client_id: 'a' }), v({ id: 'e1', client_id: 'eigen' })]
+
+  it('die Quellen ergeben zusammen genau die XP', () => {
+    const st = spielStand({ ...basis, videos })
+    const jetzt = beuteJetzt(st, { a: 3, eigen: 1 }, ['eigen'])
+    expect(jetzt['kunde:a']).toBe(3 * XP.video)
+    expect(jetzt.eigene).toBe(XP.eigenesVideo)
+    expect(Object.values(jetzt).reduce((x, y) => x + y, 0)).toBe(st.xp)
+  })
+
+  it('drei neue Videos liegen als Blase über dem Laden, bis sie eingesammelt sind', () => {
+    const st = spielStand({ ...basis, videos })
+    const jetzt = beuteJetzt(st, { a: 3, eigen: 1 }, ['eigen'])
+    const gesammelt = { ...jetzt, 'kunde:a': 0 }
+    expect(beuteOffen(jetzt, gesammelt)).toEqual([{ key: 'kunde:a', xp: 150 }])
+    expect(beuteOffen(jetzt, jetzt)).toEqual([])
+  })
+
+  it('Orte: Kunde ohne Laden geht an die Zentrale, Follower an den Turm, Geld an die Bank', () => {
+    expect(beuteOrt('kunde:a', ['a'])).toBe('kunde:a')
+    expect(beuteOrt('kunde:x', ['a'])).toBe('zentrale')
+    expect(beuteOrt('follower', [])).toBe('turm')
+    expect(beuteOrt('bezahlt', [])).toBe('bank')
+    expect(beuteOrt('quests', [])).toBe('brett')
+    expect(beuteOrt('views', [])).toBe('zentrale')
+  })
+
+  it('Läden wachsen mit den Videos', () => {
+    expect(ladenStufe(0).stufe).toBe(1)
+    expect(ladenStufe(12)).toEqual({ stufe: 2, naechste: 25 })
+    expect(ladenStufe(130)).toEqual({ stufe: 5, naechste: null })
   })
 })

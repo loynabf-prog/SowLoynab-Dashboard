@@ -1,6 +1,6 @@
 // Die Welt -- zwei Ansichten auf dieselbe echte Agentur (Fassie, 11.11.2026):
 //
-//   Block: das Dashboard "von aussen". Die Agentur steht in der Mitte, jeder
+//   Dorf:  das Dashboard "von aussen". Die Agentur steht in der Mitte, jeder
 //          Kunde ist ein kleiner Laden drumherum mit seinem Monatsstand.
 //          Ein freies Grundstueck wartet auf den naechsten Kunden.
 //   Haus:  Tipp auf die Agentur -> das Haus im Querschnitt. Jede Etage ist ein
@@ -13,16 +13,17 @@
 
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
-import { Html } from '@react-three/drei'
+import { Html, OrbitControls } from '@react-three/drei'
+import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import * as THREE from 'three'
-import { AUSSTATTUNG, type Ausstattung, type EtageStand, type Level } from '../lib/spiel'
+import { AUSSTATTUNG, type Ausstattung, type EtageStand, type FollowerStand, type Level } from '../lib/spiel'
 import type { StudioKunde, StudioLeben } from './daten'
 import {
   F, Mat, Kasten, Zylinder, Stueck, Figur, Schreibtisch, Ofen, Kalender, Pinnwand, Aktenschrank, Pflanze, Kasse, Kaffee,
   Neon, Pokale, Sofa, Tisch2, Konferenz, CafeTisch,
 } from './Studio'
 
-export type Ansicht = 'block' | 'haus'
+export type Ansicht = 'dorf' | 'haus'
 
 export interface WeltProps {
   ansicht: Ansicht
@@ -37,6 +38,15 @@ export interface WeltProps {
   onWaehlen: (key: string | null) => void
   /** Tipp aufs freie Grundstueck: neuen Kunden eintragen */
   onFrei: () => void
+  /** Gebaeude, die eine Tafel oeffnen (Quests, Ziele, Bilanz) */
+  onOrt: (r: 'quests' | 'ziele' | 'bilanz') => void
+  follower: FollowerStand
+  umsatzMonat: number
+  /** ein Ziel ist erreicht und wartet aufs Einloesen */
+  zielBereit: boolean
+  /** offene XP je Gebaeude ('zentrale', 'turm', 'bank', 'brett', 'kunde:<id>') */
+  beute: Record<string, number>
+  onSammeln: (ort: string, wo: { x: number; y: number }) => void
 }
 
 const PALETTE = ['#ff5f1f', '#0a84ff', '#30d158', '#ffd60a', '#bf5af2', '#ff375f', '#64d2ff', '#ff9f0a', '#5e5ce6']
@@ -68,13 +78,50 @@ function useKlick(fn: () => void) {
   }
 }
 
-// =================================================================== BLOCK
+// ==================================================================== DORF
+// Das Dashboard von aussen, wie ein Aufbauspiel: eine Insel, die den ganzen
+// Bildschirm fuellt. Ziehen verschiebt, zwei Finger (oder Mausrad) zoomen.
+// Jedes Gebaeude ist etwas Echtes; ueber Gebaeuden mit neuer echter Arbeit
+// liegt eine XP-Blase zum Einsammeln.
+
+/** XP-Blase ueber einem Gebaeude. */
+function Blase({ xp, y, onSammeln }: { xp: number; y: number; onSammeln: (wo: { x: number; y: number }) => void }) {
+  return (
+    <Html position={[0, y, 0]} center zIndexRange={[40, 20]}>
+      <button
+        className="wl-beute"
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => { e.stopPropagation(); onSammeln({ x: e.clientX, y: e.clientY }) }}
+        aria-label={`${xp} XP einsammeln`}
+      >+{xp.toLocaleString('de-DE')}<small>XP</small></button>
+    </Html>
+  )
+}
+
+/** Rahmen fuer jedes Gebaeude: Tippen, leichtes Aufploppen, Schild, Blase. */
+function Bau({ position, hoehe, schild, beute, onTipp, onSammeln, aktiv = false, children }: {
+  position: [number, number, number]; hoehe: number; schild: React.ReactNode; beute?: number
+  onTipp: () => void; onSammeln?: (wo: { x: number; y: number }) => void; aktiv?: boolean; children: React.ReactNode
+}) {
+  const { hover, griff } = useKlick(onTipp)
+  const g = useRef<THREE.Group>(null)
+  useFrame((_, dt) => { if (g.current) { const z = hover || aktiv ? 1.06 : 1; g.current.scale.lerp(new THREE.Vector3(z, z, z), Math.min(1, dt * 10)) } })
+  return (
+    <group position={position}>
+      <group ref={g} {...griff}>
+        {children}
+        <mesh position={[0, hoehe / 2, 0]}><boxGeometry args={[3, hoehe, 3]} /><meshBasicMaterial transparent opacity={0} depthWrite={false} /></mesh>
+      </group>
+      <Html position={[0, hoehe + 0.45, 0]} center zIndexRange={[12, 0]} style={{ pointerEvents: 'none' }}>{schild}</Html>
+      {!!beute && onSammeln && <Blase xp={beute} y={hoehe + 1.5} onSammeln={onSammeln} />}
+    </group>
+  )
+}
 
 /** Was vor dem Laden steht -- aus dem Namen geraten, damit man ihn erkennt. */
 function Requisit({ name, farbe }: { name: string; farbe: string }) {
   const n = name.toLowerCase()
   if (n.includes('fahrschul')) {
-    // kleines Auto mit L-Schild
     return (
       <group position={[0.2, 0, 1.75]}>
         <Kasten p={[0, 0.28, 0]} s={[1.1, 0.3, 0.55]} r={0.08} mat={{ color: farbe, roughness: .5 }} />
@@ -87,7 +134,6 @@ function Requisit({ name, farbe }: { name: string; farbe: string }) {
     )
   }
   if (n.includes('kebab') || n.includes('döner') || n.includes('doner') || n.includes('chicken') || n.includes('burger')) {
-    // Drehspiess
     return (
       <group position={[0.75, 0, 1.45]}>
         <Zylinder p={[0, 0.04, 0]} r={0.22} h={0.08} mat={{ color: F.stahl, metalness: .6, roughness: .3 }} seg={14} />
@@ -97,7 +143,6 @@ function Requisit({ name, farbe }: { name: string; farbe: string }) {
     )
   }
   if (n.includes('schleck') || n.includes('eis')) {
-    // Eiswaffel
     return (
       <group position={[0.8, 0, 1.45]}>
         <mesh position={[0, 0.45, 0]} rotation={[Math.PI, 0, 0]} castShadow><coneGeometry args={[0.2, 0.7, 14]} /><Mat color="#d9a45c" roughness={.8} /></mesh>
@@ -107,7 +152,6 @@ function Requisit({ name, farbe }: { name: string; farbe: string }) {
     )
   }
   if (n.includes('kraft') || n.includes('gym') || n.includes('fit') || n.includes('act')) {
-    // Hantel
     return (
       <group position={[0.7, 0.2, 1.5]}>
         <mesh rotation={[0, 0, Math.PI / 2]} castShadow><cylinderGeometry args={[0.04, 0.04, 0.8, 8]} /><Mat color={F.stahl} metalness={.6} roughness={.3} /></mesh>
@@ -118,7 +162,6 @@ function Requisit({ name, farbe }: { name: string; farbe: string }) {
     )
   }
   if (n.includes('licht')) {
-    // Laterne
     return (
       <group position={[0.85, 0, 1.45]}>
         <Zylinder p={[0, 0.55, 0]} r={0.03} h={1.1} mat={{ color: F.schwarz }} seg={8} />
@@ -129,71 +172,78 @@ function Requisit({ name, farbe }: { name: string; farbe: string }) {
   return <group position={[0.85, 0, 1.45]}><Zylinder p={[0, 0.18, 0]} r={[0.16, 0.12]} h={0.36} mat={{ color: F.topf, roughness: 1 }} seg={12} /><mesh position={[0, 0.55, 0]} castShadow><sphereGeometry args={[0.26, 12, 10]} /><Mat color={F.pflanze} roughness={.9} /></mesh></group>
 }
 
-function Laden({ k, i, position, aktiv, nacht, onWaehlen }: { k: StudioKunde; i: number; position: [number, number, number]; aktiv: boolean; nacht: boolean; onWaehlen: (key: string | null) => void }) {
+/** Der Laden eines Kunden. Waechst mit den Videos: Stufe 2 Fahne, 3 zweites Stockwerk, 4 Goldrand, 5 drittes Stockwerk. */
+function Laden({ k, i, position, aktiv, nacht, beute, onWaehlen, onSammeln }: {
+  k: StudioKunde; i: number; position: [number, number, number]; aktiv: boolean; nacht: boolean; beute: number
+  onWaehlen: (key: string | null) => void; onSammeln: (wo: { x: number; y: number }) => void
+}) {
   const farbe = k.farbe || PALETTE[i % PALETTE.length]
-  const { hover, griff } = useKlick(() => onWaehlen(aktiv ? null : `kunde:${k.id}`))
-  const g = useRef<THREE.Group>(null)
   const ruf = useRef<THREE.Group>(null)
-  useFrame(({ clock }, dt) => {
-    if (g.current) { const z = hover || aktiv ? 1.06 : 1; g.current.scale.lerp(new THREE.Vector3(z, z, z), Math.min(1, dt * 10)) }
-    if (ruf.current) ruf.current.position.y = 3.0 + Math.abs(Math.sin(clock.elapsedTime * 4 + i)) * 0.25
-  })
+  const stock = k.stufe >= 5 ? 3 : k.stufe >= 3 ? 2 : 1
+  const SH = 1.25 // Hoehe eines Stockwerks
+  const dach = 0.12 + stock * SH
+  useFrame(({ clock }) => { if (ruf.current) ruf.current.position.y = dach + 1.0 + Math.abs(Math.sin(clock.elapsedTime * 4 + i)) * 0.25 })
   const anteil = k.ziel > 0 ? Math.min(1, k.gepostet / k.ziel) : 1
-  const fensterAn = nacht ? 1.3 : 0.35
+  const an = nacht ? 1.3 : 0.35
   return (
-    <group position={position}>
-      <group ref={g} {...griff}>
-        {/* Sockel */}
-        <Kasten p={[0, 0.06, 0]} s={[2.9, 0.12, 2.9]} r={0.04} mat={{ color: '#cfc6b8', roughness: 1 }} />
-        {/* Haus */}
-        <Kasten p={[0, 0.9, -0.1]} s={[2.3, 1.6, 2.1]} r={0.06} mat={{ color: '#f3ece0', roughness: .9 }} />
-        {/* Dach in Kundenfarbe */}
-        <Kasten p={[0, 1.78, -0.1]} s={[2.5, 0.2, 2.3]} r={0.05} mat={{ color: farbe, roughness: .7 }} />
-        <Kasten p={[0.5, 2.0, -0.5]} s={[0.5, 0.3, 0.5]} r={0.04} mat={{ color: '#d8d0c2', roughness: 1 }} />
-        {/* Markise vorn (+z) */}
-        <Kasten p={[0, 1.28, 1.15]} s={[2.3, 0.1, 0.55]} r={0.03} rot={[0.28, 0, 0]} mat={{ color: farbe, roughness: .8 }} />
-        {/* Tuer und Schaufenster vorn */}
-        <Kasten p={[-0.65, 0.55, 0.96]} s={[0.5, 0.9, 0.04]} r={0.02} mat={{ color: '#3b2a1e', roughness: .6 }} />
-        <mesh position={[0.4, 0.68, 0.965]}><planeGeometry args={[1.1, 0.7]} /><meshStandardMaterial color="#ffe9b8" emissive="#ffd27a" emissiveIntensity={fensterAn} roughness={.3} /></mesh>
-        {/* Fenster rechts (+x) */}
-        <mesh position={[1.155, 0.95, -0.1]} rotation={[0, Math.PI / 2, 0]}><planeGeometry args={[1.3, 0.6]} /><meshStandardMaterial color="#ffe9b8" emissive="#ffd27a" emissiveIntensity={fensterAn} roughness={.3} /></mesh>
-        {/* Schildband rechts in Kundenfarbe */}
-        <Kasten p={[1.16, 1.5, -0.1]} s={[0.03, 0.22, 1.9]} mat={{ color: farbe, emissive: farbe, emissiveIntensity: nacht ? .6 : .1 }} />
-        <Requisit name={k.name} farbe={farbe} />
-        {/* Tippflaeche */}
-        <mesh position={[0, 1.1, 0]}><boxGeometry args={[3, 2.4, 3]} /><meshBasicMaterial transparent opacity={0} depthWrite={false} /></mesh>
-      </group>
-      {k.ampel === 'rot' && (
-        <group ref={ruf} position={[0, 3.0, 0]}>
+    <Bau
+      position={position} hoehe={dach + 0.2} aktiv={aktiv} beute={beute} onSammeln={onSammeln}
+      onTipp={() => onWaehlen(aktiv ? null : `kunde:${k.id}`)}
+      schild={
+        <div className={`wl-chip ${k.ampel} ${aktiv ? 'aktiv' : ''}`}>
+          <i style={{ background: `conic-gradient(currentColor ${Math.round(anteil * 360)}deg, rgba(255,255,255,.18) 0)` }} />
+          <span>{kurzName(k.name)}</span>
+          <b>{k.ziel > 0 ? `${k.gepostet}/${k.ziel}` : k.gepostet}</b>
+          <em>{k.stufe}</em>
+        </div>
+      }
+    >
+      <Kasten p={[0, 0.06, 0]} s={[2.9, 0.12, 2.9]} r={0.04} mat={{ color: '#cfc6b8', roughness: 1 }} />
+      {Array.from({ length: stock }, (_, s) => {
+        const y = 0.12 + s * SH
+        const b = 2.3 - s * 0.25, t = 2.1 - s * 0.25
+        return (
+          <group key={s} position={[0, y, -0.1]}>
+            <Kasten p={[0, SH / 2, 0]} s={[b, SH, t]} r={0.06} mat={{ color: '#f3ece0', roughness: .9 }} />
+            <mesh position={[b / 2 + 0.005, SH / 2 + 0.05, 0]} rotation={[0, Math.PI / 2, 0]}><planeGeometry args={[t * 0.6, 0.5]} /><meshStandardMaterial color="#ffe9b8" emissive="#ffd27a" emissiveIntensity={an} roughness={.3} /></mesh>
+            {s > 0 && <mesh position={[0, SH / 2 + 0.05, t / 2 + 0.005]}><planeGeometry args={[b * 0.6, 0.5]} /><meshStandardMaterial color="#ffe9b8" emissive="#ffd27a" emissiveIntensity={an} roughness={.3} /></mesh>}
+          </group>
+        )
+      })}
+      {/* Dach in Kundenfarbe, ab Stufe 4 mit Goldrand */}
+      <Kasten p={[0, dach + 0.1, -0.1]} s={[2.5 - (stock - 1) * 0.25, 0.2, 2.3 - (stock - 1) * 0.25]} r={0.05} mat={{ color: farbe, roughness: .7 }} />
+      {k.stufe >= 4 && <Kasten p={[0, dach - 0.02, -0.1]} s={[2.56 - (stock - 1) * 0.25, 0.07, 2.36 - (stock - 1) * 0.25]} r={0.02} mat={{ color: F.gold, metalness: .7, roughness: .3 }} />}
+      {/* Fahne ab Stufe 2 */}
+      {k.stufe >= 2 && (
+        <group position={[-0.7, dach + 0.2, -0.6]}>
+          <Zylinder p={[0, 0.45, 0]} r={0.025} h={0.9} mat={{ color: F.stahl, metalness: .5, roughness: .4 }} seg={8} />
+          <Kasten p={[0.22, 0.72, 0]} s={[0.42, 0.26, 0.02]} mat={{ color: farbe, emissive: farbe, emissiveIntensity: .25 }} />
+        </group>
+      )}
+      {/* Markise, Tuer, Schaufenster */}
+      <Kasten p={[0, 1.2, 1.15]} s={[2.3, 0.1, 0.55]} r={0.03} rot={[0.28, 0, 0]} mat={{ color: farbe, roughness: .8 }} />
+      <Kasten p={[-0.65, 0.55, 0.96]} s={[0.5, 0.86, 0.04]} r={0.02} mat={{ color: '#3b2a1e', roughness: .6 }} />
+      <mesh position={[0.4, 0.66, 0.965]}><planeGeometry args={[1.1, 0.66]} /><meshStandardMaterial color="#ffe9b8" emissive="#ffd27a" emissiveIntensity={an} roughness={.3} /></mesh>
+      <Kasten p={[1.16, 1.22, -0.1]} s={[0.03, 0.16, 1.9]} mat={{ color: farbe, emissive: farbe, emissiveIntensity: nacht ? .6 : .1 }} />
+      <Requisit name={k.name} farbe={farbe} />
+      {k.ampel === 'rot' && !beute && (
+        <group ref={ruf} position={[0, dach + 1.0, 0]}>
           <Kasten p={[0, 0.12, 0]} s={[0.12, 0.36, 0.12]} r={0.05} mat={{ color: F.orange, emissive: F.orange, emissiveIntensity: 1.4 }} />
           <mesh position={[0, -0.18, 0]}><sphereGeometry args={[0.075, 10, 8]} /><Mat color={F.orange} emissive={F.orange} emissiveIntensity={1.4} /></mesh>
         </group>
       )}
-      <Html position={[0, 2.35, 0]} center zIndexRange={[12, 0]} style={{ pointerEvents: 'none' }}>
-        <div className={`wl-chip ${k.ampel} ${aktiv ? 'aktiv' : ''} ${k.gruen ? 'fertig' : ''}`}>
-          <i style={{ background: `conic-gradient(currentColor ${Math.round(anteil * 360)}deg, rgba(255,255,255,.18) 0)` }} />
-          <span>{kurzName(k.name)}</span>
-          <b>{k.ziel > 0 ? `${k.gepostet}/${k.ziel}` : k.gepostet}</b>
-        </div>
-      </Html>
-    </group>
+    </Bau>
   )
 }
 
 function FreiesGrundstueck({ position, onFrei }: { position: [number, number, number]; onFrei: () => void }) {
-  const { hover, griff } = useKlick(onFrei)
   return (
-    <group position={position} {...griff}>
-      <Kasten p={[0, 0.06, 0]} s={[2.9, 0.12, 2.9]} r={0.04} mat={{ color: hover ? '#8fd6a0' : '#79b98a', roughness: 1 }} />
-      {/* Pfosten + Schild */}
+    <Bau position={position} hoehe={1.5} onTipp={onFrei} schild={<div className="wl-chip frei"><span>Nächster Kunde</span><b>+</b></div>}>
+      <Kasten p={[0, 0.06, 0]} s={[2.9, 0.12, 2.9]} r={0.04} mat={{ color: '#79b98a', roughness: 1 }} />
       <Kasten p={[0, 0.6, 0.4]} s={[0.08, 1.0, 0.08]} mat={{ color: F.eiche }} />
       <Kasten p={[0, 1.15, 0.4]} s={[1.3, 0.55, 0.06]} r={0.03} mat={{ color: F.weiss, roughness: .8 }} />
       <Kasten p={[0, 1.36, 0.44]} s={[1.3, 0.12, 0.02]} mat={{ color: F.orange }} />
-      <mesh position={[0, 0.7, 0]}><boxGeometry args={[3, 1.6, 3]} /><meshBasicMaterial transparent opacity={0} depthWrite={false} /></mesh>
-      <Html position={[0, 2.0, 0]} center zIndexRange={[12, 0]} style={{ pointerEvents: 'none' }}>
-        <div className="wl-chip frei"><span>Nächster Kunde</span><b>+</b></div>
-      </Html>
-    </group>
+    </Bau>
   )
 }
 
@@ -203,6 +253,15 @@ function Baum({ position, s = 1 }: { position: [number, number, number]; s?: num
       <Zylinder p={[0, 0.35, 0]} r={[0.07, 0.1]} h={0.7} mat={{ color: F.eiche, roughness: 1 }} seg={8} />
       <mesh position={[0, 1.0, 0]} castShadow><sphereGeometry args={[0.5, 12, 10]} /><Mat color={F.pflanze} roughness={.9} /></mesh>
       <mesh position={[0.2, 1.35, 0.1]} castShadow><sphereGeometry args={[0.34, 12, 10]} /><Mat color={F.pflanzeDunkel} roughness={.9} /></mesh>
+    </group>
+  )
+}
+
+function Fels({ position, s = 1 }: { position: [number, number, number]; s?: number }) {
+  return (
+    <group position={position} scale={s}>
+      <mesh position={[0, 0.2, 0]} castShadow><dodecahedronGeometry args={[0.42, 0]} /><Mat color="#8f959f" roughness={1} /></mesh>
+      <mesh position={[0.4, 0.12, 0.2]} castShadow><dodecahedronGeometry args={[0.24, 0]} /><Mat color="#a3a9b3" roughness={1} /></mesh>
     </group>
   )
 }
@@ -217,63 +276,61 @@ function Laterne({ position, nacht }: { position: [number, number, number]; nach
   )
 }
 
-const ETAGE_H = 1.05 // Hoehe einer Etage am kleinen Haus im Block
+const ETAGE_H = 1.05 // Hoehe einer Etage am kleinen Haus im Dorf
+const ZB = 3.4       // Breite der Zentrale
 
 /** Die Agentur von aussen: so viele Etagen, wie wirklich stehen -- plus Baugeruest fuer die naechste. */
-function Zentrale({ etagen, level, nacht, onRein }: { etagen: EtageStand[]; level: Level; nacht: boolean; onRein: () => void }) {
-  const { hover, griff } = useKlick(onRein)
-  const g = useRef<THREE.Group>(null)
-  useFrame((_, dt) => { if (g.current) { const z = hover ? 1.04 : 1; g.current.scale.lerp(new THREE.Vector3(z, z, z), Math.min(1, dt * 10)) } })
+function Zentrale({ etagen, level, nacht, beute, onRein, onSammeln }: { etagen: EtageStand[]; level: Level; nacht: boolean; beute: number; onRein: () => void; onSammeln: (wo: { x: number; y: number }) => void }) {
   const stehen = etagen.filter((e) => e.frei)
   const naechste = etagen.find((e) => !e.frei)
   const hoehe = 0.2 + stehen.length * ETAGE_H
-  const B = 3.4
+  const B = ZB
   return (
-    <group>
-      <group ref={g} {...griff}>
-        <Kasten p={[0, 0.08, 0]} s={[B + 1.2, 0.16, B + 1.2]} r={0.05} mat={{ color: '#d9d1c4', roughness: 1 }} />
-        {stehen.map((e, i) => {
-          const y = 0.16 + i * ETAGE_H
-          return (
-            <group key={e.etage.key} position={[0, y, 0]}>
-              <Kasten p={[0, ETAGE_H / 2, 0]} s={[B, ETAGE_H - 0.06, B]} r={0.05} mat={{ color: i === 0 ? '#f0e4d2' : '#eef0f4', roughness: .85 }} />
-              {/* Band in Etagenfarbe */}
-              <Kasten p={[0, ETAGE_H - 0.06, 0]} s={[B + 0.12, 0.1, B + 0.12]} r={0.03} mat={{ color: e.etage.farbe, roughness: .7 }} />
-              {/* Fenster vorn (+z) und rechts (+x) */}
-              {[-1, 0, 1].map((f) => (
-                <group key={f}>
-                  <mesh position={[f * 1.0, ETAGE_H / 2 - 0.04, B / 2 + 0.005]}><planeGeometry args={[0.62, 0.5]} /><meshStandardMaterial color="#ffe9b8" emissive="#ffd27a" emissiveIntensity={nacht ? 1.4 : .3} roughness={.3} /></mesh>
-                  <mesh position={[B / 2 + 0.005, ETAGE_H / 2 - 0.04, f * 1.0]} rotation={[0, Math.PI / 2, 0]}><planeGeometry args={[0.62, 0.5]} /><meshStandardMaterial color="#ffe9b8" emissive="#ffd27a" emissiveIntensity={nacht ? 1.4 : .3} roughness={.3} /></mesh>
-                </group>
-              ))}
-            </group>
-          )
-        })}
-        {/* Markise ueber dem Cafe */}
-        <Kasten p={[0, 0.9, B / 2 + 0.3]} s={[B, 0.1, 0.65]} r={0.03} rot={[0.3, 0, 0]} mat={{ color: F.orange, roughness: .8 }} />
-        <Kasten p={[B / 2 + 0.3, 0.9, 0]} s={[0.65, 0.1, B]} r={0.03} rot={[0, 0, -0.3]} mat={{ color: F.orange, roughness: .8 }} />
-        {/* Tuer */}
-        <Kasten p={[0, 0.55, B / 2 + 0.01]} s={[0.6, 0.78, 0.04]} r={0.02} mat={{ color: '#3b2a1e', roughness: .6 }} />
-        {/* Baugeruest fuer die naechste Etage */}
-        {naechste && (
-          <group position={[0, hoehe, 0]}>
-            {([[-1, -1], [1, -1], [-1, 1], [1, 1]] as const).map(([x, z], i) => (
-              <Kasten key={i} p={[x * (B / 2 - 0.05), ETAGE_H / 2, z * (B / 2 - 0.05)]} s={[0.07, ETAGE_H, 0.07]} mat={{ color: F.orange, roughness: .6 }} />
-            ))}
-            {[0.02, ETAGE_H].map((y) => (
-              <group key={y} position={[0, y, 0]}>
-                <Kasten p={[0, 0, B / 2 - 0.05]} s={[B, 0.06, 0.06]} mat={{ color: F.orange }} />
-                <Kasten p={[0, 0, -B / 2 + 0.05]} s={[B, 0.06, 0.06]} mat={{ color: F.orange }} />
-                <Kasten p={[B / 2 - 0.05, 0, 0]} s={[0.06, 0.06, B]} mat={{ color: F.orange }} />
-                <Kasten p={[-B / 2 + 0.05, 0, 0]} s={[0.06, 0.06, B]} mat={{ color: F.orange }} />
+    <Bau
+      position={[0, 0, 0]} hoehe={hoehe + (naechste ? ETAGE_H : 0.2)} beute={beute} onSammeln={onSammeln} onTipp={onRein}
+      schild={
+        <div className="wl-zentrale">
+          <strong>Sow &amp; Loynab</strong>
+          <small>Level {level.nr} · {level.name}{naechste ? ` · ${naechste.etage.name} ${naechste.text}` : ''}</small>
+        </div>
+      }
+    >
+      <Kasten p={[0, 0.08, 0]} s={[B + 1.2, 0.16, B + 1.2]} r={0.05} mat={{ color: '#d9d1c4', roughness: 1 }} />
+      {stehen.map((e, i) => {
+        const y = 0.16 + i * ETAGE_H
+        return (
+          <group key={e.etage.key} position={[0, y, 0]}>
+            <Kasten p={[0, ETAGE_H / 2, 0]} s={[B, ETAGE_H - 0.06, B]} r={0.05} mat={{ color: i === 0 ? '#f0e4d2' : '#eef0f4', roughness: .85 }} />
+            <Kasten p={[0, ETAGE_H - 0.06, 0]} s={[B + 0.12, 0.1, B + 0.12]} r={0.03} mat={{ color: e.etage.farbe, roughness: .7 }} />
+            {[-1, 0, 1].map((f) => (
+              <group key={f}>
+                <mesh position={[f * 1.0, ETAGE_H / 2 - 0.04, B / 2 + 0.005]}><planeGeometry args={[0.62, 0.5]} /><meshStandardMaterial color="#ffe9b8" emissive="#ffd27a" emissiveIntensity={nacht ? 1.4 : .3} roughness={.3} /></mesh>
+                <mesh position={[B / 2 + 0.005, ETAGE_H / 2 - 0.04, f * 1.0]} rotation={[0, Math.PI / 2, 0]}><planeGeometry args={[0.62, 0.5]} /><meshStandardMaterial color="#ffe9b8" emissive="#ffd27a" emissiveIntensity={nacht ? 1.4 : .3} roughness={.3} /></mesh>
               </group>
             ))}
-            <mesh position={[0, ETAGE_H / 2, 0]}><boxGeometry args={[B - 0.3, ETAGE_H - 0.1, B - 0.3]} /><meshStandardMaterial color="#9fb6ff" transparent opacity={0.16} depthWrite={false} /></mesh>
           </group>
-        )}
-        {!naechste && <Kasten p={[0, hoehe + 0.08, 0]} s={[B + 0.3, 0.16, B + 0.3]} r={0.05} mat={{ color: F.schwarz, roughness: .6 }} />}
-        <mesh position={[0, hoehe / 2 + 0.6, 0]}><boxGeometry args={[B + 1, hoehe + 1.6, B + 1]} /><meshBasicMaterial transparent opacity={0} depthWrite={false} /></mesh>
-      </group>
+        )
+      })}
+      <Kasten p={[0, 0.9, B / 2 + 0.3]} s={[B, 0.1, 0.65]} r={0.03} rot={[0.3, 0, 0]} mat={{ color: F.orange, roughness: .8 }} />
+      <Kasten p={[B / 2 + 0.3, 0.9, 0]} s={[0.65, 0.1, B]} r={0.03} rot={[0, 0, -0.3]} mat={{ color: F.orange, roughness: .8 }} />
+      <Kasten p={[0, 0.55, B / 2 + 0.01]} s={[0.6, 0.78, 0.04]} r={0.02} mat={{ color: '#3b2a1e', roughness: .6 }} />
+      {naechste && (
+        <group position={[0, hoehe, 0]}>
+          {([[-1, -1], [1, -1], [-1, 1], [1, 1]] as const).map(([x, z], i) => (
+            <Kasten key={i} p={[x * (B / 2 - 0.05), ETAGE_H / 2, z * (B / 2 - 0.05)]} s={[0.07, ETAGE_H, 0.07]} mat={{ color: F.orange, roughness: .6 }} />
+          ))}
+          {[0.02, ETAGE_H].map((y) => (
+            <group key={y} position={[0, y, 0]}>
+              <Kasten p={[0, 0, B / 2 - 0.05]} s={[B, 0.06, 0.06]} mat={{ color: F.orange }} />
+              <Kasten p={[0, 0, -B / 2 + 0.05]} s={[B, 0.06, 0.06]} mat={{ color: F.orange }} />
+              <Kasten p={[B / 2 - 0.05, 0, 0]} s={[0.06, 0.06, B]} mat={{ color: F.orange }} />
+              <Kasten p={[-B / 2 + 0.05, 0, 0]} s={[0.06, 0.06, B]} mat={{ color: F.orange }} />
+            </group>
+          ))}
+          <mesh position={[0, ETAGE_H / 2, 0]}><boxGeometry args={[B - 0.3, ETAGE_H - 0.1, B - 0.3]} /><meshStandardMaterial color="#9fb6ff" transparent opacity={0.16} depthWrite={false} /></mesh>
+        </group>
+      )}
+      {!naechste && <Kasten p={[0, hoehe + 0.08, 0]} s={[B + 0.3, 0.16, B + 0.3]} r={0.05} mat={{ color: F.schwarz, roughness: .6 }} />}
       {/* die beiden Gruender vor der Tuer */}
       {([[-0.5, '#b5400c'], [0.45, '#1f2f5c']] as const).map(([x, farbe], i) => (
         <group key={i} position={[x, 0.16, B / 2 + 1.0]}>
@@ -281,89 +338,252 @@ function Zentrale({ etagen, level, nacht, onRein }: { etagen: EtageStand[]; leve
           <mesh position={[0, 0.78, 0]} castShadow><sphereGeometry args={[0.14, 16, 12]} /><Mat color={F.weiss} roughness={.8} /></mesh>
         </group>
       ))}
-      <Html position={[0, hoehe + (naechste ? ETAGE_H : 0) + 0.9, 0]} center zIndexRange={[14, 0]} style={{ pointerEvents: 'none' }}>
-        <div className="wl-zentrale">
-          <strong>Sow &amp; Loynab</strong>
-          <small>Level {level.nr} · {level.name}{naechste ? ` · ${naechste.etage.name} ${naechste.text}` : ''}</small>
-        </div>
-      </Html>
+    </Bau>
+  )
+}
+
+/** Sendeturm = Personal Brand. Waechst mit jeder vollen 1.000 Follower. */
+function Sendeturm({ marken, nacht }: { marken: number; nacht: boolean }) {
+  const h = 2.6 + Math.min(8, marken) * 0.55
+  const licht = useRef<THREE.MeshStandardMaterial>(null)
+  useFrame(({ clock }) => { if (licht.current) licht.current.emissiveIntensity = 0.6 + (Math.sin(clock.elapsedTime * 3) > 0.2 ? 2.4 : 0) })
+  return (
+    <group>
+      <Kasten p={[0, 0.06, 0]} s={[2.9, 0.12, 2.9]} r={0.04} mat={{ color: '#cfc6b8', roughness: 1 }} />
+      <Kasten p={[0, 0.5, 0]} s={[1.9, 0.8, 1.9]} r={0.06} mat={{ color: '#2a2f45', roughness: .7 }} />
+      <mesh position={[0, 0.5, 0.955]}><planeGeometry args={[1.3, 0.4]} /><meshStandardMaterial color={F.orange} emissive={F.orange} emissiveIntensity={nacht ? 1.6 : .6} /></mesh>
+      {Array.from({ length: Math.round(h / 0.55) }, (_, i) => (
+        <Zylinder key={i} p={[0, 0.9 + i * 0.55 + 0.275, 0]} r={[Math.max(0.08, 0.34 - (i + 1) * 0.022), Math.max(0.1, 0.34 - i * 0.022)]} h={0.55} mat={{ color: i % 2 ? F.weiss : '#e5484d', roughness: .6 }} seg={10} />
+      ))}
+      {/* Schuessel */}
+      <mesh position={[0.3, 0.9 + h * 0.6, 0.2]} rotation={[0.9, 0.6, 0]} castShadow><coneGeometry args={[0.32, 0.2, 16, 1, true]} /><meshStandardMaterial color={F.weiss} roughness={.4} side={THREE.DoubleSide} /></mesh>
+      <mesh position={[0, 0.9 + h + 0.12, 0]}><sphereGeometry args={[0.12, 12, 10]} /><meshStandardMaterial ref={licht} color="#ff3b30" emissive="#ff3b30" emissiveIntensity={2} /></mesh>
     </group>
   )
 }
 
-/** Plaetze fuer Laeden (u, v) -- Hochformat: zwei Spalten; Querformat: in die Breite. */
-const PLAETZE_HOCH: [number, number][] = [[-4.7, 0.2], [4.7, 0.2], [-3.7, 7.0], [3.7, 7.0], [-4.7, -7.0], [4.7, -7.0], [-3.7, 13.0], [3.7, 13.0], [-3.7, -12.0], [3.7, -12.0]]
-const PLAETZE_QUER: [number, number][] = [[-5.6, 0.2], [5.6, 0.2], [-4.4, 7.0], [4.4, 7.0], [-10.6, 1.4], [10.6, 1.4], [-9.6, 7.6], [9.6, 7.6], [-9.2, -5.4], [9.2, -5.4]]
-
-/** fu/fv strecken das Raster, damit der Block das Bild fuellt (hohes Handy: mehr Tiefe, breiter Monitor: mehr Breite). */
-function blockMass(hoch: boolean, anzahl: number, fu = 1, fv = 1): { plaetze: [number, number][]; breite: number; v0: number; v1: number } {
-  const plaetze = (hoch ? PLAETZE_HOCH : PLAETZE_QUER).slice(0, Math.max(2, anzahl)).map(([u, v]) => [u * fu, v * fv] as [number, number])
-  const us = plaetze.map((p) => Math.abs(p[0])), vs = plaetze.map((p) => p[1])
-  return { plaetze, breite: (Math.max(...us, 3) + 2.6) * 2, v0: Math.min(...vs, -3.5) - 2.8, v1: Math.max(...vs, 3.5) + 2.8 }
+/** Bank = Geld: Umsatz, bezahlte Rechnungen, abgeschlossene Monate. */
+function Bank({ nacht }: { nacht: boolean }) {
+  return (
+    <group>
+      <Kasten p={[0, 0.1, 0]} s={[3.0, 0.2, 2.8]} r={0.04} mat={{ color: '#d8d0c2', roughness: 1 }} />
+      <Kasten p={[0, 1.0, -0.2]} s={[2.5, 1.6, 2.0]} r={0.05} mat={{ color: '#f1ead9', roughness: .85 }} />
+      {[-0.9, -0.3, 0.3, 0.9].map((x) => <Zylinder key={x} p={[x, 0.95, 0.95]} r={0.11} h={1.5} mat={{ color: F.weiss, roughness: .6 }} seg={12} />)}
+      <Kasten p={[0, 1.85, 0.1]} s={[2.8, 0.2, 2.7]} r={0.04} mat={{ color: '#e3dac6', roughness: .8 }} />
+      <mesh position={[0, 2.2, 0.1]} rotation={[0, Math.PI / 4, 0]} castShadow><coneGeometry args={[1.7, 0.6, 4]} /><Mat color="#c9a24a" metalness={.5} roughness={.4} /></mesh>
+      <mesh position={[0, 1.15, 0.82]}><planeGeometry args={[0.6, 1.0]} /><meshStandardMaterial color="#ffe9b8" emissive="#ffd27a" emissiveIntensity={nacht ? 1.4 : .4} /></mesh>
+      {/* Muenze */}
+      <mesh position={[1.36, 1.2, -0.2]} rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[0.34, 0.34, 0.06, 20]} /><Mat color={F.gold} metalness={.8} roughness={.25} emissive={F.gold} emissiveIntensity={.2} /></mesh>
+    </group>
+  )
 }
 
-function Block({ etagen, level, nacht, leben, gewaehlt, onWaehlen, onAnsicht, onFrei }: WeltProps) {
-  const { camera, size } = useThree()
-  const hoch = size.height >= size.width * 0.85
-  const kunden = leben.kunden.slice(0, 9)
-  const RAND_OBEN = 5.2 // Platz fuer Haushoehe und Schilder (Welt-Einheiten am Bildschirm)
-  const { m, fv } = useMemo(() => {
-    const n = kunden.length + 1
-    const b = blockMass(hoch, n)
-    const zw = size.width / (b.breite + 0.6), zh = (size.height - 56) / ((b.v1 - b.v0) * 0.577 + RAND_OBEN)
-    // Breite begrenzt (Handy): in die Tiefe strecken. Hoehe begrenzt (PC): in die Breite strecken.
-    const fv = zw < zh ? Math.min(1.5, Math.max(1, ((size.height - 56) / zw - RAND_OBEN) / ((b.v1 - b.v0) * 0.577))) : 1
-    const fu = zh < zw ? Math.min(1.5, Math.max(1, (size.width / zh - 0.6) / b.breite)) : 1
-    return { m: blockMass(hoch, n, fu, fv), fv }
-  }, [hoch, kunden.length, size.width, size.height])
-  const tiefe = m.v1 - m.v0, vMitte = (m.v0 + m.v1) / 2
+/** Backstube = Schnitt (der Ofen). Raucht, wenn gerade etwas gebacken wird. */
+function Backstube({ an, nacht }: { an: boolean; nacht: boolean }) {
+  const rauch = useRef<THREE.Group>(null)
+  useFrame(({ clock }) => {
+    if (!rauch.current) return
+    rauch.current.children.forEach((c, i) => { const t = (clock.elapsedTime * 0.5 + i * 0.33) % 1; c.position.y = t * 1.3; c.scale.setScalar(0.4 + t * 0.9); (c as THREE.Mesh).visible = an })
+  })
+  return (
+    <group>
+      <Kasten p={[0, 0.06, 0]} s={[2.9, 0.12, 2.9]} r={0.04} mat={{ color: '#cfc6b8', roughness: 1 }} />
+      <Kasten p={[0, 0.85, -0.1]} s={[2.3, 1.5, 2.1]} r={0.06} mat={{ color: '#a6533c', roughness: .9 }} />
+      <Kasten p={[0, 1.7, -0.1]} s={[2.5, 0.2, 2.3]} r={0.05} mat={{ color: '#5a3324', roughness: .8 }} />
+      <Kasten p={[0.6, 2.2, -0.5]} s={[0.5, 0.9, 0.5]} r={0.04} mat={{ color: '#7a4234', roughness: .9 }} />
+      <group ref={rauch} position={[0.6, 2.75, -0.5]}>
+        {[0, 1, 2].map((i) => <mesh key={i}><sphereGeometry args={[0.22, 10, 8]} /><meshStandardMaterial color="#e8e8ee" transparent opacity={0.55} depthWrite={false} /></mesh>)}
+      </group>
+      {/* Ofenmaul vorn */}
+      <mesh position={[0, 0.6, 0.955]}><circleGeometry args={[0.5, 20, 0, Math.PI]} /><meshStandardMaterial color="#ffb347" emissive="#ff7a1a" emissiveIntensity={an ? 2.2 : nacht ? .5 : .15} /></mesh>
+      <Kasten p={[0, 0.35, 0.96]} s={[1.0, 0.5, 0.02]} mat={{ color: '#ffb347', emissive: '#ff7a1a', emissiveIntensity: an ? 2.2 : nacht ? .5 : .15 }} />
+      <mesh position={[1.155, 0.95, -0.1]} rotation={[0, Math.PI / 2, 0]}><planeGeometry args={[1.2, 0.5]} /><meshStandardMaterial color="#ffe9b8" emissive="#ffd27a" emissiveIntensity={nacht ? 1.3 : .35} /></mesh>
+    </group>
+  )
+}
 
+/** Uhrturm = Kalender. */
+function Uhrturm() {
+  return (
+    <group>
+      <Kasten p={[0, 0.06, 0]} s={[2.2, 0.12, 2.2]} r={0.04} mat={{ color: '#cfc6b8', roughness: 1 }} />
+      <Kasten p={[0, 1.6, 0]} s={[1.1, 3.0, 1.1]} r={0.05} mat={{ color: '#f1ead9', roughness: .85 }} />
+      <mesh position={[0, 3.5, 0]} rotation={[0, Math.PI / 4, 0]} castShadow><coneGeometry args={[1.0, 0.9, 4]} /><Mat color="#3d5a80" roughness={.7} /></mesh>
+      {([[0, 0.56, 0], [0.56, 0, Math.PI / 2]] as const).map(([x, z, r], i) => (
+        <group key={i} position={[x, 2.5, z]} rotation={[0, r, 0]}>
+          <mesh rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.36, 0.36, 0.04, 20]} /><Mat color={F.weiss} roughness={.5} /></mesh>
+          <Kasten p={[0, 0.1, 0.03]} s={[0.04, 0.24, 0.01]} mat={{ color: F.schwarz }} />
+          <Kasten p={[0.08, 0, 0.03]} s={[0.18, 0.04, 0.01]} mat={{ color: F.schwarz }} />
+        </group>
+      ))}
+    </group>
+  )
+}
+
+/** Schwarzes Brett = Quests. */
+function Brett({ zettel }: { zettel: number }) {
+  const farben = ['#ffd60a', '#ff9f0a', '#64d2ff', '#30d158', '#ff375f', '#bf5af2']
+  return (
+    <group>
+      {[-0.75, 0.75].map((x) => <Kasten key={x} p={[x, 0.7, 0]} s={[0.1, 1.4, 0.1]} mat={{ color: F.eiche, roughness: .9 }} />)}
+      <Kasten p={[0, 1.05, 0]} s={[1.7, 0.95, 0.08]} r={0.03} mat={{ color: '#b98a5a', roughness: .9 }} />
+      <Kasten p={[0, 1.6, 0]} s={[1.9, 0.12, 0.3]} r={0.03} mat={{ color: '#5a3324', roughness: .8 }} />
+      {Array.from({ length: Math.min(6, zettel) }, (_, i) => (
+        <Kasten key={i} p={[-0.55 + (i % 3) * 0.55, 1.25 - Math.floor(i / 3) * 0.4, 0.05]} s={[0.34, 0.28, 0.01]} rot={[0, 0, (i % 2 ? 1 : -1) * 0.08]} mat={{ color: farben[i], roughness: .8 }} />
+      ))}
+    </group>
+  )
+}
+
+/** Schatztruhe = Ziele mit echter Belohnung. Leuchtet, wenn eins einzuloesen ist. */
+function Truhe({ bereit }: { bereit: boolean }) {
+  const g = useRef<THREE.Group>(null)
+  useFrame(({ clock }) => { if (g.current) g.current.position.y = bereit ? 0.1 + Math.abs(Math.sin(clock.elapsedTime * 3)) * 0.15 : 0 })
+  return (
+    <group ref={g}>
+      <Kasten p={[0, 0.4, 0]} s={[1.3, 0.7, 0.9]} r={0.06} mat={{ color: '#7a4a24', roughness: .8 }} />
+      <mesh position={[0, 0.75, 0]} rotation={[0, 0, Math.PI / 2]} castShadow><cylinderGeometry args={[0.45, 0.45, 1.3, 16, 1, false, 0, Math.PI]} /><Mat color="#8a5730" roughness={.8} /></mesh>
+      {[-0.45, 0.45].map((x) => <Kasten key={x} p={[x, 0.45, 0]} s={[0.12, 0.82, 0.94]} r={0.02} mat={{ color: F.gold, metalness: .7, roughness: .3 }} />)}
+      <Kasten p={[0, 0.62, 0.46]} s={[0.2, 0.24, 0.05]} r={0.02} mat={{ color: F.gold, metalness: .7, roughness: .3, emissive: F.gold, emissiveIntensity: bereit ? 1.5 : .1 }} />
+      {bereit && <pointLight position={[0, 1.2, 0]} intensity={3} distance={5} decay={2} color="#ffd87a" />}
+    </group>
+  )
+}
+
+/** Pokal-Park: fuer jeden Hit eine goldene Figur. */
+function PokalPark({ hits }: { hits: number }) {
+  return (
+    <group>
+      <Kasten p={[0, 0.1, 0]} s={[2.6, 0.2, 2.2]} r={0.05} mat={{ color: '#d8d0c2', roughness: 1 }} />
+      {Array.from({ length: Math.max(1, Math.min(6, hits)) }, (_, i) => {
+        const x = -0.8 + (i % 3) * 0.8, z = -0.4 + Math.floor(i / 3) * 0.8
+        const da = i < hits
+        return (
+          <group key={i} position={[x, 0.2, z]}>
+            <Kasten p={[0, 0.15, 0]} s={[0.4, 0.3, 0.4]} r={0.03} mat={{ color: '#8f959f', roughness: .9 }} />
+            {da && <>
+              <Zylinder p={[0, 0.5, 0]} r={[0.16, 0.06]} h={0.36} mat={{ color: F.gold, metalness: .8, roughness: .25 }} seg={14} />
+              <mesh position={[0, 0.78, 0]}><sphereGeometry args={[0.1, 12, 10]} /><Mat color={F.gold} metalness={.8} roughness={.25} emissive={F.gold} emissiveIntensity={.3} /></mesh>
+            </>}
+          </group>
+        )
+      })}
+    </group>
+  )
+}
+
+/** Plaetze (u, v): u nach rechts, v nach vorn. Querformat zuerst gedacht -- am Handy hochkant wird gewischt. */
+const LADEN_PLAETZE: [number, number][] = [[-5.8, 0.2], [5.8, 0.2], [-4.8, 7.4], [4.8, 7.4], [-10.8, 1.6], [10.8, 1.6], [-10.2, 8.0], [10.2, 8.0]]
+const INSEL = { u: 14.5, v0: -11.5, v1: 12.5 }
+
+function Dorf(p: WeltProps) {
+  const { camera, size } = useThree()
+  const steuerung = useRef<OrbitControlsImpl>(null)
+  const kunden = p.leben.kunden.slice(0, LADEN_PLAETZE.length)
+  const frei = LADEN_PLAETZE[kunden.length]
+  const nacht = p.nacht
+  const breite = INSEL.u * 2, tiefe = INSEL.v1 - INSEL.v0, vMitte = (INSEL.v0 + INSEL.v1) / 2
+  const VERSATZ = 40
+
+  // Start: so nah, dass man die Laeden gut tippen kann; im Querformat passt fast die ganze Insel ins Bild.
   useEffect(() => {
     const cam = camera as THREE.OrthographicCamera
-    // etwas nach hinten zielen: oben liegen die Anzeigen ueber der Welt
-    const ziel = new THREE.Vector3(...uv(0, vMitte - 1.2, 1.2))
-    cam.position.set(ziel.x + 14, ziel.y + 14, ziel.z + 14)
+    const ziel = new THREE.Vector3(...uv(0, 1.2, 1))
+    cam.position.set(ziel.x + VERSATZ, ziel.y + VERSATZ, ziel.z + VERSATZ)
     cam.lookAt(ziel)
-    // Der Block muss ganz ins Bild: Breite in u, Tiefe in v (von schraeg oben um 0,577 gestaucht) plus Haushoehe
-    cam.zoom = Math.min(size.width / (m.breite + 0.6), (size.height - 56) / (tiefe * 0.577 + RAND_OBEN))
+    const ganz = Math.min(size.width / (breite + 3), size.height / (tiefe * 0.577 + 7))
+    const start = Math.max(ganz, Math.min(size.width, size.height) / 18)
+    cam.zoom = start
     cam.updateProjectionMatrix()
-  }, [camera, size, m.breite, tiefe, vMitte])
+    const s = steuerung.current
+    if (s) { s.target.copy(ziel); s.minZoom = ganz * 0.9; s.maxZoom = Math.max(start * 2.4, 80); s.update() }
+  }, [camera, size.width, size.height, breite, tiefe])
 
-  const strassen = [3.6 * fv, hoch ? 10.0 * fv : -99].filter((v) => v > m.v0 + 1 && v < m.v1 - 1)
+  // Schieben nur auf der Insel: Ziel zurueck auf Bodenhoehe holen und in die Inselgrenzen klemmen.
+  const klemmen = () => {
+    const s = steuerung.current
+    if (!s) return
+    const t = s.target
+    const d = (t.y - 1) // entlang der Blickrichtung (1,1,1) zurueck auf y = 1
+    let x = t.x - d, z = t.z - d
+    let u = (x - z) * K, v = (x + z) * K
+    u = Math.min(INSEL.u - 2, Math.max(-INSEL.u + 2, u))
+    v = Math.min(INSEL.v1 - 2, Math.max(INSEL.v0 + 2, v))
+    x = (u + v) * K; z = (v - u) * K
+    t.set(x, 1, z)
+    camera.position.set(x + VERSATZ, 1 + VERSATZ, z + VERSATZ)
+  }
+
+  const b = (ort: string) => p.beute[ort] ?? 0
+  const sammle = (ort: string) => (wo: { x: number; y: number }) => p.onSammeln(ort, wo)
+  const chip = (text: string, zahl?: React.ReactNode, klasse = '') => <div className={`wl-chip neutral ${klasse}`}><span>{text}</span>{zahl != null && <b>{zahl}</b>}</div>
+
   return (
     <>
-      {/* Boden: am Bildschirm ausgerichtet (um 45 Grad gedreht) */}
+      {/* Wasser */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.95, 0]}><planeGeometry args={[400, 400]} /><meshStandardMaterial color={nacht ? '#12314d' : '#2a86b8'} roughness={.35} metalness={.1} /></mesh>
+      {/* Insel: am Bildschirm ausgerichtet (um 45 Grad gedreht) */}
       <group rotation={[0, Math.PI / 4, 0]}>
-        <Kasten p={[0, -0.3, vMitte]} s={[m.breite, 0.6, tiefe]} r={0.25} mat={{ color: nacht ? '#2f5a45' : '#5fae76', roughness: 1 }} />
-        <Kasten p={[0, -0.72, vMitte]} s={[m.breite - 0.5, 0.4, tiefe - 0.5]} r={0.2} mat={{ color: '#3a2a20', roughness: 1 }} />
-        {/* Strassen quer */}
-        {strassen.map((v) => (
-          <group key={v}>
-            <Kasten p={[0, 0.005, v]} s={[m.breite - 0.8, 0.03, 1.5]} r={0.01} mat={{ color: '#4a4f5c', roughness: 1 }} />
-            {Array.from({ length: Math.floor((m.breite - 2) / 1.6) }, (_, i) => (
-              <Kasten key={i} p={[-(m.breite - 2) / 2 + 0.8 + i * 1.6, 0.025, v]} s={[0.6, 0.01, 0.08]} mat={{ color: '#e8e2d4' }} />
-            ))}
-          </group>
+        <Kasten p={[0, -0.55, vMitte]} s={[breite + 1.6, 0.7, tiefe + 1.6]} r={0.3} mat={{ color: nacht ? '#8f8566' : '#ecdcae', roughness: 1 }} />
+        <Kasten p={[0, -0.3, vMitte]} s={[breite, 0.6, tiefe]} r={0.25} mat={{ color: nacht ? '#2f5a45' : '#62b377', roughness: 1 }} />
+        {/* Strasse quer + Wege */}
+        <Kasten p={[0, 0.005, 3.7]} s={[breite - 1.2, 0.03, 1.5]} r={0.01} mat={{ color: '#4a4f5c', roughness: 1 }} />
+        {Array.from({ length: Math.floor((breite - 3) / 1.6) }, (_, i) => (
+          <Kasten key={i} p={[-(breite - 3) / 2 + 0.8 + i * 1.6, 0.025, 3.7]} s={[0.6, 0.01, 0.08]} mat={{ color: '#e8e2d4' }} />
         ))}
-        {/* Weg von der Strasse zur Agentur */}
-        <Kasten p={[0, 0.005, (2.3 + 3.6 * fv - 0.75) / 2]} s={[1.3, 0.03, Math.max(0.4, 3.6 * fv - 0.75 - 2.3)]} r={0.01} mat={{ color: '#cfc6b8', roughness: 1 }} />
+        <Kasten p={[0, 0.005, 2.65]} s={[1.3, 0.03, 0.75]} mat={{ color: '#cfc6b8', roughness: 1 }} />
+        <Kasten p={[0, 0.005, -3.6]} s={[1.1, 0.03, 3.0]} mat={{ color: '#cfc6b8', roughness: 1 }} />
+        <Kasten p={[0, 0.005, -5.2]} s={[12.5, 0.03, 0.9]} mat={{ color: '#cfc6b8', roughness: 1 }} />
+        {/* Steg ins Wasser */}
+        <Kasten p={[INSEL.u + 1.4, -0.12, 9.5]} s={[3.6, 0.14, 1.1]} mat={{ color: F.eiche, roughness: .9 }} />
       </group>
 
-      <Zentrale etagen={etagen} level={level} nacht={nacht} onRein={() => onAnsicht('haus')} />
+      <Zentrale etagen={p.etagen} level={p.level} nacht={nacht} beute={b('zentrale')} onRein={() => p.onAnsicht('haus')} onSammeln={sammle('zentrale')} />
 
       {kunden.map((k, i) => (
-        <Laden key={k.id} k={k} i={i} position={uv(m.plaetze[i][0], m.plaetze[i][1])} aktiv={gewaehlt === `kunde:${k.id}`} nacht={nacht} onWaehlen={onWaehlen} />
+        <Laden key={k.id} k={k} i={i} position={uv(LADEN_PLAETZE[i][0], LADEN_PLAETZE[i][1])} aktiv={p.gewaehlt === `kunde:${k.id}`} nacht={nacht}
+          beute={b(`kunde:${k.id}`)} onWaehlen={p.onWaehlen} onSammeln={sammle(`kunde:${k.id}`)} />
       ))}
-      {m.plaetze[kunden.length] && <FreiesGrundstueck position={uv(m.plaetze[kunden.length][0], m.plaetze[kunden.length][1])} onFrei={onFrei} />}
+      {frei && <FreiesGrundstueck position={uv(frei[0], frei[1])} onFrei={p.onFrei} />}
 
-      {/* Gruen und Licht */}
-      <Baum position={uv(-m.breite / 2 + 1.1, m.v0 + 1.2)} />
-      <Baum position={uv(m.breite / 2 - 1.1, m.v0 + 1.4)} s={0.85} />
-      <Baum position={uv(0, m.v0 + 1.3)} s={1.1} />
-      <Baum position={uv(-m.breite / 2 + 1.0, m.v1 - 1.1)} s={0.9} />
-      <Baum position={uv(m.breite / 2 - 1.0, m.v1 - 1.2)} />
-      <Laterne position={uv(-2.4, 2.5)} nacht={nacht} />
-      <Laterne position={uv(2.4, 2.5)} nacht={nacht} />
+      {/* Die Agentur-Gebaeude hinter der Zentrale */}
+      <Bau position={uv(0, -8.0)} hoehe={3.2 + Math.min(8, p.follower.marken) * 0.55} beute={b('turm')} onSammeln={sammle('turm')} onTipp={() => p.onOrt('ziele')}
+        schild={chip('Sendeturm', p.follower.gesamt.toLocaleString('de-DE'))}>
+        <Sendeturm marken={p.follower.marken} nacht={nacht} />
+      </Bau>
+      <Bau position={uv(-5.6, -6.8)} hoehe={2.6} beute={b('bank')} onSammeln={sammle('bank')} onTipp={() => p.onOrt('bilanz')} schild={chip('Bank', `${Math.round(p.umsatzMonat).toLocaleString('de-DE')} €`)}>
+        <Bank nacht={nacht} />
+      </Bau>
+      <Bau position={uv(5.6, -6.8)} hoehe={2.4} aktiv={p.gewaehlt === 'ofen'} onTipp={() => p.onWaehlen(p.gewaehlt === 'ofen' ? null : 'ofen')} schild={chip('Backstube', p.leben.imOfen > 0 ? `${p.leben.imOfen} im Ofen` : undefined)}>
+        <Backstube an={p.leben.imOfen > 0} nacht={nacht} />
+      </Bau>
+      <Bau position={uv(-10.8, -5.6)} hoehe={4.0} aktiv={p.gewaehlt === 'kalender'} onTipp={() => p.onWaehlen(p.gewaehlt === 'kalender' ? null : 'kalender')} schild={chip('Kalender')}>
+        <Uhrturm />
+      </Bau>
+      <Bau position={uv(10.8, -5.6)} hoehe={1.4} aktiv={p.gewaehlt === 'pokale'} onTipp={() => p.onWaehlen(p.gewaehlt === 'pokale' ? null : 'pokale')} schild={chip('Hits', p.hits)}>
+        <PokalPark hits={p.hits} />
+      </Bau>
+      <Bau position={uv(0, 6.6)} hoehe={1.8} beute={b('brett')} onSammeln={sammle('brett')} onTipp={() => p.onOrt('quests')} schild={chip('Quests', p.offeneQuests || undefined)}>
+        <Brett zettel={p.offeneQuests} />
+      </Bau>
+      <Bau position={uv(0, 10.2)} hoehe={1.3} onTipp={() => p.onOrt('ziele')} schild={chip('Ziele', p.zielBereit ? '!' : undefined, p.zielBereit ? 'bereit' : '')}>
+        <Truhe bereit={p.zielBereit} />
+      </Bau>
+
+      {/* Gruen, Felsen, Licht */}
+      {([[-13, -10, 1], [13, -10, .9], [-13.2, 11, .9], [13, 11.2, 1], [-7.6, -10, 1.1], [7.4, -10.2, .9], [-13.4, -1.5, 1], [13.4, -2, 1.1], [-13.2, 5, .8], [13.3, 5.4, .9], [-6.5, 11.3, 1], [6.5, 11.3, 1.1], [-2.6, -10.4, .8], [3.0, -10.5, 1]] as const).map(([u, v, s], i) => (
+        <Baum key={i} position={uv(u, v)} s={s} />
+      ))}
+      <Fels position={uv(-12.6, 8.6)} /><Fels position={uv(12.4, -7.8)} s={1.2} /><Fels position={uv(3.4, 11.6)} s={.8} />
+      <Laterne position={uv(-2.6, 2.6)} nacht={nacht} /><Laterne position={uv(2.6, 2.6)} nacht={nacht} />
+      <Laterne position={uv(-8.2, 4.9)} nacht={nacht} /><Laterne position={uv(8.2, 4.9)} nacht={nacht} />
+
+      <OrbitControls
+        ref={steuerung} makeDefault enableRotate={false} enablePan screenSpacePanning enableDamping={false} zoomSpeed={0.8} panSpeed={1}
+        mouseButtons={{ LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN }}
+        touches={{ ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_PAN }}
+        onChange={klemmen}
+      />
     </>
   )
 }
@@ -565,9 +785,9 @@ function Licht({ nacht, haus }: { nacht: boolean; haus: boolean }) {
       <hemisphereLight args={[nacht ? '#4a5a9a' : '#e4ecff', nacht ? '#1a1410' : '#7a5a3a', nacht ? .4 : 1.2]} />
       <ambientLight intensity={nacht ? (haus ? .45 : .2) : .5} />
       <directionalLight
-        position={haus ? [6, 30, 18] : [10, 16, 4]} intensity={nacht ? .3 : 2.0} color={nacht ? '#9fb0ff' : '#fff1d6'} castShadow
+        position={haus ? [6, 30, 18] : [14, 26, 6]} intensity={nacht ? .3 : 2.0} color={nacht ? '#9fb0ff' : '#fff1d6'} castShadow
         shadow-mapSize={[2048, 2048]} shadow-bias={-0.0004} shadow-normalBias={0.05}
-        shadow-camera-left={-22} shadow-camera-right={22} shadow-camera-top={26} shadow-camera-bottom={-22} shadow-camera-near={1} shadow-camera-far={80}
+        shadow-camera-left={-30} shadow-camera-right={30} shadow-camera-top={30} shadow-camera-bottom={-30} shadow-camera-near={1} shadow-camera-far={120}
       />
       <directionalLight position={[-8, 6, 10]} intensity={nacht ? .12 : .55} color="#ffd9b0" />
     </>
@@ -581,7 +801,7 @@ export default function Welt(p: WeltProps) {
   const klemm = (y: number) => Math.min(scroll.current.max, Math.max(scroll.current.min, y))
   return (
     <div
-      className={`st-buehne wl-buehne ${haus ? 'haus' : 'block'}`}
+      className={`st-buehne wl-buehne ${haus ? 'haus' : 'dorf'}`}
       onPointerDown={(e) => { if (haus) zieh.current = { y0: e.clientY, s0: scroll.current.y } }}
       onPointerMove={(e) => { if (haus && zieh.current && e.buttons) scroll.current.y = klemm(zieh.current.s0 + (e.clientY - zieh.current.y0) / scroll.current.zoom) }}
       onPointerUp={() => { zieh.current = null }}
@@ -596,10 +816,10 @@ export default function Welt(p: WeltProps) {
         gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: p.nacht ? 1.0 : 1.15 }}
         onPointerMissed={() => p.onWaehlen(null)}
       >
-        <color attach="background" args={[p.nacht ? '#0b0f2a' : '#101a33']} />
+        <color attach="background" args={[haus ? (p.nacht ? '#0b0f2a' : '#101a33') : (p.nacht ? '#12314d' : '#2a86b8')]} />
         <Suspense fallback={null}>
           <Licht nacht={p.nacht} haus={haus} />
-          {haus ? <Haus {...p} scroll={scroll} /> : <Block {...p} />}
+          {haus ? <Haus {...p} scroll={scroll} /> : <Dorf {...p} />}
         </Suspense>
       </Canvas>
     </div>

@@ -1,18 +1,17 @@
 // Das Spiel -- eigene Web-App unter /spiel/. Gleiche Anmeldung wie das CRM,
-// gleiche Daten. Drei Reiter: Studio, Quests, Bilanz.
-//
-// Gesteuert wird nach Umsatz, Level und XP. Das Studio ist der Raum der
-// Agentur in 3D -- jedes Moebelstueck ein Knopf ins CRM.
+// gleiche Daten. Das Dorf fuellt den ganzen Bildschirm (wie ein Aufbauspiel);
+// Anzeigen liegen in den Ecken, Quests/Ziele/Bilanz legen sich als Tafeln
+// darueber. Echte Arbeit laesst XP-Blasen entstehen, die man einsammelt.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Flame, Trophy, ListChecks, BarChart3, Lock, Check, Plus, X, RefreshCw, Sparkles, ExternalLink, RotateCcw, ArrowUpRight, Euro, Gift, Users, Video, CalendarPlus, UserPlus, Coffee, Trash2, ChevronLeft, Building2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { celebrate } from '../lib/confetti'
-import { AUSSTATTUNG, LEVEL, MEILENSTEINE, XP, ZIEL_TYPEN, etagenStand, kurzZahl, monatName, type EtageStand, type FollowerStand, type SQuest, type ZielStand, type ZielTyp } from '../lib/spiel'
+import { AUSSTATTUNG, LEVEL, MEILENSTEINE, XP, ZIEL_TYPEN, beuteOffen, beuteOrt, etagenStand, kurzZahl, levelFuer, monatName, type EtageStand, type FollowerStand, type SQuest, type ZielStand, type ZielTyp } from '../lib/spiel'
 import { setBetriebFrage, ABGEBROCHEN } from '../lib/betriebWahl'
 import type { Channel } from '../lib/channels'
 import type { Empfehlung } from '../lib/pilot'
-import { auftragXp, kundeAnlegen, ladeSpiel, leadAnlegen, questAnlegen, questErledigen, questZurueck, terminAnlegen, videoGepostet, zielAnlegen, zielEinloesen, zielLoeschen, type SpielDaten, type StudioKunde } from './daten'
+import { auftragXp, beuteSammeln, kundeAnlegen, ladeSpiel, leadAnlegen, questAnlegen, questErledigen, questZurueck, terminAnlegen, videoGepostet, zielAnlegen, zielEinloesen, zielLoeschen, type SpielDaten, type StudioKunde } from './daten'
 import Welt, { type Ansicht } from './Welt'
 import './spiel.css'
 
@@ -49,7 +48,13 @@ export default function SpielApp() {
   const [meldung, setMeldung] = useState<string | null>(null)
   const [nacht, setNacht] = useState(() => { const h = new Date().getHours(); return h >= 18 || h < 7 })
   const [plus, setPlus] = useState<Plus | null>(null)
-  const [ansicht, setAnsicht] = useState<Ansicht>(() => (new URLSearchParams(location.search).get('stueck') ? 'haus' : 'block'))
+  const [ansicht, setAnsicht] = useState<Ansicht>(() => (new URLSearchParams(location.search).get('stueck') ? 'haus' : 'dorf'))
+  // Beute: lokal schon eingesammelt (laeuft dem Server voraus), fliegende XP, Level-Aufstieg, Einfuehrung
+  const [gesammelt, setGesammelt] = useState<Record<string, number> | null>(null)
+  const [flieger, setFlieger] = useState<{ id: number; x: number; y: number; xp: number }[]>([])
+  const [aufstieg, setAufstieg] = useState<number | null>(null)
+  const [intro, setIntro] = useState(() => { try { return !localStorage.getItem('spiel-intro') } catch { return true } })
+  const xpZiel = useRef<HTMLDivElement>(null)
   // Kunde mit zwei Betrieben (Schleckofatz/Schmackofatz): "Gepostet" fragt nach, welcher.
   const [betriebe, setBetriebe] = useState<{ kanaele: Channel[]; fertig: (id: string | undefined) => void } | null>(null)
   useEffect(() => {
@@ -64,9 +69,17 @@ export default function SpielApp() {
   }, [])
 
   const laden = useCallback(async () => {
-    try { setDaten(await ladeSpiel()); setFehler(null) } catch (e) { setFehler((e as Error).message) }
+    try { setDaten(await ladeSpiel()); setGesammelt(null); setFehler(null) } catch (e) { setFehler((e as Error).message) }
   }, [])
   useEffect(() => { if (angemeldet) laden() }, [angemeldet, laden])
+  // Frisch bleiben: beim Zurueckkommen in die App und alle zwei Minuten neu laden -- so tauchen neue Blasen auf.
+  useEffect(() => {
+    if (!angemeldet) return
+    const neu = () => { if (document.visibilityState === 'visible') laden() }
+    document.addEventListener('visibilitychange', neu)
+    const takt = window.setInterval(neu, 120_000)
+    return () => { document.removeEventListener('visibilitychange', neu); window.clearInterval(takt) }
+  }, [angemeldet, laden])
 
   function sag(t: string) { setMeldung(t); window.setTimeout(() => setMeldung(null), 2600) }
 
@@ -80,89 +93,164 @@ export default function SpielApp() {
     return true
   }
 
+  const s = daten?.stand
+  const etagen = useMemo(() => (daten ? etagenStand(daten.stand) : []), [daten])
+
+  // ---- Beute: verdient ist, was die echten Daten sagen; angezeigt wird, was schon eingesammelt ist.
+  const laeden = useMemo(() => (daten ? daten.leben.kunden.slice(0, 8).map((k) => k.id) : []), [daten])
+  const offen = useMemo(() => (daten ? beuteOffen(daten.beuteJetzt, gesammelt ?? daten.beuteGesammelt) : []), [daten, gesammelt])
+  const beuteJeOrt = useMemo(() => {
+    const aus: Record<string, number> = {}
+    for (const b of offen) { const ort = beuteOrt(b.key, laeden); aus[ort] = (aus[ort] ?? 0) + b.xp }
+    return aus
+  }, [offen, laeden])
+  const offenSumme = offen.reduce((a, b) => a + b.xp, 0)
+  const xpGezeigt = s ? s.xp - offenSumme : 0
+  const lv = levelFuer(xpGezeigt)
+  const xpZahl = useZaehler(xpGezeigt, 700)
+
+  function sammeln(ort: string, wo: { x: number; y: number }) {
+    if (!daten) return
+    const teile = offen.filter((b) => beuteOrt(b.key, laeden) === ort)
+    const xp = teile.reduce((a, b) => a + b.xp, 0)
+    if (!xp) return
+    const vorher = levelFuer(xpGezeigt).level.nr
+    const neu: Record<string, number> = {}
+    for (const b of teile) neu[b.key] = daten.beuteJetzt[b.key]
+    const id = Date.now() + Math.random()
+    setFlieger((f) => [...f, { id, x: wo.x, y: wo.y, xp }])
+    window.setTimeout(() => {
+      setFlieger((f) => f.filter((x) => x.id !== id))
+      setGesammelt((g) => ({ ...(g ?? daten.beuteGesammelt), ...neu }))
+      const nachher = levelFuer(xpGezeigt + xp).level
+      if (nachher.nr > vorher) { setAufstieg(nachher.nr); celebrate() }
+    }, 650)
+    beuteSammeln(neu).catch(() => { /* beim naechsten Laden liegt die Blase wieder da */ })
+  }
+
+  const panelTitel: Record<Exclude<Reiter, 'studio'>, string> = { quests: 'Quests', ziele: 'Ziele', bilanz: 'Bilanz' }
+  const zielBereit = !!s && s.ziele.some((z) => z.erreicht && !z.eingeloest)
+  const offeneQuests = s ? s.quests.filter((q) => q.status === 'offen' && !q.gesperrt).length : 0
+
   if (angemeldet === false) {
     return (
       <div className="sp-login">
         <div className="sp-logo">S&amp;L</div>
-        <h1>Das Studio</h1>
+        <h1>Das Dorf</h1>
         <p>Melde dich einmal im CRM an — dann bist du auch hier drin.</p>
         <a className="sp-knopf" href="/">Zum CRM</a>
       </div>
     )
   }
 
-  const s = daten?.stand
-  const etagen = useMemo(() => (daten ? etagenStand(daten.stand) : []), [daten])
   return (
-    <div className={`sp ${nacht ? 'nacht' : ''} ${daten && reiter === 'studio' ? 'voll' : ''}`}>
-      <header className="sp-kopf">
-        <div className="sp-level">
-          <span className="sp-level-nr">{s ? s.level.nr : '·'}</span>
-          <div>
-            <strong>{s ? s.level.name : 'Lade …'}</strong>
-            <small>{s ? `${s.xp.toLocaleString('de-DE')} XP${s.naechstes ? ` · ${(s.naechstes.ab - s.xp).toLocaleString('de-DE')} bis ${s.naechstes.name}` : ' · Endstufe'}` : ''}</small>
-          </div>
-        </div>
-        <div className="sp-kopf-rechts">
-          <span className={`sp-streak ${s?.heuteGepostet ? 'an' : ''}`} title="Posting-Streak"><Flame strokeWidth={2.4} /> {s?.streak ?? 0}</span>
-          <button className="sp-rund" onClick={() => setNacht((n) => !n)} aria-label="Tag/Nacht">{nacht ? '☾' : '☀'}</button>
-          <button className="sp-rund" onClick={laden} aria-label="Aktualisieren"><RefreshCw strokeWidth={2.2} /></button>
-        </div>
-      </header>
-      <div className="sp-xp"><i style={{ width: `${(s?.fortschritt ?? 0) * 100}%` }} /></div>
+    <div className={`sp dorf ${nacht ? 'nacht' : ''}`}>
+      {fehler && <p className="sp-fehler wl-fehler">{fehler}</p>}
+      {!daten && !fehler && <div className="sp-lade">Das Dorf wacht auf …</div>}
 
-      {fehler && <p className="sp-fehler">{fehler}</p>}
-      {!daten && !fehler && <div className="sp-lade">Schließe das Studio auf …</div>}
-
-      {daten && reiter === 'studio' && (
-        <main className="wl-voll">
+      {daten && s && (
+        <>
           <Welt
             ansicht={ansicht} onAnsicht={(x) => { setGewaehlt(null); setAnsicht(x) }} etagen={etagen}
-            level={daten.stand.level} nacht={nacht} leben={daten.leben} hits={daten.stand.hits.length}
-            offeneQuests={daten.stand.quests.filter((q) => q.status === 'offen' && !q.gesperrt).length}
+            level={lv.level} nacht={nacht} leben={daten.leben} hits={s.hits.length} offeneQuests={offeneQuests}
             gewaehlt={gewaehlt} onWaehlen={setGewaehlt} onFrei={() => setPlus('kunde')}
+            onOrt={(r) => { setGewaehlt(null); setReiter(r) }} follower={s.follower} umsatzMonat={s.umsatz.gestellt}
+            zielBereit={zielBereit} beute={beuteJeOrt} onSammeln={sammeln}
           />
-          {/* Anzeigen liegen ueber der Welt -- die Welt selbst fuellt den ganzen Bildschirm */}
-          <div className="wl-hud">
-            {ansicht === 'haus'
-              ? <button className="wl-pille wl-zurueck" onClick={() => { setGewaehlt(null); setAnsicht('block') }}><ChevronLeft strokeWidth={2.6} /> Straße</button>
-              : daten.stand.ort === 'cafe'
-                ? <span className="wl-pille"><Coffee strokeWidth={2.2} /> Café{daten.stand.bueroIn != null ? <> · Büro in <b>{daten.stand.bueroIn}</b> {daten.stand.bueroIn === 1 ? 'Tag' : 'Tagen'}</> : null}</span>
-                : <span />}
-            <span className="wl-hud-rechts">
-              <button className="wl-pille" onClick={() => setReiter('bilanz')} aria-label="Umsatz"><Euro strokeWidth={2.4} /><b>{Math.round(daten.stand.umsatz.gestellt).toLocaleString('de-DE')}</b></button>
-              <button className="wl-pille" onClick={() => setReiter('ziele')} aria-label="Follower"><Users strokeWidth={2.4} /><b>{daten.stand.follower.gesamt.toLocaleString('de-DE')}</b></button>
-            </span>
+
+          {/* ---- Anzeigen: liegen in den Ecken ueber dem Dorf ---- */}
+          <div className="hud hud-ol">
+            <div className="hud-level" ref={xpZiel}>
+              <span className="sp-level-nr">{lv.level.nr}</span>
+              <div>
+                <strong>{lv.level.name}</strong>
+                <div className="sp-xp"><i style={{ width: `${lv.fortschritt * 100}%` }} /></div>
+                <small>{Math.round(xpZahl).toLocaleString('de-DE')}{lv.naechstes ? ` / ${lv.naechstes.ab.toLocaleString('de-DE')}` : ''} XP</small>
+              </div>
+            </div>
+            <div className="hud-zeile">
+              <span className={`wl-pille ${s.heuteGepostet ? 'glut' : ''}`} title="Posting-Streak"><Flame strokeWidth={2.4} /><b>{s.streak}</b></span>
+              {daten.heuteVideos > 0 && <span className="wl-pille"><Video strokeWidth={2.4} /> heute <b>{daten.heuteVideos}</b></span>}
+              {ansicht === 'haus'
+                ? <button className="wl-pille wl-zurueck" onClick={() => { setGewaehlt(null); setAnsicht('dorf') }}><ChevronLeft strokeWidth={2.6} /> Dorf</button>
+                : s.ort === 'cafe' && s.bueroIn != null && <span className="wl-pille"><Coffee strokeWidth={2.2} /> Büro in <b>{s.bueroIn}</b> {s.bueroIn === 1 ? 'Tag' : 'Tagen'}</span>}
+            </div>
           </div>
-          {ansicht === 'block' && !gewaehlt && <div className="wl-tipp">Tippt auf die Agentur, um reinzugehen</div>}
-          {gewaehlt?.startsWith('kunde:')
-            ? <KundenKarte k={daten.leben.kunden.find((x) => `kunde:${x.id}` === gewaehlt)} onZu={() => setGewaehlt(null)} onPosten={(k) => posten(k.id, k.name, false)} />
-            : <StueckKarte schluessel={gewaehlt} levelNr={daten.stand.level.nr} onZu={() => setGewaehlt(null)} onReiter={(r) => { setGewaehlt(null); setReiter(r) }} />}
-        </main>
+
+          <div className="hud hud-or">
+            <button className="wl-pille gross" onClick={() => setReiter('bilanz')} aria-label="Umsatz diesen Monat"><Euro strokeWidth={2.4} /><b>{Math.round(s.umsatz.gestellt).toLocaleString('de-DE')}</b></button>
+            <button className="wl-pille gross" onClick={() => setReiter('ziele')} aria-label="Follower"><Users strokeWidth={2.4} /><b>{s.follower.gesamt.toLocaleString('de-DE')}</b></button>
+            <div className="hud-zeile rechts">
+              <button className="sp-rund" onClick={() => setIntro(true)} aria-label="Einführung">?</button>
+              <button className="sp-rund" onClick={() => setNacht((n) => !n)} aria-label="Tag/Nacht">{nacht ? '☾' : '☀'}</button>
+              <button className="sp-rund" onClick={laden} aria-label="Aktualisieren"><RefreshCw strokeWidth={2.2} /></button>
+            </div>
+          </div>
+
+          <div className="hud hud-ul">
+            <button className="hud-knopf" onClick={() => setReiter('quests')}><ListChecks strokeWidth={2.2} /><span>Quests</span>{offeneQuests > 0 && <i>{offeneQuests}</i>}</button>
+            <button className="hud-knopf" onClick={() => setReiter('ziele')}><Gift strokeWidth={2.2} /><span>Ziele</span>{zielBereit && <i>!</i>}</button>
+            <button className="hud-knopf" onClick={() => setReiter('bilanz')}><BarChart3 strokeWidth={2.2} /><span>Bilanz</span></button>
+          </div>
+
+          <div className="hud hud-ur">
+            <button className="hud-plus" onClick={() => setPlus('menue')} aria-label="Eintragen"><Plus strokeWidth={3} /><span>Eintragen</span></button>
+          </div>
+
+          <div className="hud hud-um">
+            {gewaehlt?.startsWith('kunde:')
+              ? <KundenKarte k={daten.leben.kunden.find((x) => `kunde:${x.id}` === gewaehlt)} onZu={() => setGewaehlt(null)} onPosten={(k) => posten(k.id, k.name, false)} />
+              : gewaehlt
+                ? <StueckKarte schluessel={gewaehlt} levelNr={s.level.nr} onZu={() => setGewaehlt(null)} onReiter={(r) => { setGewaehlt(null); setReiter(r) }} />
+                : offenSumme > 0 && ansicht === 'dorf' && <div className="wl-tipp">{offenSumme.toLocaleString('de-DE')} XP liegen im Dorf — antippen und einsammeln</div>}
+          </div>
+
+          <div className="wl-dreh">Quer gehalten sieht man mehr ↻</div>
+
+          {/* ---- Tafeln: Quests, Ziele, Bilanz legen sich ueber das Dorf ---- */}
+          {reiter !== 'studio' && (
+            <div className="wl-tafel-hinter" onClick={() => setReiter('studio')}>
+              <div className="wl-tafel" onClick={(e) => e.stopPropagation()}>
+                <header><strong>{panelTitel[reiter]}</strong><button onClick={() => setReiter('studio')} aria-label="Schließen"><X strokeWidth={2.4} /></button></header>
+                <div className="wl-tafel-inhalt">
+                  {reiter === 'quests' && <Quests quests={s.quests} levelNr={s.level.nr} auftraege={daten.auftraege} onNeu={laden} sag={sag} />}
+                  {reiter === 'ziele' && <Ziele ziele={s.ziele} f={s.follower} onNeu={laden} sag={sag}
+                    bauplan={<Bauplan etagen={etagen} levelName={lv.level.name} satz={lv.level.satz} onRein={() => { setAnsicht('haus'); setReiter('studio') }} />} />}
+                  {reiter === 'bilanz' && <Bilanz d={daten} />}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ---- fliegende XP ---- */}
+          {flieger.map((f) => {
+            const r = xpZiel.current?.getBoundingClientRect()
+            const zx = r ? r.left + 24 : 30, zy = r ? r.top + 24 : 30
+            return <div key={f.id} className="wl-flieger" style={{ left: f.x, top: f.y, ['--dx' as string]: `${zx - f.x}px`, ['--dy' as string]: `${zy - f.y}px` }}>+{f.xp.toLocaleString('de-DE')}</div>
+          })}
+
+          {aufstieg != null && (
+            <div className="wl-aufstieg" onClick={() => setAufstieg(null)}>
+              <div>
+                <small>Level geschafft</small>
+                <span className="sp-level-nr">{aufstieg}</span>
+                <strong>{LEVEL[aufstieg]?.name}</strong>
+                <p>{LEVEL[aufstieg]?.satz}</p>
+                <button className="sp-knopf" onClick={() => setAufstieg(null)}>Weiter</button>
+              </div>
+            </div>
+          )}
+
+          {intro && <Einfuehrung d={daten} etagen={etagen} onZu={() => { setIntro(false); try { localStorage.setItem('spiel-intro', '1') } catch { /* egal */ } }} />}
+        </>
       )}
 
-      {daten && reiter === 'quests' && (
-        <Quests quests={daten.stand.quests} levelNr={daten.stand.level.nr} auftraege={daten.auftraege} onNeu={laden} sag={sag} />
-      )}
-
-      {daten && reiter === 'ziele' && <Ziele ziele={daten.stand.ziele} f={daten.stand.follower} onNeu={laden} sag={sag}
-        bauplan={<Bauplan etagen={etagen} levelName={daten.stand.level.name} satz={daten.stand.level.satz} onRein={() => { setAnsicht('haus'); setReiter('studio') }} />} />}
-
-      {daten && reiter === 'bilanz' && <Bilanz d={daten} />}
-
-      <nav className="sp-tabs">
-        <button className={reiter === 'studio' ? 'an' : ''} onClick={() => setReiter('studio')}><Building2 strokeWidth={2.2} /><span>Agentur</span></button>
-        <button className={reiter === 'quests' ? 'an' : ''} onClick={() => setReiter('quests')}><ListChecks strokeWidth={2.2} /><span>Quests</span>{s && s.quests.some((q) => q.status === 'offen' && !q.gesperrt) && <i />}</button>
-        <button className="sp-plus" onClick={() => setPlus('menue')} aria-label="Eintragen"><span><Plus strokeWidth={3} /></span></button>
-        <button className={reiter === 'ziele' ? 'an' : ''} onClick={() => setReiter('ziele')}><Gift strokeWidth={2.2} /><span>Ziele</span>{s && s.ziele.some((z) => z.erreicht && !z.eingeloest) && <i />}</button>
-        <button className={reiter === 'bilanz' ? 'an' : ''} onClick={() => setReiter('bilanz')}><BarChart3 strokeWidth={2.2} /><span>Bilanz</span></button>
-      </nav>
       {daten && plus && plus !== 'quest' && (
         <Eintragen art={plus} setArt={setPlus} d={daten} onZu={() => setPlus(null)} onPosten={posten} onFertig={() => { setPlus(null); laden() }} sag={sag} />
       )}
       {plus === 'quest' && <NeueQuest onZu={() => setPlus(null)} onFertig={() => { setPlus(null); laden() }} sag={sag} />}
       {betriebe && (
-        <div className="sp-sheet-hinter" style={{ zIndex: 60 }} onClick={() => { betriebe.fertig(undefined); setBetriebe(null) }}>
+        <div className="sp-sheet-hinter" style={{ zIndex: 80 }} onClick={() => { betriebe.fertig(undefined); setBetriebe(null) }}>
           <div className="sp-sheet" onClick={(e) => e.stopPropagation()}>
             <div className="sp-sheet-kopf"><strong>Welcher Betrieb?</strong><button onClick={() => { betriebe.fertig(undefined); setBetriebe(null) }} aria-label="Schließen"><X strokeWidth={2.2} /></button></div>
             <div className="sp-wahl">
@@ -172,6 +260,95 @@ export default function SpielApp() {
         </div>
       )}
       {meldung && <div className="sp-toast">{meldung}</div>}
+    </div>
+  )
+}
+
+// ----------------------------------------------------------- Einführung
+// Einmal beim ersten Start (und jederzeit ueber das Fragezeichen): woher die
+// Agentur kommt, wo sie steht, wie das Dorf funktioniert, wohin es geht.
+// Alle Zahlen kommen aus dem CRM.
+function Einfuehrung({ d, etagen, onZu }: { d: SpielDaten; etagen: EtageStand[]; onZu: () => void }) {
+  const [i, setI] = useState(0)
+  const s = d.stand, g = d.geschichte
+  const monat = (iso: string) => new Date(iso).toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })
+  const naechste = etagen.find((e) => !e.frei)
+  const zahlend = d.leben.kunden.length
+  const seiten: { ueber: string; titel: string; inhalt: React.ReactNode }[] = [
+    {
+      ueber: g.erstesVideo ? monat(g.erstesVideo) : 'Der Anfang', titel: 'So fing es an',
+      inhalt: <p>Zwei Leute, ein Handy, kein Büro. {g.erstesVideo ? <>Das erste Video in eurem CRM ist vom <b>{monat(g.erstesVideo)}</b>.</> : null} Am <b>1. August 2026</b> wurde daraus die Sow &amp; Loynab Media GbR.</p>,
+    },
+    {
+      ueber: 'Eure Kunden', titel: 'Einer nach dem anderen',
+      inhalt: (
+        <ol className="wl-intro-liste">
+          {g.kunden.slice(0, 9).map((k) => <li key={k.name}><span>{k.name}</span><small>{monat(k.seit)} · {k.videos} Videos</small></li>)}
+        </ol>
+      ),
+    },
+    {
+      ueber: 'Bis heute', titel: 'Das habt ihr schon gebaut',
+      inhalt: (
+        <div className="wl-intro-zahlen">
+          <div><strong>{g.videos.toLocaleString('de-DE')}</strong><small>Videos gepostet</small></div>
+          <div><strong>{kurzZahl(g.views)}</strong><small>Views</small></div>
+          <div><strong>{s.hits.length}</strong><small>Hits</small></div>
+          <div><strong>{s.umsatz.bester ? euro(s.umsatz.bester.betrag) : '–'}</strong><small>bester Monat</small></div>
+          <div><strong>{s.follower.gesamt.toLocaleString('de-DE')}</strong><small>Follower @sowloynab</small></div>
+          <div><strong>Level {s.level.nr}</strong><small>{s.level.name}</small></div>
+        </div>
+      ),
+    },
+    {
+      ueber: 'So geht das Spiel', titel: 'Das Dorf ist eure Agentur',
+      inhalt: (
+        <ul className="wl-intro-punkte">
+          <li><b>In der Mitte steht ihr.</b> Antippen führt ins Haus: jede Etage ein Raum, jedes Möbelstück ein Knopf ins CRM.</li>
+          <li><b>Jeder Laden ist ein Kunde.</b> Der Ring zeigt die Videos diesen Monat, die Zahl daneben die Stufe. Läden wachsen mit jedem Video.</li>
+          <li><b>Dahinter:</b> Sendeturm (Follower), Bank (Umsatz), Backstube (Schnitt), Kalender. Vorn: Quests und die Truhe mit euren Zielen.</li>
+          <li><b>Ziehen</b> verschiebt die Karte, <b>zwei Finger</b> zoomen.</li>
+        </ul>
+      ),
+    },
+    {
+      ueber: 'So geht das Spiel', titel: 'Echte Arbeit, echte Punkte',
+      inhalt: (
+        <ul className="wl-intro-punkte">
+          <li><span className="wl-beute klein">+150<small>XP</small></span> Postet ihr drei Videos, liegen drei mal 50 XP über dem Laden. <b>Antippen sammelt sie ein.</b></li>
+          <li>Auch bezahlte Rechnungen, neue Follower, erledigte Quests und Hits werden zu Blasen.</li>
+          <li>Der <b>Plus-Knopf</b> unten rechts trägt ein: Video gepostet, Quest, Kunde, Termin. Alles landet direkt im CRM.</li>
+          <li>Punkte gibt es nur für Echtes. Was nicht passiert ist, zählt nicht.</li>
+        </ul>
+      ),
+    },
+    {
+      ueber: 'Ab hier', titel: 'Wohin es geht',
+      inhalt: (
+        <ul className="wl-intro-punkte">
+          {naechste && <li><b>Nächste Etage: {naechste.etage.name}</b> · {naechste.text}</li>}
+          {s.naechstes && <li><b>Nächstes Level: {s.naechstes.name}</b> · noch {(s.naechstes.ab - s.xp).toLocaleString('de-DE')} XP</li>}
+          <li><b>{zahlend} Läden stehen.</b> Das freie Grundstück wartet auf den nächsten Kunden.</li>
+          <li>Mehr Kunden, mehr Umsatz, irgendwann Mitarbeiter: Das Dorf wächst nur, wenn die Agentur wächst.</li>
+        </ul>
+      ),
+    },
+  ]
+  const seite = seiten[i]
+  const letzte = i === seiten.length - 1
+  return (
+    <div className="wl-intro">
+      <div className="wl-intro-karte">
+        <button className="wl-intro-zu" onClick={onZu} aria-label="Überspringen"><X strokeWidth={2.4} /></button>
+        <small>{seite.ueber}</small>
+        <h2>{seite.titel}</h2>
+        <div className="wl-intro-inhalt">{seite.inhalt}</div>
+        <footer>
+          <span className="wl-intro-punkt">{seiten.map((_, j) => <i key={j} className={j === i ? 'an' : ''} />)}</span>
+          {i > 0 && <button className="sp-leise" onClick={() => setI(i - 1)}>Zurück</button>}
+          <button className="sp-knopf" onClick={() => (letzte ? onZu() : setI(i + 1))}>{letzte ? 'Los geht’s' : 'Weiter'}</button>
+        </footer>
+      </div>
     </div>
   )
 }

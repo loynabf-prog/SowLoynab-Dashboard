@@ -1,11 +1,11 @@
 {
-  "name": "Sow & Loynab — Das Studio",
-  "short_name": "S&L Studio",
-  "description": "Das Studio der Agentur: Umsatz, Level, Quests — echte Arbeit, echte Punkte",
+  "name": "Sow & Loynab — Das Dorf",
+  "short_name": "S&L Dorf",
+  "description": "Das Dorf der Agentur: Kunden, Umsatz, Level — echte Arbeit, echte Punkte",
   "start_url": "/spiel/",
   "scope": "/spiel/",
   "display": "standalone",
-  "orientation": "portrait",
+  "orientation": "landscape",
   "background_color": "#0b0f2a",
   "theme_color": "#0b0f2a",
   "icons": [

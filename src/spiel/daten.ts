@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { heute as heuteIso } from '../lib/datum'
 import { ladePilot } from '../lib/pilotAktionen'
 import type { Empfehlung, PilotKunde } from '../lib/pilot'
-import { spielStand, type SKunde, type SpielStand, type SQuest, type SZiel, type ZielTyp } from '../lib/spiel'
+import { XP, beuteJetzt, ladenStufe, spielStand, type SKunde, type SpielStand, type SQuest, type SZiel, type ZielTyp } from '../lib/spiel'
 import { schnellGepostet } from '../lib/videoAktionen'
 
 /** Was im Studio gerade "lebt": Ofen an, Zettel am Brett, Kunden an der Wand. */
@@ -15,6 +15,19 @@ export interface StudioKunde {
   /** rot = braucht euch jetzt, gelb = bald, gruen = laeuft */
   ampel: 'rot' | 'gelb' | 'gruen'
   satz: string
+  /** alle je geposteten Videos fuer diesen Kunden -- daran waechst sein Laden */
+  videosGesamt: number
+  stufe: number
+  /** ab wie vielen Videos die naechste Stufe kommt (null = ausgebaut) */
+  stufeNaechste: number | null
+}
+
+/** Woher die Agentur kommt: erstes Video, Kunden in der Reihenfolge, in der sie dazukamen. */
+export interface Geschichte {
+  erstesVideo: string | null
+  kunden: { name: string; seit: string; videos: number }[]
+  videos: number
+  views: number
 }
 
 export interface StudioLeben {
@@ -32,6 +45,13 @@ export interface SpielDaten {
   auftraege: Empfehlung[]
   /** Alle aktiven Kunden inkl. eigenem Account -- fuer "Video gepostet" */
   postbar: { id: string; name: string; eigen: boolean }[]
+  /** XP je Quelle: verdient (jetzt) und schon eingesammelt */
+  beuteJetzt: Record<string, number>
+  beuteGesammelt: Record<string, number>
+  /** heute gepostete Videos (alle Kunden + eigener Account) */
+  heuteVideos: number
+  /** Der Weg bis hierher -- fuer die Einfuehrung */
+  geschichte: Geschichte
   heute: string
 }
 
@@ -55,7 +75,7 @@ export function auftragXp(e: Empfehlung): number {
 
 export async function ladeSpiel(): Promise<SpielDaten> {
   const heute = heuteIso()
-  const [k, v, ko, pl, q, d, pilot, zi, follower] = await Promise.all([
+  const [k, v, ko, pl, q, d, pilot, zi, follower, bt] = await Promise.all([
     supabase.from('clients').select('id, name, client_type, monthly_fee, monthly_quota, active, pausiert_seit, logo_url, brand_color').is('deleted_at', null),
     supabase.from('videos').select('id, client_id, title, posted_at, views, scheduled_date').eq('status', 'posted').is('deleted_at', null),
     supabase.from('monats_kontrollen').select('client_id, month_key, geprueft_bis'),
@@ -65,6 +85,7 @@ export async function ladeSpiel(): Promise<SpielDaten> {
     ladePilot(),
     supabase.from('spiel_ziele').select('id, titel, belohnung, typ, wert, datum, schluessel, eingeloest_am, sort').is('deleted_at', null).order('sort'),
     ladeFollower(),
+    supabase.from('spiel_beute').select('quellen').eq('id', 1).maybeSingle(),
   ])
   const fehler = k.error ?? v.error ?? ko.error ?? pl.error ?? q.error
   if (fehler) throw fehler
@@ -75,6 +96,39 @@ export async function ladeSpiel(): Promise<SpielDaten> {
     // Tabelle fehlt (Migration 0076 noch nicht da)? Dann ohne Ziele weiter.
     ziele: zi.error ? [] : ((zi.data ?? []) as SZiel[]), follower,
   })
+  // Videos je Kunde (so wie spielStand zaehlt: nur mit posted_at)
+  const alleVideos = ((v.data ?? []) as { client_id: string; posted_at: string | null }[]).filter((x) => x.posted_at)
+  const videosJeKunde: Record<string, number> = {}
+  for (const x of alleVideos) videosJeKunde[x.client_id] = (videosJeKunde[x.client_id] ?? 0) + 1
+  const tagVon = (iso: string) => new Date(iso).toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' })
+  const heuteVideos = alleVideos.filter((x) => tagVon(x.posted_at!) === heute).length
+  const eigenIds = kunden.filter((x) => x.client_type === 'eigen').map((x) => x.id)
+  const jetzt = beuteJetzt(stand, videosJeKunde, eigenIds)
+  let gesammelt: Record<string, number>
+  if (bt.error) gesammelt = jetzt // Tabelle fehlt noch: nichts zum Einsammeln, alles zaehlt direkt
+  else if (bt.data) gesammelt = (bt.data.quellen ?? {}) as Record<string, number>
+  else {
+    // Erster Start: alles Bisherige gilt als eingesammelt -- bis auf die Videos der letzten drei Tage,
+    // damit gleich etwas im Dorf liegt.
+    gesammelt = { ...jetzt }
+    const grenze = new Date(Date.now() - 3 * 86_400_000).toISOString()
+    for (const x of alleVideos) {
+      if (x.posted_at! < grenze || eigenIds.includes(x.client_id)) continue
+      const key = `kunde:${x.client_id}`
+      gesammelt[key] = Math.max(0, (gesammelt[key] ?? 0) - XP.video)
+    }
+    await supabase.from('spiel_beute').upsert({ id: 1, quellen: gesammelt, updated_at: new Date().toISOString() })
+  }
+  const erstes: Record<string, string> = {}
+  for (const x of alleVideos) if (!erstes[x.client_id] || x.posted_at! < erstes[x.client_id]) erstes[x.client_id] = x.posted_at!
+  const geschichte: Geschichte = {
+    erstesVideo: Object.values(erstes).sort()[0] ?? null,
+    kunden: kunden.filter((x) => x.client_type !== 'eigen' && erstes[x.id])
+      .map((x) => ({ name: x.name, seit: erstes[x.id], videos: videosJeKunde[x.id] ?? 0 }))
+      .sort((a, b) => a.seit.localeCompare(b.seit)),
+    videos: alleVideos.length,
+    views: ((v.data ?? []) as { views: number | null }[]).reduce((a, x) => a + Number(x.views ?? 0), 0),
+  }
   const lage = new Map(pilot.lagen.map((l) => [l.kunde.client_id, l]))
   let imOfen = 0, fertig = 0
   for (const l of pilot.lagen) { const pk: PilotKunde = l.kunde; imOfen += (pk.im_ofen ?? 0) + (pk.zettel ?? 0); fertig += pk.raus ?? 0 }
@@ -86,7 +140,7 @@ export async function ladeSpiel(): Promise<SpielDaten> {
       .map((x) => {
         const l = lage.get(x.id)
         const ampel: StudioKunde['ampel'] = l?.ampel === 'rot' ? 'rot' : l?.ampel === 'gelb' ? 'gelb' : 'gruen'
-        return { id: x.id, name: x.name, farbe: x.brand_color, logo: x.logo_url, gruen: !!l?.gruen, gepostet: l?.kunde.gepostet ?? 0, ziel: l?.kunde.ziel ?? 0, ampel, satz: l?.satz ?? '' }
+        return { id: x.id, name: x.name, farbe: x.brand_color, logo: x.logo_url, gruen: !!l?.gruen, gepostet: l?.kunde.gepostet ?? 0, ziel: l?.kunde.ziel ?? 0, ampel, satz: l?.satz ?? '', videosGesamt: videosJeKunde[x.id] ?? 0, stufe: ladenStufe(videosJeKunde[x.id] ?? 0).stufe, stufeNaechste: ladenStufe(videosJeKunde[x.id] ?? 0).naechste }
       }),
     vorschlaege: pilot.empfehlungen.filter((e) => e.art !== 'ideen').length,
     dringend: pilot.empfehlungen.filter((e) => e.ampel === 'rot').length,
@@ -96,7 +150,7 @@ export async function ladeSpiel(): Promise<SpielDaten> {
     .filter((x) => x.active && x.client_type !== 'passiv' && !x.pausiert_seit)
     .sort((a, b) => Number(a.client_type === 'eigen') - Number(b.client_type === 'eigen') || a.name.localeCompare(b.name, 'de'))
     .map((x) => ({ id: x.id, name: x.name, eigen: x.client_type === 'eigen' }))
-  return { stand, leben, auftraege: pilot.empfehlungen, postbar, heute }
+  return { stand, leben, auftraege: pilot.empfehlungen, postbar, beuteJetzt: jetzt, beuteGesammelt: gesammelt, heuteVideos, geschichte, heute }
 }
 
 export async function questErledigen(id: string, memberId: string | null): Promise<void> {
@@ -201,5 +255,17 @@ export async function terminAnlegen(t: { titel: string; tag: string; von?: strin
     title: t.titel.trim(), kind: t.drehtag ? 'dreh' : 'termin', kategorie: t.clientId ? 'kunde' : null,
     starts_on: t.tag, starts_at: t.von || null, ends_at: t.bis || null, client_id: t.clientId || null,
   })
+  if (error) throw error
+}
+
+// ---------------------------------------------------------------- Beute
+/** Blasen eingesammelt: die neuen Staende je Quelle in die gemeinsame Zeile schreiben. */
+export async function beuteSammeln(neu: Record<string, number>): Promise<void> {
+  // frisch lesen und mischen -- der andere koennte gerade auch gesammelt haben (hoeherer Stand gewinnt)
+  const { data } = await supabase.from('spiel_beute').select('quellen').eq('id', 1).maybeSingle()
+  const alt = ((data?.quellen ?? {}) as Record<string, number>)
+  const quellen: Record<string, number> = { ...alt }
+  for (const [k, w] of Object.entries(neu)) quellen[k] = Math.max(alt[k] ?? 0, w)
+  const { error } = await supabase.from('spiel_beute').upsert({ id: 1, quellen, updated_at: new Date().toISOString() })
   if (error) throw error
 }
