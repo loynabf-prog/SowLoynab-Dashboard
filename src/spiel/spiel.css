@@ -237,3 +237,58 @@ button { font: inherit; }
 .sp-wahl button i { width: 12px; height: 12px; border-radius: 50%; flex: none; }
 .sp-wahl button:disabled { opacity: .5; }
 .sp-sheet-hinweis { margin: 0; font-size: 13.5px; color: var(--sp-leise); }
+
+/* --- Welt (11.11.2026): Block von aussen, Haus im Querschnitt; Handy hoch, PC quer --- */
+.wl-buehne { height: clamp(460px, calc(100dvh - 300px), 900px); }
+.wl-buehne.haus { cursor: grab; }
+.wl-buehne.haus:active { cursor: grabbing; }
+.wl-zurueck { border: 1px solid rgba(255, 255, 255, .18); cursor: pointer; font: inherit; font-size: 13.5px; font-weight: 700; color: var(--sp-text); }
+.wl-zurueck svg { color: var(--sp-text); }
+.wl-tipp { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 3; padding: 6px 12px; border-radius: 999px; background: rgba(8, 11, 30, .6); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 12.5px; color: var(--sp-leise); white-space: nowrap; pointer-events: none; }
+
+.wl-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px 4px 5px; border-radius: 999px; background: rgba(8, 11, 30, .82); border: 1px solid rgba(255, 255, 255, .14); font-family: var(--sp-kopf); font-size: 12px; font-weight: 600; color: var(--sp-gruen); white-space: nowrap; box-shadow: 0 6px 16px -8px rgba(0, 0, 0, .7); }
+.wl-chip i { width: 16px; height: 16px; border-radius: 50%; flex: none; -webkit-mask: radial-gradient(circle, transparent 4.5px, #000 5px); mask: radial-gradient(circle, transparent 4.5px, #000 5px); }
+.wl-chip span { color: #fff; }
+.wl-chip b { color: rgba(255, 255, 255, .7); font-weight: 700; font-variant-numeric: tabular-nums; }
+.wl-chip.gelb { color: var(--sp-gold); }
+.wl-chip.rot { color: var(--sp-glut); border-color: rgba(255, 95, 31, .6); }
+.wl-chip.aktiv { background: var(--sp-glut); color: #fff; border-color: transparent; }
+.wl-chip.aktiv b { color: #fff; }
+.wl-chip.frei { padding-left: 10px; color: #fff; border-style: dashed; border-color: rgba(255, 255, 255, .4); }
+.wl-chip.frei b { color: var(--sp-gold); font-size: 14px; }
+
+.wl-zentrale { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 6px 14px; border-radius: 14px; background: linear-gradient(160deg, #ff8a4f, var(--sp-glut)); color: #fff; white-space: nowrap; box-shadow: 0 10px 24px -10px rgba(255, 95, 31, .9); }
+.wl-zentrale strong { font-family: var(--sp-kopf); font-size: 14px; }
+.wl-zentrale small { font-size: 11px; opacity: .9; }
+
+.wl-etage { padding: 3px 10px; border-radius: 999px; background: rgba(8, 11, 30, .6); border: 1px solid rgba(255, 255, 255, .16); white-space: nowrap; }
+.wl-etage strong { font-family: var(--sp-kopf); font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: #fff; }
+
+.wl-bau { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 170px; padding: 10px 14px; border-radius: 16px; background: rgba(8, 11, 30, .84); border: 1px dashed rgba(255, 216, 122, .6); text-align: center; white-space: nowrap; }
+.wl-bau small { font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--sp-gold); }
+.wl-bau strong { font-family: var(--sp-kopf); font-size: 17px; color: #fff; }
+.wl-bau span { font-size: 12px; color: var(--sp-leise); }
+.wl-bau div { width: 100%; height: 6px; margin-top: 6px; border-radius: 999px; background: rgba(255, 255, 255, .12); overflow: hidden; }
+.wl-bau div i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--sp-gold), var(--sp-glut)); }
+
+.sp-bauplan .sp-karte-kopf .sp-klein { margin-left: auto; }
+.sp-bauplan ol { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.sp-bauplan li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--sp-rand); }
+.sp-bauplan li > i { width: 10px; align-self: stretch; border-radius: 4px; flex: none; }
+.sp-bauplan li span { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.sp-bauplan li strong { font-family: var(--sp-kopf); font-size: 15px; }
+.sp-bauplan li small { font-size: 12.5px; color: var(--sp-leise); }
+.sp-bauplan li svg { width: 17px; height: 17px; flex: none; color: var(--sp-dim); }
+.sp-bauplan li.steht svg { color: var(--sp-gruen); }
+.sp-bauplan li.bau b { font-family: var(--sp-kopf); font-size: 13px; color: var(--sp-gold); }
+.sp-bauplan li.spaeter { opacity: .55; }
+
+/* PC: Querformat -- die Welt gross links, die Karten rechts daneben */
+@media (min-width: 1000px) {
+  .sp-studio { max-width: 1500px; display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 16px; align-items: start; }
+  .sp-studio .st-rahmen { grid-column: 1; grid-row: 1 / span 6; position: sticky; top: 12px; margin: 0; }
+  .sp-studio > section { grid-column: 2; margin-bottom: 0; }
+  .sp-studio .st-umsatz { margin: 12px 12px 10px; }
+  .wl-buehne { height: calc(100dvh - 250px); min-height: 480px; max-height: none; }
+  .wl-chip { font-size: 13px; }
+}

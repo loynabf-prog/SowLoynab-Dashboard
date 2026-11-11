@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { LEVEL, XP, followerStand, gebaeudeFuer, levelFuer, spielStand, streakVon, tageBis, umsatzStand, viewsXp, zielStand, type SKunde, type SVideo, type SZiel, type ZielWerte } from '../spiel'
+import { ETAGEN, LEVEL, XP, etagenStand, followerStand, gebaeudeFuer, levelFuer, spielStand, streakVon, tageBis, umsatzStand, viewsXp, zielStand, type SKunde, type SVideo, type SZiel, type ZielWerte } from '../spiel'
 
 const k = (x: Partial<SKunde> & { id: string }): SKunde => ({
   name: x.id, client_type: 'zahlend', monthly_fee: 1000, monthly_quota: 10, active: true, pausiert_seit: null, logo_url: null, brand_color: null, ...x,
@@ -161,5 +161,36 @@ describe('Tycoon: Follower, Ziele, Ort', () => {
     const basis = { kunden: [k({ id: 'a' })], videos: [], kontrollen: [], plaene: [], quests: [], heute: '2026-11-11' }
     const ohne = spielStand(basis).xp
     expect(spielStand({ ...basis, follower: { tiktok: 1500, instagram: 700 } }).xp - ohne).toBe(2 * XP.je1000Follower)
+  })
+})
+
+describe('Das Haus: Etagen', () => {
+  const z = (x: Partial<SZiel> & { id: string }): SZiel => ({ titel: x.id, belohnung: null, typ: 'datum', wert: null, datum: null, schluessel: null, eingeloest_am: null, sort: 0, ...x })
+  const basis = { kunden: [k({ id: 'a' })], videos: [v({ id: 'v1', client_id: 'a' })], kontrollen: [], plaene: [] }
+  const quest = (xp: number) => [{ id: 'q', titel: 'q', beschreibung: null, xp, art: 'aufgabe' as const, status: 'erledigt' as const, faellig: null, ab_level: 0, sort: 0, erledigt_am: '2026-11-01T10:00:00Z' }]
+  const buero = z({ id: 'b', datum: '2026-12-01', schluessel: 'buero' })
+
+  it('gebaut wird der Reihe nach: vor dem 1.12. stehen Café und Backstube, das Büro ist Baustelle', () => {
+    const st = spielStand({ ...basis, quests: quest(20_000), heute: '2026-11-11', ziele: [buero], follower: { tiktok: 494, instagram: 811 } })
+    const e = etagenStand(st)
+    expect(e.map((x) => x.etage.key)).toEqual(ETAGEN.map((x) => x.key))
+    expect(e.filter((x) => x.frei).map((x) => x.etage.key)).toEqual(['cafe', 'backstube'])
+    expect(e[2].text).toBe('in 20 Tagen')
+    expect(e[3].frei).toBe(false)
+    expect(e[3].fortschritt).toBeCloseTo(1305 / 2000)
+  })
+
+  it('nach dem Einzug steht das Büro; das Studio kommt mit 2.000 Followern', () => {
+    const vor = etagenStand(spielStand({ ...basis, quests: quest(20_000), heute: '2026-12-02', ziele: [buero], follower: { tiktok: 494, instagram: 811 } }))
+    expect(vor.filter((x) => x.frei).map((x) => x.etage.key)).toEqual(['cafe', 'backstube', 'buero'])
+    const nach = etagenStand(spielStand({ ...basis, quests: quest(20_000), heute: '2026-12-02', ziele: [buero], follower: { tiktok: 900, instagram: 1200 } }))
+    expect(nach.find((x) => x.etage.key === 'studio')?.frei).toBe(true)
+  })
+
+  it('eine erfüllte Etage wartet, solange darunter noch gebaut wird', () => {
+    const e = etagenStand(spielStand({ ...basis, quests: quest(20_000), heute: '2026-11-11', ziele: [buero], follower: { tiktok: 3000, instagram: 0 } }))
+    const studio = e.find((x) => x.etage.key === 'studio')!
+    expect(studio.frei).toBe(false)
+    expect(studio.text).toBe('wartet auf die Etage darunter')
   })
 })

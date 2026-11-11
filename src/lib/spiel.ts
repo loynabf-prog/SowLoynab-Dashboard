@@ -314,6 +314,7 @@ export interface Ausstattung {
 }
 
 export const AUSSTATTUNG: Ausstattung[] = [
+  { key: 'cafetisch', name: 'Euer Tisch im Café', tut: 'Der Pilot: was heute ansteht, bevor es brennt.', abLevel: 0, ziel: { art: 'crm', pfad: '/pilot' } },
   { key: 'schreibtisch', name: 'Schreibtisch', tut: 'Der Pilot: was heute ansteht, bevor es brennt.', abLevel: 0, ziel: { art: 'crm', pfad: '/pilot' } },
   { key: 'ofen', name: 'Backstube', tut: 'Was gerade geschnitten wird — und was fertig zum Posten ist.', abLevel: 0, ziel: { art: 'crm', pfad: '/ofen' } },
   { key: 'kalender', name: 'Posting-Plan', tut: 'Welches Video wann rausgeht.', abLevel: 0, ziel: { art: 'crm', pfad: '/plan' } },
@@ -564,4 +565,65 @@ export function gebaeudeFuer(k: SKunde, i: number, stand: { gepostet: number; zi
     kran: stand.imOfen > 0, fahne: stand.gruen, grau: !!k.pausiert_seit, eigen: k.client_type === 'eigen',
     logo: k.logo_url, ziel: stand.ziel, gepostet: stand.gepostet,
   }
+}
+
+// ------------------------------------------------------------- Das Haus
+// Die Agentur ist ein Haus, das Etage fuer Etage waechst (Fassie, 11.11.2026:
+// von aussen der Block mit den Kunden-Laeden, innen das Haus im Querschnitt).
+// Gebaut wird der Reihe nach: eine Etage steht erst, wenn ihre Bedingung
+// stimmt UND alles darunter steht.
+
+export type EtageBedingung =
+  | { typ: 'immer' }
+  | { typ: 'ziel'; schluessel: string }
+  | { typ: 'level'; wert: number }
+  | { typ: 'follower'; wert: number }
+
+export interface Etage { key: string; name: string; satz: string; farbe: string; bedingung: EtageBedingung }
+
+export const ETAGEN: Etage[] = [
+  { key: 'cafe', name: 'Café', satz: 'Hier fing alles an: ein Tisch, zwei Laptops.', farbe: '#6b4d3d', bedingung: { typ: 'immer' } },
+  { key: 'backstube', name: 'Backstube', satz: 'Der Schnitt: hier werden die Videos gebacken.', farbe: '#7a4234', bedingung: { typ: 'level', wert: 1 } },
+  { key: 'buero', name: 'Büro', satz: 'Das eigene Büro in Münster.', farbe: '#2f3d4f', bedingung: { typ: 'ziel', schluessel: 'buero' } },
+  { key: 'studio', name: 'Studio', satz: 'Die Personal Brand: eure eigenen Videos.', farbe: '#3d2f5c', bedingung: { typ: 'follower', wert: 2000 } },
+  { key: 'team', name: 'Team-Etage', satz: 'Platz für den ersten Mitarbeiter.', farbe: '#27505a', bedingung: { typ: 'level', wert: 4 } },
+  { key: 'chef', name: 'Chefetage', satz: 'Verträge, Zahlen, Strategie.', farbe: '#4f3f2a', bedingung: { typ: 'level', wert: 5 } },
+]
+
+export interface EtageStand {
+  etage: Etage
+  /** steht (Bedingung erfuellt und alles darunter steht) */
+  frei: boolean
+  /** eigene Bedingung, 0..1 */
+  fortschritt: number
+  /** "ab 2.000 Follower · 1.305" / "in 20 Tagen" / "steht" */
+  text: string
+}
+
+export function etagenStand(s: Pick<SpielStand, 'xp' | 'level' | 'follower' | 'ziele'>): EtageStand[] {
+  const zahl = (v: number) => Math.round(v).toLocaleString('de-DE')
+  let darunterSteht = true
+  return ETAGEN.map((etage) => {
+    const b = etage.bedingung
+    let erfuellt = true, fortschritt = 1, text = ''
+    if (b.typ === 'ziel') {
+      const z = s.ziele.find((x) => x.ziel.schluessel === b.schluessel)
+      erfuellt = z ? z.erreicht : true
+      fortschritt = z ? z.fortschritt : 1
+      text = z && !z.erreicht ? z.text : ''
+    } else if (b.typ === 'level') {
+      const ab = LEVEL[b.wert]?.ab ?? 0
+      erfuellt = s.level.nr >= b.wert
+      fortschritt = ab > 0 ? Math.min(1, s.xp / ab) : 1
+      text = erfuellt ? '' : `ab Level ${b.wert} · ${LEVEL[b.wert]?.name ?? ''} (${zahl(Math.max(0, ab - s.xp))} XP fehlen)`
+    } else if (b.typ === 'follower') {
+      erfuellt = s.follower.gesamt >= b.wert
+      fortschritt = Math.min(1, s.follower.gesamt / b.wert)
+      text = erfuellt ? '' : `ab ${zahl(b.wert)} Follower · jetzt ${zahl(s.follower.gesamt)}`
+    }
+    const frei = erfuellt && darunterSteht
+    if (erfuellt && !darunterSteht) text = 'wartet auf die Etage darunter'
+    darunterSteht = frei
+    return { etage, frei, fortschritt: frei ? 1 : fortschritt, text: frei ? 'steht' : text }
+  })
 }

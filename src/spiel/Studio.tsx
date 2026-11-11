@@ -788,3 +788,6 @@ export default function Studio(p: StudioProps) {
     </div>
   )
 }
+
+// Bausteine fuer die Welt (Block + Haus, Welt.tsx)
+export { F, Mat, Kasten, Zylinder, Stueck, Figur, Schreibtisch, Ofen, Kalender, Pinnwand, Aktenschrank, Pflanze, Kasse, Kaffee, Neon, Pokale, Sofa, Tisch2, Konferenz, CafeTisch, Kartons }

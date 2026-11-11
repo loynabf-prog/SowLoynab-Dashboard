@@ -5,15 +5,15 @@
 // Agentur in 3D -- jedes Moebelstueck ein Knopf ins CRM.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Flame, Trophy, Sofa, ListChecks, BarChart3, Lock, Check, Plus, X, RefreshCw, Sparkles, ExternalLink, RotateCcw, ArrowUpRight, Euro, Gift, Users, Video, CalendarPlus, UserPlus, Coffee, Trash2 } from 'lucide-react'
+import { Flame, Trophy, Sofa, ListChecks, BarChart3, Lock, Check, Plus, X, RefreshCw, Sparkles, ExternalLink, RotateCcw, ArrowUpRight, Euro, Gift, Users, Video, CalendarPlus, UserPlus, Coffee, Trash2, ChevronLeft, Building2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { celebrate } from '../lib/confetti'
-import { AUSSTATTUNG, LEVEL, MEILENSTEINE, XP, ZIEL_TYPEN, kurzZahl, monatName, type FollowerStand, type SQuest, type UmsatzStand, type ZielStand, type ZielTyp } from '../lib/spiel'
+import { AUSSTATTUNG, LEVEL, MEILENSTEINE, XP, ZIEL_TYPEN, etagenStand, kurzZahl, monatName, type EtageStand, type FollowerStand, type SQuest, type UmsatzStand, type ZielStand, type ZielTyp } from '../lib/spiel'
 import { setBetriebFrage, ABGEBROCHEN } from '../lib/betriebWahl'
 import type { Channel } from '../lib/channels'
 import type { Empfehlung } from '../lib/pilot'
 import { auftragXp, kundeAnlegen, ladeSpiel, leadAnlegen, questAnlegen, questErledigen, questZurueck, terminAnlegen, videoGepostet, zielAnlegen, zielEinloesen, zielLoeschen, type SpielDaten, type StudioKunde } from './daten'
-import Studio from './Studio'
+import Welt, { type Ansicht } from './Welt'
 import './spiel.css'
 
 type Reiter = 'studio' | 'quests' | 'ziele' | 'bilanz'
@@ -49,6 +49,7 @@ export default function SpielApp() {
   const [meldung, setMeldung] = useState<string | null>(null)
   const [nacht, setNacht] = useState(() => { const h = new Date().getHours(); return h >= 18 || h < 7 })
   const [plus, setPlus] = useState<Plus | null>(null)
+  const [ansicht, setAnsicht] = useState<Ansicht>(() => (new URLSearchParams(location.search).get('stueck') ? 'haus' : 'block'))
   // Kunde mit zwei Betrieben (Schleckofatz/Schmackofatz): "Gepostet" fragt nach, welcher.
   const [betriebe, setBetriebe] = useState<{ kanaele: Channel[]; fertig: (id: string | undefined) => void } | null>(null)
   useEffect(() => {
@@ -91,6 +92,7 @@ export default function SpielApp() {
   }
 
   const s = daten?.stand
+  const etagen = useMemo(() => (daten ? etagenStand(daten.stand) : []), [daten])
   return (
     <div className={`sp ${nacht ? 'nacht' : ''}`}>
       <header className="sp-kopf">
@@ -117,29 +119,25 @@ export default function SpielApp() {
           <div className="st-rahmen">
             <Umsatzband u={daten.stand.umsatz} />
             <div className="st-buehne-huelle">
-            {daten.stand.ort === 'cafe' && (
-              <div className="st-ort"><Coffee strokeWidth={2.2} /> Café{daten.stand.bueroIn != null ? <> · Büro in <b>{daten.stand.bueroIn}</b> {daten.stand.bueroIn === 1 ? 'Tag' : 'Tagen'}</> : null}</div>
-            )}
-            <Studio
-              level={daten.stand.level} ort={daten.stand.ort} nacht={nacht} leben={daten.leben} hits={daten.stand.hits.length}
-              offeneQuests={daten.stand.quests.filter((q) => q.status === 'offen' && !q.gesperrt).length}
-              gewaehlt={gewaehlt} onWaehlen={setGewaehlt}
-            />
+              {ansicht === 'haus'
+                ? <button className="st-ort wl-zurueck" onClick={() => { setGewaehlt(null); setAnsicht('block') }}><ChevronLeft strokeWidth={2.6} /> Straße</button>
+                : daten.stand.ort === 'cafe' && (
+                  <div className="st-ort"><Coffee strokeWidth={2.2} /> Café{daten.stand.bueroIn != null ? <> · Büro in <b>{daten.stand.bueroIn}</b> {daten.stand.bueroIn === 1 ? 'Tag' : 'Tagen'}</> : null}</div>
+                )}
+              <Welt
+                ansicht={ansicht} onAnsicht={(x) => { setGewaehlt(null); setAnsicht(x) }} etagen={etagen}
+                level={daten.stand.level} nacht={nacht} leben={daten.leben} hits={daten.stand.hits.length}
+                offeneQuests={daten.stand.quests.filter((q) => q.status === 'offen' && !q.gesperrt).length}
+                gewaehlt={gewaehlt} onWaehlen={setGewaehlt} onFrei={() => setPlus('kunde')}
+              />
+              {ansicht === 'block' && !gewaehlt && <div className="wl-tipp">Tippt auf die Agentur, um reinzugehen</div>}
             </div>
             {gewaehlt?.startsWith('kunde:')
               ? <KundenKarte k={daten.leben.kunden.find((x) => `kunde:${x.id}` === gewaehlt)} onZu={() => setGewaehlt(null)} onPosten={(k) => posten(k.id, k.name, false)} />
-              : <StueckKarte schluessel={gewaehlt} levelNr={daten.stand.level.nr} cafe={daten.stand.ort === 'cafe'} onZu={() => setGewaehlt(null)} onReiter={(r) => { setGewaehlt(null); setReiter(r) }} />}
+              : <StueckKarte schluessel={gewaehlt} levelNr={daten.stand.level.nr} onZu={() => setGewaehlt(null)} onReiter={(r) => { setGewaehlt(null); setReiter(r) }} />}
           </div>
           <FollowerKarte f={daten.stand.follower} onMehr={() => setReiter('ziele')} />
-          <section className="sp-karte sp-hqkarte">
-            <div className="sp-karte-kopf"><Sofa strokeWidth={2.2} /><strong>Sow &amp; Loynab · {daten.stand.level.name}</strong></div>
-            <p>{daten.stand.level.satz}</p>
-            {daten.stand.naechstes && (
-              <p className="sp-naechstes">Nächstes Level <strong>{daten.stand.naechstes.name}</strong> bei {daten.stand.naechstes.ab.toLocaleString('de-DE')} XP
-                {daten.stand.naechstes.schaltetFrei ? <> — schaltet frei: <strong>{daten.stand.naechstes.schaltetFrei}</strong></> : null}
-                {' '}· neu im Studio: <strong>{AUSSTATTUNG.filter((x) => x.abLevel === daten.stand.naechstes!.nr).map((x) => x.name).join(', ') || '—'}</strong></p>
-            )}
-          </section>
+          <Bauplan etagen={etagen} levelName={daten.stand.level.name} satz={daten.stand.level.satz} onRein={() => { setAnsicht('haus'); window.scrollTo({ top: 0, behavior: 'smooth' }) }} />
           <Auftraege liste={daten.auftraege} />
         </main>
       )}
@@ -198,16 +196,17 @@ function Umsatzband({ u }: { u: UmsatzStand }) {
 }
 
 // -------------------------------------------------------- Stück-Karte
-function StueckKarte({ schluessel, levelNr, cafe, onZu, onReiter }: { schluessel: string | null; levelNr: number; cafe: boolean; onZu: () => void; onReiter: (r: Reiter) => void }) {
+function StueckKarte({ schluessel, onZu, onReiter }: { schluessel: string | null; levelNr: number; onZu: () => void; onReiter: (r: Reiter) => void }) {
   const a = AUSSTATTUNG.find((x) => x.key === schluessel)
   if (!a) return null
-  const gesperrt = !cafe && a.abLevel > levelNr
+  // Im Haus steht nur, was freigeschaltet ist -- gesperrt wird ueber die Etage, nicht ueber das Stueck.
+  const gesperrt = false
   const level = LEVEL[a.abLevel]
   const ziel = a.ziel
   return (
     <div className="st-karte">
       <div className="st-karte-text">
-        <strong>{cafe && a.key === 'schreibtisch' ? 'Euer Tisch im Café' : cafe && a.key === 'kaffee' ? 'Theke' : a.name}</strong>
+        <strong>{a.name}</strong>
         <p>{gesperrt ? `Kommt mit Level ${a.abLevel} · ${level?.name ?? ''}. ${a.tut}` : a.tut}</p>
       </div>
       {gesperrt ? <span className="sp-schloss"><Lock strokeWidth={2.2} /></span>
@@ -216,6 +215,26 @@ function StueckKarte({ schluessel, levelNr, cafe, onZu, onReiter }: { schluessel
           : <button className="st-los" onClick={() => onReiter(ziel.reiter)}>Ansehen <ArrowUpRight strokeWidth={2.4} /></button>}
       <button className="st-zu" onClick={onZu} aria-label="Schließen"><X strokeWidth={2.2} /></button>
     </div>
+  )
+}
+
+// --------------------------------------------------------------- Bauplan
+function Bauplan({ etagen, levelName, satz, onRein }: { etagen: EtageStand[]; levelName: string; satz: string; onRein: () => void }) {
+  const naechste = etagen.find((e) => !e.frei)
+  return (
+    <section className="sp-karte sp-bauplan">
+      <div className="sp-karte-kopf"><Building2 strokeWidth={2.2} /><strong>Das Haus · {levelName}</strong><button className="sp-klein" onClick={onRein}>Reingehen</button></div>
+      <p>{satz}</p>
+      <ol>
+        {[...etagen].reverse().map((e) => (
+          <li key={e.etage.key} className={e.frei ? 'steht' : e === naechste ? 'bau' : 'spaeter'}>
+            <i style={{ background: e.etage.farbe }} />
+            <span><strong>{e.etage.name}</strong><small>{e.frei ? e.etage.satz : e.text}</small></span>
+            {e.frei ? <Check strokeWidth={3} /> : e === naechste ? <b>{Math.round(e.fortschritt * 100)} %</b> : <Lock strokeWidth={2.2} />}
+          </li>
+        ))}
+      </ol>
+    </section>
   )
 }
 
