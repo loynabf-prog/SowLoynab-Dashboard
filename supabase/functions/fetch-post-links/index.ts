@@ -50,12 +50,8 @@ export function titelAusCaption(c: string): string | null {
   if (!z) return null
   return z.length > 50 ? z.slice(0, 49).trimEnd() + '…' : z
 }
-// Wie alt darf ein gefundenes Posting höchstens sein, um als "das gerade
-// gepostete" zu gelten? Großzügig genug für einen späten Upload, eng genug,
-// um nicht das Video von vorgestern zu greifen.
-// Gemessen am Tipp auf "Gepostet" (posted_at), nicht an jetzt: wer erst
-// nachts nachtraegt, was nachmittags rausging, soll trotzdem den Link
-// bekommen. Das Posting darf bis zu so viele Stunden VOR dem Tipp liegen.
+// Frueher: Posting durfte hoechstens 24 h vor dem Tipp liegen. Seit 14.11.2026
+// nicht mehr benutzt (siehe waehlePosting) -- nur noch fuer alte Tests da.
 const MAX_ALTER_STUNDEN = 24
 
 async function apifyRun(actor: string, input: unknown, token: string): Promise<any[]> {
@@ -128,26 +124,42 @@ function zeitAus(it: any): string | null {
   return null
 }
 
-async function neuestesTiktok(handle: string, actor: string, token: string): Promise<Posting | null> {
+async function neuestesTiktok(handle: string, actor: string, token: string): Promise<Posting[]> {
   const items = await apifyRun(actor, {
-    profiles: [handle], resultsPerPage: 3,
+    profiles: [handle], resultsPerPage: 5,
     shouldDownloadVideos: false, shouldDownloadCovers: false,
   }, token)
   const mit = items
     .map((it) => ({ url: String(it?.webVideoUrl ?? it?.postPage ?? ''), zeit: zeitAus(it), zahlen: tiktokZahlen(it), roh: it }))
     .filter((p) => p.url.startsWith('http'))
-  return sortiere(mit)[0] ?? null
+  return sortiere(mit)
 }
 
-async function neuestesInstagram(handle: string, actor: string, token: string): Promise<Posting | null> {
+async function neuestesInstagram(handle: string, actor: string, token: string): Promise<Posting[]> {
   const items = await apifyRun(actor, {
     directUrls: [`https://www.instagram.com/${handle}/`],
-    resultsType: 'posts', resultsLimit: 3,
+    resultsType: 'posts', resultsLimit: 5,
   }, token)
   const mit = items
     .map((it) => ({ url: String(it?.url ?? ''), zeit: zeitAus(it), zahlen: instagramZahlen(it), roh: it }))
     .filter((p) => p.url.startsWith('http'))
-  return sortiere(mit)[0] ?? null
+  return sortiere(mit)
+}
+
+/**
+ * Welches Posting gehoert zu diesem "Gepostet"? Das neueste, das noch an
+ * keinem Video im CRM haengt (14.11.2026: kein 24-Stunden-Limit mehr --
+ * bei 90 % der Kunden ist es einfach das letzte Video, auch beim Nachtragen
+ * zwei Tage spaeter). Angepinnte Videos stehen bei TikTok/Instagram oben,
+ * zaehlen aber nach ihrem echten Datum -- deshalb nach Zeit sortiert.
+ */
+export function waehlePosting<T extends { url: string }>(liste: T[], vergeben: Set<string>): T | null {
+  return liste.find((p) => !vergeben.has(normUrl(p.url))) ?? null
+}
+
+/** Adressen vergleichbar machen: ohne ?-Teil, ohne Schraegstrich am Ende, klein. */
+export function normUrl(u: string): string {
+  return u.split('?')[0].replace(/\/+$/, '').toLowerCase()
 }
 
 /** Neueste zuerst. Ohne Zeitstempel ans Ende -- die Reihenfolge des Actors ist nicht garantiert. */
@@ -208,7 +220,9 @@ const bedienen = async (req: Request): Promise<Response> => {
       .lte('link_fetch_at', new Date().toISOString())
       .lt('link_fetch_tries', MAX_VERSUCHE)
     if (nurVideo) abfrage = abfrage.eq('id', nurVideo)
-    const { data: faellig, error } = await abfrage.limit(20)
+    // Neuester Tipp zuerst: er bekommt das neueste Posting, der aeltere
+    // offene Tipp desselben Kunden danach das naechstaeltere.
+    const { data: faellig, error } = await abfrage.order('posted_at', { ascending: false }).limit(20)
     if (error) return json({ error: error.message }, 500)
     if (!faellig?.length) return json({ geprueft: 0 })
 
@@ -264,7 +278,7 @@ const bedienen = async (req: Request): Promise<Response> => {
 
       // Beide Plattformen GLEICHZEITIG abrufen -- Instagram allein braucht
       // manchmal ueber eine Minute, nacheinander wuerde die Funktion abbrechen.
-      const abrufe: Record<string, Promise<Posting | null>> = {}
+      const abrufe: Record<string, Promise<Posting[]>> = {}
       for (const feld of ['tiktok_url', 'instagram_url'] as const) {
         if (v[feld]) continue
         const platform = feld === 'tiktok_url' ? 'tiktok' : 'instagram'
@@ -287,24 +301,26 @@ const bedienen = async (req: Request): Promise<Response> => {
         }
 
         try {
-          const p = await abrufe[platform]
+          const liste = await abrufe[platform]
           // Follower gleich mitnehmen, auch wenn das Posting selbst noch
           // nicht passt -- die Zahl stimmt trotzdem.
-          if (p?.roh && platform === 'tiktok') {
-            try { await tiktokFollowerSchreiben(supa, v.client_id, p.roh) } catch { /* Zugabe */ }
+          if (liste[0]?.roh && platform === 'tiktok') {
+            try { await tiktokFollowerSchreiben(supa, v.client_id, liste[0].roh) } catch { /* Zugabe */ }
           }
-          if (!p) { notizen.push(`${platform}: kein Posting gefunden`); continue }
-          if (zuAlt(p, v.posted_at)) { notizen.push(`${platform}: neuestes Posting liegt mehr als ${MAX_ALTER_STUNDEN} h vor „Gepostet“`); continue }
+          if (!liste.length) { notizen.push(`${platform}: kein Posting gefunden`); continue }
 
-          // Haengt die Adresse schon an einem anderen Video? Dann haben wir
-          // vermutlich dasselbe Posting zweimal gegriffen -- nicht setzen.
+          // Welche dieser Adressen haengen schon an Videos im CRM?
           const { data: schonDa } = await supa
-            .from('videos').select('id, title').eq(feld, p.url).is('deleted_at', null).limit(1)
-          if (schonDa?.length) {
-            notizen.push(`${platform}: dieses Posting hängt schon an „${(schonDa[0] as any).title}"`)
-            continue
-          }
+            .from('videos').select(feld).eq('client_id', v.client_id).is('deleted_at', null).not(feld, 'is', null)
+          const vergeben = new Set(((schonDa ?? []) as any[]).map((r) => normUrl(String(r[feld]))))
+          const p = waehlePosting(liste, vergeben)
+          if (!p) { notizen.push(`${platform}: die neuesten Postings stehen alle schon im CRM`); continue }
           patch[feld] = p.url
+          // Nachgetragen? Dann zaehlt der echte Posting-Tag, nicht der Tipp.
+          if (p.zeit && (!v.posted_at || Date.parse(p.zeit) < Date.parse(v.posted_at)) && !patch.posted_at) {
+            patch.posted_at = p.zeit
+            patch.scheduled_date = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Berlin', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(p.zeit))
+          }
           // Uhrzeit, Caption, Sound, Vorschaubild ... aus derselben Antwort (0044)
           const meta = platform === 'tiktok' ? tiktokMeta(p.roh) : instagramMeta(p.roh)
           Object.assign(patch, ohneLeere(meta.patch))
@@ -410,7 +426,7 @@ const bedienen = async (req: Request): Promise<Response> => {
       if (uErr) {
         // Fehlen die Zahlen-Spalten (Migration 0020), wenigstens die Adresse retten
         const nurLink: Record<string, unknown> = {}
-        for (const k of ['tiktok_url', 'instagram_url', 'link_fetch_at', 'link_fetch_state', 'link_fetch_note', 'link_fetch_tries', 'title']) {
+        for (const k of ['tiktok_url', 'instagram_url', 'posted_at', 'scheduled_date', 'link_fetch_at', 'link_fetch_state', 'link_fetch_note', 'link_fetch_tries', 'title']) {
           if (k in patch) nurLink[k] = patch[k]
         }
         const { error: zweit } = await supa.from('videos').update(nurLink).eq('id', v.id)

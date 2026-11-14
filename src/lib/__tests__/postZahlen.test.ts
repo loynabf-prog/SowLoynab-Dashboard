@@ -85,3 +85,17 @@ describe('titelAusCaption', () => {
     expect(titelAusCaption('x'.repeat(80))!.length).toBe(50)
   })
 })
+
+import { waehlePosting, normUrl } from '../../../supabase/functions/fetch-post-links/index'
+describe('waehlePosting (kein Zeitlimit, neuestes noch nicht im CRM)', () => {
+  const liste = [{ url: 'https://www.tiktok.com/@a/video/3' }, { url: 'https://www.tiktok.com/@a/video/2' }]
+  it('nimmt das neueste, auch wenn es Tage alt ist', () => {
+    expect(waehlePosting(liste, new Set())?.url).toContain('/3')
+  })
+  it('überspringt, was schon im CRM hängt', () => {
+    expect(waehlePosting(liste, new Set([normUrl('https://www.tiktok.com/@a/video/3/?x=1')]))?.url).toContain('/2')
+  })
+  it('alles schon da -> nichts', () => {
+    expect(waehlePosting(liste, new Set(liste.map((p) => normUrl(p.url))))).toBeNull()
+  })
+})
