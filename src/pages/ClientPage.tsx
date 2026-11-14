@@ -15,7 +15,6 @@ import {
 } from '../lib/types'
 import VideoCard from '../components/VideoCard'
 import LogoFrame from '../components/LogoFrame'
-import PilotStreifen from '../components/PilotStreifen'
 import LogoCropper from '../components/LogoCropper'
 import Modal from '../components/Modal'
 import { istPausiert, pauseText } from '../lib/pause'
@@ -653,8 +652,6 @@ export default function ClientPage() {
         mitVertrag: artVon(client.client_type) === 'zahlend' || artVon(client.client_type) === 'eigen',
       })} />
 
-      {/* Der Pilot fuer diesen Kunden: Monatsbalken, Prognose, Stufen, Vorschlaege */}
-      <PilotStreifen clientId={client.id} />
 
       {client.notes && (
         <div className="info-box" style={{ marginBottom: 20 }}>
