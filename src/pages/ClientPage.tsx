@@ -76,8 +76,11 @@ import ContractCard from '../components/ContractCard'
 import { useToast } from '../context/ToastContext'
 import { useTeam } from '../context/TeamContext'
 import { heute } from '../lib/datum'
+import ReichweiteBalken from '../components/ReichweiteBalken'
+import PostFeed from '../components/PostFeed'
+import { reichweite } from '../lib/reichweite'
 
-type ClientTab = 'board' | 'termine' | 'pool' | 'analyse' | 'inspiration'
+type ClientTab = 'feed' | 'board' | 'termine' | 'pool' | 'analyse' | 'inspiration'
 
 export default function ClientPage() {
   const { id } = useParams<{ id: string }>()
@@ -97,7 +100,7 @@ export default function ClientPage() {
   const [pauseOffen, setPauseOffen] = useState(false)
   const [creating, setCreating] = useState(false)
   const [info, setInfo] = useState<string | null>(null)
-  const [tab, setTab] = useState<ClientTab>('board')
+  const [tab, setTab] = useState<ClientTab>('feed')
   const [ideas, setIdeas] = useState<VideoIdea[]>([])
   const [inspirations, setInspirations] = useState<Inspiration[]>([])
   const [inspFehlt, setInspFehlt] = useState(false)
@@ -289,7 +292,7 @@ export default function ClientPage() {
   useEffect(() => {
     const t = searchParams.get('tab')
     if (!t) return
-    if (t === 'inspiration' || t === 'pool' || t === 'analyse' || t === 'board') setTab(t)
+    if (t === 'inspiration' || t === 'pool' || t === 'analyse' || t === 'board' || t === 'feed') setTab(t)
     searchParams.delete('tab')
     setSearchParams(searchParams, { replace: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -629,16 +632,15 @@ export default function ClientPage() {
       )}
 
 
-      {/* Dieser Monat auf einen Blick: wann wir posten, was raus ist, wie es
-          ankommt -- ohne erst Tabs durchzuklicken. */}
-      <DieserMonat
-        videos={sichtbar}
-        monat={monatsKey()}
-        heuteIso={heute()}
-        mitVertrag={artVon(client.client_type) === 'zahlend' || artVon(client.client_type) === 'eigen'}
-        onOeffnen={(v) => setEditing(v)}
-        onAnalyse={() => setTab('analyse')}
-      />
+      {/* Bis wann sind wir bei diesem Kunden sicher? Gruen = gepostet oder
+          bei Metricool eingeplant, gelb = in Arbeit, rot = fehlt (14.11.2026). */}
+      <ReichweiteBalken r={reichweite({
+        monat: monatsKey(),
+        heute: heute(),
+        ziel: istPausiert(client) ? 0 : mengeFuer(client.monthly_quota, monatsKey(), mengen),
+        videos: sichtbar,
+        mitVertrag: artVon(client.client_type) === 'zahlend' || artVon(client.client_type) === 'eigen',
+      })} />
 
       {/* Der Pilot fuer diesen Kunden: Monatsbalken, Prognose, Stufen, Vorschlaege */}
       <PilotStreifen clientId={client.id} />
@@ -656,6 +658,9 @@ export default function ClientPage() {
           erreichbar, draengt sich aber nicht auf. */}
       <div className="client-tabs">
         <div className="seg tabs-main">
+          <button className={`seg-btn ${tab === 'feed' ? 'on' : ''}`} onClick={() => setTab('feed')}>
+            Feed
+          </button>
           <button className={`seg-btn ${tab === 'board' ? 'on' : ''}`} onClick={() => setTab('board')}>
             Videos
             <span className="col-count">{boardVideos.length}</span>
@@ -707,6 +712,17 @@ export default function ClientPage() {
             </button>
           )}
         </div>
+      )}
+
+      {tab === 'feed' && (
+        <PostFeed
+          videos={sichtbar}
+          plattformen={{
+            tiktok: accounts.length ? accounts.some((a) => a.platform === 'tiktok') : !!client.handle_tiktok,
+            instagram: accounts.length ? accounts.some((a) => a.platform === 'instagram') : !!client.handle_ig,
+          }}
+          onOeffnen={(v) => setEditing(v)}
+        />
       )}
 
       {tab === 'board' && (
@@ -2246,72 +2262,6 @@ function AnalyseSection({ videos, kanaele, reachThisMonth, onEdit, onDelete, onL
 }
 
 // ============================ Dieser Monat ============================
-function DieserMonat({ videos, monat, heuteIso, mitVertrag, onOeffnen, onAnalyse }: {
-  videos: Video[]
-  monat: string
-  heuteIso: string
-  mitVertrag: boolean
-  onOeffnen: (v: Video) => void
-  onAnalyse: () => void
-}) {
-  const imMonat = videos
-    .filter((v) => v.scheduled_date?.startsWith(monat))
-    .sort((a, b) => (a.scheduled_date ?? '').localeCompare(b.scheduled_date ?? '') || (a.scheduled_time ?? '').localeCompare(b.scheduled_time ?? ''))
-  const zuletzt = videos
-    .filter((v) => v.status === 'posted')
-    .sort((a, b) => (b.posted_at ?? '').localeCompare(a.posted_at ?? ''))
-    .slice(0, 5)
-  if (imMonat.length === 0 && zuletzt.length === 0) return null
-  const tag = (d: string) => new Date(d + 'T12:00:00').toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric' })
-  const views = (v: Video) => v.reach ?? v.views ?? null
-  const mitZahl = zuletzt.filter((v) => views(v) != null)
-  const schnitt = mitZahl.length ? mitZahl.reduce((s, v) => s + (views(v) ?? 0), 0) / mitZahl.length : null
-
-  return (
-    <div className="dm-block">
-      {imMonat.length > 0 && (
-        <>
-          <div className="dm-kopf"><strong>Diesen Monat</strong><span>{imMonat.filter((v) => v.status === 'posted').length} von {imMonat.length} raus</span></div>
-          <div className="dm-tage">
-            {imMonat.map((v) => {
-              const raus = v.status === 'posted'
-              const verpasst = !raus && !!v.scheduled_date && v.scheduled_date < heuteIso
-              const heute = v.scheduled_date === heuteIso
-              const klasse = raus ? 'raus' : verpasst ? (mitVertrag ? 'rot' : 'gelb') : heute ? 'heute' : v.status === 'planned' ? 'geplant' : 'offen'
-              return (
-                <button key={v.id} type="button" className={`dm-tag ${klasse}`} onClick={() => onOeffnen(v)} title={v.title}>
-                  <b>{tag(v.scheduled_date!)}</b>
-                  <span>{raus ? 'gepostet' : verpasst ? 'verpasst' : heute ? 'heute' : v.status === 'planned' ? 'eingeplant' : 'offen'}</span>
-                </button>
-              )
-            })}
-          </div>
-        </>
-      )}
-      {zuletzt.length > 0 && (
-        <>
-          <div className="dm-kopf">
-            <strong>Zahlen</strong>
-            <button type="button" className="n-mehr-link" onClick={onAnalyse}>Alle</button>
-          </div>
-          <div className="dm-videos">
-            {zuletzt.map((v) => {
-              const n = views(v)
-              const gut = n != null && schnitt != null && n >= schnitt * 1.3
-              return (
-                <button key={v.id} type="button" className="dm-video" onClick={() => onOeffnen(v)}>
-                  <span className="dm-video-titel">{v.title}</span>
-                  <span className={`dm-video-zahl ${gut ? 'gut' : ''}`}>{n != null ? n.toLocaleString('de-DE') : '–'}</span>
-                </button>
-              )
-            })}
-          </div>
-        </>
-      )}
-    </div>
-  )
-}
-
 // ============================ Kunden-Cockpit ============================
 function ProgressRing({ value, max }: { value: number; max: number }) {
   const r = 26

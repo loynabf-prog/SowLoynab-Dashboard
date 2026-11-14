@@ -1,0 +1,73 @@
+/* Reichweite: grün / gelb / rot je Tag (lib/reichweite.ts) */
+.rw {
+  --rw-gruen: #34c759;
+  --rw-gelb: #ffcc00;
+  --rw-rot: #ff3b30;
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  padding: 14px 16px 12px;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 16px;
+}
+.rw-kopf { display: flex; flex-direction: column; gap: 1px; margin-bottom: 10px; }
+.rw-kopf strong { font-family: var(--font-head); font-size: 17px; }
+.rw-kopf span { color: var(--text-dim); font-size: 12.5px; }
+.rw-balken { display: flex; gap: 2px; height: 14px; }
+.rw-tag { flex: 1; border-radius: 3px; background: var(--bg-sunken); position: relative; transition: opacity .2s; }
+.rw-tag.gruen { background: var(--rw-gruen); }
+.rw-tag.gelb { background: var(--rw-gelb); }
+.rw-tag.rot { background: var(--rw-rot); }
+.rw-tag.vorbei { opacity: .45; }
+.rw-tag.heute::after {
+  content: ''; position: absolute; left: 50%; top: -6px; bottom: -6px; width: 2px;
+  transform: translateX(-50%); background: var(--text); border-radius: 1px;
+}
+.rw-skala { display: flex; justify-content: space-between; color: var(--text-dim); font-size: 11px; margin-top: 6px; }
+.rw-satz { margin: 8px 0 0; font-size: 14px; font-weight: 600; }
+.rw-leer { color: var(--text-dim); font-size: 14px; }
+
+.rw.rw-klein { background: none; box-shadow: none; padding: 0; margin: 6px 0 0; }
+.rw-klein .rw-balken { height: 6px; gap: 1px; }
+.rw-klein .rw-tag { border-radius: 2px; }
+.rw-klein .rw-tag.heute::after { top: -3px; bottom: -3px; width: 1.5px; }
+
+/* Agentur-Faden auf der Kundenseite */
+.rw.rw-agentur { margin: 12px 0 4px; }
+
+/* ===== Feed: Kundenseite wie TikTok/Instagram ===== */
+.feed-kopf { display: flex; justify-content: space-around; text-align: center; padding: 6px 0 14px; }
+.feed-kopf b { display: block; font-family: var(--font-head); font-size: 19px; }
+.feed-kopf small { color: var(--text-dim); font-size: 12px; }
+.feed-monat { font-size: 13px; font-weight: 600; color: var(--text-muted); margin: 14px 2px 6px; }
+.feed-raster { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; border-radius: 6px; overflow: hidden; }
+@media (min-width: 900px) { .feed-raster { grid-template-columns: repeat(5, 1fr); } }
+.feed-kachel {
+  position: relative; aspect-ratio: 9 / 16; background: var(--bg-sunken); border: 0; padding: 0;
+  cursor: pointer; overflow: hidden; display: block; width: 100%;
+}
+.feed-kachel img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.feed-kachel .feed-ohne {
+  position: absolute; inset: 0; padding-top: 26px !important; display: flex; align-items: center; justify-content: center;
+  padding: 8px; font-size: 11px; color: var(--text-muted); text-align: center; line-height: 1.25;
+}
+.feed-views {
+  position: absolute; left: 6px; bottom: 5px; display: flex; align-items: center; gap: 3px;
+  color: #fff; font-size: 12px; font-weight: 700; text-shadow: 0 1px 3px rgba(0,0,0,.6);
+}
+.feed-views svg { width: 13px; height: 13px; fill: #fff; }
+.feed-plattform { position: absolute; right: 5px; top: 5px; display: flex; gap: 3px; }
+.feed-plattform span {
+  font-size: 9.5px; font-weight: 800; color: #fff; background: rgba(0,0,0,.55);
+  border-radius: 5px; padding: 1px 4px; letter-spacing: .2px;
+}
+.feed-plattform span.fehlt { background: var(--danger); }
+.feed-datum {
+  position: absolute; left: 0; right: 0; top: 0; padding: 5px 6px 14px; color: #fff; font-size: 10.5px;
+  font-weight: 600; text-align: left; background: linear-gradient(rgba(0,0,0,.45), transparent);
+}
+.feed-kachel.warnung { outline: 2px solid var(--danger); outline-offset: -2px; }
+.feed-hinweis {
+  background: #fff4f3; color: #b3261e; border-radius: var(--radius-sm); padding: 10px 12px;
+  font-size: 13.5px; margin-bottom: 10px;
+}
+.feed-leer { color: var(--text-dim); padding: 24px 0; text-align: center; }

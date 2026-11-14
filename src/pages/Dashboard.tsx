@@ -16,6 +16,8 @@ import LogoCropper from '../components/LogoCropper'
 import { heute } from '../lib/datum'
 import BereichReiter from '../components/BereichReiter'
 import '../styles/kunden.css'
+import ReichweiteBalken from '../components/ReichweiteBalken'
+import { reichweite, agenturFaden, reichweiteSatz, type Reichweite } from '../lib/reichweite'
 
 // Die Video-Zahlen kommen nicht mehr aus der Kunden-Abfrage, sondern aus
 // loadCounts() — sonst zaehlt Postgres auch die geloeschten Videos mit.
@@ -73,7 +75,7 @@ export default function Dashboard() {
     // Abfrage fuer beides.
     const { data } = await supabase
       .from('videos')
-      .select('id, client_id, status, posted_at, scheduled_date, tiktok_url, instagram_url')
+      .select('id, client_id, status, posted_at, scheduled_date, tiktok_url, instagram_url, prep_shot, prep_edited, produktion_stufe')
       .is('deleted_at', null)
     const total: Record<string, number> = {}
     const month: Record<string, number> = {}
@@ -128,6 +130,25 @@ export default function Dashboard() {
   const monatName = new Date().toLocaleDateString('de-DE', { month: 'long' })
   const eigen = clients.find((c) => artVon(c.client_type) === 'eigen')
 
+  // Reichweite je Kunde (gruen/gelb/rot je Tag) und daraus der Agentur-Faden:
+  // je Tag der schlechteste Kunde mit Vertrag (14.11.2026).
+  const monatKey = heuteIso.slice(0, 7)
+  const rwVon = new Map<string, Reichweite>()
+  for (const { c } of eingestuft) {
+    const art = artVon(c.client_type)
+    if (art === 'passiv') continue
+    rwVon.set(c.id, reichweite({
+      monat: monatKey, heute: heuteIso,
+      ziel: c.pausiert_seit ? 0 : sollVon(c),
+      videos: (videosByClient[c.id] ?? []) as any,
+      mitVertrag: art === 'zahlend' || art === 'eigen',
+    }))
+  }
+  const faden = agenturFaden(
+    eingestuft.filter(({ c }) => artVon(c.client_type) === 'zahlend' && !c.pausiert_seit).map(({ c }) => rwVon.get(c.id)!).filter(Boolean),
+    monatKey, heuteIso,
+  )
+
   return (
     <div className="ku">
       {/* Kopf: nur der Monat und "+ Kunde". Titel steht schon im Reiter oben
@@ -143,6 +164,10 @@ export default function Dashboard() {
         <button className="ku-neu" onClick={() => setShowAdd(true)} aria-label="Kunde anlegen"><Plus strokeWidth={2.6} /></button>
       </div>
       <BereichReiter />
+
+      {faden.ziel > 0 && (
+        <ReichweiteBalken r={faden} titel="Agentur" satz={reichweiteSatz(faden)} />
+      )}
 
       {error && <div className="error-box" style={{ margin: '0 0 16px' }}>{error}</div>}
 
@@ -176,7 +201,7 @@ export default function Dashboard() {
           <section className="ku-gruppe" key={art.key}>
             <h2 className="ku-titel">{art.key === 'zahlend' ? 'Kunden' : 'Ehrenamt & Referenzen'}</h2>
             <div className="ku-karte">
-              {gruppe.map(({ c, lage }) => <KundeZeile key={c.id} c={c} lage={lage} ist={postedMonth[c.id] ?? 0} soll={sollVon(c)} videos={videoCount[c.id] ?? 0} />)}
+              {gruppe.map(({ c, lage }) => <KundeZeile key={c.id} c={c} lage={lage} ist={postedMonth[c.id] ?? 0} soll={sollVon(c)} videos={videoCount[c.id] ?? 0} rw={rwVon.get(c.id)} />)}
             </div>
           </section>
         )
@@ -218,7 +243,7 @@ export default function Dashboard() {
 }
 
 /** Eine Kundenzeile: Logo im Fortschrittsring (Farbe des Kunden), Name, eine Zeile Stand. */
-function KundeZeile({ c, lage, ist, soll, videos, leise }: { c: Client; lage: Kundenlage; ist: number; soll: number; videos: number; leise?: boolean }) {
+function KundeZeile({ c, lage, ist, soll, videos, leise, rw }: { c: Client; lage: Kundenlage; ist: number; soll: number; videos: number; leise?: boolean; rw?: Reichweite }) {
   const anteil = soll > 0 ? Math.min(1, ist / soll) : 0
   const dl = contractDaysLeft(c.contract_end)
   const vertrag = dl === null || dl > 30 ? null : dl < 0 ? 'Vertrag abgelaufen' : `Vertrag endet ${dl === 0 ? 'heute' : dl === 1 ? 'morgen' : `in ${dl} Tg`}`
@@ -241,6 +266,7 @@ function KundeZeile({ c, lage, ist, soll, videos, leise }: { c: Client; lage: Ku
           <span className={lage.rang === 'akut' && !leise ? 'akut' : ''}> · {lage.grund}</span>
         </small>
         {vertrag && !leise && <em className={dl! < 0 ? 'rot' : ''}>{vertrag}</em>}
+        {rw && rw.ziel > 0 && !leise && <ReichweiteBalken r={rw} klein />}
       </span>
       <ChevronRight className="ku-pfeil" />
     </Link>
