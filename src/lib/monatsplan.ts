@@ -26,6 +26,10 @@ export function monatsKey(d = new Date()): string {
 export function imMonat(v: Video, key = monatsKey()): boolean {
   const ab = (v as Video & { abrechnungsmonat?: string | null }).abrechnungsmonat
   if (ab) return ab === key
+  // Ohne Datum und noch nicht gepostet (Platzhalter "November 7", Ideen vom
+  // Drehtag): gehoert zum laufenden Monat -- sonst stuende dort "10 ohne
+  // Idee", obwohl die Videos laengst angelegt sind (14.11.2026).
+  if (!v.scheduled_date && !v.posted_at && v.status !== 'posted') return key === monatsKey()
   return (v.scheduled_date ?? '').slice(0, 7) === key || (v.posted_at ?? '').slice(0, 7) === key
 }
 
