@@ -43,7 +43,7 @@ function ohneLeereKanal<T extends { channel_id?: string | null }>(row: T): T {
 import { klartext, lookupVideo, statsPatch } from '../lib/apify'
 import { ABGEBROCHEN, betriebFuerPosten } from '../lib/betriebWahl'
 import { Aktion, Aktionen } from '../components/AppIcon'
-import { Plus, Check, CalendarRange, CalendarDays, Lightbulb, Pencil, Pause, Play, UserRound } from 'lucide-react'
+import { Plus, Check, CalendarRange, CalendarDays, Lightbulb, Pencil, Pause, Play, UserRound, RefreshCw } from 'lucide-react'
 import { seit } from '../lib/format'
 import { getPackages, mengeText, type Package } from '../lib/packages'
 import { monatsplan, monatsKey, type Monatsplan } from '../lib/monatsplan'
@@ -621,6 +621,17 @@ export default function ClientPage() {
           toast('Gepostet')
           loadVideos()
           setTimeout(() => loadVideos(), 100_000)
+        }} />
+        {/* Abgleich mit TikTok/Instagram: laeuft sonst automatisch um 17 und 3 Uhr */}
+        <Aktion icon={RefreshCw} titel="Abgleichen" onClick={async () => {
+          toast('Abgleich läuft – dauert ca. 1 Minute')
+          const { data, error } = await supabase.functions.invoke('posts-abgleich', { body: { jetzt: true, client_id: client.id } })
+          if (error) { setError('Abgleich fehlgeschlagen: ' + error.message); return }
+          const n = ((data as any)?.bericht ?? []).reduce((s: number, b: any) => s + (b.eingetragen ?? 0), 0)
+          const f = ((data as any)?.fehler ?? []) as string[]
+          if (f.length) setError(f.join(' · '))
+          toast(n > 0 ? `${n} ${n === 1 ? 'Video' : 'Videos'} eingetragen` : 'Alles schon im CRM')
+          loadVideos()
         }} />
         <Aktion icon={Pencil} titel="Bearbeiten" onClick={() => setEditClient(true)} />
       </Aktionen>
