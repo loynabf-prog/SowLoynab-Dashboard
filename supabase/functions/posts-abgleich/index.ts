@@ -134,7 +134,8 @@ const bedienen = async (req: Request): Promise<Response> => {
   const bericht: Record<string, unknown>[] = []
   const fehler: string[] = []
 
-  for (const k of (kunden ?? []) as any[]) {
+  // Alle Kunden gleichzeitig -- nacheinander wuerde das Zeitlimit reissen.
+  await Promise.all(((kunden ?? []) as any[]).map(async (k) => {
     try {
       const { data: accs } = await supa.from('client_accounts').select('platform, handle, channel_id').eq('client_id', k.id)
       let konten = ((accs ?? []) as any[]).filter((a) => (a.platform === 'tiktok' || a.platform === 'instagram') && a.handle)
@@ -144,7 +145,7 @@ const bedienen = async (req: Request): Promise<Response> => {
           k.handle_ig && { platform: 'instagram', handle: k.handle_ig, channel_id: null },
         ].filter(Boolean)
       }
-      if (!konten.length) continue
+      if (!konten.length) return
 
       const ergebnisse = await Promise.allSettled(konten.map((a: any) => holePostings(a.platform, a.handle, a.channel_id ?? null, token)))
       const alle: Roh[] = []
@@ -165,7 +166,7 @@ const bedienen = async (req: Request): Promise<Response> => {
         if (v.instagram_url) vergeben.add(normUrl(v.instagram_url))
       }
       const neu = alle.filter((p) => p.zeit >= ab && p.zeit >= k.created_at && !vergeben.has(normUrl(p.url)))
-      if (!neu.length) continue
+      if (!neu.length) return
 
       const lebend = videos.filter((v) => !v.deleted_at)
       const aktionen = planeAbgleich({
@@ -216,7 +217,7 @@ const bedienen = async (req: Request): Promise<Response> => {
     } catch (e) {
       fehler.push(`${k.name}: ${(e as Error).message}`)
     }
-  }
+  }))
 
   const nowIso = new Date().toISOString()
   try {
