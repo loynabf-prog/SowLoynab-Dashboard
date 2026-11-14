@@ -117,7 +117,7 @@ function summen(v: Record<string, any>): Record<string, unknown> {
 const bedienen = async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
   const body = await req.json().catch(() => ({}))
-  const stunde = Number(new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', hour12: false }).format(new Date()))
+  const stunde = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Berlin', hour: 'numeric', hourCycle: 'h23' }).formatToParts(new Date()).find((x) => x.type === 'hour')?.value)
   if (!body?.jetzt && !STUNDEN.includes(stunde)) return json({ uebersprungen: `jetzt ${stunde} Uhr` })
 
   const supa = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
