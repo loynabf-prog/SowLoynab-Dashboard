@@ -93,10 +93,17 @@ export function useLaufend(memberId: string | null): { laufend: Session | null; 
     let weg = false
     supabase.from('zeit_sessions').select('*').eq('member_id', memberId).is('ende', null).maybeSingle()
       .then(({ data }) => { if (!weg) setLaufend((data as Session) ?? null) })
-    const ch = supabase.channel(`stempel-${memberId}-${n}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'zeit_sessions' }, () => setN((x) => x + 1))
-      .subscribe()
-    return () => { weg = true; supabase.removeChannel(ch) }
+    // Eindeutiger Kanalname je Hook-Instanz: Stempeluhr (Kopf) und
+    // "Braucht dich" (Heute) hoeren gleichzeitig mit. Gleiche Namen liefern in
+    // supabase-js denselben, schon abonnierten Kanal -> .on() wirft und die
+    // ganze App stuerzte ab (15.11.2026, Heute lud nicht mehr).
+    let ch: ReturnType<typeof supabase.channel> | null = null
+    try {
+      ch = supabase.channel(`stempel-${memberId}-${Math.random().toString(36).slice(2)}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'zeit_sessions' }, () => setN((x) => x + 1))
+        .subscribe()
+    } catch { /* ohne Live-Update weiter */ }
+    return () => { weg = true; if (ch) supabase.removeChannel(ch) }
   }, [memberId, n])
   return { laufend, neuLaden: () => setN((x) => x + 1) }
 }

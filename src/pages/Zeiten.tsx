@@ -45,7 +45,7 @@ export default function Zeiten() {
   }, [von, bis, person, n])
 
   useEffect(() => {
-    const ch = supabase.channel('zeiten-seite')
+    const ch = supabase.channel(`zeiten-seite-${Math.random().toString(36).slice(2)}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'zeit_sessions' }, () => setN((x) => x + 1))
       .subscribe()
     const t = setInterval(() => setN((x) => x + 1), 60_000)
