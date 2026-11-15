@@ -15,6 +15,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Send, CheckCircle2, Check } from 'lucide-react'
 import Tagesplan from '../components/Tagesplan'
+import BrauchtDich from '../components/BrauchtDich'
 import { AGENTUR, liegtAn, plus, type Spur } from '../lib/kalender'
 import { wochenStart } from '../components/WochenLeiste'
 import type { CalEventRow } from '../lib/types'
@@ -169,6 +170,8 @@ export default function Overview() {
               onTermin={() => navigate(`/kalender?tag=${planTag}`)} onNeu={() => navigate(`/kalender?tag=${planTag}`)}
             />
           </section>
+
+          <BrauchtDich />
 
           <Block icon={CheckCircle2} titel="Aufgaben" leer="Keine">
             {aufgaben.map((a) => (

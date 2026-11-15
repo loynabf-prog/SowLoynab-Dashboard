@@ -56,3 +56,18 @@
 .st-leise-zeile { display: flex; align-items: center; gap: 8px; margin: 0 4px 12px; font-size: 14px; font-weight: 600; color: var(--text-dim); }
 .st-leise-zeile svg { width: 16px; height: 16px; }
 .st-leise-zeile svg:last-child { color: #34c759; }
+
+/* Braucht dich -- Cockpit (15.11.2026) */
+.bd-zeile { display: flex; align-items: center; gap: 12px; width: 100%; padding: 11px 14px; background: none; border: none; border-bottom: 0.5px solid var(--sep); text-align: left; cursor: pointer; color: inherit; }
+.bd-zeile:last-child { border-bottom: none; }
+.bd-zeile:active { background: var(--bg-card-hover); }
+.bd-ic { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; flex: none; }
+.bd-ic.rot { background: rgba(255,59,48,.12); color: var(--rot); }
+.bd-ic.gelb { background: rgba(255,149,0,.14); color: #c76a00; }
+.bd-ic.glut { background: var(--glut-soft); color: var(--glut); }
+.bd-ic.blau { background: rgba(0,122,255,.12); color: #0a6ce0; }
+.bd-ic.grau { background: var(--bg-sunken); color: var(--text-muted); }
+.bd-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.bd-text strong { font-size: 15px; font-weight: 600; }
+.bd-text small { font-size: 12.5px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bd-pfeil { color: var(--text-dim); flex: none; }

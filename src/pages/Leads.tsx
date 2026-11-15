@@ -261,6 +261,20 @@ export default function Leads() {
                       </select>
 
                       <div className="lead-actions">
+                        {/* Ein Tipp = Kontakt festgehalten + naechster Schritt in 3 Tagen
+                            (15.11.2026: 21 Leads lagen ohne naechsten Schritt rum) */}
+                        {(l.stage === 'new' || l.stage === 'contacted' || l.stage === 'talking') && (
+                          <button
+                            className="btn btn-sm btn-primary"
+                            onClick={() => {
+                              const d = new Date(); d.setDate(d.getDate() + 3)
+                              patchLead(l.id, { stage: l.stage === 'new' ? 'contacted' : l.stage, next_followup: d.toISOString().slice(0, 10) })
+                            }}
+                            title="Kontakt gehabt – in 3 Tagen wieder dran"
+                          >
+                            {l.stage === 'new' ? 'Angeschrieben' : 'Nachgefasst'}
+                          </button>
+                        )}
                         <button className="btn btn-sm" onClick={() => setEditing(l)}>
                           Details
                         </button>
