@@ -16,7 +16,7 @@ import { supabase } from './supabase'
 const TABELLEN = [
   'videos', 'video_ideas', 'inspirations', 'tasks', 'activities',
   'transactions', 'attachments', 'contacts', 'invoices', 'client_assets',
-  'content_pillars', 'time_entries', 'contracts', 'client_accounts',
+  'content_pillars', 'contracts', 'client_accounts',
 ] as const
 
 export interface MergeZaehlung {
@@ -54,7 +54,6 @@ export const TABELLEN_NAMEN: Record<string, string> = {
   invoices: 'Rechnungen',
   client_assets: 'Material',
   content_pillars: 'Content-Säulen',
-  time_entries: 'Zeiteinträge',
   contracts: 'Verträge',
   client_accounts: 'Social-Accounts',
   client_stats: 'Follower-Zahlen (Tage)',

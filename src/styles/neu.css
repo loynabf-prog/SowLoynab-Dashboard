@@ -1422,3 +1422,9 @@ a.n-zeile { text-decoration: none; }
   .kopf-weg.kopf-da .n-inhalt { padding-top: calc(env(safe-area-inset-top) + 64px); }
 }
 .qa-assistent.qa-scan { background: var(--bg-card); color: var(--text); border: 1px solid var(--sep); }
+
+/* Mehr: eingeklapptes Archiv selten genutzter Seiten (15.11.2026) */
+.mehr-archiv-knopf {
+  display: flex; align-items: center; gap: 8px; margin: 18px 4px 6px; padding: 8px 2px;
+  background: none; border: none; color: var(--text-dim); font-size: 14px; font-weight: 500; cursor: pointer;
+}

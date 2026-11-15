@@ -27,6 +27,8 @@ export interface Seite {
   end?: boolean
   /** Reiter-Gruppe: Seiten mit gleichem Schluessel bekommen oben Reiter. */
   reiter?: string
+  /** Kaum genutzt (Seitenaufrufe): liegt auf "Mehr" eingeklappt im Archiv. */
+  archiv?: boolean
 }
 
 export interface Bereich {
@@ -38,24 +40,24 @@ export interface Bereich {
 }
 
 /** Was in den vier Raeumen (lib/raeume.ts) als Reiter steht -- "Mehr" zeigt es nicht nochmal. */
-export const HAUPT_PFADE = ['/', '/ofen', '/plan', '/kalender', '/kunden', '/leads', '/monate', '/dokumente', '/analyse', '/umsatz', '/werkstatt', '/lexikon']
+export const HAUPT_PFADE = ['/', '/kalender', '/plan', '/kunden', '/monate', '/leads', '/ofen', '/werkstatt', '/lexikon', '/umsatz', '/rechnungen', '/finanzen', '/analyse']
 
 export const BEREICHE: Bereich[] = [
   { key: 'alltag', label: 'Alltag', zweck: 'Was heute und diese Woche dran ist',
     seiten: [
       { to: '/', label: 'Heute', was: 'Dein Tag: was jetzt dran ist, abhaken und weiter', end: true, suche: ['start', 'übersicht', 'fokus'] },
-      { to: '/pilot', label: 'Pilot', was: 'Das CRM denkt mit: was fehlt, bevor es brennt — je Kunde mit einem Knopf', suche: ['pilot', 'autopilot', 'empfehlung', 'vorschlag', 'prognose', 'lage', 'einplanen'] },
+      { to: '/pilot', label: 'Pilot', was: 'Das CRM denkt mit: was fehlt, bevor es brennt — je Kunde mit einem Knopf', suche: ['pilot', 'autopilot', 'empfehlung', 'vorschlag', 'prognose', 'lage', 'einplanen'], archiv: true },
       { to: '/plan', label: 'Plan', was: 'Was wann rausgeht — die Seite, die der Kunde sieht', suche: ['posting', 'posts', 'kalender'] },
       { to: '/kalender', label: 'Kalender', was: 'Gemeinsamer Kalender: Fassie, Lion, Agentur — wer wann frei ist', suche: ['termine', 'woche', 'drehtag'] },
       { to: '/aufgaben', label: 'Aufgaben', was: 'Offene To-dos, Erinnerungen und wer was macht', suche: ['todo', 'erinnerung', 'tasks'] },
-      { to: '/chat', label: 'Chat', was: 'Team-Chat mit Lion und Claude, Aufgaben direkt zuweisen', suche: ['nachrichten', 'anstupsen', 'claude'] },
+      { to: '/chat', label: 'Chat', was: 'Team-Chat mit Lion und Claude, Aufgaben direkt zuweisen', suche: ['nachrichten', 'anstupsen', 'claude'], archiv: true },
     ] },
   { key: 'produktion', label: 'Produktion', zweck: 'Backstube, Videoideen und Formate',
     seiten: [
       { to: '/werkstatt', label: 'Werkstatt', was: 'Videos aussuchen und im Chat mit Claude schneiden', suche: ['schneiden', 'schnitt', 'werkstatt', 'chat', 'produktion'] },
       { to: '/ofen', label: 'Videos', was: 'Fertige Videos übernehmen, bearbeiten, bereit zum Posten, gepostet', suche: ['ofen', 'schnittofen', 'pizza', 'warteschlange', 'schnitt', 'produktion', 'vorschau', 'freigabe', 'medien'] },
       { to: '/lexikon', label: 'Lexikon', was: 'Formate und Videoideen je Branche — für jeden Kunden etwas aussuchen', suche: ['lexikon', 'formate', 'ideen', 'branche', 'fahrschule'] },
-      { to: '/inspirationen', label: 'Inspirationen', was: 'Gespeicherte Videos anderer als Vorlage für eigene Ideen', suche: ['ideen', 'referenz', 'vorlage'] },
+      { to: '/inspirationen', label: 'Inspirationen', was: 'Gespeicherte Videos anderer als Vorlage für eigene Ideen', suche: ['ideen', 'referenz', 'vorlage'], archiv: true },
     ] },
   { key: 'kunden', label: 'Kunden & Vertrieb', zweck: 'Kundenakten, Verträge, neue Kunden gewinnen',
     seiten: [
@@ -63,7 +65,7 @@ export const BEREICHE: Bereich[] = [
       { to: '/brand', label: 'Personal Brand', was: 'Unsere eigenen Accounts: Posts, Analyse, Leads je Account', reiter: 'kunden', suche: ['eigen', 'agentur-account', 'sowloynab', 'personal brand', 'ads'] },
       { to: '/leads', label: 'Leads', was: 'Interessenten von der ersten Nachricht bis zum Vertrag', reiter: 'kunden', suche: ['akquise', 'pipeline', 'google maps', 'vertrieb'] },
     ] },
-  { key: 'geld', label: 'Geld', zweck: 'Monate, Rechnungen, Konto',
+  { key: 'geld', label: 'Geld & Verwaltung', zweck: 'Monate, Rechnungen, Konto, Firmendaten, Dokumente',
     seiten: [
       { to: '/monate', label: 'Monate', was: 'Je Monat: wer wie viele Videos bekommt und was reinkommt', reiter: 'geld', suche: ['monat', 'abschließen', 'einnahmen'] },
       { to: '/rechnungen', label: 'Rechnungen', was: 'Rechnungen schreiben, als PDF senden, bezahlt abhaken', reiter: 'geld', suche: ['invoice', 'pdf', 'mahnung'] },
@@ -75,14 +77,14 @@ export const BEREICHE: Bereich[] = [
     seiten: [
       { to: '/analyse', label: 'Analyse', was: 'Was bei unseren Videos funktioniert: Views, beste Zeiten, Top-Videos', reiter: 'analyse', suche: ['statistik', 'views', 'reichweite', 'zahlen'] },
       { to: '/umsatz', label: 'Umsatz', was: 'Umsatz des Monats: gestellt, bezahlt, offen — und die Meilensteine', reiter: 'analyse', suche: ['umsatz', 'geld', 'einnahmen', 'meilenstein'] },
-      { to: '/leistung', label: 'Leistung', was: 'Zahlen je Video nachtragen, wenn sie nicht automatisch kamen', reiter: 'analyse', suche: ['nachtragen', 'aufrufe', 'likes'] },
+      { to: '/leistung', label: 'Leistung', was: 'Zahlen je Video nachtragen, wenn sie nicht automatisch kamen', reiter: 'analyse', suche: ['nachtragen', 'aufrufe', 'likes'], archiv: true },
     ] },
   { key: 'team', label: 'Team', zweck: 'Wer gehört dazu, Postfach',
     seiten: [
       { to: '/zeiten', label: 'Zeiterfassung', was: 'In welchem Job steckt wie viel Zeit – und was kommt dabei raus', suche: ['zeit', 'zeiterfassung', 'stempeln', 'stunden', 'job', 'rolle', 'stoppuhr'] },
       { to: '/team', label: 'Team', was: 'Mitglieder, wer welche Bereiche sieht, Kalender aufs Handy', suche: ['mitglieder', 'lion', 'bereiche'] },
-      { to: '/anleitung', label: 'Anleitung', was: 'Wie das CRM gedacht ist: Backstube, Pilot, Tagesablauf — zum Nachlesen und für neue Leute', suche: ['anleitung', 'tutorial', 'hilfe', 'erklärung', 'wie funktioniert', 'handbuch'] },
-      { to: '/postfach', label: 'Postfach', was: 'Agentur-Mails lesen und beantworten', suche: ['mail', 'e-mail', 'zoho'] },
+      { to: '/anleitung', label: 'Anleitung', was: 'Wie das CRM gedacht ist: Backstube, Pilot, Tagesablauf — zum Nachlesen und für neue Leute', suche: ['anleitung', 'tutorial', 'hilfe', 'erklärung', 'wie funktioniert', 'handbuch'], archiv: true },
+      { to: '/postfach', label: 'Postfach', was: 'Agentur-Mails lesen und beantworten', suche: ['mail', 'e-mail', 'zoho'], archiv: true },
     ] },
   { key: 'system', label: 'System', zweck: 'Einstellungen und Papierkorb',
     seiten: [

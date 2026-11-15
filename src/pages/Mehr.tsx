@@ -5,7 +5,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { LogOut, RefreshCw, Search, Sparkles } from 'lucide-react'
+import { Archive, LogOut, RefreshCw, Search, Sparkles } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useIdentity } from '../context/IdentityContext'
 import { useTeam } from '../context/TeamContext'
@@ -39,8 +39,11 @@ export default function Mehr() {
 
   const suche = q.trim().toLowerCase()
   const gruppen = useMemo(() => sichtbareBereiche(ich?.bereiche)
-    .map((b) => ({ ...b, seiten: b.seiten.filter((s) => (suche ? true : !HAUPT_PFADE.includes(s.to)) && passt(s, suche)) }))
+    .map((b) => ({ ...b, seiten: b.seiten.filter((s) => (suche ? true : !HAUPT_PFADE.includes(s.to) && !s.archiv) && passt(s, suche)) }))
     .filter((b) => b.seiten.length > 0), [ich?.bereiche, suche])
+  // Kaum genutzte Seiten (15.11.2026, nach Seitenaufrufen): nicht weg, nur eingeklappt
+  const archiv = useMemo(() => sichtbareBereiche(ich?.bereiche).flatMap((b) => b.seiten).filter((s) => s.archiv), [ich?.bereiche])
+  const [archivAuf, setArchivAuf] = useState(false)
 
   return (
     <>
@@ -72,6 +75,21 @@ export default function Mehr() {
           ))}
         </AppRaster>
       ))}
+
+      {!suche && archiv.length > 0 && (
+        <>
+          <button className="mehr-archiv-knopf" onClick={() => setArchivAuf((x) => !x)} aria-expanded={archivAuf}>
+            <Archive size={16} />{archivAuf ? 'Archiv ausblenden' : `Archiv · ${archiv.length} selten genutzte Seiten`}
+          </button>
+          {archivAuf && (
+            <AppRaster titel="Archiv">
+              {archiv.map((s) => (
+                <AppIcon key={s.to} icon={symbolVon(s.to)} farbe="grau" titel={s.label} onClick={() => navigate(s.to)} />
+              ))}
+            </AppRaster>
+          )}
+        </>
+      )}
 
       <AppRaster titel={ich?.name ?? 'Konto'}>
         <AppIcon icon={RefreshCw} farbe="grau" titel="Neu laden" onClick={() => { allesVergessen(); window.location.reload() }} />

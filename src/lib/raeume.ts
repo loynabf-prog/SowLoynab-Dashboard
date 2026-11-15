@@ -7,7 +7,7 @@
 // Unten in der Leiste stehen genau diese vier. Jeder Raum hat oben seine
 // Reiter. Alles, was in keinem Raum liegt, bleibt unter "Mehr".
 
-import { Sun, Users, BarChart3, Scissors, type LucideIcon } from 'lucide-react'
+import { Sun, Users, BarChart3, Clapperboard, type LucideIcon } from 'lucide-react'
 
 export type RaumKey = 'heute' | 'kunden' | 'zahlen' | 'werkstatt'
 
@@ -24,30 +24,34 @@ export interface Raum {
 }
 
 export const RAEUME: Raum[] = [
+  // 15.11.2026 (CRM auf 10/10): Raeume nach echter Nutzung neu geschnitten.
+  // Heute = nur Tag und Termine; alles rund ums Video in EINEN Raum;
+  // Geld und Zahlen zusammen; Dokumente/Firma unter "Mehr".
   { key: 'heute', label: 'Heute', icon: Sun,
     reiter: [
       { to: '/', label: 'Heute', end: true },
       { to: '/kalender', label: 'Kalender' },
       { to: '/plan', label: 'Plan' },
-      { to: '/ofen', label: 'Videos' },
-    ], auch: ['/aufgaben', '/posting', '/videos'] },
+    ], auch: ['/aufgaben', '/posting', '/zeiten'] },
   { key: 'kunden', label: 'Kunden', icon: Users,
     reiter: [
       { to: '/kunden', label: 'Kunden' },
-      { to: '/leads', label: 'Pipeline' },
       { to: '/monate', label: 'Monate' },
-      { to: '/dokumente', label: 'Dokumente' },
-    ], auch: ['/client/', '/brand', '/firma', '/rechnungen'] },
-  { key: 'zahlen', label: 'Zahlen', icon: BarChart3,
+      { to: '/leads', label: 'Pipeline' },
+    ], auch: ['/client/', '/brand'] },
+  { key: 'werkstatt', label: 'Videos', icon: Clapperboard,
     reiter: [
-      { to: '/analyse', label: 'Analyse' },
-      { to: '/umsatz', label: 'Umsatz' },
-    ], auch: ['/leistung'] },
-  { key: 'werkstatt', label: 'Werkstatt', icon: Scissors,
-    reiter: [
+      { to: '/ofen', label: 'Videos' },
       { to: '/werkstatt', label: 'Schneiden' },
       { to: '/lexikon', label: 'Ideen' },
-    ], auch: ['/inspirationen', '/medien'] },
+    ], auch: ['/videos', '/inspirationen', '/medien'] },
+  { key: 'zahlen', label: 'Zahlen', icon: BarChart3,
+    reiter: [
+      { to: '/umsatz', label: 'Umsatz' },
+      { to: '/rechnungen', label: 'Rechnungen' },
+      { to: '/finanzen', label: 'Konto' },
+      { to: '/analyse', label: 'Analyse' },
+    ], auch: ['/leistung'] },
 ]
 
 function passt(pfad: string, to: string, end?: boolean): boolean {
