@@ -23,6 +23,7 @@ import QuickAdd from './QuickAdd'
 import UpdatePrompt from './UpdatePrompt'
 import NutzungsMesser from './NutzungsMesser'
 import BetriebWahl from './BetriebWahl'
+import Stempeluhr from './Stempeluhr'
 
 /**
  * Die vier Raeume (Fassie, 01.11.2026): Heute, Kunden, Zahlen, Werkstatt.
@@ -31,7 +32,7 @@ import BetriebWahl from './BetriebWahl'
  */
 
 /** Am Desktop unter den Raeumen: nur das, was wir noch ab und zu brauchen. */
-const NEBEN = ['/aufgaben', '/team']
+const NEBEN = ['/aufgaben', '/zeiten', '/team']
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { memberId } = useIdentity()
@@ -131,6 +132,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <button className="n-kopf-knopf" onClick={() => window.dispatchEvent(new Event('open-search'))} aria-label="Suchen" title="Suchen (⌘K)">
           <Search size={21} strokeWidth={2} />
         </button>
+        <Stempeluhr />
         <ChatButton />
         <NudgeCenter />
         <button

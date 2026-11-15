@@ -79,6 +79,7 @@ export const BEREICHE: Bereich[] = [
     ] },
   { key: 'team', label: 'Team', zweck: 'Wer gehört dazu, Postfach',
     seiten: [
+      { to: '/zeiten', label: 'Zeiterfassung', was: 'In welchem Job steckt wie viel Zeit – und was kommt dabei raus', suche: ['zeit', 'zeiterfassung', 'stempeln', 'stunden', 'job', 'rolle', 'stoppuhr'] },
       { to: '/team', label: 'Team', was: 'Mitglieder, wer welche Bereiche sieht, Kalender aufs Handy', suche: ['mitglieder', 'lion', 'bereiche'] },
       { to: '/anleitung', label: 'Anleitung', was: 'Wie das CRM gedacht ist: Backstube, Pilot, Tagesablauf — zum Nachlesen und für neue Leute', suche: ['anleitung', 'tutorial', 'hilfe', 'erklärung', 'wie funktioniert', 'handbuch'] },
       { to: '/postfach', label: 'Postfach', was: 'Agentur-Mails lesen und beantworten', suche: ['mail', 'e-mail', 'zoho'] },
