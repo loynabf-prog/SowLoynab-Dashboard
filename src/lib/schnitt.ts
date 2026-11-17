@@ -21,14 +21,10 @@ export interface Kommentar {
 
 export const FPS = 30
 
-/** 12.4 -> "0:12,4" (Zehntel reichen zum Finden, gespeichert wird auf 1/100) */
+/** 12.4 -> "0:12". Fassie (17.11.): ungefaehre Stelle reicht, keine Frames. */
 export function zeit(s: number): string {
-  const t = Math.max(0, s)
-  const m = Math.floor(t / 60)
-  const rest = t - m * 60
-  const sek = Math.floor(rest)
-  const zehntel = Math.floor((rest - sek) * 10)
-  return `${m}:${String(sek).padStart(2, '0')},${zehntel}`
+  const t = Math.max(0, Math.round(s))
+  return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`
 }
 
 /** Deadline-Ampel: ueberfaellig / bald (<= 2 Tage) / ok / ohne */
@@ -55,13 +51,16 @@ export function korrekturText(titel: string, kunde: string, datei: string | null
   const zeilen = [...liste]
     .sort((a, b) => a.sekunde - b.sekunde)
     .map((k) => {
-      const wann = k.bis_sekunde != null ? `${zeit(k.sekunde)}–${zeit(k.bis_sekunde)}` : zeit(k.sekunde)
-      const wo = k.x != null && k.y != null ? ` [Stelle im Bild: ${Math.round(k.x * 100)} % von links, ${Math.round(k.y * 100)} % von oben]` : ''
-      return `• ${wann} (${k.sekunde.toFixed(2)} s)${wo}: ${k.text.trim()}`
+      const wann = k.bis_sekunde != null ? `${zeit(k.sekunde)}–${zeit(k.bis_sekunde)}` : `ca. ${zeit(k.sekunde)}`
+      const wo = k.x != null && k.y != null ? ` [zeigt ungefähr auf: ${Math.round(k.x * 100)} % von links, ${Math.round(k.y * 100)} % von oben]` : ''
+      return `• ${wann}${wo}: ${k.text.trim()}`
     })
   return [
     `Korrekturen ${kunde} – ${titel}`,
     datei ? `Vorschau: ${datei}` : null,
+    'Die Zeiten sind die Stellen, an denen ich beim Anschauen pausiert habe – ungefähr, nicht framegenau.',
+    'Gemeint ist immer die Szene bzw. der Satz rund um diese Stelle (ein paar Sekunden davor und danach).',
+    'Bezieht sich eine Anmerkung offensichtlich auf eine ganze Szene oder Person (z. B. „Marvin zu laut“), gilt sie für die ganze Szene.',
     '',
     ...zeilen,
   ].filter((z) => z !== null).join('\n')

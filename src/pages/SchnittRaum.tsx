@@ -14,14 +14,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
-  ArrowLeft, Check, ChevronLeft, ChevronRight, Crosshair, MessageCircle, Pause, Play, Send, SkipBack, SkipForward, Trash2, X, BadgeCheck,
+  ArrowLeft, Check, Crosshair, MessageCircle, Pause, Play, Send, SkipBack, SkipForward, Trash2, X, BadgeCheck,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { dropbox, type Eintrag } from '../lib/medien'
 import { chatLink, chatAuftrag } from '../lib/backstube'
 import { heute as heuteIso } from '../lib/datum'
 import { useIdentity } from '../context/IdentityContext'
-import { FPS, zeit, korrekturText, vorschauDateien, deadlineText, deadlineLage, type Kommentar } from '../lib/schnitt'
+import { zeit, korrekturText, vorschauDateien, deadlineText, deadlineLage, type Kommentar } from '../lib/schnitt'
 import '../styles/schnitt.css'
 
 interface Video {
@@ -110,7 +110,6 @@ export default function SchnittRaum() {
   const pause = () => { ref.current?.pause() }
   const umschalten = () => { const el = ref.current; if (!el) return; el.paused ? el.play() : el.pause() }
   const springe = (s: number) => { const el = ref.current; if (!el) return; el.currentTime = Math.min(Math.max(0, s), el.duration || s) }
-  const schritt = (frames: number) => { pause(); springe((ref.current?.currentTime ?? 0) + frames / FPS) }
   useEffect(() => { if (ref.current) ref.current.playbackRate = tempo }, [tempo, src])
 
   // Schreiben beginnt -> pausieren und Sekunde merken
@@ -147,6 +146,9 @@ export default function SchnittRaum() {
     if (error) { setHinweis(error.message); return }
     verwerfen()
     ladeKommentare()
+    eingabe.current?.blur()
+    // Stoppen, sagen, weiterschauen (Fassie 17.11.)
+    ref.current?.play().catch(() => {})
   }
 
   async function erledigt(k: Kommentar) {
@@ -199,13 +201,13 @@ export default function SchnittRaum() {
   useEffect(() => {
     const taste = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement)?.tagName === 'TEXTAREA' || (e.target as HTMLElement)?.tagName === 'INPUT') {
-        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); speichern() }
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); speichern() }
         if (e.key === 'Escape') { (e.target as HTMLElement).blur() }
         return
       }
       if (e.key === ' ') { e.preventDefault(); umschalten() }
-      else if (e.key === 'ArrowLeft') { e.preventDefault(); e.shiftKey ? springe((ref.current?.currentTime ?? 0) - 1) : schritt(-1) }
-      else if (e.key === 'ArrowRight') { e.preventDefault(); e.shiftKey ? springe((ref.current?.currentTime ?? 0) + 1) : schritt(1) }
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); springe((ref.current?.currentTime ?? 0) - 3) }
+      else if (e.key === 'ArrowRight') { e.preventDefault(); springe((ref.current?.currentTime ?? 0) + 3) }
       else if (e.key === 'c' || e.key === 'k') { e.preventDefault(); schreibStart(); eingabe.current?.focus() }
     }
     window.addEventListener('keydown', taste)
@@ -263,7 +265,7 @@ export default function SchnittRaum() {
           <div className="sr-zeitleiste">
             <span className="sr-zeit">{zeit(t)}</span>
             <div className="sr-leiste">
-              <input type="range" min={0} max={dauer || 0} step={1 / FPS} value={t} onChange={(e) => { pause(); springe(Number(e.target.value)) }} aria-label="Zeitleiste" />
+              <input type="range" min={0} max={dauer || 0} step={0.1} value={t} onChange={(e) => { pause(); springe(Number(e.target.value)) }} aria-label="Zeitleiste" />
               {dauer > 0 && offen.map((k) => (
                 <button key={k.id} className="sr-marke" style={{ left: `${(k.sekunde / dauer) * 100}%`, width: k.bis_sekunde ? `${((k.bis_sekunde - k.sekunde) / dauer) * 100}%` : undefined }}
                   onClick={() => { pause(); springe(k.sekunde) }} title={`${zeit(k.sekunde)} ${k.text}`} />
@@ -274,11 +276,9 @@ export default function SchnittRaum() {
           </div>
 
           <div className="sr-knoepfe">
-            <button onClick={() => springe(t - 2)} aria-label="2 Sekunden zurück"><SkipBack size={18} /></button>
-            <button onClick={() => schritt(-1)} aria-label="Ein Bild zurück"><ChevronLeft size={20} /></button>
+            <button onClick={() => springe(t - 3)} aria-label="3 Sekunden zurück"><SkipBack size={18} /></button>
             <button className="sr-play" onClick={umschalten} aria-label={spielt ? 'Pause' : 'Abspielen'}>{spielt ? <Pause size={22} fill="currentColor" /> : <Play size={22} fill="currentColor" />}</button>
-            <button onClick={() => schritt(1)} aria-label="Ein Bild vor"><ChevronRight size={20} /></button>
-            <button onClick={() => springe(t + 2)} aria-label="2 Sekunden vor"><SkipForward size={18} /></button>
+            <button onClick={() => springe(t + 3)} aria-label="3 Sekunden vor"><SkipForward size={18} /></button>
             <button className="sr-tempo" onClick={() => setTempo((x) => (x === 1 ? 0.5 : 1))}>{tempo === 1 ? '1×' : '½×'}</button>
           </div>
         </div>
@@ -294,15 +294,16 @@ export default function SchnittRaum() {
               ref={eingabe}
               className="input"
               rows={2}
-              placeholder="Was soll hier anders? (Schreiben pausiert das Video)"
+              placeholder="Was fällt dir hier auf? Schreiben pausiert, Merken spielt weiter"
               value={text}
+              enterKeyHint="send"
               onFocus={schreibStart}
               onChange={(e) => { if (ab == null) schreibStart(); setText(e.target.value) }}
             />
             <div className="sr-eingabe-fuss">
               {hinweis && <span className="sr-hinweis">{hinweis}</span>}
               {(text || ab != null) && <button className="btn btn-sm" onClick={verwerfen}><X size={14} />Verwerfen</button>}
-              <button className="btn btn-sm btn-primary" onClick={speichern} disabled={!text.trim() || busy}><Send size={14} />Merken</button>
+              <button className="btn btn-sm btn-primary" onClick={speichern} disabled={!text.trim() || busy}><Send size={14} />Merken & weiter</button>
             </div>
           </div>
 
@@ -310,7 +311,7 @@ export default function SchnittRaum() {
             <div className="sr-liste-kopf">
               <h3>Anmerkungen</h3><span>{offen.length} offen</span>
             </div>
-            {offen.length === 0 && <p className="muted sr-leer">Noch nichts. Pausieren, schreiben, merken.</p>}
+            {offen.length === 0 && <p className="muted sr-leer">Noch nichts. Anhalten, kurz reinschreiben, weiterschauen.</p>}
             {offen.map((k) => (
               <div key={k.id} className={`sr-k ${Math.abs(k.sekunde - t) < 0.4 ? 'jetzt' : ''}`}>
                 <button className="sr-k-zeit" onClick={() => { pause(); springe(k.sekunde) }}>
