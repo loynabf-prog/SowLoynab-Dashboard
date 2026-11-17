@@ -30,6 +30,8 @@ import PilotSeite from './pages/Pilot'
 import Anleitung from './pages/Anleitung'
 import Dokumente from './pages/Dokumente'
 import Zeiten from './pages/Zeiten'
+import SchnittListe from './pages/SchnittListe'
+import SchnittRaum from './pages/SchnittRaum'
 import PersonalBrand from './pages/PersonalBrand'
 import ContractSign from './pages/ContractSign'
 import Layout from './components/Layout'
@@ -74,6 +76,8 @@ export default function App() {
       <Route element={<Schale />}>
         {/* Videos (frueher Backstube): Fertig -> Bereit zum Posten -> Gepostet */}
         <Route path="/zeiten" element={<Zeiten />} />
+        <Route path="/schnitt" element={<SchnittListe />} />
+        <Route path="/schnitt/:id" element={<SchnittRaum />} />
         <Route path="/ofen" element={<Ofen />} />
         <Route path="/videos" element={<Ofen />} />
         <Route path="/werkstatt" element={<Werkstatt />} />

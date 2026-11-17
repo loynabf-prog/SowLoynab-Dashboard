@@ -41,10 +41,10 @@ export const RAEUME: Raum[] = [
     ], auch: ['/client/', '/brand'] },
   { key: 'werkstatt', label: 'Videos', icon: Clapperboard,
     reiter: [
+      { to: '/schnitt', label: 'Schnitt' },
       { to: '/ofen', label: 'Videos' },
-      { to: '/werkstatt', label: 'Schneiden' },
       { to: '/lexikon', label: 'Ideen' },
-    ], auch: ['/videos', '/inspirationen', '/medien'] },
+    ], auch: ['/videos', '/inspirationen', '/medien', '/werkstatt'] },
   { key: 'zahlen', label: 'Zahlen', icon: BarChart3,
     reiter: [
       { to: '/umsatz', label: 'Umsatz' },

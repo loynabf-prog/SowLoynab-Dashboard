@@ -45,7 +45,7 @@ export default function BrauchtDich() {
     const jeKunde = new Map<string, number>()
     for (const v of (freigabe.data ?? []) as any[]) jeKunde.set(v.client_id, (jeKunde.get(v.client_id) ?? 0) + 1)
     for (const [cid, n] of jeKunde) {
-      p.push({ key: 'f' + cid, icon: Eye, farbe: 'glut', text: `${name.get(cid) ?? 'Kunde'}: ${n} ${n === 1 ? 'Video wartet' : 'Videos warten'} auf Freigabe`, sub: 'Vorschau ansehen, Korrekturen im Chat', ziel: `/client/${cid}?tab=board` })
+      p.push({ key: 'f' + cid, icon: Eye, farbe: 'glut', text: `${name.get(cid) ?? 'Kunde'}: ${n} ${n === 1 ? 'Video wartet' : 'Videos warten'} auf Freigabe`, sub: 'Vorschau ansehen, Korrekturen im Chat', ziel: '/schnitt' })
     }
     for (const a of (auftraege.data ?? []) as any[]) {
       p.push({ key: 'a' + a.id, icon: Flame, farbe: 'rot', text: `Schnitt hängt seit ${tageSeit(a.updated_at)} ${tageSeit(a.updated_at) === 1 ? 'Tag' : 'Tagen'}: ${name.get(a.client_id) ?? 'Kunde'}`, sub: a.schritt ?? undefined, ziel: '/ofen' })

@@ -40,7 +40,7 @@ export interface Bereich {
 }
 
 /** Was in den vier Raeumen (lib/raeume.ts) als Reiter steht -- "Mehr" zeigt es nicht nochmal. */
-export const HAUPT_PFADE = ['/', '/kalender', '/plan', '/kunden', '/monate', '/leads', '/ofen', '/werkstatt', '/lexikon', '/umsatz', '/rechnungen', '/finanzen', '/analyse']
+export const HAUPT_PFADE = ['/', '/kalender', '/plan', '/kunden', '/monate', '/leads', '/schnitt', '/ofen', '/werkstatt', '/lexikon', '/umsatz', '/rechnungen', '/finanzen', '/analyse']
 
 export const BEREICHE: Bereich[] = [
   { key: 'alltag', label: 'Alltag', zweck: 'Was heute und diese Woche dran ist',
@@ -54,6 +54,7 @@ export const BEREICHE: Bereich[] = [
     ] },
   { key: 'produktion', label: 'Produktion', zweck: 'Backstube, Videoideen und Formate',
     seiten: [
+      { to: '/schnitt', label: 'Schnitt', was: 'Alle offenen Videos nach Kunde und Deadline – Vorschau ansehen, sekundengenau korrigieren, freigeben', suche: ['schnitt', 'korrektur', 'vorschau', 'freigabe', 'player', 'anmerkung', 'deadline'] },
       { to: '/werkstatt', label: 'Werkstatt', was: 'Videos aussuchen und im Chat mit Claude schneiden', suche: ['schneiden', 'schnitt', 'werkstatt', 'chat', 'produktion'] },
       { to: '/ofen', label: 'Videos', was: 'Fertige Videos übernehmen, bearbeiten, bereit zum Posten, gepostet', suche: ['ofen', 'schnittofen', 'pizza', 'warteschlange', 'schnitt', 'produktion', 'vorschau', 'freigabe', 'medien'] },
       { to: '/lexikon', label: 'Lexikon', was: 'Formate und Videoideen je Branche — für jeden Kunden etwas aussuchen', suche: ['lexikon', 'formate', 'ideen', 'branche', 'fahrschule'] },
