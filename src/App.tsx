@@ -19,6 +19,7 @@ import Trash from './pages/Trash'
 import Performance from './pages/Performance'
 import Analytics from './pages/Analytics'
 import Invoices from './pages/Invoices'
+import Fernseher from './pages/Fernseher'
 import Inspirations from './pages/Inspirations'
 import Lexikon from './pages/Lexikon'
 import Postfach from './pages/Postfach'
@@ -73,6 +74,7 @@ export default function App() {
         path="/login"
         element={loading ? null : session && !zuruecksetzen ? <Navigate to="/" replace /> : <Login />}
       />
+      <Route path="/tv" element={<ProtectedRoute><Fernseher /></ProtectedRoute>} />
       <Route element={<Schale />}>
         {/* Videos (frueher Backstube): Fertig -> Bereit zum Posten -> Gepostet */}
         <Route path="/zeiten" element={<Zeiten />} />
