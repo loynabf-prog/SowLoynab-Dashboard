@@ -1,3 +1,4 @@
+import { tuersteher } from '../_shared/tuersteher.ts'
 // Supabase Edge Function: apify-places-search
 // -------------------------------------------------------------------------
 // Durchsucht Google Maps über Apify (Google Maps Scraper von Compass) nach
@@ -64,6 +65,7 @@ interface Place {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+  { const nein = await tuersteher(req); if (nein) return nein }
   try {
     const { query, maxResults } = await req.json()
     if (!query || !String(query).trim()) return json({ error: 'Bitte einen Suchbegriff angeben.' }, 400)

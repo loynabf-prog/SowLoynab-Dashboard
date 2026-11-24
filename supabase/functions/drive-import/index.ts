@@ -12,6 +12,7 @@
 // Secrets wie dropbox-media: DROPBOX_APP_KEY, DROPBOX_APP_SECRET.
 
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { tuersteher } from '../_shared/tuersteher.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -138,6 +139,7 @@ async function bearbeite(imp: any) {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+  { const nein = await tuersteher(req); if (nein) return nein }
   try {
     const { data } = await admin.from('drive_importe').select('*').in('status', ['neu', 'laeuft']).order('created_at').limit(5)
     const ergebnisse = []

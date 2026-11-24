@@ -32,6 +32,7 @@
 
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { tiktokMeta, instagramMeta, ohneLeere, coverSichern, tiktokFollowerSchreiben } from '../_shared/plattformMeta.ts'
+import { tuersteher } from '../_shared/tuersteher.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -196,6 +197,7 @@ export function zuAlt(p: { zeit: string | null }, gepostetAm: string | null, jet
 
 const bedienen = async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+  { const nein = await tuersteher(req); if (nein) return nein }
 
   const supa = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
 

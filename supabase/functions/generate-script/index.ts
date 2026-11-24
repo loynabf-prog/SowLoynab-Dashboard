@@ -1,3 +1,4 @@
+import { tuersteher } from '../_shared/tuersteher.ts'
 // Supabase Edge Function: generate-script
 // -------------------------------------------------------------------------
 // Schreibt Drehskripte für einen ganzen Drehtag auf einmal.
@@ -28,6 +29,7 @@ interface VideoIn { id: string; titel: string; idee?: string | null }
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+  { const nein = await tuersteher(req); if (nein) return nein }
 
   try {
     const key = Deno.env.get('ANTHROPIC_API_KEY')

@@ -1,3 +1,4 @@
+import { tuersteher } from '../_shared/tuersteher.ts'
 // Supabase Edge Function: generate-caption
 // Erzeugt aus einer Ein-Satz-Beschreibung + Kundendaten eine fertige
 // Social-Media-Caption + Hashtags via Claude. Der API-Key bleibt server-seitig
@@ -22,6 +23,7 @@ interface Body {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+  { const nein = await tuersteher(req); if (nein) return nein }
 
   try {
     const apiKey = Deno.env.get('ANTHROPIC_API_KEY')

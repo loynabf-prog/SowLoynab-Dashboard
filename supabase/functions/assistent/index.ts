@@ -20,6 +20,7 @@
 
 import { WERKZEUGE } from '../_shared/werkzeuge.ts'
 import { planeMitWerkzeugen } from '../_shared/planen.ts'
+import { tuersteher } from '../_shared/tuersteher.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -36,6 +37,7 @@ interface Ctx {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+  { const nein = await tuersteher(req); if (nein) return nein }
 
   try {
     const key = Deno.env.get('ANTHROPIC_API_KEY')

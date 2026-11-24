@@ -13,6 +13,7 @@
 
 import webpush from 'npm:web-push@3.6.7'
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { tuersteher } from '../_shared/tuersteher.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -22,6 +23,7 @@ const CORS = {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+  { const nein = await tuersteher(req); if (nein) return nein }
 
   try {
     const pub = Deno.env.get('VAPID_PUBLIC_KEY')

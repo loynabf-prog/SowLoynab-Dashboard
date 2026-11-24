@@ -1,3 +1,4 @@
+import { tuersteher } from '../_shared/tuersteher.ts'
 // Supabase Edge Function: mail-send
 // -------------------------------------------------------------------------
 // Verschickt eine E-Mail (z. B. eine Rechnung als PDF-Anhang) DIREKT über
@@ -72,6 +73,7 @@ async function uploadAttachment(access: string, acc: string, att: { filename: st
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+  { const nein = await tuersteher(req); if (nein) return nein }
   try {
     const { to, subject, html, attachments, test } = await req.json()
 

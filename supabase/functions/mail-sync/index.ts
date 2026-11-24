@@ -15,6 +15,7 @@
 // schickt den Anon-Key im Authorization-Header mit).
 
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { tuersteher } from '../_shared/tuersteher.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -70,6 +71,7 @@ async function recordStatus(supa: any, ok: boolean, detail: string) {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+  { const nein = await tuersteher(req); if (nein) return nein }
   const supa = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
   try {
     const t = await accessToken()

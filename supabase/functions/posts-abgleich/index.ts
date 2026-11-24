@@ -16,6 +16,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { tiktokMeta, instagramMeta, ohneLeere, coverSichern } from '../_shared/plattformMeta.ts'
 import { planeAbgleich, normUrl, berlinDatum, istPlatzhalterTitel, type NeuesPosting, type Plattform } from '../_shared/abgleich.ts'
+import { tuersteher } from '../_shared/tuersteher.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -116,6 +117,7 @@ function summen(v: Record<string, any>): Record<string, unknown> {
 
 const bedienen = async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+  { const nein = await tuersteher(req); if (nein) return nein }
   const body = await req.json().catch(() => ({}))
   const stunde = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Berlin', hour: 'numeric', hourCycle: 'h23' }).formatToParts(new Date()).find((x) => x.type === 'hour')?.value)
   if (!body?.jetzt && !STUNDEN.includes(stunde)) return json({ uebersprungen: `jetzt ${stunde} Uhr` })

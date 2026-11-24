@@ -15,6 +15,7 @@
 // optional ROUTINE_ID. Der Refresh-Token liegt in dropbox_verbindung.
 
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { tuersteher } from '../_shared/tuersteher.ts'
 
 const BRIEFKASTEN = '/Sow & Loynab Media/1 Briefkasten'
 const KUNDEN = '/Sow & Loynab Media/Kunden'
@@ -82,7 +83,8 @@ async function automatikWecken(anlass: string): Promise<boolean> {
   return res.ok
 }
 
-Deno.serve(async () => {
+Deno.serve(async (req) => {
+  { const nein = await tuersteher(req); if (nein) return nein }
   try {
     const token = await accessToken()
     const eintraege = await listeAlles(token, BRIEFKASTEN)

@@ -14,6 +14,7 @@
 import webpush from 'npm:web-push@3.6.7'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { pilot, meine, pushZeilen, type PilotKunde } from './pilot.ts'
+import { tuersteher } from '../_shared/tuersteher.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -29,6 +30,7 @@ const ZAHLEN = ['ziel', 'ziel_naechster', 'gepostet', 'offen_monat', 'gepostet_7
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+  { const nein = await tuersteher(req); if (nein) return nein }
   try {
     const probe = !!(await req.json().catch(() => ({})))?.probe
     const pub = Deno.env.get('VAPID_PUBLIC_KEY')

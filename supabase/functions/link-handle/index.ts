@@ -1,3 +1,4 @@
+import { tuersteher } from '../_shared/tuersteher.ts'
 // Supabase Edge Function: link-handle
 // Loest Kurzlinks (vm.tiktok.com) auf und liefert den Account-Handle, der das
 // Video gepostet hat. POST { urls: string[] } -> { ergebnisse: [{url, final, status, handle}] }
@@ -26,6 +27,7 @@ async function eins(url: string) {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+  { const nein = await tuersteher(req); if (nein) return nein }
   const { urls } = await req.json().catch(() => ({ urls: [] }))
   const ergebnisse: unknown[] = []
   for (const u of (urls ?? []) as string[]) {

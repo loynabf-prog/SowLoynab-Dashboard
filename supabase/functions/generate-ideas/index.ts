@@ -1,3 +1,4 @@
+import { tuersteher } from '../_shared/tuersteher.ts'
 // Supabase Edge Function: generate-ideas
 // -------------------------------------------------------------------------
 // Erzeugt aus dem gespeicherten Kunden-Briefing automatisch Videoideen.
@@ -17,6 +18,7 @@ const CORS = {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+  { const nein = await tuersteher(req); if (nein) return nein }
 
   try {
     const key = Deno.env.get('ANTHROPIC_API_KEY')

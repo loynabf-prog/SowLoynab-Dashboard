@@ -38,6 +38,7 @@
 // Beim Deploy: "Enforce JWT" für diese Funktion AUSschalten (Cron ruft sie).
 
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { tuersteher } from '../_shared/tuersteher.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -130,6 +131,7 @@ function summe(teile: Record<string, number | null>[]): Record<string, number | 
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+  { const nein = await tuersteher(req); if (nein) return nein }
   try {
     const token = Deno.env.get('APIFY_TOKEN')
     if (!token) return json({ error: 'APIFY_TOKEN fehlt (Supabase Secret).' }, 500)

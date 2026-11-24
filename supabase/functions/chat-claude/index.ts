@@ -17,6 +17,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { WERKZEUGE } from '../_shared/werkzeuge.ts'
 import { planeMitWerkzeugen } from '../_shared/planen.ts'
+import { tuersteher } from '../_shared/tuersteher.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -34,6 +35,7 @@ function plusTage(iso: string, n: number): string {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+  { const nein = await tuersteher(req); if (nein) return nein }
 
   const url = Deno.env.get('SUPABASE_URL')!
   const service = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!

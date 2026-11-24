@@ -1,3 +1,4 @@
+import { tuersteher } from '../_shared/tuersteher.ts'
 // Supabase Edge Function: apify-lookup
 // -------------------------------------------------------------------------
 // Sofort-Abruf für EIN Video (zum Nachtragen alter, bereits geposteter
@@ -238,6 +239,7 @@ async function instagramLookup(urlStr: string, actor: string, token: string): Pr
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+  { const nein = await tuersteher(req); if (nein) return nein }
   try {
     const { instagram_url, tiktok_url } = await req.json()
     if (!instagram_url && !tiktok_url) return json({ error: 'Bitte mindestens einen Link angeben.' }, 400)

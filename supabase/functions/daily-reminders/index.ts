@@ -16,6 +16,7 @@
 import webpush from 'npm:web-push@3.6.7'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { brennt, plusTage, proKunde } from './brennt.ts'
+import { tuersteher } from '../_shared/tuersteher.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -30,6 +31,7 @@ function todayIso(): string {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+  { const nein = await tuersteher(req); if (nein) return nein }
   try {
     // Probelauf: { "probe": true } zaehlt nur und schickt nichts raus.
     const probe = !!(await req.json().catch(() => ({})))?.probe

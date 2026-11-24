@@ -15,6 +15,7 @@
 // Beim Deploy: "Enforce JWT" AN lassen — das ruft nur die angemeldete App.
 
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { tuersteher } from '../_shared/tuersteher.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -53,6 +54,7 @@ function zahlAus(obj: any, keys: string[]): number | null {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+  { const nein = await tuersteher(req); if (nein) return nein }
 
   try {
     const token = Deno.env.get('APIFY_TOKEN')

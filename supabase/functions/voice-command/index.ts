@@ -1,3 +1,4 @@
+import { tuersteher } from '../_shared/tuersteher.ts'
 // Supabase Edge Function: voice-command
 // -------------------------------------------------------------------------
 // Nimmt einen kurzen Befehl als TEXT entgegen und gibt einen strukturierten
@@ -29,6 +30,7 @@ interface Ctx {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+  { const nein = await tuersteher(req); if (nein) return nein }
 
   try {
     const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY')
