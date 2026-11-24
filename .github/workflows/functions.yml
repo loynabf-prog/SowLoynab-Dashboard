@@ -41,8 +41,8 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${SUPABASE_ACCESS_TOKEN:-}" ]; then
-            echo "::error::Secret SUPABASE_ACCESS_TOKEN fehlt (Settings -> Secrets and variables -> Actions)."
-            exit 1
+            echo "::warning::Secret SUPABASE_ACCESS_TOKEN fehlt - Funktionen werden (noch) von Claude direkt eingespielt."
+            exit 0
           fi
           ALLE=$(cd supabase/functions && for d in */; do d=${d%/}; [ "$d" != _shared ] && [ -f "$d/index.ts" ] && echo "$d"; done)
           GEAENDERT=$(git diff --name-only HEAD~1 HEAD -- supabase/functions || true)
