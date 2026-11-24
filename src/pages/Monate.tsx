@@ -26,7 +26,7 @@ import {
   speichereEintrag, entferneEintrag, monatSetzen, euro, videoZeilen, videoSumme, geldZeilen,
   monatsTodos, monatsKalender, monatsCheck, videoGeprueft, ladeAccountsAlle,
   type KundeFuerMonat, type MonatsEintrag, type MonatsVideo, type MonatsZeile, type MonatStatus,
-  type MonatsAufgabe, type MonatsTodo, type Zahlstatus, type VideoZeile,
+  type MonatsAufgabe, type MonatsTodo, type VideoZeile,
 } from '../lib/monate'
 
 // Aktueller Monat ganz links, nach rechts die Zukunft. Vergangenes nur auf Wunsch.
@@ -380,7 +380,7 @@ function KundenZeile({
   offen: boolean
   onToggle: () => void
   onKunde: () => void
-  onSpeichern: (e: { quota: number; betrag: number | null; status: MonatStatus; notiz: string | null; zahlung_monat: string | null; zahlstatus: Zahlstatus }) => void
+  onSpeichern: (e: { quota: number; betrag: number | null; status: MonatStatus; notiz: string | null; zahlung_monat: string | null }) => void
   onNichtDabei: () => void
   onZurueck: () => void
 }) {
@@ -391,12 +391,11 @@ function KundenZeile({
   const [status, setStatus] = useState<MonatStatus>(startStatus())
   const [notiz, setNotiz] = useState(z.eintrag?.notiz ?? '')
   const [zahlung, setZahlung] = useState(z.eintrag?.zahlung_monat ?? '')
-  const [zahlstatus, setZahlstatus] = useState<Zahlstatus>(z.eintrag?.zahlstatus ?? 'offen')
   useEffect(() => {
     setQuota(String(z.soll)); setBetrag(String(z.betrag || ''))
-    setStatus(startStatus()); setNotiz(z.eintrag?.notiz ?? ''); setZahlung(z.eintrag?.zahlung_monat ?? ''); setZahlstatus(z.eintrag?.zahlstatus ?? 'offen')
+    setStatus(startStatus()); setNotiz(z.eintrag?.notiz ?? ''); setZahlung(z.eintrag?.zahlung_monat ?? '')
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [z.soll, z.betrag, z.status, z.eintrag?.notiz, z.eintrag?.zahlung_monat, z.eintrag?.zahlstatus])
+  }, [z.soll, z.betrag, z.status, z.eintrag?.notiz, z.eintrag?.zahlung_monat])
 
   const unter = [
     z.eintrag && z.eintrag.betrag == null ? 'Betrag fehlt' : null,
@@ -434,11 +433,6 @@ function KundenZeile({
                 <button className={status === 'unsicher' ? 'on' : ''} onClick={() => setStatus('unsicher')}>Unsicher ?</button>
                 <button className={status === 'fest' ? 'on' : ''} onClick={() => setStatus('fest')}>Steht fest</button>
               </div>
-              <div className="n-segment" style={{ margin: 0 }}>
-                <button className={zahlstatus === 'offen' ? 'on' : ''} onClick={() => setZahlstatus('offen')}>Nicht bezahlt</button>
-                <button className={zahlstatus === 'rechnung' ? 'on' : ''} onClick={() => setZahlstatus('rechnung')}>Rechnung raus</button>
-                <button className={zahlstatus === 'bezahlt' ? 'on' : ''} onClick={() => setZahlstatus('bezahlt')}>Bezahlt</button>
-              </div>
               <label className="m-zahlung">Geld kommt
                 <select value={zahlung} onChange={(e) => setZahlung(e.target.value)}>
                   <option value="">im selben Monat</option>
@@ -450,7 +444,7 @@ function KundenZeile({
                 <button className="n-tun stark" onClick={() => onSpeichern({
                   quota: Math.max(0, Math.round(Number(quota) || 0)), // Videoziel bleibt, wie es ist
                   betrag: betrag.trim() === '' ? null : Math.max(0, Number(betrag.replace(',', '.')) || 0),
-                  status, notiz: notiz.trim() || null, zahlung_monat: zahlung || null, zahlstatus,
+                  status, notiz: notiz.trim() || null, zahlung_monat: zahlung || null,
                 })}>Speichern</button>
                 <button className="n-tun" onClick={onNichtDabei}>Kein Geld diesen Monat</button>
                 {z.herkunft === 'eintrag' && <button className="z-link" onClick={onZurueck}>Eintrag entfernen</button>}

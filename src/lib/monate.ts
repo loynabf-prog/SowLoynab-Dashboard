@@ -260,8 +260,7 @@ export async function speichereEintrag(e: Omit<MonatsEintrag, 'id'>): Promise<st
     {
       client_id: e.client_id, month_key: e.month_key, quota: e.quota, betrag: e.betrag, status: e.status, notiz: e.notiz,
       zahlung_monat: e.zahlung_monat ?? null, dabei: e.dabei ?? true,
-      zahlstatus: e.zahlstatus ?? 'offen',
-      bezahlt_am: e.zahlstatus === 'bezahlt' ? (e.bezahlt_am ?? new Date().toISOString().slice(0, 10)) : null,
+      // zahlstatus/bezahlt_am kommen nur aus Lexware (Trigger), nie aus der App
     },
     { onConflict: 'client_id,month_key' },
   )
@@ -285,7 +284,6 @@ export async function monatSetzen(key: string, zeilen: MonatsZeile[], status: Mo
       status: status === 'fest' && z.status === 'unsicher' ? 'unsicher' as MonatStatus : status,
       notiz: z.eintrag?.notiz ?? null,
       zahlung_monat: z.eintrag?.zahlung_monat ?? null, dabei: !z.nichtDabei,
-      zahlstatus: z.eintrag?.zahlstatus ?? 'offen', bezahlt_am: z.eintrag?.bezahlt_am ?? null,
     }))
   if (!rows.length) return null
   const { error } = await supabase.from('client_month_plans').upsert(rows, { onConflict: 'client_id,month_key' })
