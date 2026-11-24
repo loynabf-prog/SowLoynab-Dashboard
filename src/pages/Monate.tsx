@@ -11,6 +11,7 @@
 // Rechnen und Speichern: lib/monate.ts. Tabelle client_month_plans (0046).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import LexwareStand from '../components/LexwareStand'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Check, ChevronDown, ChevronRight, ChevronUp, CircleDollarSign, Clapperboard, Euro, HelpCircle, ListChecks, Lock, Plus, Users } from 'lucide-react'
 import LogoFrame from '../components/LogoFrame'
@@ -198,6 +199,7 @@ export default function Monate() {
         <div className={summe.bezahlt ? 'gruen' : 'null'}><strong>{euro(summe.bezahlt)}</strong><span>schon bezahlt</span></div>
         <div><strong>{euro(Math.max(0, summe.fest + summe.geplant + summe.unsicher + summe.vorschlag - summe.bezahlt))}</strong><span>noch nicht bezahlt</span></div>
       </div>
+      <LexwareStand style={{ marginTop: -8 }} />
       {(summe.rechnung > 0 || summe.geplant > 0 || summe.unsicher > 0 || summe.vorschlag > 0) && (
         <p className="p-fuss" style={{ marginTop: -8, marginBottom: 12 }}>
           {[

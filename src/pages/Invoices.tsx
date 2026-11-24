@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase'
 import { euro } from '../lib/format'
 import { heute } from '../lib/datum'
 import BereichReiter from '../components/BereichReiter'
+import LexwareStand from '../components/LexwareStand'
 
 interface Invoice {
   id: string
@@ -16,7 +17,6 @@ interface Invoice {
   due_date: string | null
   paid_on: string | null
   service_period?: string | null
-  synced_at?: string | null
   client_name?: string
 }
 
@@ -36,7 +36,7 @@ export default function Invoices() {
   async function load() {
     const { data } = await supabase
       .from('invoices')
-      .select('id, number, amount, status, lexware_status, due_date, paid_on, service_period, synced_at, clients(name)')
+      .select('id, number, amount, status, lexware_status, due_date, paid_on, service_period, clients(name)')
       .order('issued_on', { ascending: false })
     const today = heute()
     const mapped = (data ?? []).map((r: any) => {
@@ -67,20 +67,16 @@ export default function Invoices() {
     return { open, paidMonth, overdue }
   }, [rows])
 
-  const stand = useMemo(() => {
-    const t = rows.map((r) => r.synced_at).filter(Boolean).sort().pop()
-    return t ? new Date(t).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : null
-  }, [rows])
-
   return (
     <>
       <div className="page-head">
         <div>
           <h1>Rechnungen</h1>
-          <span className="sub">{loading ? 'Lade …' : `aus Lexware${stand ? ` · Stand ${stand}` : ''}`}</span>
+          <span className="sub">{loading ? 'Lade …' : 'aus Lexware'}</span>
         </div>
       </div>
       <BereichReiter />
+      <LexwareStand />
 
       <div className="fin-tiles" style={{ marginBottom: 22 }}>
         <div className="fin-tile"><span className="fin-label">Offen</span><span className="fin-value">{euro(totals.open)}</span><span className="fin-sub">noch nicht bezahlt</span></div>

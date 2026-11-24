@@ -3,6 +3,7 @@
 // (umsatzStand), dieselbe Logik wie im Spiel.
 
 import { useEffect, useMemo, useState } from 'react'
+import LexwareStand from '../components/LexwareStand'
 import { Euro } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { heute as heuteIso } from '../lib/datum'
@@ -53,6 +54,7 @@ export default function Umsatz() {
           <span><b>{euro(u.offen)}</b> offen</span>
           <span>{u.naechster ? <>nächstes Ziel <b>{euro(u.naechster)}</b></> : 'alle Ziele erreicht'}</span>
         </div>
+        <LexwareStand style={{ margin: '8px 0 0' }} />
         <div className="um-meilensteine">
           {MEILENSTEINE.map((m) => <span key={m} className={u.erreicht.includes(m) ? 'da' : m === u.naechster ? 'naechster' : ''}>{m >= 1000 ? `${m / 1000}k` : m}</span>)}
         </div>
