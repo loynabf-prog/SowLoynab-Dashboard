@@ -20,6 +20,7 @@ import Performance from './pages/Performance'
 import Analytics from './pages/Analytics'
 import Invoices from './pages/Invoices'
 import Fernseher from './pages/Fernseher'
+import Upload from './pages/Upload'
 import Inspirations from './pages/Inspirations'
 import Lexikon from './pages/Lexikon'
 import Postfach from './pages/Postfach'
@@ -92,6 +93,7 @@ export default function App() {
         <Route path="/leads" element={<Leads />} />
         <Route path="/aufgaben" element={<Tasks />} />
         <Route path="/plan" element={<Posting />} />
+        <Route path="/upload" element={<Upload />} />
         <Route path="/posting" element={<Navigate to="/plan" replace />} />
         {/* Produktion laeuft seit 28.10.2026 komplett ueber die Backstube */}
         <Route path="/produktion" element={<Navigate to="/ofen" replace />} />
